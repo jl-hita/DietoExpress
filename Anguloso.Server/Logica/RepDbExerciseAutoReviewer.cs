@@ -55,31 +55,35 @@ internal static class RepDbExerciseAutoReviewer
         };
         if (exp is null) return null;
 
-        var goals = ReadStrings(goalsJson).Select(MapGoal).Where(x => x is not null).Cast<string>().Distinct().ToArray();
-        if (goals.Length == 0)
-        {
-            // General fitness is the only safe default when the source has no interpretable goal.
-            goals = ["GeneralFitness"];
-        }
+        var goals = ReadStrings(goalsJson).Select(MapGoal).Where(x => x is not null).Cast<string>()
+            // RepDB goal tags are narrower than the app's broad training goals. A resistance
+            // exercise suitable for strength or hypertrophy is also usable in general fitness;
+            // minimum experience and equipment still constrain who can receive it.
+            .Append("GeneralFitness")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
         var requiredEquipment = MapEquipment(equipment ?? "", isBodyweight);
         if (requiredEquipment is null) return null;
 
-        // Isolation/accessory work is valuable, but should rank below the main movement options
-        // when the generator chooses one exercise for a movement-pattern slot.
-        var selectionPriority = IsAccessoryExercise(id, nameEs, nameEn)
-            ? 55
-            : pattern is "Squat" or "Hinge" or "HorizontalPush" or "HorizontalPull" ? 85 : 75;
+        // Accessory work is selected only after the main patterns and only when it addresses
+        // an unmet muscle target; priority breaks ties between compatible accessories.
+        var selectionPriority = GetSelectionPriority(id, nameEs, nameEn, pattern);
+
+
 
         return new ReviewMetadata(pattern, primary, secondary, exp, goals, requiredEquipment,
             selectionPriority,
-            "Enriquecimiento automático RepDB v3: mapeo determinista de metadatos de origen; verificar si cambian las reglas.");
+            "Enriquecimiento automático RepDB v4: mapeo determinista de metadatos de origen; verificar si cambian las reglas.");
     }
 
     private static string? InferPattern(string id, string es, string en, string tagsJson,
         string? force, string? mechanic, string? bodyPart, string[] muscles)
     {
         var text = Normalize(string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))));
+        // Isolations/accessories have their own optional generator slots; they must not
+        // displace the primary compound movement chosen for a broad movement pattern.
+        if (IsAccessoryExercise(id, es, en)) return "Accessory";
         // Strong name/ID cues first; ambiguous exercises stay pending.
         if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press", "landmine press", "push press",
             "pike push ups", "pike push-up", "flexiones en pica", "dips", "fondos")) return "VerticalPush";
@@ -100,27 +104,35 @@ internal static class RepDbExerciseAutoReviewer
             "farmer's walk", "suitcase carry", "overhead carry", "bench leg pull-in", "bench leg pull in",
             "ab rollout", "ab wheel", "rueda abdominal", "v-up", "v up", "tuck hold")) return "Core";
 
-        // Useful isolation exercises are approved too. Map them to the nearest supported pattern
-        // so they remain compatible with the current generator contract; their lower priority keeps
-        // them behind compound movements when both are available.
-        if (Has(text, "lateral raise", "elevacion lateral", "front raise", "elevacion frontal",
-            "shoulder fly", "elevacion de hombro")) return "VerticalPush";
-        if (Has(text, "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho")) return "HorizontalPush";
-        if (Has(text, "face pull", "reverse fly", "rear delt fly", "curl de biceps", "bicep curl",
-            "preacher curl", "concentration curl", "forearm curl", "wrist curl", "curl de antebrazo",
-            "pullover", "shrug", "encogimiento de hombros", "sled row", "remo con trineo",
-            "straight-arm pulldown", "straight arm pulldown", "jalon con brazos rectos",
-            "plate pinch", "pinza de discos", "wrist roller", "curl")) return "HorizontalPull";
-        if (Has(text, "tricep extension", "triceps extension", "tricep pushdown", "skull crusher",
-            "extension de triceps", "jalon de triceps")) return "HorizontalPush";
-        if (Has(text, "leg extension", "quadriceps extension", "extension de cuadriceps")) return "Squat";
-        if (Has(text, "leg curl", "hamstring curl", "curl femoral", "nordic hamstring")) return "Hinge";
-        if (Has(text, "calf raise", "calf press", "elevacion de talones", "gemelos")) return "SingleLeg";
-        if (Has(text, "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera",
-            "glute kickback", "patada de gluteos", "cable kickback")) return "SingleLeg";
+        // Ambiguous exercises stay pending rather than being forced into a compound pattern.
 
         // Do not infer a movement pattern from muscle group alone: several patterns share muscles.
         return null;
+    }
+
+    internal static int GetSelectionPriority(string id, string? nameEs, string nameEn, string? movementPattern)
+    {
+        var text = Normalize(string.Join(' ', id, nameEs, nameEn));
+
+        if (string.Equals(movementPattern, "Accessory", StringComparison.Ordinal))
+        {
+            // Prefer loadable isolation work; bodyweight/band variants remain valid options
+            // but should not win a tie over scalable machine, cable, barbell or dumbbell work.
+            if (Has(text, "bodyweight", "banded", "resistance band", "trx", "ring")) return 42;
+            if (Has(text, "machine", "cable", "barbell", "dumbbell", "mancuerna", "polea", "maquina")) return 72;
+            return 58;
+        }
+
+        // Explicit product curation: stable, measurable basics win over assisted or lightly
+        // loadable variants when both satisfy the same pattern, goal, experience and equipment.
+        if (Has(text, "bodyweight", "banded", "resistance band", "trx", "ring", "assisted")) return 62;
+        if (Has(text, "bench press", "press de banca", "lat pulldown", "jalon al pecho",
+            "seated cable row", "remo sentado en polea", "leg press", "prensa de piernas",
+            "hack squat", "goblet squat", "sentadilla goblet", "romanian deadlift",
+            "peso muerto rumano", "deadlift", "peso muerto", "hip thrust",
+            "machine shoulder press", "press de hombros en maquina")) return 96;
+
+        return movementPattern is "Squat" or "Hinge" or "HorizontalPush" or "HorizontalPull" ? 85 : 75;
     }
 
     private static bool IsAccessoryExercise(string id, string? nameEs, string nameEn)
@@ -137,9 +149,7 @@ internal static class RepDbExerciseAutoReviewer
             "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera", "glute kickback",
             "cable kickback", "pullover", "hip bridge", "puente de cadera", "shrug", "encogimiento de hombros", "wrist roller", "plate pinch",
             "straight-arm pulldown", "straight arm pulldown", "jalon con brazos rectos",
-            "pinza de discos", "kettlebell swing", "dumbbell swing", "farmers walk", "farmer's walk",
-            "suitcase carry", "overhead carry", "sandbag carry", "ab rollout", "ab wheel", "rueda abdominal",
-            "pallof press", "v-up", "v up", "flutter kick", "scissor kick");
+            "pinza de discos", "tibialis raise", "elevacion de tibial", "external rotation", "rotacion externa");
     }
 
     private static string? MapMuscle(string value)

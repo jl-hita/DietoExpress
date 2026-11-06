@@ -18,6 +18,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
         foreach (var goal in Enum.GetValues<TrainingGoal>())
         foreach (var experience in Enum.GetValues<TrainingExperience>())
         foreach (var days in DaySets())
+        foreach (var durationMinutes in new[] { 35, 60, 90 })
         {
             var request = new TrainingProgramGenerationRequest(
                 goal,
@@ -25,8 +26,8 @@ public sealed class TrainingGeneratorEvaluationReportTests
                 new DateOnly(2026, 10, 26),
                 4,
                 days,
-                60,
-                ["barbell", "dumbbell", "pull_up_bar", "cable", "kettlebell", "ez_bar", "shoulder_press_machine", "ab_wheel"],
+                durationMinutes,
+                ["barbell", "dumbbell", "pull_up_bar", "cable", "kettlebell", "ez_bar", "shoulder_press_machine", "ab_wheel", "machine"],
                 []);
 
             var generated = TrainingProgramGenerator.Generate(request, Catalog());
@@ -81,7 +82,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
             }
 
             scenarios.Add(new ScenarioReport(
-                $"goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}",
+                $"goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}-minutes-{durationMinutes}",
                 request,
                 "repdb-free-curated-v1",
                 generated.Succeeded,
@@ -89,7 +90,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
                 new[]
                 {
                     "El catálogo de evaluación contiene ejercicios reales de RepDB seleccionados mediante una lista curada y revisión explícita de patrón, material y grupos musculares; no representa el catálogo completo.",
-                    "Las series principales se cuentan completas; las series secundarias son exposiciones y no equivalen a series efectivas ni usan coeficientes fisiológicos.",
+                    "El informe conserva series primarias y exposiciones secundarias por separado; el QualityReport añade una estimación secundaria al 0,5 como heurística explícita de software, no como equivalencia fisiológica validada.",
                     "La biblioteca completa se conserva en PostgreSQL con su payload original; solo los ejercicios incluidos en la lista curada se consideran aptos para el generador.",
                     "La duración es la estimación heurística del motor; no está contrastada con sesiones reales.",
                     "La validación estructural no demuestra idoneidad fisiológica individual."
@@ -99,9 +100,9 @@ public sealed class TrainingGeneratorEvaluationReportTests
         }
 
         var report = new EvaluationReport(
-            "training-generator-evaluation-v3",
+            "training-generator-evaluation-v4",
             DateTimeOffset.UtcNow,
-            "0.5.0",
+            scenarios.Select(scenario => scenario.Plan?.EngineVersion).FirstOrDefault(version => !string.IsNullOrWhiteSpace(version)) ?? "unknown",
             scenarios.Count,
             scenarios.Count(s => s.GenerationSucceeded),
             scenarios.Sum(s => s.HardViolations.Count),
@@ -116,9 +117,16 @@ public sealed class TrainingGeneratorEvaluationReportTests
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         File.WriteAllText(fullPath, JsonSerializer.Serialize(report, JsonOptions));
 
-        Assert.Equal(27, report.ScenarioCount);
+        Assert.Equal("0.9.0", report.EngineVersion);
+        Assert.Equal(81, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.HardViolationCount);
+        var selectedExerciseIds = scenarios.SelectMany(scenario => scenario.Metrics.ExerciseSelectionCounts.Keys)
+            .ToHashSet(StringComparer.Ordinal);
+        Assert.Contains("leg-curl", selectedExerciseIds);
+        Assert.Contains("lateral-raise", selectedExerciseIds);
+        Assert.Contains(scenarios.SelectMany(scenario => scenario.Plan!.QualityReport!.Warnings),
+            warning => warning.Contains("estimación de volumen efectivo", StringComparison.OrdinalIgnoreCase));
         Assert.All(scenarios, scenario =>
         {
             Assert.NotNull(scenario.Plan!.QualityReport);
@@ -126,12 +134,11 @@ public sealed class TrainingGeneratorEvaluationReportTests
             // Quality warnings are advisory; they must not be counted as structural violations.
             Assert.Empty(scenario.HardViolations);
         });
-        Assert.Contains(scenarios, scenario =>
-            scenario.Request.Goal == TrainingGoal.Hypertrophy &&
-            scenario.Request.Experience == TrainingExperience.Advanced &&
-            scenario.Request.TrainingDays.Count >= 3 &&
-            scenario.Plan!.QualityReport!.Warnings.Any(warning =>
-                warning.Contains("series primarias", StringComparison.Ordinal)));
+        // The allocator targets direct primary sets and must not create extreme volume
+        // simply to satisfy another muscle through a compound exercise.
+        Assert.All(scenarios, scenario => Assert.All(
+            scenario.Metrics.PrimaryMuscleSetsPerWeek.Values,
+            weekly => Assert.All(weekly.Values, sets => Assert.InRange(sets, 0, 20))));
         Assert.All(scenarios, scenario => Assert.All(
             scenario.Plan!.Sessions.SelectMany(session => session.Exercises),
             exercise =>
@@ -188,7 +195,23 @@ public sealed class TrainingGeneratorEvaluationReportTests
             Candidate("plank", "Plancha", TrainingMovementPattern.Core, [], TrainingExperience.Beginner, 90,
                 [TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Obliques]),
             Candidate("ab-wheel-rollout", "Rueda abdominal", TrainingMovementPattern.Core, ["ab_wheel"], TrainingExperience.Intermediate, 100,
-                [TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Lats, TrainingMuscleGroup.Obliques])
+                [TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Lats, TrainingMuscleGroup.Obliques]),
+            Candidate("leg-extension", "Extensión de cuádriceps en máquina", TrainingMovementPattern.Accessory, ["machine"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Quadriceps], [TrainingMuscleGroup.Glutes]),
+            Candidate("leg-curl", "Curl femoral sentado", TrainingMovementPattern.Accessory, ["machine"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Hamstrings], [TrainingMuscleGroup.Glutes]),
+            Candidate("lateral-raise", "Elevación lateral con mancuernas", TrainingMovementPattern.Accessory, ["dumbbell"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.UpperBack]),
+            Candidate("biceps-curl", "Curl de bíceps con mancuernas", TrainingMovementPattern.Accessory, ["dumbbell"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Biceps], [TrainingMuscleGroup.Forearms]),
+            Candidate("triceps-pushdown", "Extensión de tríceps en polea", TrainingMovementPattern.Accessory, ["cable"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Triceps], [TrainingMuscleGroup.Forearms]),
+            Candidate("calf-raise", "Elevación de gemelos en máquina", TrainingMovementPattern.Accessory, ["machine"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Calves], []),
+            Candidate("chest-fly", "Aperturas de pecho en polea", TrainingMovementPattern.Accessory, ["cable"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Deltoids]),
+            Candidate("hip-abduction", "Abducción de cadera en máquina", TrainingMovementPattern.Accessory, ["machine"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Abductors], [TrainingMuscleGroup.Glutes])
         ];
 
         TrainingExerciseCandidate Candidate(

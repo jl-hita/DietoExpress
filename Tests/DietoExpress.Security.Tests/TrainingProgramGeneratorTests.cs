@@ -81,9 +81,17 @@ public sealed class TrainingProgramGeneratorTests
                 .Where(exercise => exercise.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Glutes))
                 .ToArray();
 
-            Assert.Contains(buildWeekLowerBody, exercise => exercise.Sets == 4);
-            Assert.Contains(plan.QualityReport!.Warnings,
-                warning => warning.Contains("series primarias", StringComparison.Ordinal));
+            Assert.NotEmpty(buildWeekLowerBody);
+            var gluteVolume = plan.QualityReport!.WeeklyMuscleVolumes
+                .Where(week => week.WeekNumber is 2 or 3)
+                .SelectMany(week => week.Muscles)
+                .Where(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Glutes)
+                .ToArray();
+            Assert.All(gluteVolume, muscle =>
+            {
+                Assert.InRange(muscle.PrimarySets, 8, 10);
+                Assert.True(muscle.EstimatedEffectiveSets >= muscle.PrimarySets);
+            });
             Assert.NotEmpty(plan.QualityReport.WeeklyMuscleVolumes);
         }
     }
@@ -330,26 +338,25 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void WeeklyPeriodizationBuildsVolumeAndSchedulesDeloadEveryFourthWeek()
+    public void WeeklyVolumeAllocationDoesNotImposeAnUnconditionalCalendarDeload()
     {
         var request = Request() with { DurationWeeks = 8 };
         var result = TrainingProgramGenerator.Generate(request, Catalog());
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         var sessions = result.Prescription!.Sessions;
-        var firstExerciseByWeek = sessions
+        var signatureByWeek = sessions
             .GroupBy(session => session.WeekNumber)
-            .ToDictionary(group => group.Key, group => group.First().Exercises[0]);
+            .ToDictionary(group => group.Key, group => group
+                .SelectMany(session => session.Exercises)
+                .OrderBy(exercise => exercise.ExerciseId, StringComparer.Ordinal)
+                .Select(exercise => (exercise.ExerciseId, exercise.Sets))
+                .ToArray());
 
-        Assert.Equal(2, firstExerciseByWeek[1].Sets); // baseline
-        Assert.Equal(3, firstExerciseByWeek[2].Sets); // build
-        Assert.Equal(3, firstExerciseByWeek[3].Sets); // build
-        Assert.Equal(1, firstExerciseByWeek[4].Sets); // deload
-        Assert.Equal(2, firstExerciseByWeek[5].Sets); // next cycle baseline
-        Assert.Equal(3, firstExerciseByWeek[6].Sets);
-        Assert.Equal(1, firstExerciseByWeek[8].Sets);
-        Assert.Equal(4m, firstExerciseByWeek[4].TargetRepetitionsInReserve!.Value);
-        Assert.Equal(3m, firstExerciseByWeek[5].TargetRepetitionsInReserve!.Value);
+        Assert.Equal(signatureByWeek[1], signatureByWeek[4]);
+        Assert.Equal(signatureByWeek[1], signatureByWeek[8]);
+        Assert.All(sessions.SelectMany(session => session.Exercises), exercise =>
+            Assert.InRange(exercise.TargetRepetitionsInReserve!.Value, 0m, 5m));
         Assert.Empty(TrainingPrescriptionValidator.Validate(result.Prescription));
     }
 
@@ -370,13 +377,15 @@ public sealed class TrainingProgramGeneratorTests
         var weekFourQuads = report.WeeklyMuscleVolumes.Single(week => week.WeekNumber == 4)
             .Muscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Quadriceps);
 
-        Assert.Equal(4, weekOneQuads.PrimarySets);
+        // This compact fixture has no quadriceps-isolation candidate: adding sets to the
+        // available compound lifts would overshoot glute volume. The allocator preserves balance
+        // and reports the unmet direct target instead of forcing the nominal number.
+        Assert.InRange(weekOneQuads.PrimarySets, 1, 6);
         Assert.Equal(2, weekOneQuads.PrimaryFrequencySessions);
-        Assert.Equal(6, weekTwoQuads.PrimarySets);
-        Assert.Equal(2, weekFourQuads.PrimarySets);
-        // The expanded anatomical taxonomy intentionally reports muscles not represented by
-        // this compact synthetic fixture. Volume calculations themselves must remain warning-free.
-        Assert.DoesNotContain(report.Warnings, warning => warning.Contains("series primarias", StringComparison.Ordinal));
+        Assert.Equal(weekOneQuads.PrimarySets, weekTwoQuads.PrimarySets);
+        Assert.Equal(weekOneQuads.PrimarySets, weekFourQuads.PrimarySets);
+        Assert.Contains(report.Warnings, warning =>
+            warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
         Assert.Contains(report.Warnings, warning => warning.Contains("Adductors", StringComparison.Ordinal));
         Assert.Contains(report.Warnings, warning => warning.Contains("RotatorCuff", StringComparison.Ordinal));
     }
@@ -476,7 +485,7 @@ public sealed class TrainingProgramGeneratorTests
                 {
                     Assert.Contains(exercise.ExerciseId, Catalog().Select(candidate => candidate.ExerciseId));
                     Assert.NotEmpty(exercise.PrimaryMuscleGroups);
-                    Assert.InRange(exercise.Sets, 1, 4);
+                    Assert.InRange(exercise.Sets, 1, 5);
                     Assert.InRange(exercise.MinRepetitions, 1, exercise.MaxRepetitions);
                     Assert.NotNull(exercise.TargetRepetitionsInReserve);
                     Assert.InRange(exercise.TargetRepetitionsInReserve!.Value, 0m, 5m);
@@ -487,13 +496,114 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void ShortPlanDoesNotDeloadBeforeCompletingFourWeekCycle()
+    public void GeneratorAddsOptionalAccessoryForAnUncoveredPrimaryMuscle()
+    {
+        var generated = TrainingProgramGenerator.Generate(Request(), Catalog());
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        Assert.Contains(generated.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "exercise-accessory");
+    }
+
+    [Fact]
+    public void GeneratorSelectsAccessoriesForTheMusclesOfEachSplitDay()
+    {
+        var catalog = Catalog()
+            .Where(exercise => exercise.MovementPattern != TrainingMovementPattern.Accessory)
+            .Append(new TrainingExerciseCandidate(
+                "biceps-curl", "test", "Curl de bíceps", TrainingMovementPattern.Accessory,
+                [], Enum.GetValues<TrainingGoal>(), TrainingExperience.Beginner, 55, true,
+                [TrainingMuscleGroup.Biceps], []))
+            .Append(new TrainingExerciseCandidate(
+                "leg-extension", "test", "Extensión de cuádriceps", TrainingMovementPattern.Accessory,
+                [], Enum.GetValues<TrainingGoal>(), TrainingExperience.Beginner, 55, true,
+                [TrainingMuscleGroup.Quadriceps], []))
+            .ToArray();
+        var request = Request() with
+        {
+            TrainingDays = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday]
+        };
+
+        var generated = TrainingProgramGenerator.Generate(request, catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        var weekOne = generated.Prescription!.Sessions.Where(session => session.WeekNumber == 1).ToArray();
+        var upperSessions = weekOne.Where(session => session.Title.StartsWith("Tren superior", StringComparison.Ordinal)).ToArray();
+        var lowerSessions = weekOne.Where(session => session.Title.StartsWith("Tren inferior", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(2, upperSessions.Length);
+        Assert.Equal(2, lowerSessions.Length);
+        Assert.All(upperSessions, session =>
+            Assert.Contains(session.Exercises, exercise => exercise.ExerciseId == "biceps-curl"));
+        Assert.All(lowerSessions, session =>
+            Assert.Contains(session.Exercises, exercise => exercise.ExerciseId == "leg-extension"));
+    }
+
+    [Fact]
+    public void GeneratorStillWorksWhenNoAccessoryIsAvailable()
+    {
+        var catalog = Catalog().Where(exercise => exercise.MovementPattern != TrainingMovementPattern.Accessory).ToArray();
+
+        var generated = TrainingProgramGenerator.Generate(Request(), catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        Assert.DoesNotContain(generated.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "exercise-accessory");
+    }
+
+    [Fact]
+    public void ShortPlanDoesNotReceiveAnUnconditionalCalendarDeload()
     {
         var result = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 3 }, Catalog());
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
-        Assert.All(result.Prescription!.Sessions.Where(session => session.WeekNumber == 3),
-            session => Assert.All(session.Exercises, exercise => Assert.Equal(3, exercise.Sets)));
+        var signatures = result.Prescription!.Sessions
+            .GroupBy(session => session.WeekNumber)
+            .ToDictionary(group => group.Key, group => group
+                .SelectMany(session => session.Exercises)
+                .OrderBy(exercise => exercise.ExerciseId, StringComparer.Ordinal)
+                .Select(exercise => (exercise.ExerciseId, exercise.Sets))
+                .ToArray());
+
+        Assert.Equal(signatures[1], signatures[3]);
+    }
+
+    [Fact]
+    public void ExplicitDeloadMustBeExactlyOneWeek()
+    {
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { DurationWeeks = 2, IsDeload = true }, Catalog());
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Contains("exactamente una semana", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ExplicitDeloadReducesWeeklySetsAndIncreasesReserveWithoutChangingExerciseSelection()
+    {
+        var normal = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 1 }, Catalog());
+        var deload = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 1, IsDeload = true }, Catalog());
+
+        Assert.True(normal.Succeeded, string.Join("; ", normal.Errors));
+        Assert.True(deload.Succeeded, string.Join("; ", deload.Errors));
+
+        var normalExercises = normal.Prescription!.Sessions
+            .OrderBy(session => session.Day)
+            .SelectMany(session => session.Exercises.OrderBy(exercise => exercise.Order))
+            .ToArray();
+        var deloadExercises = deload.Prescription!.Sessions
+            .OrderBy(session => session.Day)
+            .SelectMany(session => session.Exercises.OrderBy(exercise => exercise.Order))
+            .ToArray();
+
+        Assert.Equal(normalExercises.Select(exercise => exercise.ExerciseId), deloadExercises.Select(exercise => exercise.ExerciseId));
+        Assert.True(deloadExercises.Sum(exercise => exercise.Sets) < normalExercises.Sum(exercise => exercise.Sets));
+        Assert.Contains(deloadExercises.Zip(normalExercises), pair => pair.First.Sets < pair.Second.Sets);
+        Assert.All(deloadExercises.Zip(normalExercises), pair =>
+        {
+            Assert.Equal(Math.Max(1, (int)Math.Ceiling(pair.Second.Sets * 0.5m)), pair.First.Sets);
+            Assert.Equal(Math.Min(5m, pair.Second.TargetRepetitionsInReserve!.Value + 2m), pair.First.TargetRepetitionsInReserve);
+        });
+        Assert.Contains(deload.Prescription.QualityReport!.Warnings, warning => warning.Contains("descarga activa", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string SessionSignature(TrainingSessionPrescription session) =>
@@ -542,6 +652,7 @@ public sealed class TrainingProgramGeneratorTests
             TrainingMovementPattern.VerticalPull => ([TrainingMuscleGroup.Lats], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.UpperBack]),
             TrainingMovementPattern.SingleLeg => ([TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes], [TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.Calves]),
             TrainingMovementPattern.Core => ([TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.Obliques, TrainingMuscleGroup.ErectorSpinae]),
+            TrainingMovementPattern.Accessory => ([TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.Triceps]),
             _ => throw new ArgumentOutOfRangeException(nameof(pattern))
         };
 }

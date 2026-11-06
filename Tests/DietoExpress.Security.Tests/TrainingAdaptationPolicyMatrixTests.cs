@@ -12,8 +12,8 @@ public sealed class TrainingAdaptationPolicyMatrixTests
 {
     public static IEnumerable<object[]> Cases =>
     [
-        [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Good, SessionRpe: 6, ProgressionTargetAchieved: true) }, TrainingAdaptationAction.ProgressAccordingToPrescription],
-        [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Good, SessionRpe: 8, ProgressionTargetAchieved: true) }, TrainingAdaptationAction.ProgressAccordingToPrescription],
+        [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Good, SessionRpe: 6, ProgressionTargetAchieved: true) }, TrainingAdaptationAction.NoChange],
+        [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Good, SessionRpe: 8, ProgressionTargetAchieved: true) }, TrainingAdaptationAction.NoChange],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Good, SessionRpe: 6, ProgressionTargetAchieved: false) }, TrainingAdaptationAction.NoChange],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Good, SessionRpe: 9, ProgressionTargetAchieved: true) }, TrainingAdaptationAction.HoldProgressionAndReview],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Partial, SessionRpe: 6, ProgressionTargetAchieved: true) }, TrainingAdaptationAction.NoChange],
@@ -38,7 +38,7 @@ public sealed class TrainingAdaptationPolicyMatrixTests
         [new[] {
             new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Insufficient),
             new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Good, SessionRpe: 6, ProgressionTargetAchieved: true)
-        }, TrainingAdaptationAction.ProgressAccordingToPrescription],
+        }, TrainingAdaptationAction.NoChange],
         [new[] {
             new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Insufficient),
             new TrainingSessionFeedback(TrainingSessionOutcome.NotCompleted, TrainingNonCompletionReason.Time, TrainingRecoveryRating.Insufficient)

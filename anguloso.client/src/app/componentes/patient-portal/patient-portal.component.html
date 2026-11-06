@@ -506,9 +506,9 @@
         <p *ngIf="session.instructions">{{ session.instructions }}</p>
         <div *ngIf="session.exercisePrescriptionData?.exercises?.length; else legacyTrainingPrescription" class="structured-training-prescription" style="margin:12px 0;padding:12px;border-radius:10px;background:#f0fdfa;border:1px solid #ccfbf1">
           <strong>Ejercicios, series y descansos</strong>
-          <p class="muted" *ngIf="session.exercisePrescriptionData?.weekNumber">Semana {{ session.exercisePrescriptionData?.weekNumber }} · {{ session.exercisePrescriptionData?.estimatedDurationMinutes || session.durationMinutes || '—' }} min · Objetivo {{ session.exercisePrescriptionData?.goal || 'personalizado' }}</p>
+          <p class="muted" *ngIf="session.exercisePrescriptionData.weekNumber">Semana {{ session.exercisePrescriptionData.weekNumber }} · {{ session.exercisePrescriptionData.estimatedDurationMinutes || session.durationMinutes || '—' }} min · Objetivo {{ session.exercisePrescriptionData.goal || 'personalizado' }}</p>
           <ol style="padding-left:22px;margin:10px 0 0">
-            <li *ngFor="let exercise of session.exercisePrescriptionData?.exercises" style="margin-bottom:12px">
+            <li *ngFor="let exercise of session.exercisePrescriptionData.exercises" style="margin-bottom:12px">
               <strong>{{ exercise.exerciseNameSnapshot || 'Ejercicio' }}</strong>
               <div>{{ exercise.sets || '—' }} series × {{ exercise.minRepetitions || '—' }}–{{ exercise.maxRepetitions || '—' }} repeticiones</div>
               <div>RIR {{ exercise.targetRepetitionsInReserve ?? '—' }} · Descanso {{ exercise.restSeconds ?? '—' }} s</div>

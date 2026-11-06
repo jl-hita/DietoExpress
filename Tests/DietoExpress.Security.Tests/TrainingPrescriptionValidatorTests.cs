@@ -125,6 +125,24 @@ public sealed class TrainingPrescriptionValidatorTests
     }
 
     [Fact]
+    public void InvalidExerciseSpecificLoadProgressionLimits_AreRejected()
+    {
+        var exercise = ValidExercise() with
+        {
+            SmallestLoadIncrementKg = 0,
+            MaximumLoadIncreasePercent = 10.1m
+        };
+        var plan = ValidPlan() with
+        {
+            Sessions = [ValidSession() with { Exercises = [exercise] }]
+        };
+
+        var errors = TrainingPrescriptionValidator.Validate(plan);
+        Assert.Contains(errors, error => error.Contains("incremento mínimo de carga", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("incremento máximo de carga", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void MissingOrContradictoryMuscleMetadata_IsRejected()
     {
         var exercise = ValidExercise() with

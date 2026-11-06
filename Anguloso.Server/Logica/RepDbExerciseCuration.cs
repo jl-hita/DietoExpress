@@ -41,7 +41,6 @@ internal static class RepDbExerciseCuration
         "banded-terminal-knee-extension",
         "tandem-stance",
         "heel-to-toe-walk",
-        "cable-external-rotation",
         // Yoga/Pilates-style positions and balance skills are outside the strength routine generator.
         "boat-pose",
         "chair-pose",
@@ -131,6 +130,9 @@ internal static class RepDbExerciseCuration
         ["hip-thrust"] = ["barbell-glute-bridge", "banded-hip-thrust", "dumbbell-hip-thrust", "glute-bridge", "hip-thrust", "plate-loaded-glute-drive", "single-leg-glute-bridge", "single-leg-hip-thrust", "smith-machine-hip-thrust"],
         ["crunch"] = ["cable-crunch", "crunches", "dead-bug", "machine-seated-crunch", "reverse-crunches", "russian-twist", "sit-ups"],
         ["calf-raise"] = ["bodyweight-calf-raise", "barbell-calf-raise", "donkey-calf-raise", "dumbbell-calf-raise", "hack-squat-calf-raise", "machine-calf-raise", "seated-calf-raise", "single-leg-calf-raise", "standing-calf-raise"],
+        // Tibialis raises are dorsiflexion work, not a calf-plantarflexion variant.
+        ["tibialis-raise"] = ["kettlebell-tibialis-raise"],
+        ["hip-adduction"] = ["hip-adduction"],
         ["hip-abduction"] = ["banded-clamshell", "banded-fire-hydrant", "banded-standing-hip-abduction", "fire-hydrant", "hip-abduction", "side-lying-hip-abduction", "standing-hip-abduction"],
         ["dips"] = ["assisted-dips", "dips", "plate-loaded-seated-dip-machine", "ring-dips", "seated-dip-machine", "straight-bar-dips", "weighted-dips"],
         ["overhead-tricep-extension"] = ["cable-overhead-tricep-extension", "dumbbell-tricep-extension", "ez-bar-overhead-extension", "overhead-tricep-extension", "seated-dumbbell-tricep-extension", "single-arm-dumbbell-overhead-tricep-extension", "trx-tricep-extension"],
@@ -162,6 +164,8 @@ internal static class RepDbExerciseCuration
 
     public static string? CurateVariationGroup(string id, string? sourceVariationGroup) => id switch
     {
+        // RepDB groups tibialis raises with calf raises; keep the distinct ankle-dorsiflexor target.
+        "kettlebell-tibialis-raise" => "tibialis-raise",
         "banded-standing-curl" => "leg-curl",
         "dumbbell-farmers-walk" or "kettlebell-farmers-walk" => "farmer-carry",
         _ => sourceVariationGroup

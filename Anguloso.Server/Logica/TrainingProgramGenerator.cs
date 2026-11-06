@@ -42,10 +42,6 @@ public static class TrainingProgramGenerator
             {
                 var sessionTemplate = split[dayIndex];
                 var requiredPatterns = sessionTemplate.Patterns;
-                var estimatedDuration = EstimateSessionDuration(request, week, days.Length, requiredPatterns);
-                if (estimatedDuration > request.MaximumSessionDurationMinutes)
-                    return Failure($"La sesión '{sessionTemplate.Title}' requiere aproximadamente {estimatedDuration} minutos y supera el límite solicitado.");
-
                 var prescriptions = new List<TrainingExercisePrescription>();
                 for (var patternIndex = 0; patternIndex < requiredPatterns.Count; patternIndex++)
                 {
@@ -90,22 +86,54 @@ public static class TrainingProgramGenerator
                         candidate.SecondaryMuscleGroups.ToArray()));
                 }
 
+                AddOptionalAccessoryExercises(
+                    request, catalog, equipment, excluded, sessions,
+                    prescriptions, week, days[dayIndex], sessionTemplate.Title, days.Length);
+
+                // Final duration is calculated after weekly sets have been allocated.
                 sessions.Add(new TrainingSessionPrescription(
                     week,
                     days[dayIndex],
                     sessionTemplate.Title,
-                    estimatedDuration,
+                    WarmupAndTransitionsMinutes,
                     prescriptions));
             }
         }
 
+        var allocation = TrainingProgramVolumeAllocator.Allocate(
+            sessions, request.Goal, request.Experience, request.MuscleVolumeTargets,
+            request.MaximumSessionDurationMinutes);
+        if (!allocation.Succeeded)
+            return new(null, allocation.Errors);
+
+        var prescribedSessions = request.IsDeload
+            ? ApplyConservativeDeload(allocation.Sessions)
+            : allocation.Sessions;
         var plan = new TrainingProgramPrescription(
-            "0.5.0",
+            "0.9.0",
             request.Goal.ToString(),
             request.StartDate,
             request.DurationWeeks,
-            sessions);
-        plan = plan with { QualityReport = TrainingProgramQualityAnalyzer.Analyze(plan) };
+            prescribedSessions);
+        var qualityReport = TrainingProgramQualityAnalyzer.Analyze(plan);
+        var oneSetExposures = allocation.Sessions.SelectMany(session => session.Exercises)
+            .Count(exercise => exercise.Sets <= 1);
+        var deloadWarnings = request.IsDeload
+            ? new[]
+            {
+                "Semana/fase de descarga activa: las series se reducen aproximadamente entre un tercio y la mitad (redondeo hacia arriba, mínimo una por ejercicio) y el objetivo de esfuerzo se aleja dos RIR. Es una heurística conservadora revisable, no una pauta establecida por ACSM.",
+                oneSetExposures > 0
+                    ? $"{oneSetExposures} exposiciones ya estaban prescritas a una serie y mantienen esa serie; en ellas la descarga actúa mediante el mayor margen de RIR, no mediante un recorte adicional de series."
+                    : null
+            }.Where(warning => warning is not null).Select(warning => warning!).ToArray()
+            : Array.Empty<string>();
+        plan = plan with
+        {
+            QualityReport = qualityReport with
+            {
+                Warnings = qualityReport.Warnings.Concat(allocation.Warnings).Concat(deloadWarnings).Distinct(StringComparer.Ordinal).ToArray()
+            }
+        };
         var validationErrors = TrainingPrescriptionValidator.Validate(plan);
         return validationErrors.Count == 0
             ? new(plan, Array.Empty<string>())
@@ -113,6 +141,20 @@ public static class TrainingProgramGenerator
 
         TrainingProgramGenerationResult Failure(string error) => new(null, [error]);
     }
+
+    private static IReadOnlyList<TrainingSessionPrescription> ApplyConservativeDeload(
+        IReadOnlyList<TrainingSessionPrescription> sessions) =>
+        sessions.Select(session => session with
+        {
+            Exercises = session.Exercises.Select(exercise => exercise with
+            {
+                Sets = Math.Max(1, (int)Math.Ceiling(exercise.Sets * 0.5m)),
+                TargetRepetitionsInReserve = exercise.TargetRepetitionsInReserve is null
+                    ? null
+                    : Math.Min(5m, exercise.TargetRepetitionsInReserve.Value + 2m),
+                SelectionRationale = exercise.SelectionRationale + " Descarga activa: reducción conservadora de series y mayor reserva respecto al fallo."
+            }).ToArray()
+        }).ToArray();
 
     private static string BuildCandidateDiagnostic(
         TrainingMovementPattern pattern,
@@ -141,6 +183,8 @@ public static class TrainingProgramGenerator
         if (!Enum.IsDefined(request.Goal)) errors.Add("El objetivo de entrenamiento no es válido.");
         if (!Enum.IsDefined(request.Experience)) errors.Add("El nivel de experiencia no es válido.");
         if (request.DurationWeeks is < 1 or > 52) errors.Add("La duración debe estar entre 1 y 52 semanas.");
+        if (request.IsDeload && request.DurationWeeks != 1)
+            errors.Add("Una descarga activa debe durar exactamente una semana; divide la fase antes de generar.");
         if (request.TrainingDays is null || request.TrainingDays.Count is < 2 or > 4)
             errors.Add("Esta primera versión admite de 2 a 4 días de entrenamiento por semana.");
         else
@@ -225,6 +269,137 @@ public static class TrainingProgramGenerator
         return errors;
     }
 
+    private static void AddOptionalAccessoryExercises(
+        TrainingProgramGenerationRequest request,
+        IEnumerable<TrainingExerciseCandidate> catalog,
+        HashSet<string> equipment,
+        HashSet<string> excluded,
+        IReadOnlyList<TrainingSessionPrescription> previousSessions,
+        List<TrainingExercisePrescription> currentExercises,
+        int week,
+        DayOfWeek day,
+        string title,
+        int daysPerWeek)
+    {
+        var targets = TrainingProgramVolumeAllocator.GetWeeklyTargets(
+            request.Goal, request.Experience, request.MuscleVolumeTargets);
+        var slots = daysPerWeek == 2 ? 3 : 2;
+        var allowedMuscles = title.Contains("superior", StringComparison.OrdinalIgnoreCase)
+            ? UpperBodyAccessoryMuscles
+            : title.Contains("inferior", StringComparison.OrdinalIgnoreCase)
+                ? LowerBodyAccessoryMuscles
+                : null;
+
+        for (var slot = 0; slot < slots; slot++)
+        {
+            var currentPrimaryVolume = new Dictionary<TrainingMuscleGroup, decimal>();
+            foreach (var exercise in previousSessions.Where(session => session.WeekNumber == week)
+                         .SelectMany(session => session.Exercises).Concat(currentExercises))
+            foreach (var muscle in exercise.PrimaryMuscleGroups.Distinct())
+                currentPrimaryVolume[muscle] = currentPrimaryVolume.GetValueOrDefault(muscle) + 1m;
+
+            var candidates = catalog
+                .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory
+                    && (candidate.IsReviewed || candidate.IsOwnedByCurrentProfessional)
+                    && candidate.SuitableGoals.Contains(request.Goal)
+                    && (int)candidate.MinimumExperience <= (int)request.Experience
+                    && (equipment.Count == 0 || candidate.RequiredEquipment.All(equipment.Contains))
+                    && !excluded.Contains(candidate.ExerciseId)
+                    // Accessory exercises may repeat on different training days. Only prevent
+                    // duplicate prescription of the same accessory within this session.
+                    && !currentExercises.Any(exercise =>
+                        string.Equals(exercise.ExerciseId, candidate.ExerciseId, StringComparison.OrdinalIgnoreCase)))
+                .Select(candidate => new
+                {
+                    Candidate = candidate,
+                    Score = AccessoryDeficitScore(candidate, currentPrimaryVolume, targets, allowedMuscles)
+                })
+                .Where(item => item.Score > 0m)
+                .OrderByDescending(item => item.Score)
+                .ThenByDescending(item => item.Candidate.SelectionPriority)
+                .ThenBy(item => item.Candidate.ExerciseId, StringComparer.Ordinal)
+                .ToArray();
+
+            var selected = false;
+            foreach (var item in candidates)
+            {
+                var candidate = item.Candidate;
+                var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(
+                    request.Goal, request.Experience, week, daysPerWeek, TrainingMovementPattern.Accessory);
+                var underTargetMuscles = candidate.PrimaryMuscleGroups.Distinct()
+                    .Where(muscle => currentPrimaryVolume.GetValueOrDefault(muscle) < targets.GetValueOrDefault(muscle))
+                    .ToArray();
+                var prescription = new TrainingExercisePrescription(
+                    candidate.ExerciseId,
+                    candidate.CatalogVersion,
+                    candidate.Name,
+                    currentExercises.Count + 1,
+                    sets,
+                    minReps,
+                    maxReps,
+                    rir,
+                    rest,
+                    progression,
+                    $"Accesorio seleccionado para atender el déficit primario de {string.Join(", ", underTargetMuscles)} sin sustituir los patrones básicos; metadatos {(candidate.IsReviewed ? "revisados" : "aportados por el profesional propietario")}.",
+                    candidate.PrimaryMuscleGroups.ToArray(),
+                    candidate.SecondaryMuscleGroups.ToArray());
+
+                var durationSession = new TrainingSessionPrescription(
+                    week,
+                    day,
+                    title,
+                    WarmupAndTransitionsMinutes,
+                    currentExercises.Append(prescription).Select(exercise => exercise with { Sets = 1 }).ToArray());
+                if (TrainingProgramVolumeAllocator.EstimateDurationSeconds(durationSession) >
+                    request.MaximumSessionDurationMinutes * 60m)
+                    continue;
+
+                currentExercises.Add(prescription);
+                selected = true;
+                break;
+            }
+
+            if (!selected)
+                break;
+        }
+    }
+
+    private static readonly HashSet<TrainingMuscleGroup> UpperBodyAccessoryMuscles =
+    [
+        TrainingMuscleGroup.Chest, TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack,
+        TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Triceps,
+        TrainingMuscleGroup.Forearms, TrainingMuscleGroup.Serratus, TrainingMuscleGroup.RotatorCuff
+    ];
+
+    private static readonly HashSet<TrainingMuscleGroup> LowerBodyAccessoryMuscles =
+    [
+        TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Hamstrings,
+        TrainingMuscleGroup.Calves, TrainingMuscleGroup.Adductors, TrainingMuscleGroup.Abductors,
+        TrainingMuscleGroup.HipFlexors, TrainingMuscleGroup.TibialisAnterior, TrainingMuscleGroup.ErectorSpinae
+    ];
+
+    private static decimal AccessoryDeficitScore(
+        TrainingExerciseCandidate candidate,
+        IReadOnlyDictionary<TrainingMuscleGroup, decimal> currentPrimaryVolume,
+        IReadOnlyDictionary<TrainingMuscleGroup, decimal> targets,
+        IReadOnlySet<TrainingMuscleGroup>? allowedMuscles)
+    {
+        var muscles = candidate.PrimaryMuscleGroups.Distinct()
+            .Where(muscle => targets.ContainsKey(muscle) &&
+                             (allowedMuscles is null || allowedMuscles.Contains(muscle)))
+            .ToArray();
+        if (muscles.Length == 0) return 0m;
+        return muscles.Average(muscle =>
+        {
+            var deficit = Math.Max(0m, targets[muscle] - currentPrimaryVolume.GetValueOrDefault(muscle));
+            var importance = muscle is TrainingMuscleGroup.Chest or TrainingMuscleGroup.Lats or
+                TrainingMuscleGroup.UpperBack or TrainingMuscleGroup.Deltoids or TrainingMuscleGroup.Biceps or
+                TrainingMuscleGroup.Triceps or TrainingMuscleGroup.Glutes or TrainingMuscleGroup.Quadriceps or
+                TrainingMuscleGroup.Hamstrings or TrainingMuscleGroup.Calves ? 1m : 0.6m;
+            return deficit * importance;
+        });
+    }
+
     private static IReadOnlyList<SessionTemplate> BuildSplit(int daysPerWeek)
     {
         var fullBodyA = new SessionTemplate("Cuerpo completo A",
@@ -248,49 +423,25 @@ public static class TrainingProgramGenerator
     }
 
     /// <summary>
-    /// Conservative four-week microcycle: establish, build, build, deload.
-    /// This is a provisional software heuristic, not a universally validated prescription.
+    /// Keep rep ranges and effort targets stable through the mesocycle. Weekly set distribution
+    /// is handled by TrainingProgramVolumeAllocator. Deload planning is a separate, explicit
+    /// mesocycle decision; this prescription method never imposes a fixed calendar deload.
     /// </summary>
-    private static int EstimateSessionDuration(
-        TrainingProgramGenerationRequest request, int week, int daysPerWeek,
-        IReadOnlyList<TrainingMovementPattern> patterns)
-    {
-        var totalSeconds = WarmupAndTransitionsMinutes * 60m;
-        foreach (var pattern in patterns)
-        {
-            var prescription = PrescriptionFor(request.Goal, request.Experience, week, daysPerWeek, pattern);
-            var averageRepetitions = (prescription.MinReps + prescription.MaxReps) / 2m;
-            var workingSeconds = prescription.Sets * averageRepetitions * SecondsPerRepEstimate;
-            var restSeconds = Math.Max(0, prescription.Sets - 1) * prescription.RestSeconds;
-            totalSeconds += workingSeconds + restSeconds + TransitionSecondsPerExercise;
-        }
-        return (int)Math.Ceiling(totalSeconds / 60m);
-    }
-
     private static (int Sets, int MinReps, int MaxReps, decimal Rir, int RestSeconds, TrainingProgressionRule Progression)
         PrescriptionFor(TrainingGoal goal, TrainingExperience experience, int week, int daysPerWeek, TrainingMovementPattern pattern)
     {
         var beginner = experience == TrainingExperience.Beginner;
+        if (pattern == TrainingMovementPattern.Accessory)
+            return (1, goal == TrainingGoal.Strength ? 8 : 10, 15,
+                beginner ? 3m : 2m, 90, TrainingProgressionRule.DoubleProgression);
         var baseline = goal switch
         {
-            TrainingGoal.Strength => (Sets: beginner ? 2 : 3, MinReps: 5, MaxReps: 8, Rir: beginner ? 3m : 2m, RestSeconds: 180),
-            TrainingGoal.Hypertrophy => (Sets: beginner ? 2 : 3, MinReps: 8, MaxReps: 12, Rir: beginner ? 3m : 2m, RestSeconds: 120),
-            _ => (Sets: 2, MinReps: 8, MaxReps: 15, Rir: 3m, RestSeconds: 90)
+            TrainingGoal.Strength => (Sets: 1, MinReps: 5, MaxReps: 8, Rir: beginner ? 3m : 2m, RestSeconds: 180),
+            TrainingGoal.Hypertrophy => (Sets: 1, MinReps: 8, MaxReps: 12, Rir: beginner ? 3m : 2m, RestSeconds: 120),
+            _ => (Sets: 1, MinReps: 8, MaxReps: 15, Rir: 3m, RestSeconds: 90)
         };
-
-        var weekInCycle = ((week - 1) % 4) + 1;
-        var sets = weekInCycle switch
-        {
-            2 or 3 => Math.Min(4, baseline.Sets + 1),
-            4 => Math.Max(1, baseline.Sets - 1),
-            _ => baseline.Sets
-        };
-
-        // Preserve the prescription for the selected goal and experience. The quality report
-        // surfaces high weekly volume for professional review instead of silently capping sets.
-        var rir = weekInCycle == 4 ? Math.Min(5m, baseline.Rir + 1m) : baseline.Rir;
-
-        return (sets, baseline.MinReps, baseline.MaxReps, rir, baseline.RestSeconds, TrainingProgressionRule.DoubleProgression);
+        return (baseline.Sets, baseline.MinReps, baseline.MaxReps, baseline.Rir,
+            baseline.RestSeconds, TrainingProgressionRule.DoubleProgression);
     }
 
     private sealed record SessionTemplate(string Title, IReadOnlyList<TrainingMovementPattern> Patterns);
@@ -304,7 +455,9 @@ public sealed record TrainingProgramGenerationRequest(
     IReadOnlyList<DayOfWeek> TrainingDays,
     int MaximumSessionDurationMinutes,
     IReadOnlyList<string> AvailableEquipment,
-    IReadOnlyList<string> ExcludedExerciseIds);
+    IReadOnlyList<string> ExcludedExerciseIds,
+    IReadOnlyList<TrainingMuscleVolumeTarget>? MuscleVolumeTargets = null,
+    bool IsDeload = false);
 
 public sealed record TrainingExerciseCandidate(
     string ExerciseId,
@@ -350,5 +503,6 @@ public enum TrainingMovementPattern
     HorizontalPull,
     VerticalPull,
     SingleLeg,
-    Core
+    Core,
+    Accessory
 }

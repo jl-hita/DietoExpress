@@ -72,11 +72,11 @@ public sealed class TrainingAdaptationPolicyTests
     }
 
     [Fact]
-    public void ProgressionRequiresAllExplicitCriteria()
+    public void SessionAggregateFeedbackCannotDecideExerciseProgression()
     {
         var feedback = new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Good,
-            SessionRpe: 8, ProgressionTargetAchieved: true);
-        Assert.Equal(TrainingAdaptationAction.ProgressAccordingToPrescription, TrainingAdaptationPolicy.Evaluate([feedback]).Action);
+            SessionRpe: 6, ProgressionTargetAchieved: true);
+        Assert.Equal(TrainingAdaptationAction.NoChange, TrainingAdaptationPolicy.Evaluate([feedback]).Action);
     }
 
     [Theory]

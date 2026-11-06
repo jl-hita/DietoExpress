@@ -32,7 +32,7 @@ public sealed class TrainingPortalController : ControllerBase
         await using var profileCommand = Command("SELECT enabled FROM training_profiles WHERE client_id = @clientId", ("clientId", clientId));
         var profileValue = await profileCommand.ExecuteScalarAsync(cancellationToken);
         if (profileValue is null || profileValue is DBNull || !Convert.ToBoolean(profileValue))
-            return Ok(new { enabled = false, sessions = Array.Empty<object>() });
+            return Ok(new { enabled = false, sessions = Array.Empty<object>(), exerciseProgressionRecommendations = Array.Empty<object>() });
 
         await using var command = Command("""
             SELECT s.id, s.plan_id, s.scheduled_date, s.title, s.session_type, s.duration_minutes, s.intensity_target, s.instructions, s.status,
@@ -107,6 +107,13 @@ public sealed class TrainingPortalController : ControllerBase
         var adaptation = feedback.Count == 0
             ? null
             : Anguloso.Server.Logica.TrainingAdaptationPolicy.Evaluate(feedback);
+
+        // Query only after closing the session reader; the progression service reads the same EF connection.
+        var exerciseProgressionRecommendations =
+            await new Anguloso.Server.Logica.TrainingExerciseProgressionService(_context)
+                .GetRecommendationsAsync(clientId, cancellationToken);
+        // Session-level adaptation handles recovery/context; exercise progression is
+        // evaluated independently from actual working-set data and the exercise prescription.
         return Ok(new
         {
             enabled = true,
@@ -115,7 +122,8 @@ public sealed class TrainingPortalController : ControllerBase
             {
                 action = ToApiAction(adaptation.Action),
                 explanation = adaptation.Explanation
-            }
+            },
+            exerciseProgressionRecommendations
         });
     }
 
@@ -191,6 +199,55 @@ public sealed class TrainingPortalController : ControllerBase
                 .Any(group => group.Count() > 1);
             if (duplicateExercise)
                 return BadRequest(new { message = "Un ejercicio no puede aparecer repetido en el registro." });
+
+            var identifiedFeedback = request.ExerciseFeedback
+                .Where(item => !string.IsNullOrWhiteSpace(item.ExerciseId))
+                .ToArray();
+            if (identifiedFeedback.Length > 0)
+            {
+                await using var prescriptionCommand = Command("""
+                    SELECT s.exercise_prescription_data::text
+                    FROM training_sessions s
+                    JOIN training_plans p ON p.id = s.plan_id
+                    JOIN training_profiles f ON f.id = p.profile_id
+                    WHERE s.id = @sessionId AND f.client_id = @clientId AND f.enabled = TRUE
+                    """, ("sessionId", sessionId), ("clientId", clientId));
+                var prescriptionValue = await prescriptionCommand.ExecuteScalarAsync(cancellationToken);
+                if (prescriptionValue is not string prescriptionJson)
+                    return BadRequest(new { message = "No se puede validar el ID del ejercicio porque esta sesión no tiene una prescripción estructurada." });
+
+                try
+                {
+                    using var prescriptionDocument = JsonDocument.Parse(prescriptionJson);
+                    if (prescriptionDocument.RootElement.ValueKind != JsonValueKind.Object ||
+                        !prescriptionDocument.RootElement.TryGetProperty("exercises", out var prescribedExercises) ||
+                        prescribedExercises.ValueKind != JsonValueKind.Array)
+                        return BadRequest(new { message = "La prescripción estructurada de esta sesión no es válida." });
+
+                    var prescribedSetsById = new Dictionary<string, int>(StringComparer.Ordinal);
+                    foreach (var exercise in prescribedExercises.EnumerateArray())
+                    {
+                        if (exercise.ValueKind != JsonValueKind.Object ||
+                            !exercise.TryGetProperty("exerciseId", out var idElement) ||
+                            idElement.ValueKind != JsonValueKind.String ||
+                            string.IsNullOrWhiteSpace(idElement.GetString()) ||
+                            !exercise.TryGetProperty("sets", out var setsElement) ||
+                            !setsElement.TryGetInt32(out var prescribedSets) ||
+                            prescribedSets < 1 ||
+                            !prescribedSetsById.TryAdd(idElement.GetString()!, prescribedSets))
+                            return BadRequest(new { message = "La prescripción contiene ejercicios o series no válidos." });
+                    }
+
+                    if (identifiedFeedback.Any(item =>
+                        !prescribedSetsById.TryGetValue(item.ExerciseId!, out var prescribedSets) ||
+                        prescribedSets != item.PlannedSets))
+                        return BadRequest(new { message = "El ID y el número de series de cada ejercicio deben coincidir con la prescripción de esta sesión." });
+                }
+                catch (JsonException)
+                {
+                    return BadRequest(new { message = "No se pudo validar la prescripción estructurada de esta sesión." });
+                }
+            }
         }
 
         await using var command = Command("""
@@ -264,7 +321,25 @@ public sealed class TrainingPortalController : ControllerBase
         if (feedback.Count == 0 || feedback.All(x => x.RecordId != recordId)) return;
         feedback.Reverse();
         var decision = Anguloso.Server.Logica.TrainingAdaptationPolicy.Evaluate(feedback.Select(x => x.Feedback).ToArray());
-        var action = ToApiAction(decision.Action);
+        var exerciseRecommendations = await GetExerciseVolumeRecommendationsAsync(clientId, sessionId, cancellationToken);
+        var fatigueCandidates = exerciseRecommendations
+            .Where(item => item.Action == Anguloso.Server.Logica.TrainingExerciseVolumeAction.ProposeReduceOneSet)
+            .ToArray();
+        var hasExercisePain = exerciseRecommendations.Any(item =>
+            item.Action == Anguloso.Server.Logica.TrainingExerciseVolumeAction.PauseAndReview);
+
+        // A localized pain signal has precedence. Otherwise, repeated exercise-specific fatigue
+        // can create a review proposal even when global session recovery looks acceptable.
+        var action = decision.Action == Anguloso.Server.Logica.TrainingAdaptationAction.PauseAffectedExerciseAndReview || hasExercisePain
+            ? "pause_affected_exercise_and_review"
+            : fatigueCandidates.Length > 0
+                ? "review_and_reduce_training_stress"
+                : ToApiAction(decision.Action);
+        var explanation = decision.Explanation;
+        if (fatigueCandidates.Length > 0 && action == "review_and_reduce_training_stress")
+            explanation += " Señales repetidas por ejercicio: " +
+                string.Join(", ", fatigueCandidates.Select(item => item.ExerciseId)) +
+                ". Revisa cada candidato; no se aplicará ningún cambio sin aprobación profesional.";
         if (action is null) return;
 
         await using var supersede = Command("""
@@ -284,8 +359,38 @@ public sealed class TrainingPortalController : ControllerBase
             WHERE s.id = @sessionId AND f.client_id = @clientId AND p.status = 'active'
             ON CONFLICT(source_record_id, action) DO NOTHING
             """, ("clientId", clientId), ("sessionId", sessionId), ("recordId", recordId),
-            ("action", action), ("explanation", decision.Explanation));
+            ("action", action), ("explanation", explanation));
         await insert.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+
+    private async Task<IReadOnlyList<Anguloso.Server.Logica.TrainingExerciseVolumeRecommendation>>
+        GetExerciseVolumeRecommendationsAsync(int clientId, int sessionId, CancellationToken cancellationToken)
+    {
+        var records = new List<Anguloso.Server.Logica.TrainingExerciseVolumeFeedbackRecord>();
+        await using (var command = Command("""
+            SELECT r.outcome, r.exercise_feedback::text, s.exercise_prescription_data::text
+            FROM training_session_records r
+            JOIN training_sessions s ON s.id = r.session_id
+            JOIN training_plans p ON p.id = s.plan_id
+            JOIN training_profiles f ON f.id = p.profile_id
+            WHERE f.client_id = @clientId AND s.plan_id = (
+                SELECT plan_id FROM training_sessions WHERE id = @sessionId
+            ) AND p.status = 'active' AND r.outcome IS NOT NULL
+            ORDER BY s.scheduled_date DESC, r.id DESC
+            LIMIT 12
+            """, ("clientId", clientId), ("sessionId", sessionId)))
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+                records.Add(new Anguloso.Server.Logica.TrainingExerciseVolumeFeedbackRecord(
+                    reader.GetString(0),
+                    reader.IsDBNull(1) ? null : reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2)));
+        }
+
+        var exposures = Anguloso.Server.Logica.TrainingExerciseVolumeFeedbackMapper.Map(records);
+        return Anguloso.Server.Logica.TrainingExerciseVolumeAdapter.Evaluate(exposures);
     }
 
     private static bool HasPainSkippedSet(string? json)

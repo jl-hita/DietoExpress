@@ -32,7 +32,9 @@ public sealed record TrainingExercisePrescription(
     TrainingProgressionRule ProgressionRule,
     string SelectionRationale,
     IReadOnlyList<TrainingMuscleGroup> PrimaryMuscleGroups,
-    IReadOnlyList<TrainingMuscleGroup> SecondaryMuscleGroups);
+    IReadOnlyList<TrainingMuscleGroup> SecondaryMuscleGroups,
+    decimal? SmallestLoadIncrementKg = null,
+    decimal? MaximumLoadIncreasePercent = null);
 
 /// <summary>Controlled vocabulary for reviewed exercise muscle metadata.</summary>
 public enum TrainingMuscleGroup
@@ -141,6 +143,10 @@ public static class TrainingPrescriptionValidator
                     errors.Add($"{exercisePrefix}: el RIR objetivo debe estar entre 0 y 5.");
                 if (exercise.RestSeconds is < 0 or > 600)
                     errors.Add($"{exercisePrefix}: el descanso debe estar entre 0 y 600 segundos.");
+                if (exercise.SmallestLoadIncrementKg is <= 0)
+                    errors.Add($"{exercisePrefix}: el incremento mínimo de carga debe ser positivo cuando se especifica.");
+                if (exercise.MaximumLoadIncreasePercent is <= 0 or > 10)
+                    errors.Add($"{exercisePrefix}: el incremento máximo de carga debe ser mayor que 0 y no superar el 10 % cuando se especifica.");
                 if (!Enum.IsDefined(exercise.ProgressionRule))
                     errors.Add($"{exercisePrefix}: la regla de progresión no es válida.");
                 if (string.IsNullOrWhiteSpace(exercise.SelectionRationale) || exercise.SelectionRationale.Length > 500)

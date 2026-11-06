@@ -1,4 +1,5 @@
 using System.IO;
+using Anguloso.Server.Logica;
 using Xunit;
 
 namespace DietoExpress.Security.Tests;
@@ -70,6 +71,12 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("s.repDbPending", reviewUi);
         Assert.Contains("s.repDbAutoApprovedV2", reviewUi);
         Assert.Contains("[HttpGet(\"review-queue/export\")]", controller);
+        Assert.Contains("[HttpGet(\"export\")]", controller);
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", controller);
+        Assert.Contains("ExportCatalogAsync", controller);
+        Assert.Contains("totalRecords = items.Count", controller);
+        Assert.Contains("FROM exercise_catalog", service);
+        Assert.Contains("ExportCatalogAsync", service);
         Assert.Contains("totalPending = stats.pending", controller);
         Assert.Contains("complete = items.Count == stats.pending", controller);
         Assert.Contains("ExportReviewQueueAsync", controller);
@@ -84,6 +91,10 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("exercise-catalog-repdb-curation-refresh-v4", service);
         Assert.Contains("EnsureRepDbExerciseMetadataCurationV4Async", service);
         Assert.Contains("exercise-catalog-repdb-exercise-metadata-v4", service);
+        Assert.Contains("EnsureRepDbAccessoryPatternCurationV1Async", service);
+        Assert.Contains("exercise-catalog-repdb-accessory-pattern-v1", service);
+        Assert.Contains("reviewed_movement_pattern = 'Accessory'", service);
+        Assert.Contains("reviewed_selection_priority = 55", service);
         Assert.Contains("dumbbell-push-press", service);
         Assert.Contains("behind-the-neck-lat-pulldown", service);
         Assert.Contains("RepDbExerciseCuration.ShouldExclude(id, sourceCategory, equipment, variationGroup)", service);
@@ -135,15 +146,28 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("behind-the-neck-lat-pulldown", curation);
         Assert.Contains("IsAutoApprovalCandidate", curation);
         var autoReviewer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseAutoReviewer.cs"));
+        var manager = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "exercise-manager", "exercise-manager.component.ts"));
         Assert.Contains("IsAccessoryExercise", autoReviewer);
+        Assert.Contains("if (IsAccessoryExercise(id, es, en)) return \"Accessory\";", autoReviewer);
+        Assert.Contains("'Accessory'", manager);
+        Assert.Contains("'Accessory'", reviewUi);
+        var contributions = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "exercise-contributions", "exercise-contributions.component.ts"));
+        Assert.Contains("'Accessory'", contributions);
         Assert.DoesNotContain("IsAutoApprovalCandidate(id)", autoReviewer);
         Assert.Contains("HasUsefulInstructions", autoReviewer);
         Assert.Contains("MapEquipment", autoReviewer);
         Assert.Contains("leg extension", autoReviewer);
         Assert.Contains("lateral raise", autoReviewer);
         Assert.Contains("curl femoral", autoReviewer);
-        Assert.Contains("var selectionPriority = IsAccessoryExercise", autoReviewer);
+        Assert.Contains("var selectionPriority = GetSelectionPriority", autoReviewer);
+        Assert.Contains(".Append(\"GeneralFitness\")", autoReviewer);
+        Assert.Contains("EnsureRepDbGeneralFitnessGoalCurationV1Async", service);
         Assert.Contains("selectionPriority", autoReviewer);
+        Assert.Contains("GetSelectionPriority", autoReviewer);
+        Assert.Contains("machine shoulder press", autoReviewer);
+        Assert.Contains("exercise-catalog-repdb-selection-priority-v1", service);
+        Assert.Contains("EnsureRepDbSelectionPriorityCurationV1Async", service);
+        Assert.Contains("reviewed_by LIKE 'RepDB automatic metadata%'", service);
 
         // Every anatomical identifier present in the reviewed RepDB exports must have an exact mapping.
         // In particular, substring matching "lat" must never turn lateral deltoid into latissimus.
@@ -178,6 +202,28 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("RotatorCuff", muscleTaxonomy);
 
         Assert.DoesNotContain("source_payload FROM exercise_catalog", service);
+    }
+
+    [Fact]
+    public void RepDbSelectionPriority_PrefersScalableBasicsAndLoadedAccessories()
+    {
+        var reviewerType = typeof(TrainingProgramGenerator).Assembly
+            .GetType("Anguloso.Server.Logica.RepDbExerciseAutoReviewer");
+        Assert.NotNull(reviewerType);
+        var method = reviewerType!.GetMethod(
+            "GetSelectionPriority",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        int Priority(string id, string name, string pattern) =>
+            (int)method!.Invoke(null, new object?[] { id, name, name, pattern })!;
+
+        Assert.True(
+            Priority("lat-pulldown", "Jalón en polea", "VerticalPull") >
+            Priority("assisted-pull-ups", "Dominadas asistidas", "VerticalPull"));
+        Assert.True(
+            Priority("machine-leg-extension", "Extensión de cuádriceps en máquina", "Accessory") >
+            Priority("bodyweight-lateral-raise", "Elevación lateral sin carga", "Accessory"));
     }
 
     [Fact]
@@ -223,6 +269,30 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("step-ups", evaluation);
         Assert.Contains("romanian-deadlift", evaluation);
         Assert.Contains("ab-wheel-rollout", evaluation);
-        Assert.Contains("Assert.Equal(27, report.ScenarioCount)", evaluation);
+        Assert.Contains("Assert.Equal(81, report.ScenarioCount)", evaluation);
     }
+
+    [Fact]
+    public void RepDbCuration_KeepsUsefulTibialisAndRotatorCuffAccessoriesEligible()
+    {
+        var curationType = typeof(TrainingProgramGenerator).Assembly
+            .GetType("Anguloso.Server.Logica.RepDbExerciseCuration");
+        Assert.NotNull(curationType);
+        var shouldExclude = curationType!.GetMethod(
+            "ShouldExclude", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public,
+            binder: null, types: new[] { typeof(string), typeof(string), typeof(string), typeof(string) }, modifiers: null);
+        Assert.NotNull(shouldExclude);
+        bool Excluded(string id, string category, string equipment, string? variationGroup) =>
+            (bool)shouldExclude!.Invoke(null, new object?[] { id, category, equipment, variationGroup })!;
+        Assert.False(Excluded("kettlebell-tibialis-raise", "strength", "kettlebell", "calf-raise"));
+        Assert.False(Excluded("cable-external-rotation", "strength", "cable", null));
+
+        var curation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseCuration.cs"));
+        var autoReviewer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseAutoReviewer.cs"));
+        Assert.Contains("[\"tibialis-raise\"] = [\"kettlebell-tibialis-raise\"]", curation);
+        Assert.Contains("\"kettlebell-tibialis-raise\" => \"tibialis-raise\"", curation);
+        Assert.Contains("tibialis raise", autoReviewer);
+        Assert.Contains("external rotation", autoReviewer);
+    }
+
 }

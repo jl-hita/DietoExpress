@@ -175,7 +175,6 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 var weekStart = prescription.StartDate.AddDays((week - 1) * 7);
                 var weekEnd = prescription.StartDate.AddDays(week * 7 - 1);
                 var microcycleEnd = weekEnd > mesocycleEnd ? mesocycleEnd : weekEnd;
-                int microcycleId;
                 await using (var command = connection.CreateCommand())
                 {
                     command.Transaction = transaction;
@@ -774,19 +773,45 @@ public sealed class TrainingPeriodizationController : ControllerBase
             ORDER BY p.created_at DESC, p.id DESC
             LIMIT 100
             """, null, ("clientId", clientId));
-        var items = new List<object>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-            items.Add(new
+        var items = new List<(long Id, int ClientId, int PlanId, int SourceSessionId, long SourceRecordId,
+            string Action, string Explanation, string Status, DateTime CreatedAt, string? ReviewNotes,
+            int AppliedFutureSessions, DateOnly SessionDate, string SessionTitle)>();
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+                items.Add((
+                    reader.GetInt64(0), reader.GetInt32(1), reader.GetInt32(2),
+                    reader.GetInt32(3), reader.GetInt64(4), reader.GetString(5),
+                    reader.GetString(6), reader.GetString(7), reader.GetDateTime(8),
+                    reader.IsDBNull(9) ? null : reader.GetString(9), reader.GetInt32(10),
+                    reader.GetFieldValue<DateOnly>(11), reader.GetString(12)));
+        }
+
+        var response = new List<object>();
+        foreach (var item in items)
+        {
+            IReadOnlyList<object> exerciseRecommendations = item.Action == "review_and_reduce_training_stress"
+                ? (await GetExerciseVolumeRecommendationsAsync(item.PlanId, cancellationToken))
+                    .Select(recommendation => (object)new
+                    {
+                        exerciseId = recommendation.ExerciseId,
+                        action = recommendation.Action.ToString(),
+                        explanation = recommendation.Explanation,
+                        suggestedWorkingSets = recommendation.SuggestedWorkingSets,
+                        exposuresAnalyzed = recommendation.ExposuresAnalyzed
+                    }).ToArray()
+                : Array.Empty<object>();
+            response.Add(new
             {
-                id = reader.GetInt64(0), clientId = reader.GetInt32(1), planId = reader.GetInt32(2),
-                sourceSessionId = reader.GetInt32(3), sourceRecordId = reader.GetInt64(4),
-                action = reader.GetString(5), explanation = reader.GetString(6), status = reader.GetString(7),
-                createdAt = reader.GetDateTime(8), reviewNotes = reader.IsDBNull(9) ? null : reader.GetString(9),
-                appliedFutureSessions = reader.GetInt32(10), sessionDate = reader.GetFieldValue<DateOnly>(11),
-                sessionTitle = reader.GetString(12)
+                id = item.Id, clientId = item.ClientId, planId = item.PlanId,
+                sourceSessionId = item.SourceSessionId, sourceRecordId = item.SourceRecordId,
+                action = item.Action, explanation = item.Explanation, status = item.Status,
+                createdAt = item.CreatedAt, reviewNotes = item.ReviewNotes,
+                appliedFutureSessions = item.AppliedFutureSessions, sessionDate = item.SessionDate,
+                sessionTitle = item.SessionTitle, exerciseVolumeRecommendations = exerciseRecommendations
             });
-        return Ok(items);
+        }
+        return Ok(response);
     }
 
     [HttpPost("adaptation-proposals/{proposalId:long}/review")]
@@ -797,6 +822,10 @@ public sealed class TrainingPeriodizationController : ControllerBase
             return BadRequest(new { message = "La decisión debe ser approved o rejected." });
         if (request.Notes?.Length > 2000)
             return BadRequest(new { message = "Las notas de revisión no pueden superar los 2000 caracteres." });
+        if (request.TargetExerciseIds?.Count > 40 ||
+            (request.TargetExerciseIds?.Any(id => string.IsNullOrWhiteSpace(id) || id.Length > 100) ?? false) ||
+            (request.TargetExerciseIds?.Distinct(StringComparer.Ordinal).Count() != request.TargetExerciseIds?.Count))
+            return BadRequest(new { message = "Los ejercicios seleccionados no son válidos." });
 
         var clientId = await _context.Database.SqlQueryRaw<int?>(
             """SELECT client_id AS "Value" FROM training_adaptation_proposals WHERE id = {0}""", proposalId)
@@ -836,7 +865,20 @@ public sealed class TrainingPeriodizationController : ControllerBase
 
             var applied = 0;
             if (request.Decision == "approved" && action == "review_and_reduce_training_stress")
-                applied = await ReduceFutureSessionVolumeAsync(planId, proposalId, transaction, cancellationToken);
+            {
+                var allowedExerciseIds = (await GetExerciseVolumeRecommendationsAsync(planId, cancellationToken, transaction))
+                    .Where(item => item.Action == TrainingExerciseVolumeAction.ProposeReduceOneSet)
+                    .Select(item => item.ExerciseId)
+                    .ToHashSet(StringComparer.Ordinal);
+                var requestedExerciseIds = request.TargetExerciseIds ?? Array.Empty<string>();
+                if (requestedExerciseIds.Any(id => !allowedExerciseIds.Contains(id)))
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    return BadRequest(new { message = "Solo se pueden adaptar ejercicios con una recomendación vigente de reducción basada en sus registros recientes." });
+                }
+                applied = await ReduceFutureSessionVolumeAsync(planId, proposalId,
+                    requestedExerciseIds, transaction, cancellationToken);
+            }
             else if (request.Decision == "approved" && action == "hold_progression_and_review")
                 applied = await HoldFutureSessionProgressionAsync(planId, proposalId, transaction, cancellationToken);
 
@@ -856,7 +898,9 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     ? $"Propuesta aprobada. Se han adaptado {applied} sesiones futuras; el historial permanece intacto."
                     : action == "pause_affected_exercise_and_review"
                         ? "Revisión registrada. Por seguridad no se ha reanudado ni modificado automáticamente el ejercicio asociado al dolor; ajusta manualmente la planificación antes de reanudarlo."
-                        : "Propuesta aprobada y registrada. No se ha aplicado ningún cambio automático; revisa manualmente la planificación futura si procede.";
+                        : action == "review_and_reduce_training_stress" && (request.TargetExerciseIds is null || request.TargetExerciseIds.Count == 0)
+                            ? "Propuesta aprobada y registrada, pero no se ha reducido volumen: selecciona explícitamente los ejercicios con señales repetidas de fatiga para evitar recortar todas las series indiscriminadamente."
+                            : "Propuesta aprobada y registrada. No se ha aplicado ningún cambio automático; revisa manualmente la planificación futura si procede.";
             return Ok(new { status = request.Decision, appliedFutureSessions = applied, message });
         }
         catch
@@ -1625,12 +1669,46 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return Ok(items);
     }
 
-    private async Task<int> ReduceFutureSessionVolumeAsync(int planId, long proposalId, NpgsqlTransaction transaction, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<TrainingExerciseVolumeRecommendation>> GetExerciseVolumeRecommendationsAsync(
+        int planId, CancellationToken cancellationToken, NpgsqlTransaction? transaction = null)
     {
+        var records = new List<TrainingExerciseVolumeFeedbackRecord>();
+        await using (var command = CreateCommand("""
+            SELECT r.outcome, r.exercise_feedback::text, s.exercise_prescription_data::text
+            FROM training_session_records r
+            JOIN training_sessions s ON s.id = r.session_id
+            WHERE s.plan_id = @planId AND r.outcome IS NOT NULL
+            ORDER BY s.scheduled_date DESC, r.id DESC
+            LIMIT 12
+            """, transaction, ("planId", planId)))
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+                records.Add(new TrainingExerciseVolumeFeedbackRecord(
+                    reader.GetString(0),
+                    reader.IsDBNull(1) ? null : reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2)));
+        }
+
+        var exposures = TrainingExerciseVolumeFeedbackMapper.Map(records);
+        return TrainingExerciseVolumeAdapter.Evaluate(exposures);
+    }
+
+    private async Task<int> ReduceFutureSessionVolumeAsync(
+        int planId, long proposalId, IReadOnlyList<string> targetExerciseIds,
+        NpgsqlTransaction transaction, CancellationToken cancellationToken)
+    {
+        // Session-wide recovery cannot identify a target exercise. Require explicit IDs from
+        // exercise-level evidence; an empty selection must never reduce the whole plan.
+        var selectedExerciseIds = targetExerciseIds.ToHashSet(StringComparer.Ordinal);
+        if (selectedExerciseIds.Count == 0)
+            return 0;
+
         var rows = new List<(int Id, string Json, string? Instructions)>();
         await using (var select = CreateCommand("""
             SELECT s.id, s.exercise_prescription_data::text, s.instructions
             FROM training_sessions s
+            JOIN training_plans p ON p.id = s.plan_id AND p.status = 'active'
             WHERE s.plan_id = @planId AND s.scheduled_date > CURRENT_DATE AND s.status = 'planned'
               AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
               AND s.exercise_prescription_data IS NOT NULL
@@ -1640,22 +1718,41 @@ public sealed class TrainingPeriodizationController : ControllerBase
             while (await reader.ReadAsync(cancellationToken))
                 rows.Add((reader.GetInt32(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2)));
 
+        const int maximumFutureExposureReductionsPerExercise = 3;
+        var remainingReductions = selectedExerciseIds.ToDictionary(
+            exerciseId => exerciseId, _ => maximumFutureExposureReductionsPerExercise, StringComparer.Ordinal);
         var changed = 0;
         foreach (var row in rows)
         {
-            if (!TrainingAdaptationPrescriptionAdjuster.TryReduceSets(row.Json, out var updatedJson, out var updatedText))
+            var eligibleExerciseIds = remainingReductions
+                .Where(item => item.Value > 0)
+                .Select(item => item.Key)
+                .ToHashSet(StringComparer.Ordinal);
+            if (eligibleExerciseIds.Count == 0)
+                break;
+
+            if (!TrainingAdaptationPrescriptionAdjuster.TryReduceSets(
+                    row.Json, eligibleExerciseIds, out var updatedJson, out var updatedText, out var reducedExerciseIds))
                 continue;
-            var note = $"Adaptación aprobada por profesional (propuesta #{proposalId}): reducción de volumen por feedback del paciente.";
+
+            var note = $"Adaptación aprobada por profesional (propuesta #{proposalId}): reducción de una serie durante un máximo de tres exposiciones futuras por ejercicio ({string.Join(", ", reducedExerciseIds)}).";
             var instructions = string.IsNullOrWhiteSpace(row.Instructions) ? note : $"{row.Instructions.Trim()}\n{note}";
             await using var update = CreateCommand("""
                 UPDATE training_sessions
                 SET exercise_prescription_data = @json::jsonb, exercise_prescription = @prescription,
                     instructions = @instructions, updated_at = NOW()
                 WHERE id = @sessionId AND scheduled_date > CURRENT_DATE AND status = 'planned'
+                  AND EXISTS (SELECT 1 FROM training_plans p WHERE p.id = training_sessions.plan_id AND p.status = 'active')
                   AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = training_sessions.id)
                 """, transaction, ("json", updatedJson), ("prescription", updatedText),
                 ("instructions", instructions), ("sessionId", row.Id));
-            changed += await update.ExecuteNonQueryAsync(cancellationToken);
+            var affected = await update.ExecuteNonQueryAsync(cancellationToken);
+            changed += affected;
+            if (affected > 0)
+            {
+                foreach (var exerciseId in reducedExerciseIds)
+                    remainingReductions[exerciseId] = Math.Max(0, remainingReductions[exerciseId] - 1);
+            }
         }
         return changed;
     }
@@ -1794,7 +1891,10 @@ public sealed class TrainingPeriodizationController : ControllerBase
     }
 }
 
-public sealed record ReviewTrainingAdaptationProposalRequest(string Decision, string? Notes = null);
+public sealed record ReviewTrainingAdaptationProposalRequest(
+    string Decision,
+    string? Notes = null,
+    IReadOnlyList<string>? TargetExerciseIds = null);
 public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, string PrimaryGoal, string ExperienceLevel, string ManagementMode, string? Notes, DateTime CreatedAt, DateTime UpdatedAt, bool CanManage = true);
 public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, string? ManagementMode = null);
 public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes);

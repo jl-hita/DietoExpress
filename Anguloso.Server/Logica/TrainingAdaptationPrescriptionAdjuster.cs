@@ -3,30 +3,64 @@ using System.Text.Json.Nodes;
 
 namespace Anguloso.Server.Logica;
 
-/// <summary>Applies a reviewed volume reduction to a structured future-session prescription only.</summary>
+/// <summary>
+/// Applies an explicitly reviewed, exercise-ID-targeted volume reduction to future-session JSON.
+/// It never changes completed history or infers targets from names or unrelated exercise metadata.
+/// </summary>
 public static class TrainingAdaptationPrescriptionAdjuster
 {
-    public static bool TryReduceSets(string json, out string updatedJson, out string legacyPrescription)
+    public static bool TryReduceSets(
+        string json,
+        IReadOnlySet<string> targetExerciseIds,
+        out string updatedJson,
+        out string legacyPrescription) =>
+        TryReduceSets(json, targetExerciseIds, out updatedJson, out legacyPrescription, out _);
+
+    public static bool TryReduceSets(
+        string json,
+        IReadOnlySet<string> targetExerciseIds,
+        out string updatedJson,
+        out string legacyPrescription,
+        out IReadOnlySet<string> reducedExerciseIds)
     {
         updatedJson = json;
         legacyPrescription = string.Empty;
+        var reduced = new HashSet<string>(StringComparer.Ordinal);
+        reducedExerciseIds = reduced;
+        if (targetExerciseIds is null || targetExerciseIds.Count == 0)
+            return false;
+
         try
         {
             if (JsonNode.Parse(json) is not JsonObject root || root["exercises"] is not JsonArray exercises)
                 return false;
+
             var changed = false;
             foreach (var item in exercises)
             {
-                if (item is not JsonObject exercise || exercise["sets"] is null) continue;
-                var sets = exercise["sets"]!.GetValue<int>();
-                if (sets <= 1) continue;
+                if (item is not JsonObject exercise || exercise["sets"] is not JsonValue setsNode ||
+                    !setsNode.TryGetValue<int>(out var sets) || sets <= 1)
+                    continue;
+
+                // The adapter proposes changes for stable exercise IDs only. Do not infer a
+                // target from names or modify a different exercise with similar wording.
+                var exerciseId = ReadString(exercise, "exerciseId", string.Empty);
+                if (string.IsNullOrWhiteSpace(exerciseId) || !targetExerciseIds.Contains(exerciseId))
+                    continue;
+
                 exercise["sets"] = sets - 1;
+                reduced.Add(exerciseId);
                 changed = true;
             }
-            if (!changed) return false;
+
+            if (!changed)
+                return false;
+
             legacyPrescription = string.Join(Environment.NewLine, exercises.OfType<JsonObject>()
                 .Select(FormatExercise).Where(line => !string.IsNullOrWhiteSpace(line)));
-            if (string.IsNullOrWhiteSpace(legacyPrescription)) return false;
+            if (string.IsNullOrWhiteSpace(legacyPrescription))
+                return false;
+
             updatedJson = root.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web));
             return true;
         }
