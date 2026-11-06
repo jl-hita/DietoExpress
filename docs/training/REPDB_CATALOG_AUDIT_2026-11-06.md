@@ -183,3 +183,5 @@ La jerarquía anterior está implementada en el asignador de volumen, no es solo
 - Se añade una prueba que verifica los objetivos de cuádriceps, glúteos, gemelos e isquiotibiales y que el objetivo explícito del profesional no se altera.
 
 Esta política evita que el motor trate por igual todos los músculos ni que sacrifique trabajo prioritario para perseguir un objetivo nominal de isquiotibiales. El nuevo informe de evaluación debe confirmar que el cambio no introduce déficits relevantes de gemelos ni aumenta los de cuádriceps.
+
+- Si el plan no contiene ningún ejercicio directo de gemelos, el asignador emite ahora un aviso explícito de ausencia de cobertura; ya no elimina silenciosamente ese músculo de la evaluación por no estar presente en la rutina inicial.
