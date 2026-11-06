@@ -148,11 +148,12 @@ public sealed class TrainingExerciseVolumeAdapterTests
     {
         const string feedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"fatigue","sets":[{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":false,"rir":null}]}]""";
         const string prescription = """{"exercises":[{"exerciseId":"bench","sets":3,"targetRepetitionsInReserve":2}]}""";
+        // Mapper input mirrors the SQL query: newest record first.
         var records = new[]
         {
-            new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription),
             new TrainingExerciseVolumeFeedbackRecord("partial", feedback, prescription),
-            new TrainingExerciseVolumeFeedbackRecord("partial", feedback, prescription)
+            new TrainingExerciseVolumeFeedbackRecord("partial", feedback, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription)
         };
 
         var exposures = TrainingExerciseVolumeFeedbackMapper.Map(records);
