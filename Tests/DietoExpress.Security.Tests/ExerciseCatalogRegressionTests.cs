@@ -304,6 +304,19 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Equal("VerticalPull", Pattern("lat-pulldown", "Jalón al pecho", "Lat Pulldown"));
         Assert.Equal("Squat", Pattern("front-squat", "Sentadilla frontal", "Front Squat"));
         Assert.Equal("HorizontalPush", Pattern("db-bench-press", "Press de banca con mancuernas", "Dumbbell Bench Press"));
+        Assert.Equal("SingleLeg", Pattern("bulgarian-split-squat", "Sentadilla búlgara", "Bulgarian Split Squat"));
+
+        var generateInstructions = autoReviewer.GetMethod(
+            "GenerateInstructionsEs", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+        var hasInstructions = autoReviewer.GetMethod(
+            "HasUsefulInstructions", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+        Assert.NotNull(generateInstructions);
+        Assert.NotNull(hasInstructions);
+        foreach (var id in ids)
+        {
+            var generated = (string)generateInstructions!.Invoke(null, new object?[] { id, id, id })!;
+            Assert.True((bool)hasInstructions!.Invoke(null, new object?[] { generated })!, $"Faltan instrucciones en español para {id}.");
+        }
     }
 
     [Fact]
