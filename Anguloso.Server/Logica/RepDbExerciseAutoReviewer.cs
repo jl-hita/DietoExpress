@@ -81,6 +81,25 @@ internal static class RepDbExerciseAutoReviewer
         string? force, string? mechanic, string? bodyPart, string[] muscles)
     {
         var text = Normalize(string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))));
+        // Stable RepDB identifiers take precedence over translated display names. This prevents
+        // ambiguous substrings (for example "row" inside "crow") from deciding biomechanics.
+        var explicitPattern = id.ToLowerInvariant() switch
+        {
+            "ohp" => "VerticalPush",
+            "lat-pulldown" or "v-bar-lat-pulldown" or "pull-up" or "chin-ups" or "assisted-pull-ups" => "VerticalPull",
+            "bench-press" or "db-bench-press" or "incline-bench-press" or "incline-db-press"
+                or "smith-machine-bench-press" or "smith-machine-incline-bench-press"
+                or "chest-press-machine" or "push-up" or "knee-push-ups" => "HorizontalPush",
+            "barbell-row" or "single-arm-db-row" or "chest-supported-db-row"
+                or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" => "HorizontalPull",
+            "squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat"
+                or "bulgarian-split-squat" => "Squat",
+            "deadlift" or "hex-bar-deadlift" or "romanian-deadlift"
+                or "dumbbell-romanian-deadlift" or "hip-thrust" => "Hinge",
+            "reverse-lunge" or "step-ups" => "SingleLeg",
+            _ => (string?)null
+        };
+        if (explicitPattern is not null) return explicitPattern;
         // Isolations/accessories have their own optional generator slots; they must not
         // displace the primary compound movement chosen for a broad movement pattern.
         if (IsAccessoryExercise(id, es, en)) return "Accessory";
@@ -93,7 +112,7 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "hip bridge", "puente de cadera", "back extension", "extension lumbar",
             "kettlebell swing", "dumbbell swing", "one-arm swing", "swing con mancuerna", "pull-through", "pull through",
             "leg curl", "hamstring curl", "curl femoral", "nordic hamstring", "standing leg curl", "curl de pierna de pie")) return "Hinge";
-        if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion", "chest press", "floor press",
+        if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion de brazos", "flexiones de brazos", "chest press", "floor press",
             "svend press", "tricep kickback", "patada de triceps",
             "dip machine", "dips", "fondos")) return "HorizontalPush";
         if (Has(text, "row", "remo", "seated cable row", "bent-over row")) return "HorizontalPull";
