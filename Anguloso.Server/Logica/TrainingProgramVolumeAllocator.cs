@@ -200,7 +200,13 @@ public static class TrainingProgramVolumeAllocator
             return 0m;
 
         var normalizedDeficit = primaryMuscles.Average(muscle =>
-            Math.Max(0m, targets[muscle] - primaryVolume.GetValueOrDefault(muscle)) / targets[muscle]);
+        {
+            var deficit = Math.Max(0m, targets[muscle] - primaryVolume.GetValueOrDefault(muscle)) / targets[muscle];
+            // Hamstrings remain in the hypertrophy target range, but yield accessory/compound
+            // allocation priority to quads, glutes and calves when session time is constrained.
+            var importance = muscle == TrainingMuscleGroup.Hamstrings ? 0.5m : 1m;
+            return deficit * importance;
+        });
         return normalizedDeficit > 0m ? normalizedDeficit : 0m;
     }
 
