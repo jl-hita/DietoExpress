@@ -87,7 +87,7 @@ export class AdminExerciseReviewComponent implements OnInit {
   items: ExerciseReviewItem[] = []; stats: ExerciseReviewStats | null = null; drafts: Record<string, any> = {}; query = ''; status = 'pending'; loading = false; saving = '';
   readonly pageSize = 100; pageOffset = 0;
   get pageNumber(): number { return Math.floor(this.pageOffset / this.pageSize) + 1; }
-  patterns = ['Squat','Hinge','HorizontalPush','VerticalPush','HorizontalPull','VerticalPull','SingleLeg','Core','Carry','Rotation','Mobility','Cardio'];
+  patterns = ['Squat','Hinge','HorizontalPush','VerticalPush','HorizontalPull','VerticalPull','SingleLeg','Core','Accessory','Carry','Rotation','Mobility','Cardio'];
   constructor(private http: HttpClient, private snack: MatSnackBar, private changeDetector: ChangeDetectorRef) {}
   ngOnInit(): void { this.load(); }
   resetAndLoad(): void { this.pageOffset = 0; this.load(); }
