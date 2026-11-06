@@ -83,3 +83,57 @@ De los 91 seleccionados, 89 tienen las dos imágenes `start` y `peak`; `dumbbell
 5. Revisar los avisos de volumen y los escenarios con restricciones de equipamiento en la siguiente fase del checklist.
 
 **Conclusión:** la exportación de 466 registros está inventariada y la selección inicial se ha ampliado a 91 ejercicios con criterios explícitos. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la carencia de tibial anterior, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
+
+
+### Disposición individual de los 40 pendientes no seleccionados
+
+Estos registros no entran en la biblioteca inicial porque su función ya está cubierta por una opción más progresable, son variantes secundarias o pertenecen a otro tipo de entrenamiento. No se marcan como inseguros:
+
+| ID | Decisión para el generador inicial |
+|---|---|
+| `sit-ups` | Cubierto por crunch en máquina/cable. |
+| `rear-delt-fly` | Cubierto por reverse fly con mancuerna y máquina. |
+| `db-fly` | Cubierto por aperturas en polea y pec-deck. |
+| `good-morning` | Bisagra más técnica; se priorizan peso muerto y RDL. |
+| `sandbag-carry` | Transporte/condicionamiento, no prioridad de hipertrofia. |
+| `dead-hang` | Isométrico pasivo de agarre, no una opción principal de progresión muscular. |
+| `ez-bar-curl` | Variante redundante frente a curl con barra, polea, inclinado y predicador. |
+| `bicep-curl` | Variante redundante frente a los curls seleccionados. |
+| `reverse-curl` | Accesorio de antebrazo/braquial; se prioriza el curl martillo. |
+| `close-grip-pull-ups` | Cubierto por dominadas y chin-ups. |
+| `hanging-leg-raise` | Se priorizan elevaciones de rodillas colgado y silla romana, más escalables. |
+| `db-shrug` | Se selecciona el encogimiento con barra; la variante con mancuerna queda como alternativa futura. |
+| `back-extension` | Cubierto por extensión lumbar en máquina. |
+| `ez-bar-lying-tricep-extension` | Redundante frente a skull-crusher y extensión por encima de la cabeza. |
+| `decline-push-up` | Cubierto por flexión estándar e inclinada. |
+| `ring-dips` | Variante avanzada e inestable; no es primera opción general. |
+| `dips` | No priorizado frente a presses de pecho y aislamientos de tríceps. |
+| `russian-twist` | Se priorizan Pallof y plancha lateral, con progresión más controlable. |
+| `warrior-one` | Postura de yoga/equilibrio, fuera del generador de fuerza. |
+| `kettlebell-halo` | Movilidad/prehabilitación de hombro, no trabajo principal de fuerza. |
+| `planche-lean-floor` | Habilidad específica de calistenia. |
+| `behind-the-neck-lat-pulldown` | Se descarta la variante tras nuca; se usa jalón al pecho. |
+| `kettlebell-sumo-high-pull` | Tirón explosivo técnico, fuera de la primera biblioteca general. |
+| `double-kettlebell-jerk` | Movimiento balístico/técnico de potencia. |
+| `kettlebell-turkish-get-ups` | Habilidad compleja de cuerpo completo, no necesaria para la rutina general. |
+| `hollow-body-hold` | Isométrico de core; menor prioridad que opciones cargables/escalables. |
+| `dumbbell-windmill` | Movilidad y coordinación, no prioridad de hipertrofia. |
+| `kettlebell-windmills` | Variante de movilidad/coordinación; misma decisión. |
+| `sumo-deadlift` | Variante de peso muerto; ya hay peso muerto convencional, hex-bar y RDL. |
+| `close-grip-bench-press` | Variante de énfasis en tríceps; se prioriza banca estándar y aislamientos. |
+| `decline-bench-press` | Ángulo redundante frente a banca plana/inclinada y máquinas. |
+| `seated-db-press` | Redundante frente a press de hombro con mancuerna y máquina. |
+| `dumbbell-floor-press` | Redundante frente a press banca con mancuernas y máquina. |
+| `barbell-pullover` | Variante redundante de aislamiento de dorsal. |
+| `db-pullover` | Se prioriza jalón y jalón con brazos rectos, más fáciles de estandarizar. |
+| `downward-dog-to-knee-drive` | Flujo de movilidad/condicionamiento, no fuerza progresiva principal. |
+| `db-skull-crusher` | Redundante frente a skull-crusher y extensión overhead. |
+| `landmine-single-arm-overhead-hold` | Isométrico de estabilidad, no prioridad de hipertrofia. |
+| `toes-to-bar` | Habilidad avanzada de core; se priorizan elevaciones de rodillas. |
+| `db-lunge` | Redundante frente a zancada inversa, búlgara y step-ups. |
+
+### Disposición de los rechazados de fuerza
+
+De los 58 registros rechazados de categoría fuerza, dos se incorporan con una decisión explícita y corrección (`cable-external-rotation` y `hammer-curl`). Los otros 56 quedan fuera de la biblioteca inicial por ser ejercicios de rehabilitación/activación, variantes redundantes de menor prioridad, habilidades avanzadas de calistenia, posiciones de yoga/Pilates o trabajo de potencia/condicionamiento. Esto incluye, entre otros, `banded-clamshell`, `bird-dog`, `sled-push`, `front-lever`, `human-flag`, `muscle-ups`, `handstand-hold`, `jefferson-curl`, `medicine-ball-slam`, `wall-ball` y `band-pull-apart`. El resto de rechazados son 89 ejercicios de estiramiento y 17 de cardio, ajenos al alcance de este generador.
+
+La selección de 91 no pretende ser el catálogo universal de todo ejercicio útil. Define el conjunto inicial que el motor puede prescribir con reglas, progresión y equipamiento conocidos. Las alternativas fuera de alcance podrán incorporarse después de una revisión específica.
