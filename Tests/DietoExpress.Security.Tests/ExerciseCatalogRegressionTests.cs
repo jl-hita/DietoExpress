@@ -330,6 +330,39 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
+    public void ScalableCuratedExercises_AreEligibleForBeginnerPrograms()
+    {
+        var reviewer = typeof(TrainingProgramGenerator).Assembly
+            .GetType("Anguloso.Server.Logica.RepDbExerciseAutoReviewer");
+        Assert.NotNull(reviewer);
+        var build = reviewer!.GetMethod("TryBuild", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+        Assert.NotNull(build);
+
+        var cases = new[]
+        {
+            (Id: "dumbbell-romanian-deadlift", Equipment: "dumbbell", Muscles: """["gluteus_maximus"]"""),
+            (Id: "hip-thrust", Equipment: "barbell", Muscles: """["gluteus_maximus"]"""),
+            (Id: "machine-shoulder-press", Equipment: "shoulder_press_machine", Muscles: """["anterior_deltoid"]"""),
+            (Id: "cable-crunch", Equipment: "cable", Muscles: """["rectus_abdominis"]"""),
+            (Id: "cable-pallof-press", Equipment: "cable", Muscles: """["obliques"]"""),
+            (Id: "side-plank", Equipment: "bodyweight", Muscles: """["obliques"]""")
+        };
+
+        foreach (var item in cases)
+        {
+            var metadata = build!.Invoke(null, new object?[]
+            {
+                item.Id, item.Id, item.Id, "Descripción de prueba suficientemente completa.",
+                """["Primera instrucción suficientemente clara.","Segunda instrucción suficientemente clara."]""",
+                "intermediate", item.Equipment, null, null, null, item.Muscles, "[]",
+                """["strength"]""", "[]", item.Equipment == "bodyweight"
+            });
+            Assert.NotNull(metadata);
+            Assert.Equal("Beginner", metadata!.GetType().GetProperty("MinimumExperience")!.GetValue(metadata));
+        }
+    }
+
+    [Fact]
     public void IdealCatalogBootstrapReplacesOnlyRepDbRowsAndPreservesProfessionalContributions()
     {
         var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ExerciseCatalogService.cs"));
