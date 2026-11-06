@@ -153,6 +153,8 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("lateral raise", autoReviewer);
         Assert.Contains("curl femoral", autoReviewer);
         Assert.Contains("var selectionPriority = IsAccessoryExercise", autoReviewer);
+        Assert.Contains(".Append(\"GeneralFitness\")", autoReviewer);
+        Assert.Contains("EnsureRepDbGeneralFitnessGoalCurationV1Async", service);
         Assert.Contains("selectionPriority", autoReviewer);
 
         // Every anatomical identifier present in the reviewed RepDB exports must have an exact mapping.
