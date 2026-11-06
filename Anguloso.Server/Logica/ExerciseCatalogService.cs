@@ -422,7 +422,6 @@ public sealed class ExerciseCatalogService
     /// </summary>
     private async Task EnsureRepDbIdealCatalogV1Async(CancellationToken cancellationToken)
     {
-        const string marker = "exercise-catalog-ideal-strength-hypertrophy-v1";
         var completed = await _db.Database.SqlQueryRaw<bool>(
             "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-ideal-strength-hypertrophy-v1') AS \"Value\"")
             .SingleAsync(cancellationToken);
