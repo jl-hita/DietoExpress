@@ -140,7 +140,10 @@ public sealed class TrainingExerciseVolumeAdapterTests
             new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription)
         ]);
 
-        Assert.Empty(exposures);
+        var unknown = Assert.Single(exposures);
+        Assert.Equal("bench", unknown.ExerciseId);
+        Assert.Equal(0, unknown.CompletedWorkingSets);
+        Assert.Null(unknown.SkippedSetReason);
     }
 
     [Fact]
