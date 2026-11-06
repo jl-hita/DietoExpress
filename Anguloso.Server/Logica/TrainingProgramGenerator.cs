@@ -103,7 +103,7 @@ public static class TrainingProgramGenerator
                         candidate.ExerciseId,
                         candidate.CatalogVersion,
                         candidate.Name,
-                        patternIndex + 1,
+                        prescriptions.Count + 1,
                         sets,
                         minReps,
                         maxReps,
