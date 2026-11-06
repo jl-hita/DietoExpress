@@ -658,6 +658,34 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void GeneratorUsesBandHamstringCurlWhenOnlyHomeBandEquipmentIsAvailable()
+    {
+        var catalog = Catalog().Append(new TrainingExerciseCandidate(
+            "banded-standing-curl", "test", "Curl de pierna de pie con banda", TrainingMovementPattern.Accessory,
+            ["resistance-band"], [TrainingGoal.Hypertrophy, TrainingGoal.GeneralFitness],
+            TrainingExperience.Beginner, 42, true,
+            [TrainingMuscleGroup.Hamstrings], [TrainingMuscleGroup.Calves])).ToArray();
+
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                AvailableEquipment = ["resistance-band"],
+                MaximumSessionDurationMinutes = 90
+            },
+            catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        var weekOneHamstringCurls = generated.Prescription!.Sessions
+            .Where(session => session.WeekNumber == 1)
+            .SelectMany(session => session.Exercises)
+            .Where(exercise => exercise.ExerciseId == "banded-standing-curl")
+            .ToArray();
+        Assert.Single(weekOneHamstringCurls);
+        Assert.All(weekOneHamstringCurls, exercise =>
+            Assert.Equal(new[] { TrainingMuscleGroup.Hamstrings }, exercise.PrimaryMuscleGroups));
+    }
+
+    [Fact]
     public void GeneratorPrioritizesDirectQuadricepsAccessoryWhenGlutesAreAlreadyAtTarget()
     {
         var catalog = Catalog().Append(new TrainingExerciseCandidate(
