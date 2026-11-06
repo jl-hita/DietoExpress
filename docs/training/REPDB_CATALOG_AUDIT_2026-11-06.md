@@ -253,5 +253,7 @@ La evaluación conserva las series primarias/secundarias brutas y las frecuencia
 - Preferencia explícita del profesional: objetivo ±2; por ejemplo, 20 equivale a 18–22.
 - La prioridad muscular desplaza el objetivo central en incrementos de dos series por nivel, con un máximo predeterminado de 20; los objetivos priorizados usan tolerancia ±2. Los isquiotibiales conservan el rango objetivo, pero reciben menor prioridad de asignación (peso 0,5) cuando compiten por tiempo con cuádriceps, glúteos y gemelos.
 - El generador no reduce silenciosamente estos objetivos por falta de tiempo. Si no cabe el volumen dentro de la duración, informa de la dosis conseguida y del déficit respecto al rango.
+- Los objetivos conservadores de fuerza y condición general no cambian: bíceps/tríceps/abdominales mantienen la mitad del objetivo base e isquiotibiales la mitad (mínimo dos series).
+- El selector reserva accesorios directos de cuádriceps cuando el volumen de glúteos está a seis series del objetivo o menos y el volumen efectivo de cuádriceps sigue por debajo del centro; este margen anticipa las series adicionales que el asignador puede añadir después a los compuestos.
 - Estos rangos son política inicial del producto inspirada en ACSM 2026, no rangos oficiales del ACSM ni mínimos universales. El Position Stand respalda volúmenes de al menos 10 series y describe rendimientos decrecientes alrededor de 18–20 series semanales.
 
