@@ -272,6 +272,51 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("Assert.Equal(81, report.ScenarioCount)", evaluation);
     }
 
+
+    [Fact]
+    public void IdealRepDbCatalog_IsExplicitAndRejectsKnownFalsePositiveMovementNames()
+    {
+        var curationType = typeof(TrainingProgramGenerator).Assembly
+            .GetType("Anguloso.Server.Logica.RepDbExerciseCuration");
+        Assert.NotNull(curationType);
+        var ids = (string[])curationType!.GetField(
+            "CuratedCatalogIds", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
+        Assert.InRange(ids.Length, 60, 75);
+        Assert.Contains("bench-press", ids);
+        Assert.Contains("lat-pulldown", ids);
+        Assert.Contains("squat", ids);
+        Assert.Contains("romanian-deadlift", ids);
+        Assert.Contains("leg-extension", ids);
+        Assert.DoesNotContain("crow-pose", ids);
+        Assert.DoesNotContain("dumbbell-side-bend", ids);
+
+        var autoReviewer = typeof(TrainingProgramGenerator).Assembly
+            .GetType("Anguloso.Server.Logica.RepDbExerciseAutoReviewer");
+        Assert.NotNull(autoReviewer);
+        var infer = autoReviewer!.GetMethod(
+            "InferPattern", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(infer);
+        string? Pattern(string id, string es, string en) =>
+            (string?)infer!.Invoke(null, new object?[] { id, es, en, "[]", null, null, null, Array.Empty<string>() });
+
+        Assert.Null(Pattern("crow-pose", "Postura del Cuervo", "Crow Pose"));
+        Assert.Null(Pattern("dumbbell-side-bend", "Flexión lateral con mancuerna", "Dumbbell Side Bend"));
+        Assert.Equal("VerticalPull", Pattern("lat-pulldown", "Jalón al pecho", "Lat Pulldown"));
+        Assert.Equal("Squat", Pattern("front-squat", "Sentadilla frontal", "Front Squat"));
+        Assert.Equal("HorizontalPush", Pattern("db-bench-press", "Press de banca con mancuernas", "Dumbbell Bench Press"));
+    }
+
+    [Fact]
+    public void IdealCatalogBootstrapReplacesOnlyRepDbRowsAndPreservesProfessionalContributions()
+    {
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ExerciseCatalogService.cs"));
+        Assert.Contains("exercise-catalog-ideal-strength-hypertrophy-v1", service);
+        Assert.Contains("replaceRepDbOnly: true", service);
+        Assert.Contains("DELETE FROM exercise_catalog WHERE source = 'repdb-free' AND owner_user_id IS NULL", service);
+        Assert.Contains("markIdealCatalogComplete: true", service);
+        Assert.Contains("Training plans keep their historical exercise-name/ID snapshots", service);
+    }
+
     [Fact]
     public void RepDbCuration_KeepsUsefulTibialisAndRotatorCuffAccessoriesEligible()
     {
