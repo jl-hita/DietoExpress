@@ -154,6 +154,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             Assert.True(candidateCount >= 50,
                 $"The curated RepDB catalog returned only {candidateCount} approved generator candidates.");
 
+            foreach (var profile in ScenarioProfiles(candidates))
             foreach (var goal in Enum.GetValues<TrainingGoal>())
             foreach (var experience in Enum.GetValues<TrainingExperience>())
             foreach (var days in DaySets())
@@ -166,8 +167,8 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     4,
                     days,
                     durationMinutes,
-                    [],
-                    [],
+                    profile.AvailableEquipment,
+                    profile.ExcludedExerciseIds,
                     null,
                     false);
                 var generated = TrainingProgramGenerator.Generate(request, candidates);
@@ -214,7 +215,10 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     .ToArray();
 
                 scenarioResults.Add(new RealCatalogScenarioResult(
-                    $"goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}-minutes-{durationMinutes}",
+                    $"profile-{profile.Name.ToLowerInvariant()}-goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}-minutes-{durationMinutes}",
+                    profile.Name,
+                    profile.AvailableEquipment,
+                    profile.ExcludedExerciseIds,
                     goal.ToString(),
                     experience.ToString(),
                     days.Count,
@@ -238,7 +242,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var report = new RealCatalogEvaluationReport(
-            "training-generator-real-catalog-evaluation-v4",
+            "training-generator-real-catalog-evaluation-v5",
             DateTimeOffset.UtcNow,
             ExerciseCatalogService.SourceUrl,
             reviewStats?.repDbTotal ?? 0,
@@ -286,8 +290,8 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 .Max()
         }));
 
-        Assert.Equal("training-generator-real-catalog-evaluation-v4", report.SchemaVersion);
-        Assert.Equal(81, report.ScenarioCount);
+        Assert.Equal("training-generator-real-catalog-evaluation-v5", report.SchemaVersion);
+        Assert.Equal(324, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.GenerationErrorCount);
         Assert.Equal(report.CatalogTotal, report.CatalogApproved);
@@ -302,6 +306,34 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 $"{result.ScenarioId} estimated {result.MaximumEstimatedMinutes} minutes for a {result.RequestedDurationMinutes}-minute limit.");
         });
     }
+
+    private static IReadOnlyList<RealCatalogScenarioProfile> ScenarioProfiles(
+        IReadOnlyList<TrainingExerciseCandidate> candidates)
+    {
+        var excludedFallbacks = candidates
+            .Where(candidate => candidate.MovementPattern != TrainingMovementPattern.Accessory)
+            .GroupBy(candidate => candidate.MovementPattern)
+            .Where(group => group.Count() > 1)
+            .Select(group => group
+                .OrderByDescending(candidate => candidate.SelectionPriority)
+                .ThenBy(candidate => candidate.ExerciseId, StringComparer.Ordinal)
+                .First().ExerciseId)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToArray();
+
+        return
+        [
+            new("FullGym", ["barbell", "dumbbell", "bench", "pull_up_bar", "cable", "kettlebell", "ez_bar", "shoulder_press_machine", "ab_wheel", "machine"], []),
+            new("NoCableOrMachines", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "ez_bar", "bodyweight"], []),
+            new("DumbbellsBenchPullup", ["dumbbell", "bench", "pull_up_bar", "bodyweight"], []),
+            new("RestrictedWithExclusions", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "bodyweight"], excludedFallbacks)
+        ];
+    }
+
+    private sealed record RealCatalogScenarioProfile(
+        string Name,
+        IReadOnlyList<string> AvailableEquipment,
+        IReadOnlyList<string> ExcludedExerciseIds);
 
     private static bool HasImage(JsonElement images, string key) =>
         images.ValueKind == JsonValueKind.Object &&
@@ -323,6 +355,9 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
 
     private sealed record RealCatalogScenarioResult(
         string ScenarioId,
+        string EquipmentProfile,
+        IReadOnlyList<string> AvailableEquipment,
+        IReadOnlyList<string> ExcludedExerciseIds,
         string Goal,
         string Experience,
         int TrainingDaysPerWeek,
