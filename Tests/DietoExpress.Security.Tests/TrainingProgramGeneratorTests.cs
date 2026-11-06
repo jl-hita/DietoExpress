@@ -450,7 +450,7 @@ public sealed class TrainingProgramGeneratorTests
         var patterns = catalog.ToDictionary(candidate => candidate.ExerciseId, candidate => candidate.MovementPattern,
             StringComparer.Ordinal);
         var result = TrainingProgramGenerator.Generate(
-            Request() with { MaximumSessionDurationMinutes = 90 }, catalog);
+            Request() with { AvailableEquipment = ["machine"], MaximumSessionDurationMinutes = 90 }, catalog);
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         foreach (var exercise in result.Prescription!.Sessions.SelectMany(session => session.Exercises))
