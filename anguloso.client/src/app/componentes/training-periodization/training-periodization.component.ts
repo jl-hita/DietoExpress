@@ -24,7 +24,7 @@ interface GeneratedProgram {
   engineVersion: string; goal: string; startDate: string; durationWeeks: number; sessions: GeneratedSession[];
   qualityReport?: {
     methodology: string;
-    weeklyMuscleVolumes: Array<{ weekNumber: number; muscles: Array<{ muscleGroup: string; primarySets: number; secondarySets: number; primaryFrequencySessions: number; secondaryFrequencySessions: number }> }>;
+    weeklyMuscleVolumes: Array<{ weekNumber: number; muscles: Array<{ muscleGroup: string; primarySets: number; secondarySets: number; primaryFrequencySessions: number; secondaryFrequencySessions: number; estimatedEffectiveSets: number }> }>;
     warnings: string[];
   } | null;
 }
@@ -456,7 +456,8 @@ interface RepDbExercise {
                     <summary>Semana {{ week.weekNumber }} · ver series y frecuencia por grupo muscular</summary>
                     <ul>
                       <li *ngFor="let muscle of week.muscles">
-                        {{ muscle.muscleGroup }}: {{ muscle.primarySets }} series primarias / {{ muscle.secondarySets }} secundarias;
+                        {{ muscle.muscleGroup }}: {{ muscle.estimatedEffectiveSets }} series efectivas estimadas;
+                        etiquetas del catálogo: {{ muscle.primarySets }} primarias / {{ muscle.secondarySets }} secundarias;
                         frecuencia {{ muscle.primaryFrequencySessions }} sesión(es) primaria(s) / {{ muscle.secondaryFrequencySessions }} secundaria(s).
                       </li>
                     </ul>
