@@ -427,7 +427,7 @@ interface RepDbExercise {
                       <label>Objetivo semanal<input type="number" [name]="'muscleTarget' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.targetWeeklyPrimarySets" [disabled]="!muscle.enabled" min="1" max="30" placeholder="Automático" /></label>
                     </div>
                   </div>
-                  <small>La prioridad añade dos series al objetivo central por nivel (máximo predeterminado 20). Para hipertrofia: principiante 8–12, intermedio 10–16 y avanzado 12–20; los objetivos priorizados o explícitos usan ±2. Los objetivos explícitos admiten 1–30 series. Si el tiempo o el catálogo no permiten alcanzar el rango, el motor informa del déficit.</small>
+                  <small>La prioridad añade dos series al objetivo central por nivel (máximo predeterminado 20). Para hipertrofia (grupos principales): principiante 8–12, intermedio 10–16 y avanzado 12–20. Los isquiotibiales tienen una dosis predeterminada secundaria (mitad del objetivo base, mínimo dos series), que puedes elevar con prioridad u objetivo explícito. Los objetivos priorizados o explícitos usan ±2 y los explícitos admiten 1–30 series. Si el tiempo o el catálogo no permiten alcanzar el rango, el motor informa del déficit.</small>
                 </section>
                 <div class="full auto-generate-action"><button type="button" aria-label="Generar mesociclo automático" (click)="previewGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan">{{ generatingPlan ? 'Preparando propuesta…' : '✦ Generar propuesta de entrenamiento' }}</button><small>Se crearán {{ autoDurationWeeks }} semanas. Podrás revisar las sesiones y la cobertura muscular antes de guardar.</small></div>
               </div>
