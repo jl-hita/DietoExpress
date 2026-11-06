@@ -150,6 +150,7 @@ public sealed class ExerciseCatalogService
         await EnsureRepDbExerciseMetadataCurationV4Async(cancellationToken);
         await EnsureRepDbMetadataEnrichmentAsync(cancellationToken);
         await EnsureRepDbInitialReviewAsync(cancellationToken);
+        await EnsureRepDbAutomaticMetadataRefreshV1Async(cancellationToken);
         await EnsureRepDbGeneralFitnessGoalCurationV1Async(cancellationToken);
         await EnsureRepDbAccessoryPatternCurationV1Async(cancellationToken);
         await EnsureRepDbSelectionPriorityCurationV1Async(cancellationToken);
@@ -1062,6 +1063,135 @@ public sealed class ExerciseCatalogService
         catch
         {
             throw;
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
+    /// <summary>
+    /// Enriches the already-imported RepDB catalog once. Only untouched pending RepDB rows are eligible;
+    /// the marker and updates commit atomically and subsequent starts never overwrite human reviews.
+    /// </summary>
+    private async Task EnsureRepDbAutomaticMetadataRefreshV1Async(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-automatic-metadata-refresh-v1";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            var rows = new List<(string Id, RepDbExerciseAutoReviewer.ReviewMetadata? Metadata)>();
+            const string selectSql = """
+                SELECT exercise_id, name_es, name_en, description_es, instructions_es::text, difficulty,
+                       equipment, force_type, mechanic, body_part, primary_muscles::text,
+                       secondary_muscles::text, goals::text, tags::text, is_bodyweight
+                FROM exercise_catalog
+                WHERE source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                FOR UPDATE
+                """;
+            await using (var select = new NpgsqlCommand(selectSql, connection, transaction))
+            await using (var reader = await select.ExecuteReaderAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var id = reader.GetString(0);
+                    var metadata = RepDbExerciseAutoReviewer.TryBuild(
+                        id, NullableString(reader, 1), reader.GetString(2), NullableString(reader, 3),
+                        reader.GetString(4), NullableString(reader, 5), NullableString(reader, 6), NullableString(reader, 7),
+                        NullableString(reader, 8), NullableString(reader, 9), reader.GetString(10), reader.GetString(11),
+                        reader.GetString(12), reader.GetString(13), reader.IsDBNull(14) ? null : reader.GetBoolean(14));
+                    rows.Add((id, metadata));
+                }
+            }
+
+            const string updateApprovedSql = """
+                UPDATE exercise_catalog SET
+                    reviewed_movement_pattern = @pattern,
+                    reviewed_primary_muscles = @primary::jsonb,
+                    reviewed_secondary_muscles = @secondary::jsonb,
+                    reviewed_minimum_experience = @experience,
+                    reviewed_suitable_goals = @goals::jsonb,
+                    reviewed_required_equipment = @equipment::jsonb,
+                    reviewed_selection_priority = @priority,
+                    review_notes = @notes,
+                    reviewed_at = NOW(),
+                    reviewed_by = 'RepDB automatic metadata v5',
+                    updated_at = NOW()
+                WHERE exercise_id = @id AND source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                """;
+            const string returnToPendingSql = """
+                UPDATE exercise_catalog SET
+                    review_status = 'pending', reviewed = FALSE,
+                    reviewed_movement_pattern = NULL,
+                    reviewed_primary_muscles = NULL,
+                    reviewed_secondary_muscles = NULL,
+                    reviewed_minimum_experience = NULL,
+                    reviewed_suitable_goals = NULL,
+                    reviewed_required_equipment = NULL,
+                    reviewed_selection_priority = 50,
+                    review_notes = @notes,
+                    reviewed_at = NULL, reviewed_by = NULL, updated_at = NOW()
+                WHERE exercise_id = @id AND source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                """;
+
+            var refreshed = 0;
+            var reopened = 0;
+            foreach (var row in rows)
+            {
+                if (row.Metadata is null)
+                {
+                    await using var update = new NpgsqlCommand(returnToPendingSql, connection, transaction);
+                    Add(update, "id", row.Id);
+                    Add(update, "notes", "Pendiente de revisión manual: las reglas actuales no permiten validar con seguridad sus metadatos para el generador.");
+                    reopened += await update.ExecuteNonQueryAsync(cancellationToken);
+                    continue;
+                }
+
+                await using (var update = new NpgsqlCommand(updateApprovedSql, connection, transaction))
+                {
+                    Add(update, "id", row.Id);
+                    Add(update, "pattern", row.Metadata.MovementPattern);
+                    Add(update, "primary", JsonSerializer.Serialize(row.Metadata.PrimaryMuscles));
+                    Add(update, "secondary", JsonSerializer.Serialize(row.Metadata.SecondaryMuscles));
+                    Add(update, "experience", row.Metadata.MinimumExperience);
+                    Add(update, "goals", JsonSerializer.Serialize(row.Metadata.SuitableGoals));
+                    Add(update, "equipment", JsonSerializer.Serialize(row.Metadata.RequiredEquipment));
+                    Add(update, "priority", row.Metadata.SelectionPriority);
+                    Add(update, "notes", row.Metadata.Notes + " Actualización de reglas de curación v5.");
+                    refreshed += await update.ExecuteNonQueryAsync(cancellationToken);
+                }
+            }
+
+            await using (var mark = new NpgsqlCommand(
+                "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING", connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+            _logger.LogInformation(
+                "RepDB automatic metadata refresh v5 updated {RefreshedCount} approvals and returned {PendingCount} uncertain records to manual review.",
+                refreshed, reopened);
         }
         finally
         {
