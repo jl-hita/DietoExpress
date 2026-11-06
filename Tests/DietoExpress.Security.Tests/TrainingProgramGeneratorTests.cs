@@ -527,12 +527,15 @@ public sealed class TrainingProgramGeneratorTests
         var generated = TrainingProgramGenerator.Generate(request, catalog);
 
         Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
-        var upper = generated.Prescription!.Sessions.Single(session =>
-            session.WeekNumber == 1 && session.Title == "Tren superior A");
-        var lower = generated.Prescription.Sessions.Single(session =>
-            session.WeekNumber == 1 && session.Title == "Tren inferior A");
-        Assert.Contains(upper.Exercises, exercise => exercise.ExerciseId == "biceps-curl");
-        Assert.Contains(lower.Exercises, exercise => exercise.ExerciseId == "leg-extension");
+        var weekOne = generated.Prescription!.Sessions.Where(session => session.WeekNumber == 1).ToArray();
+        var upperSessions = weekOne.Where(session => session.Title.StartsWith("Tren superior", StringComparison.Ordinal)).ToArray();
+        var lowerSessions = weekOne.Where(session => session.Title.StartsWith("Tren inferior", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(2, upperSessions.Length);
+        Assert.Equal(2, lowerSessions.Length);
+        Assert.All(upperSessions, session =>
+            Assert.Contains(session.Exercises, exercise => exercise.ExerciseId == "biceps-curl"));
+        Assert.All(lowerSessions, session =>
+            Assert.Contains(session.Exercises, exercise => exercise.ExerciseId == "leg-extension"));
     }
 
     [Fact]
