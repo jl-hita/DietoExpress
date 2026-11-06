@@ -356,7 +356,7 @@ public static class TrainingProgramVolumeAllocator
 /// <summary>
 /// A target value is the central weekly effective-set objective. The historical property name
 /// TargetWeeklyPrimarySets is retained to preserve existing API request compatibility.
-— </summary>
+/// </summary>
 public sealed record TrainingMuscleVolumeTarget(
     TrainingMuscleGroup MuscleGroup,
     int Priority = 0,
