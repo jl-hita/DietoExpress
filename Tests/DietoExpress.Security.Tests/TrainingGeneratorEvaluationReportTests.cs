@@ -125,7 +125,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
             .ToHashSet(StringComparer.Ordinal);
         Assert.Contains("leg-curl", selectedExerciseIds);
         Assert.Contains("lateral-raise", selectedExerciseIds);
-        Assert.Contains(scenarios.SelectMany(scenario => scenario.Plan!.QualityReport!.Warnings),
+        Assert.DoesNotContain(scenarios.SelectMany(scenario => scenario.Plan!.QualityReport!.Warnings),
             warning => warning.Contains("estimación de volumen efectivo", StringComparison.OrdinalIgnoreCase));
         Assert.All(scenarios, scenario =>
         {
