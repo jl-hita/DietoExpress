@@ -377,14 +377,14 @@ public sealed class TrainingProgramGeneratorTests
         var weekFourQuads = report.WeeklyMuscleVolumes.Single(week => week.WeekNumber == 4)
             .Muscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Quadriceps);
 
-        // This compact fixture has no quadriceps-isolation candidate: adding sets to the
-        // available compound lifts would overshoot glute volume. The allocator preserves balance
-        // and reports the unmet direct target instead of forcing the nominal number.
-        Assert.InRange(weekOneQuads.PrimarySets, 1, 6);
+        // Multi-primary compounds remain eligible when one of their primary muscles is
+        // under target. The allocator may slightly exceed another muscle's target rather than
+        // leaving a preventable quadriceps deficit solely because glutes reached target first.
+        Assert.Equal(6, weekOneQuads.PrimarySets);
         Assert.Equal(2, weekOneQuads.PrimaryFrequencySessions);
         Assert.Equal(weekOneQuads.PrimarySets, weekTwoQuads.PrimarySets);
         Assert.Equal(weekOneQuads.PrimarySets, weekFourQuads.PrimarySets);
-        Assert.Contains(report.Warnings, warning =>
+        Assert.DoesNotContain(report.Warnings, warning =>
             warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
         Assert.DoesNotContain(report.Warnings, warning =>
             warning.Contains("volumen efectivo", StringComparison.OrdinalIgnoreCase));
