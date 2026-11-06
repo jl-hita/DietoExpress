@@ -43,6 +43,10 @@ public static class TrainingExerciseProgressionEngine
             return Recommendation(TrainingExerciseProgressionAction.HoldAndReview,
                 "La última exposición no se completó. Mantén la carga y revisa el motivo antes de progresar.");
 
+        if (!exposures[^1].ProgressionEligible)
+            return Recommendation(TrainingExerciseProgressionAction.HoldAndReview,
+                "La última exposición pertenecía a una fase de descarga o no progresable. Mantén la carga y confirma el rendimiento en una sesión normal antes de progresar.");
+
         var latest = AnalyzeExposure(prescription, exposures[^1]);
         if (!latest.IsUsable)
             return Recommendation(latest.Invalid ? TrainingExerciseProgressionAction.InvalidData : TrainingExerciseProgressionAction.HoldAndReview,
@@ -84,7 +88,8 @@ public static class TrainingExerciseProgressionEngine
         for (var index = exposures.Length - 2; index >= 0; index--)
         {
             var previous = AnalyzeExposure(prescription, exposures[index]);
-            if (!exposures[index].SessionCompleted || !previous.IsUsable || previous.BelowTargetRir || previous.BelowMinimumRepetitions ||
+            if (!exposures[index].ProgressionEligible || !exposures[index].SessionCompleted ||
+                !previous.IsUsable || previous.BelowTargetRir || previous.BelowMinimumRepetitions ||
                 !previous.AtTopOfRange || previous.LoadKg != latest.LoadKg ||
                 exposures[index].RecoveryInsufficient || exposures[index].PainReported)
                 break;
@@ -228,7 +233,8 @@ public sealed record TrainingExerciseExposure(
     IReadOnlyList<TrainingExecutedSet> WorkingSets,
     bool SessionCompleted = true,
     bool RecoveryInsufficient = false,
-    bool PainReported = false);
+    bool PainReported = false,
+    bool ProgressionEligible = true);
 
 public sealed record TrainingExecutedSet(
     string Kind,
