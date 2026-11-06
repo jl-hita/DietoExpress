@@ -75,6 +75,11 @@ internal static class RepDbExerciseAutoReviewer
 
         var requiredEquipment = MapEquipment(equipment ?? "", isBodyweight);
         if (requiredEquipment is null) return null;
+        // Some RepDB exercises declare extra mandatory equipment in tags rather than equipment.
+        // A tibialis raise needs a bench to support the working leg as well as the kettlebell.
+        if (Has(tagsJson, "requires_bench", "requires bench"))
+            requiredEquipment = requiredEquipment.Append("bench")
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
         // Accessory work is selected only after the main patterns and only when it addresses
         // an unmet muscle target; priority breaks ties between compatible accessories.
