@@ -42,6 +42,22 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void TwoDayFullBodySplitBalancesTwoSquatExposuresWithOneHipHingeExposure()
+    {
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { DurationWeeks = 1 }, Catalog());
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        var exercises = result.Prescription!.Sessions
+            .SelectMany(session => session.Exercises)
+            .ToArray();
+
+        Assert.Equal(2, exercises.Count(exercise => exercise.ExerciseId == "squat-basic"));
+        Assert.Single(exercises.Where(exercise => exercise.ExerciseId == "exercise-hinge"));
+        Assert.Single(exercises.Where(exercise => exercise.ExerciseId == "exercise-singleleg"));
+    }
+
+    [Fact]
     public void SessionDurationEstimateAccountsForGoalRestAndWorkInsteadOfFixedPatternCount()
     {
         var general = TrainingProgramGenerator.Generate(
