@@ -68,9 +68,9 @@ internal static class RepDbExerciseAutoReviewer
 
         // Accessory work is selected only after the main patterns and only when it addresses
         // an unmet muscle target; priority breaks ties between compatible accessories.
-        var selectionPriority = IsAccessoryExercise(id, nameEs, nameEn)
-            ? 55
-            : pattern is "Squat" or "Hinge" or "HorizontalPush" or "HorizontalPull" ? 85 : 75;
+        var selectionPriority = GetSelectionPriority(id, nameEs, nameEn, pattern);
+
+
 
         return new ReviewMetadata(pattern, primary, secondary, exp, goals, requiredEquipment,
             selectionPriority,
@@ -108,6 +108,31 @@ internal static class RepDbExerciseAutoReviewer
 
         // Do not infer a movement pattern from muscle group alone: several patterns share muscles.
         return null;
+    }
+
+    internal static int GetSelectionPriority(string id, string? nameEs, string nameEn, string? movementPattern)
+    {
+        var text = Normalize(string.Join(' ', id, nameEs, nameEn));
+
+        if (string.Equals(movementPattern, "Accessory", StringComparison.Ordinal))
+        {
+            // Prefer loadable isolation work; bodyweight/band variants remain valid options
+            // but should not win a tie over scalable machine, cable, barbell or dumbbell work.
+            if (Has(text, "bodyweight", "banded", "resistance band", "trx", "ring")) return 42;
+            if (Has(text, "machine", "cable", "barbell", "dumbbell", "mancuerna", "polea", "maquina")) return 72;
+            return 58;
+        }
+
+        // Explicit product curation: stable, measurable basics win over assisted or lightly
+        // loadable variants when both satisfy the same pattern, goal, experience and equipment.
+        if (Has(text, "bodyweight", "banded", "resistance band", "trx", "ring", "assisted")) return 62;
+        if (Has(text, "bench press", "press de banca", "lat pulldown", "jalon al pecho",
+            "seated cable row", "remo sentado en polea", "leg press", "prensa de piernas",
+            "hack squat", "goblet squat", "sentadilla goblet", "romanian deadlift",
+            "peso muerto rumano", "deadlift", "peso muerto", "hip thrust",
+            "machine shoulder press", "press de hombros en maquina")) return 96;
+
+        return movementPattern is "Squat" or "Hinge" or "HorizontalPush" or "HorizontalPull" ? 85 : 75;
     }
 
     private static bool IsAccessoryExercise(string id, string? nameEs, string nameEn)
