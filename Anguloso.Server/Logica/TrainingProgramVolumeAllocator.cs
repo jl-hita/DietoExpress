@@ -204,8 +204,26 @@ public static class TrainingProgramVolumeAllocator
             _ => experience == TrainingExperience.Beginner ? 4m : 6m
         };
 
-        var targets = Enum.GetValues<TrainingMuscleGroup>()
-            .ToDictionary(muscle => muscle, _ => baseline);
+        // Do not assign a universal weekly set quota to every anatomical label. The default
+        // dose applies to the main muscle groups typically trained in general strength/hypertrophy
+        // programs. Smaller/accessory groups (e.g. hip flexors, obliques, adductors, abductors,
+        // serratus, tibialis anterior and rotator cuff) receive direct volume when the professional
+        // explicitly prioritizes them, rather than creating automatic deficits in every plan.
+        var defaultTargetMuscles = new[]
+        {
+            TrainingMuscleGroup.Chest,
+            TrainingMuscleGroup.Lats,
+            TrainingMuscleGroup.UpperBack,
+            TrainingMuscleGroup.Deltoids,
+            TrainingMuscleGroup.Biceps,
+            TrainingMuscleGroup.Triceps,
+            TrainingMuscleGroup.Glutes,
+            TrainingMuscleGroup.Quadriceps,
+            TrainingMuscleGroup.Hamstrings,
+            TrainingMuscleGroup.Calves,
+            TrainingMuscleGroup.Abdominals
+        };
+        var targets = defaultTargetMuscles.ToDictionary(muscle => muscle, _ => baseline);
         foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
             targets[preference.MuscleGroup] = preference.TargetWeeklyPrimarySets ?? baseline + preference.Priority * 2m;
         return targets;
