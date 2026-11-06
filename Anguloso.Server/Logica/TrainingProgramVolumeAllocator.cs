@@ -249,7 +249,6 @@ public static class TrainingProgramVolumeAllocator
             TrainingMuscleGroup.Deltoids,
             TrainingMuscleGroup.Glutes,
             TrainingMuscleGroup.Quadriceps,
-            TrainingMuscleGroup.Hamstrings,
             TrainingMuscleGroup.Calves
         };
         // Direct work for smaller muscles is supplemental to compound pressing/pulling and
