@@ -170,6 +170,11 @@ public static class TrainingExerciseProgressionEngine
         if (sets.Any(x => x.WeightKg != load))
             return ExposureAnalysis.Failure("Las series usan cargas distintas. No se calcula una progresión única hasta que la prescripción modele esas cargas.", invalid: true);
 
+        if (sets.Any(x => x.Repetitions!.Value > prescription.MaxRepetitions))
+            return ExposureAnalysis.Failure(
+                "Se han registrado repeticiones por encima del máximo prescrito. Revisa el registro antes de calcular una progresión.",
+                invalid: true);
+
         var belowMinimum = sets.Any(x => x.Repetitions!.Value < prescription.MinRepetitions);
         var belowRir = prescription.TargetRir is not null &&
                        sets.Any(x => x.Rir is null || x.Rir.Value < prescription.TargetRir.Value);

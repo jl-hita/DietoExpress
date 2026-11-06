@@ -189,6 +189,17 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void RepetitionsAbovePrescribedMaximum_AreInvalidAndNeverTriggerLoadIncrease()
+    {
+        var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(),
+            [Exposure(13), Exposure(13)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.InvalidData, result.Action);
+        Assert.Null(result.SuggestedLoadKg);
+        Assert.Null(result.LoadIncreaseKg);
+    }
+
+    [Fact]
     public void LowRepetitions_HoldRatherThanAutomaticallyReducingOrIncreasingLoad()
     {
         var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(),
