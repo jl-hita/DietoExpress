@@ -11,7 +11,7 @@
 
 Se contrastó la exportación local con el repositorio oficial [RepDB/exercise-dataset](https://github.com/RepDB/exercise-dataset), snapshot `66c4298af8d99b9dc397dad6699e508fb871d249`. El JSON oficial contiene 701 ejercicios. Los 466 IDs locales existen en esa versión oficial; no hay IDs locales obsoletos ni desaparecidos. Sin embargo, la base local no contenía 235 ejercicios de la fuente oficial: 214 de fuerza, 16 olímpicos, 4 pliométricos y 1 de cardio.
 
-Los 214 ejercicios de fuerza ausentes incluyen muchas variantes de patrones ya cubiertos y movimientos avanzados o especializados. Se compararon músculos primarios, material, dificultad, objetivos y grupos de variación. La carencia funcional más clara que no estaba cubierta por los 91 seleccionados era el tibial anterior: el origen oficial sí contiene `kettlebell-tibialis-raise`, con instrucciones en español y dos imágenes. Se incorpora a la selección.
+Los 214 ejercicios de fuerza ausentes incluyen muchas variantes de patrones ya cubiertos y movimientos avanzados o especializados. Se compararon músculos primarios, material, dificultad, objetivos y grupos de variación. El catálogo oficial contiene `kettlebell-tibialis-raise`, con instrucciones en español y dos imágenes. Se conserva como accesorio especializado opcional, pero el trabajo directo de tibial anterior no se considera una carencia prioritaria ni un requisito para hipertrofia general o para cerrar P1.
 
 La licencia de RepDB permite uso comercial dentro de aplicaciones con atribución visible, pero no redistribuir el dataset como producto independiente. Se mantiene la atribución visible en el editor de entrenamiento y también en el README público del proyecto. No se utilizarán los recursos de `premium-samples/`, que son solo de evaluación.
 
@@ -76,7 +76,7 @@ De los 92 seleccionados, 90 tienen las dos imágenes `start` y `peak`; `dumbbell
 
 ## Hallazgos anatómicos y de metadatos
 
-- En la exportación local de 466 registros no había ningún ejercicio con `tibialis_anterior` como músculo primario; solo aparecía en dos asignaciones secundarias. El contraste con los 701 registros oficiales encontró `kettlebell-tibialis-raise`, que sí lo tiene como músculo primario. Se añade con sus instrucciones e imágenes oficiales y con doble requisito de equipamiento (`bench` + `kettlebell`), derivado de la etiqueta `requires_bench`.
+- En la exportación local de 466 registros no había ningún ejercicio con `tibialis_anterior` como músculo primario; solo aparecía en dos asignaciones secundarias. El contraste con los 701 registros oficiales encontró `kettlebell-tibialis-raise`. Se conserva como opción especializada, con sus instrucciones e imágenes oficiales y doble requisito de equipamiento (`bench` + `kettlebell`), pero no se usa como indicador de cobertura general del tren inferior.
 - El catálogo de origen contiene 16 registros con romboides como músculo primario y 16 con trapecio como primario. La selección añade `shrug` y conserva remos con romboides/espalda alta, pero el volumen efectivo de espalda alta debe validarse en el generador, no inferirse por el número de ejercicios.
 - Isquiotibiales aparecen como primarios en 44 registros; cuádriceps en 69. La biblioteca seleccionada incluye curls femorales, Nordic, bisagras, sentadillas, prensa y extensiones. Las advertencias de volumen del informe de generación no se resolverán simplemente acumulando variantes: habrá que revisar el asignador y las restricciones por escenario.
 - Se detectaron tres diferencias entre la musculatura exterior curada y el payload original: `sit-ups`, `hex-bar-deadlift` y `cossack-squat`. Se conservan como correcciones explícitas en `RepDbExerciseCuration.CurateMusclesJson` y quedan cubiertas por una prueba de regresión; no se sobrescriben silenciosamente con los datos externos.
@@ -87,11 +87,11 @@ De los 92 seleccionados, 90 tienen las dos imágenes `start` y `peak`; `dumbbell
 
 1. Integrar y validar conjuntamente las correcciones de metadatos de PR #503 y el catálogo curado de PR #504.
 2. Verificar en el informe de evaluación que los 92 ejercicios seleccionados son candidatos reales y que las imágenes/instrucciones se conservan tras importar.
-3. Validar la incorporación de `kettlebell-tibialis-raise` desde el upstream, incluidos su patrón accesorio y el requisito de banco + kettlebell.
+3. Validar que `kettlebell-tibialis-raise` permanece como accesorio especializado opcional y que no desplaza ejercicios prioritarios ni condiciona la generación de rutinas generales.
 4. Comprobar la disponibilidad real de las imágenes y su visualización en portal y Android.
 5. Revisar los avisos de volumen y los escenarios con restricciones de equipamiento en la siguiente fase del checklist.
 
-**Conclusión:** la exportación local de 466 registros y el upstream oficial de 701 están contrastados, y la selección inicial se ha ampliado a 92 ejercicios con criterios explícitos. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la validación del ejercicio de tibial anterior, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
+**Conclusión:** la exportación local de 466 registros y el upstream oficial de 701 están contrastados, y la selección inicial se ha ampliado a 92 ejercicios con criterios explícitos. El tibial anterior queda como accesorio opcional, no como requisito de cobertura. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
 
 
 ### Disposición individual de los 40 pendientes no seleccionados
