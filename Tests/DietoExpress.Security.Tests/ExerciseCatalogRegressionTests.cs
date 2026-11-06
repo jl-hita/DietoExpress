@@ -56,8 +56,8 @@ public sealed class ExerciseCatalogRegressionTests
 
         var metadataType = metadata.GetType();
         Assert.Equal("Accessory", metadataType.GetProperty("MovementPattern")!.GetValue(metadata));
-        Assert.Equal(new[] { "Biceps" },
-            metadataType.GetProperty("PrimaryMuscles")!.GetValue(metadata));
+        var primaryMuscles = (string[])metadataType.GetProperty("PrimaryMuscles")!.GetValue(metadata)!;
+        Assert.Equal(new[] { "Biceps" }, primaryMuscles);
         Assert.Contains(equipment,
             (string[])metadataType.GetProperty("RequiredEquipment")!.GetValue(metadata)!);
     }
