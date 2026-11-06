@@ -101,6 +101,14 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             reviewStats = await catalogService.GetReviewStatsAsync();
             candidates = await catalogService.LoadGeneratorCandidatesAsync(ownerUserId: 0);
             candidateCount = candidates.Count;
+
+            // Knee-flexion hamstring curls must be available as isolation accessories, not
+            // misclassified as hip hinges where they lose to deadlift/RDL pattern selection.
+            foreach (var exerciseId in new[] { "leg-curl", "seated-leg-curl", "nordic-hamstring-curl" })
+            {
+                var candidate = candidates.Single(item => item.ExerciseId == exerciseId);
+                Assert.Equal(TrainingMovementPattern.Accessory, candidate.MovementPattern);
+            }
             await using (var reviewAudit = new NpgsqlCommand("""
                 SELECT exercise_id, review_status,
                        COALESCE(review_notes, ''),
