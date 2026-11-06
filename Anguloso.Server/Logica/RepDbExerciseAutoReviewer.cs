@@ -80,6 +80,9 @@ internal static class RepDbExerciseAutoReviewer
         string? force, string? mechanic, string? bodyPart, string[] muscles)
     {
         var text = Normalize(string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))));
+        // Isolations/accessories have their own optional generator slots; they must not
+        // displace the primary compound movement chosen for a broad movement pattern.
+        if (IsAccessoryExercise(id, es, en)) return "Accessory";
         // Strong name/ID cues first; ambiguous exercises stay pending.
         if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press", "landmine press", "push press",
             "pike push ups", "pike push-up", "flexiones en pica", "dips", "fondos")) return "VerticalPush";
@@ -100,24 +103,7 @@ internal static class RepDbExerciseAutoReviewer
             "farmer's walk", "suitcase carry", "overhead carry", "bench leg pull-in", "bench leg pull in",
             "ab rollout", "ab wheel", "rueda abdominal", "v-up", "v up", "tuck hold")) return "Core";
 
-        // Useful isolation exercises are approved too. Map them to the nearest supported pattern
-        // so they remain compatible with the current generator contract; their lower priority keeps
-        // them behind compound movements when both are available.
-        if (Has(text, "lateral raise", "elevacion lateral", "front raise", "elevacion frontal",
-            "shoulder fly", "elevacion de hombro")) return "VerticalPush";
-        if (Has(text, "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho")) return "HorizontalPush";
-        if (Has(text, "face pull", "reverse fly", "rear delt fly", "curl de biceps", "bicep curl",
-            "preacher curl", "concentration curl", "forearm curl", "wrist curl", "curl de antebrazo",
-            "pullover", "shrug", "encogimiento de hombros", "sled row", "remo con trineo",
-            "straight-arm pulldown", "straight arm pulldown", "jalon con brazos rectos",
-            "plate pinch", "pinza de discos", "wrist roller", "curl")) return "HorizontalPull";
-        if (Has(text, "tricep extension", "triceps extension", "tricep pushdown", "skull crusher",
-            "extension de triceps", "jalon de triceps")) return "HorizontalPush";
-        if (Has(text, "leg extension", "quadriceps extension", "extension de cuadriceps")) return "Squat";
-        if (Has(text, "leg curl", "hamstring curl", "curl femoral", "nordic hamstring")) return "Hinge";
-        if (Has(text, "calf raise", "calf press", "elevacion de talones", "gemelos")) return "SingleLeg";
-        if (Has(text, "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera",
-            "glute kickback", "patada de gluteos", "cable kickback")) return "SingleLeg";
+        // Ambiguous exercises stay pending rather than being forced into a compound pattern.
 
         // Do not infer a movement pattern from muscle group alone: several patterns share muscles.
         return null;
