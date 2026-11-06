@@ -502,7 +502,7 @@ public sealed class TrainingProgramGeneratorTests
 
         Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
         Assert.Contains(generated.Prescription!.Sessions.SelectMany(session => session.Exercises),
-            exercise => exercise.ExerciseId == "accessory");
+            exercise => exercise.ExerciseId == "exercise-accessory");
     }
 
     [Fact]
@@ -527,8 +527,10 @@ public sealed class TrainingProgramGeneratorTests
         var generated = TrainingProgramGenerator.Generate(request, catalog);
 
         Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
-        var upper = generated.Prescription!.Sessions.Single(session => session.Title == "Tren superior A");
-        var lower = generated.Prescription.Sessions.Single(session => session.Title == "Tren inferior A");
+        var upper = generated.Prescription!.Sessions.Single(session =>
+            session.WeekNumber == 1 && session.Title == "Tren superior A");
+        var lower = generated.Prescription.Sessions.Single(session =>
+            session.WeekNumber == 1 && session.Title == "Tren inferior A");
         Assert.Contains(upper.Exercises, exercise => exercise.ExerciseId == "biceps-curl");
         Assert.Contains(lower.Exercises, exercise => exercise.ExerciseId == "leg-extension");
     }
@@ -542,7 +544,7 @@ public sealed class TrainingProgramGeneratorTests
 
         Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
         Assert.DoesNotContain(generated.Prescription!.Sessions.SelectMany(session => session.Exercises),
-            exercise => exercise.ExerciseId == "accessory");
+            exercise => exercise.ExerciseId == "exercise-accessory");
     }
 
     [Fact]
