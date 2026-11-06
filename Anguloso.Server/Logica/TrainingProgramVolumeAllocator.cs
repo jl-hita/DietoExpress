@@ -15,6 +15,7 @@ public static class TrainingProgramVolumeAllocator
     private const int SessionOverheadMinutes = 5;
     private const decimal WeeklyMinutesForFullDefaultVolume = 180m;
     private const decimal MinimumDefaultVolumeTimeFactor = 0.65m;
+    private const decimal HypertrophyTargetToleranceSets = 2m;
 
     public static TrainingVolumeAllocationResult Allocate(
         IReadOnlyList<TrainingSessionPrescription> sessions,
@@ -58,7 +59,8 @@ public static class TrainingProgramVolumeAllocator
             var weekKeys = output.Keys.Where(key => key.WeekNumber == week).OrderBy(key => key.Day).ToArray();
             var weekSessions = weekKeys.Select(key => output[key]).ToArray();
             var primaryCoveredMuscles = weekSessions.SelectMany(x => x.Exercises)
-                .SelectMany(x => x.PrimaryMuscleGroups)
+                .SelectMany(x => TrainingExerciseStimulus.GetEffectiveMuscles(
+                    x.ExerciseId, x.PrimaryMuscleGroups, x.SecondaryMuscleGroups))
                 .Distinct()
                 .ToArray();
             // Calves are a priority group even when the current draft omitted direct work:
@@ -66,7 +68,7 @@ public static class TrainingProgramVolumeAllocator
             var applicableTargets = targets.Where(target =>
                     primaryCoveredMuscles.Contains(target.Key) || target.Key == TrainingMuscleGroup.Calves)
                 .ToDictionary(pair => pair.Key, pair => pair.Value);
-            var primaryVolume = CalculatePrimaryVolume(weekSessions);
+            var primaryVolume = CalculateEffectiveVolume(weekSessions);
 
             foreach (var muscle in applicableTargets.Keys.Where(muscle => !primaryCoveredMuscles.Contains(muscle)))
                 warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado que trabaje {muscle} como músculo primario; no se inventa una cobertura indirecta para cumplir su prioridad.");
@@ -125,7 +127,7 @@ public static class TrainingProgramVolumeAllocator
                     SelectionRationale = AppendAllocationRationale(exercises[best.ExerciseIndex].SelectionRationale)
                 };
                 weekSessions[best.SessionIndex] = selectedSession with { Exercises = exercises };
-                primaryVolume = CalculatePrimaryVolume(weekSessions);
+                primaryVolume = CalculateEffectiveVolume(weekSessions);
             }
 
             foreach (var (muscle, target) in applicableTargets.OrderBy(x => x.Key))
@@ -134,8 +136,9 @@ public static class TrainingProgramVolumeAllocator
                     continue;
 
                 var achieved = primaryVolume.GetValueOrDefault(muscle);
-                if (achieved + 0.001m < target)
-                    warnings.Add($"Semana {week}: {muscle} alcanza {achieved:0.##} series primarias frente al objetivo orientativo de {target:0.##}; no se fuerza más volumen porque no queda una opción compatible de ejercicio, material y tiempo que permita añadir series sin superar los límites de equilibrio muscular, series por ejercicio o duración.");
+                var minimum = Math.Max(0m, target - HypertrophyTargetToleranceSets);
+                if (achieved + 0.001m < minimum)
+                    warnings.Add($"Semana {week}: {muscle} alcanza {achieved:0.##} series con estímulo efectivo frente al rango orientativo {minimum:0.##}–{target + HypertrophyTargetToleranceSets:0.##}; no se fuerza más volumen porque no queda una opción compatible de ejercicio, material y tiempo que permita añadir series sin superar los límites de equilibrio muscular, series por ejercicio o duración.");
             }
 
             for (var index = 0; index < weekKeys.Length; index++)
@@ -159,10 +162,9 @@ public static class TrainingProgramVolumeAllocator
         var volume = new Dictionary<TrainingMuscleGroup, decimal>();
         foreach (var exercise in sessions.SelectMany(x => x.Exercises))
         {
-            foreach (var muscle in exercise.PrimaryMuscleGroups.Distinct())
+            foreach (var muscle in TrainingExerciseStimulus.GetEffectiveMuscles(
+                         exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups))
                 volume[muscle] = volume.GetValueOrDefault(muscle) + exercise.Sets;
-            foreach (var muscle in exercise.SecondaryMuscleGroups.Distinct())
-                volume[muscle] = volume.GetValueOrDefault(muscle) + exercise.Sets * SecondarySetCredit;
         }
         return volume;
     }
@@ -185,7 +187,8 @@ public static class TrainingProgramVolumeAllocator
         // Targets refer to direct primary sets. Do not add another compound set when one
         // of its primary muscles has already reached its target; prefer an alternative
         // exercise, or report the remaining deficit if no balanced option exists.
-        var primaryMuscles = exercise.PrimaryMuscleGroups.Distinct()
+        var primaryMuscles = TrainingExerciseStimulus.GetEffectiveMuscles(
+                exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups)
             .Where(targets.ContainsKey)
             .ToArray();
         if (primaryMuscles.Length == 0)
@@ -224,49 +227,46 @@ public static class TrainingProgramVolumeAllocator
     {
         var baseBaseline = goal switch
         {
+            // Midpoints of the agreed planning ranges: beginner 8–12, intermediate 11–15,
+            // advanced 14–18. Advanced priority work can be raised toward 18–20.
             TrainingGoal.Hypertrophy => experience switch
             {
-                TrainingExperience.Beginner => 6m,
-                TrainingExperience.Intermediate => 8m,
-                _ => 10m
+                TrainingExperience.Beginner => 10m,
+                TrainingExperience.Intermediate => 13m,
+                _ => 16m
             },
             TrainingGoal.Strength => experience == TrainingExperience.Beginner ? 6m : 8m,
             _ => experience == TrainingExperience.Beginner ? 4m : 6m
         };
-        var baseline = Math.Max(1m, Math.Ceiling(
-            baseBaseline * DefaultVolumeTimeFactor(sessionsPerWeek, maximumSessionDurationMinutes)));
+        // Hypertrophy targets are not silently discounted because a session is short.
+        // The allocator reports the achievable dose against the target range instead.
+        var timeFactor = goal == TrainingGoal.Hypertrophy
+            ? 1m
+            : DefaultVolumeTimeFactor(sessionsPerWeek, maximumSessionDurationMinutes);
+        var baseline = Math.Max(1m, Math.Ceiling(baseBaseline * timeFactor));
 
         // Do not assign a universal weekly set quota to every anatomical label. The default
         // dose applies to the main muscle groups typically trained in general strength/hypertrophy
         // programs. Smaller/accessory groups (e.g. hip flexors, obliques, adductors, abductors,
         // serratus, tibialis anterior and rotator cuff) receive direct volume when the professional
         // explicitly prioritizes them, rather than creating automatic deficits in every plan.
+        // Main hypertrophy groups use the same evidence-informed planning range.
+        // Biceps/triceps are not assigned a smaller quota merely because compounds also train them:
+        // qualifying compound work is counted in full by TrainingExerciseStimulus.
         var primaryTargetMuscles = new[]
         {
             TrainingMuscleGroup.Chest,
             TrainingMuscleGroup.Lats,
             TrainingMuscleGroup.UpperBack,
             TrainingMuscleGroup.Deltoids,
-            TrainingMuscleGroup.Glutes,
-            TrainingMuscleGroup.Quadriceps,
-            TrainingMuscleGroup.Calves
-        };
-        // Direct work for smaller muscles is supplemental to compound pressing/pulling and
-        // receives a lower default dose. Professionals can raise it explicitly with priorities.
-        var supplementalTargetMuscles = new[]
-        {
             TrainingMuscleGroup.Biceps,
             TrainingMuscleGroup.Triceps,
-            TrainingMuscleGroup.Abdominals
+            TrainingMuscleGroup.Glutes,
+            TrainingMuscleGroup.Quadriceps,
+            TrainingMuscleGroup.Hamstrings,
+            TrainingMuscleGroup.Calves
         };
         var targets = primaryTargetMuscles.ToDictionary(muscle => muscle, _ => baseline);
-        // Hamstrings remain trained through hinges and knee-flexion options when available,
-        // but are a secondary default priority: do not let their nominal target displace
-        // quadriceps, glutes or calves in constrained plans. Professionals can override it.
-        targets[TrainingMuscleGroup.Hamstrings] = Math.Max(2m, Math.Ceiling(baseline * 0.5m));
-        var supplementalBaseline = Math.Max(1m, Math.Ceiling(baseline / 2m));
-        foreach (var muscle in supplementalTargetMuscles)
-            targets[muscle] = supplementalBaseline;
         foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
             targets[preference.MuscleGroup] = preference.TargetWeeklyPrimarySets ?? baseline + preference.Priority * 2m;
         return targets;
@@ -299,8 +299,8 @@ public static class TrainingProgramVolumeAllocator
             if (preference.Priority is < 0 or > 3)
                 errors.Add($"La prioridad de {preference.MuscleGroup} debe estar entre 0 y 3.");
             if (preference.TargetWeeklyPrimarySets is { } target &&
-                (target is < 1 or > 20 || target != decimal.Truncate(target)))
-                errors.Add($"El objetivo semanal de {preference.MuscleGroup} debe ser un entero entre 1 y 20 series primarias.");
+                (target is < 1 or > 30 || target != decimal.Truncate(target)))
+                errors.Add($"El objetivo semanal de {preference.MuscleGroup} debe ser un entero entre 1 y 30 series efectivas estimadas.");
         }
         return errors;
     }
