@@ -61,6 +61,31 @@ public static class TrainingProgramGenerator
                         .ThenBy(x => x.ExerciseId, StringComparer.Ordinal)
                         .ToArray();
 
+                    // Vertical and horizontal pulling both train the lats/upper back. Do not
+                    // reject an otherwise complete beginner plan merely because a limited
+                    // equipment profile cannot perform a vertical pull (e.g. no cable or
+                    // assisted-pull-up machine). Substitute a horizontal row when this session
+                    // has no horizontal pull; if it already has one, retain that exposure and
+                    // omit the unavailable direction rather than duplicate the same pattern.
+                    if (compatibleCandidates.Length == 0 && pattern == TrainingMovementPattern.VerticalPull)
+                    {
+                        var hasHorizontalPull = requiredPatterns.Take(patternIndex)
+                            .Contains(TrainingMovementPattern.HorizontalPull);
+                        if (hasHorizontalPull)
+                            continue;
+
+                        compatibleCandidates = catalog
+                            .Where(x => (x.IsReviewed || x.IsOwnedByCurrentProfessional)
+                                && x.MovementPattern == TrainingMovementPattern.HorizontalPull
+                                && x.SuitableGoals.Contains(request.Goal)
+                                && (int)x.MinimumExperience <= (int)request.Experience
+                                && (equipment.Count == 0 || HasRequiredEquipment(x.RequiredEquipment, equipment))
+                                && !excluded.Contains(x.ExerciseId))
+                            .OrderByDescending(x => x.SelectionPriority)
+                            .ThenBy(x => x.ExerciseId, StringComparer.Ordinal)
+                            .ToArray();
+                    }
+
                     // Prefer a different exercise elsewhere in this week's plan when possible.
                     // Never penalize an exercise for being selected in previous weeks: continuity
                     // across a mesocycle supports progression and performance tracking.
