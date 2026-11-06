@@ -82,6 +82,29 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.All(first.Sessions.SelectMany(x => x.Exercises), exercise => Assert.InRange(exercise.Sets, 1, 5));
     }
 
+
+    [Fact]
+    public void AllocationDistributesTheSameAccessoryAcrossSessionsBeforeMaxingOneSession()
+    {
+        var sessions = new[]
+        {
+            Session(new TrainingExercisePrescription("biceps-curl", "v1", "Curl de bíceps", 1, 1, 10, 15, 2m, 90,
+                TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Biceps], [])),
+            new TrainingSessionPrescription(1, DayOfWeek.Thursday, "Sesión B",
+            [
+                new TrainingExercisePrescription("biceps-curl", "v1", "Curl de bíceps", 1, 1, 10, 15, 2m, 90,
+                    TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Biceps], [])
+            ])
+        };
+
+        var result = TrainingProgramVolumeAllocator.Allocate(
+            sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null, 60);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.Equal(6, result.Sessions.Sum(session => session.Exercises.Single().Sets));
+        Assert.Equal(new[] { 3, 3 }, result.Sessions.Select(session => session.Exercises.Single().Sets));
+    }
+
     [Fact]
     public void DurationLimitPreventsUnboundedVolumeAndExplainsUnmetTarget()
     {
