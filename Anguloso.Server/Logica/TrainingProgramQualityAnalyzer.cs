@@ -6,7 +6,7 @@ namespace Anguloso.Server.Logica;
 /// </summary>
 public static class TrainingProgramQualityAnalyzer
 {
-    private const int HighPrimarySetWarningThreshold = 20;
+    private const int HighEffectiveSetReviewThreshold = 22;
 
     public static TrainingProgramQualityReport Analyze(TrainingProgramPrescription plan)
     {
@@ -51,14 +51,14 @@ public static class TrainingProgramQualityAnalyzer
 
                 // Secondary-set credit is a transparent 0.5 bookkeeping heuristic, not an
                 // evidence-established equivalence. Keep raw primary/secondary counts as well.
-                var estimatedEffectiveSets = primarySets + secondarySets * TrainingProgramVolumeAllocator.SecondarySetCredit;
+                var estimatedEffectiveSets = sessions.SelectMany(session => session.Exercises)
+                    .Where(exercise => TrainingExerciseStimulus.GetEffectiveMuscles(
+                        exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups).Contains(muscle))
+                    .Sum(exercise => exercise.Sets);
                 muscles.Add(new TrainingMuscleVolume(muscle, primarySets, secondarySets,
                     primaryFrequency, secondaryFrequency, estimatedEffectiveSets));
-                if (primarySets > HighPrimarySetWarningThreshold)
-                    warnings.Add($"Semana {week}: {muscle} acumula {primarySets} series primarias; revisa el volumen y la recuperación.");
-                // The 0.5 secondary-set credit is retained as a transparent display estimate,
-                // but is not used as a threshold for quality warnings: it is not a validated
-                // physiological equivalence and can overstate exposure to muscles in pressing.
+                if (estimatedEffectiveSets > HighEffectiveSetReviewThreshold)
+                    warnings.Add($"Semana {week}: {muscle} acumula {estimatedEffectiveSets:0.##} series con estímulo efectivo estimado; revisa volumen, rendimiento y recuperación.");
             }
 
             // Zero exposure for an accessory or stabilizing muscle is not automatically a
@@ -71,7 +71,7 @@ public static class TrainingProgramQualityAnalyzer
         }
 
         return new TrainingProgramQualityReport(
-            "Estimación basada en series prescritas y metadatos revisados. Las series primarias cuentan 1 y las secundarias 0,5 para una estimación orientativa; ese crédito secundario es una heurística de software, no una equivalencia fisiológica validada.",
+            "Estimación basada en series prescritas y una auditoría explícita por ejercicio: cuentan las series de músculos primarios y las contribuciones secundarias con estímulo dinámico relevante. No se contabilizan estabilizadores ni participaciones incidentales. Las contribuciones secundarias no tienen un crédito fraccionario universal.",
             weeklyVolumes,
             warnings.Distinct(StringComparer.Ordinal).ToArray());
     }
