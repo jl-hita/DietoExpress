@@ -87,7 +87,7 @@ public static class TrainingProgramGenerator
                 }
 
                 AddOptionalAccessoryExercises(
-                    request, catalog, equipment, excluded, selectedThisWeek, sessions,
+                    request, catalog, equipment, excluded, sessions,
                     prescriptions, week, days[dayIndex], sessionTemplate.Title, days.Length);
 
                 // Final duration is calculated after weekly sets have been allocated.
@@ -274,7 +274,6 @@ public static class TrainingProgramGenerator
         IEnumerable<TrainingExerciseCandidate> catalog,
         HashSet<string> equipment,
         HashSet<string> excluded,
-        HashSet<string> selectedThisWeek,
         IReadOnlyList<TrainingSessionPrescription> previousSessions,
         List<TrainingExercisePrescription> currentExercises,
         int week,
