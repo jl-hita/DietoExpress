@@ -271,7 +271,14 @@ public static class TrainingProgramVolumeAllocator
         };
         var targets = primaryTargetMuscles.ToDictionary(muscle => muscle, _ => baseline);
         foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
-            targets[preference.MuscleGroup] = preference.TargetWeeklyPrimarySets ?? baseline + preference.Priority * 2m;
+        {
+            var preferenceTarget = preference.TargetWeeklyPrimarySets ?? baseline + preference.Priority * 2m;
+            // Default priority cannot silently push a hypertrophy target beyond the evidence-informed
+            // 20-set planning ceiling. A professional may still enter a higher explicit target.
+            if (goal == TrainingGoal.Hypertrophy && preference.TargetWeeklyPrimarySets is null)
+                preferenceTarget = Math.Min(20m, preferenceTarget);
+            targets[preference.MuscleGroup] = preferenceTarget;
+        }
         return targets;
     }
 
@@ -287,7 +294,8 @@ public static class TrainingProgramVolumeAllocator
         // Explicit professional targets use a narrow +/-2 range (e.g. 20 means 18–22),
         // regardless of experience; defaults use the broader experience-specific ranges.
         if ((preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
-            .Any(preference => preference.MuscleGroup == muscle && preference.TargetWeeklyPrimarySets is not null))
+            .Any(preference => preference.MuscleGroup == muscle &&
+                (preference.TargetWeeklyPrimarySets is not null || preference.Priority > 0)))
             return ExplicitHypertrophyTargetToleranceSets;
 
         // Agreed default planning ranges: beginner 8–12, intermediate 10–16, advanced 12–20.
