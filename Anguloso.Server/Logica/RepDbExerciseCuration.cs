@@ -154,6 +154,7 @@ internal static class RepDbExerciseCuration
         "plate-loaded-glute-drive",
         "barbell-glute-bridge",
         "cable-fly",
+        "db-fly",
         "pec-deck",
         "lateral-raise",
         "cable-lateral-raise",

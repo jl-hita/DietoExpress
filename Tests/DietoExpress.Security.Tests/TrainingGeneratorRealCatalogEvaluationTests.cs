@@ -329,6 +329,11 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         var noMachineQuadScenario = scenarioResults.Single(result =>
             result.ScenarioId == "profile-nocableormachines-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
         Assert.Contains("reverse-nordic-curl", noMachineQuadScenario.SelectedExerciseIds);
+        var dumbbellOnlyChestScenario = scenarioResults.Single(result =>
+            result.ScenarioId == "profile-dumbbellsbenchpullup-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
+        Assert.Contains("db-fly", dumbbellOnlyChestScenario.SelectedExerciseIds);
+        Assert.Contains(TrainingMuscleGroup.Chest, candidates.Single(candidate => candidate.ExerciseId == "db-fly").PrimaryMuscleGroups);
+
         Assert.All(scenarioResults, result =>
         {
             Assert.NotNull(result.MaximumEstimatedMinutes);
