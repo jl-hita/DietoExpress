@@ -187,3 +187,5 @@ Esta política evita que el motor trate por igual todos los músculos ni que sac
 - Si el plan no contiene ningún ejercicio directo de gemelos, el asignador emite ahora un aviso explícito de ausencia de cobertura; ya no elimina silenciosamente ese músculo de la evaluación por no estar presente en la rutina inicial.
 
 - El split de cuerpo completo de 2–3 días alterna ahora dos exposiciones de sentadilla con una exposición de bisagra semanal en 2 días (y dos bisagras en 3 días), manteniendo el trabajo unilateral. Esto evita que el patrón de bisagra/hip thrust desplace innecesariamente la segunda exposición de sentadilla y mejora la dosis de cuádriceps sin depender de inflar el volumen de glúteos.
+
+- La selección de accesorios da prioridad explícita a una exposición directa de gemelos cuando falta, y a un accesorio de cuádriceps cuando los glúteos están en objetivo o a una serie de alcanzarlo. Así se evita que elevaciones laterales, abdominales u otros accesorios menores consuman todos los huecos de sesiones cortas, y que el volumen de gemelos desplace la cobertura de cuádriceps en perfiles intermedios.
