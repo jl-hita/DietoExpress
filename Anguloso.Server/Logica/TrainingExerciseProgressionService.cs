@@ -214,12 +214,16 @@ public sealed class TrainingExerciseProgressionService
 
     private static int? JsonInt(JsonElement element, string property) =>
         element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(property, out var value) && value.TryGetInt32(out var number)
+        element.TryGetProperty(property, out var value) &&
+        value.ValueKind == JsonValueKind.Number &&
+        value.TryGetInt32(out var number)
             ? number : null;
 
     private static decimal? JsonDecimal(JsonElement element, string property) =>
         element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(property, out var value) && value.TryGetDecimal(out var number)
+        element.TryGetProperty(property, out var value) &&
+        value.ValueKind == JsonValueKind.Number &&
+        value.TryGetDecimal(out var number)
             ? number : null;
 
     private static bool JsonBool(JsonElement element, string property) =>
