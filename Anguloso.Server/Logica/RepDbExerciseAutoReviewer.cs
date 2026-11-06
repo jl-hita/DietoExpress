@@ -96,7 +96,11 @@ internal static class RepDbExerciseAutoReviewer
         var explicitPattern = id.ToLowerInvariant() switch
         {
             "ohp" or "dumbbell-shoulder-press" or "machine-shoulder-press" => "VerticalPush",
-            "cable-crunch" or "ab-wheel-rollout" or "cable-pallof-press" or "side-plank" or "dumbbell-farmers-walk" => "Core",
+            "cable-crunch" or "ab-wheel-rollout" or "cable-pallof-press" or "side-plank" or "dumbbell-farmers-walk"
+                or "machine-seated-crunch" or "dead-bug" or "hanging-knee-raise" or "captains-chair-knee-raise" => "Core",
+            "machine-back-extension" or "glute-bridge" => "Hinge",
+            "db-squat" or "horizontal-leg-press" => "Squat",
+            "chest-supported-kettlebell-row" or "kneeling-cable-row" or "one-arm-seated-cable-row" => "HorizontalPull",
             "lat-pulldown" or "v-bar-lat-pulldown" or "pull-up" or "chin-ups" or "assisted-pull-ups" => "VerticalPull",
             "bench-press" or "db-bench-press" or "incline-bench-press" or "incline-db-press"
                 or "smith-machine-bench-press" or "smith-machine-incline-bench-press"
@@ -112,6 +116,10 @@ internal static class RepDbExerciseAutoReviewer
         if (explicitPattern is not null) return explicitPattern;
         // Isolations/accessories have their own optional generator slots; they must not
         // displace the primary compound movement chosen for a broad movement pattern.
+        if (id is "machine-reverse-fly" or "machine-chest-fly" or "machine-bicep-curl"
+            or "single-arm-plate-loaded-lateral-raise" or "machine-calf-raise"
+            or "side-lying-hip-abduction" or "side-lying-hip-adduction" or "bodyweight-calf-raise")
+            return "Accessory";
         if (IsAccessoryExercise(id, es, en)) return "Accessory";
         // Strong name/ID cues first; ambiguous exercises stay pending.
         if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press", "landmine press", "push press",
