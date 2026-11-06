@@ -123,6 +123,21 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
+    public void StrengthAndGeneralFitnessKeepTheirPreviousConservativeSupplementalTargets()
+    {
+        var strength = GetWeeklyTargets(TrainingGoal.Strength, TrainingExperience.Beginner, null);
+        var general = GetWeeklyTargets(TrainingGoal.GeneralFitness, TrainingExperience.Beginner, null);
+
+        Assert.Equal(6m, strength[TrainingMuscleGroup.Chest]);
+        Assert.Equal(3m, strength[TrainingMuscleGroup.Biceps]);
+        Assert.Equal(3m, strength[TrainingMuscleGroup.Triceps]);
+        Assert.Equal(3m, strength[TrainingMuscleGroup.Hamstrings]);
+        Assert.Equal(4m, general[TrainingMuscleGroup.Chest]);
+        Assert.Equal(2m, general[TrainingMuscleGroup.Biceps]);
+        Assert.Equal(2m, general[TrainingMuscleGroup.Hamstrings]);
+    }
+
+    [Fact]
     public void AdvancedPriorityTargetIsCappedAtTwentyAndUsesNarrowEighteenToTwentyTwoRange()
     {
         var session = Session(new TrainingExercisePrescription(
