@@ -569,7 +569,8 @@ public sealed class TrainingProgramGeneratorTests
             .ToArray();
         var request = Request() with
         {
-            TrainingDays = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday]
+            TrainingDays = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday],
+            MaximumSessionDurationMinutes = 60
         };
 
         var generated = TrainingProgramGenerator.Generate(request, catalog);
