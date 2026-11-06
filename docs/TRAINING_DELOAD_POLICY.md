@@ -20,7 +20,7 @@ La descarga es una reducción temporal del estrés de entrenamiento, distinta de
 
 1. El profesional puede marcar explícitamente una fase del macrociclo como «descarga». El generador propaga esa decisión al contrato de generación; no infiere fatiga por calendario.
 2. El flujo de generación de un bloque manual también permite marcar una descarga activa, limitada a un bloque de una semana.
-3. La prescripción inicial reduce las series de cada ejercicio aproximadamente un 40–50 % (redondeo hacia arriba, mínimo una serie) y aumenta el RIR objetivo en dos puntos, con máximo de 5. Conserva selección de ejercicios, rangos de repeticiones y patrones.
+3. La prescripción inicial reduce las series de cada ejercicio aproximadamente entre un tercio y la mitad (redondeo hacia arriba, mínimo una serie) y aumenta el RIR objetivo en dos puntos, con máximo de 5. Conserva selección de ejercicios, rangos de repeticiones y patrones. Las exposiciones que ya tienen una sola serie mantienen esa serie; la descarga actúa en ellas mediante el mayor margen de RIR y el informe lo explicita.
 4. La vista previa informa de que se trata de una heurística conservadora y mantiene la revisión profesional obligatoria. Los valores no se atribuyen a ACSM ni se presentan como óptimos.
 5. La descarga no se activa por defecto en los bloques normales ni por el mero número de semana. No hay todavía recomendación reactiva automática.
 6. No decidir por una única sesión mala, un RPE global aislado ni falta de registros.
