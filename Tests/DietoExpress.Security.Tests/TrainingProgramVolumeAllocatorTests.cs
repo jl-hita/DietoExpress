@@ -61,21 +61,26 @@ public sealed class TrainingProgramVolumeAllocatorTests
     [Fact]
     public void DefaultWeeklyTargetsFocusOnMainGroupsAndOnlyAddAccessoryGroupsWhenPrioritized()
     {
-        var defaults = TrainingProgramVolumeAllocator.GetWeeklyTargets(
-            TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null);
+        var sessions = new[]
+        {
+            Session(
+                new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
+                    TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], []),
+                new TrainingExercisePrescription("knee-raise", "v1", "Elevación de rodillas", 2, 1, 8, 12, 2m, 90,
+                    TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.HipFlexors], []))
+        };
 
-        Assert.Contains(TrainingMuscleGroup.Chest, defaults.Keys);
-        Assert.Contains(TrainingMuscleGroup.Quadriceps, defaults.Keys);
-        Assert.Contains(TrainingMuscleGroup.Hamstrings, defaults.Keys);
-        Assert.DoesNotContain(TrainingMuscleGroup.HipFlexors, defaults.Keys);
-        Assert.DoesNotContain(TrainingMuscleGroup.Obliques, defaults.Keys);
-        Assert.DoesNotContain(TrainingMuscleGroup.RotatorCuff, defaults.Keys);
+        var defaults = TrainingProgramVolumeAllocator.Allocate(
+            sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null, 60);
+        Assert.True(defaults.Succeeded, string.Join("; ", defaults.Errors));
+        Assert.True(defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "bench").Sets > 1);
+        Assert.Equal(1, defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "knee-raise").Sets);
 
-        var prioritized = TrainingProgramVolumeAllocator.GetWeeklyTargets(
-            TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
-            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.RotatorCuff, Priority: 1)]);
-
-        Assert.Equal(8m, prioritized[TrainingMuscleGroup.RotatorCuff]);
+        var prioritized = TrainingProgramVolumeAllocator.Allocate(
+            sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
+            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.HipFlexors, Priority: 1)], 60);
+        Assert.True(prioritized.Succeeded, string.Join("; ", prioritized.Errors));
+        Assert.True(prioritized.Sessions[0].Exercises.Single(x => x.ExerciseId == "knee-raise").Sets > 1);
     }
 
     [Fact]
