@@ -178,6 +178,8 @@ internal static class RepDbExerciseAutoReviewer
         return Has(text, "lateral raise", "elevacion lateral", "front raise", "elevacion frontal",
             "shoulder fly", "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho",
             "face pull", "reverse fly", "rear delt fly", "bicep curl", "curl de biceps", "preacher curl",
+            "barbell curl", "cable curl", "dumbbell curl", "incline db curl",
+            "curl con barra", "curl con cable", "curl con mancuernas",
             "concentration curl", "forearm curl", "wrist curl", "tricep extension", "triceps extension",
             "tricep pushdown", "tricep kickback", "skull crusher", "extension de triceps", "leg extension",
             "quadriceps extension", "extension de cuadriceps", "single-leg-extension", "leg curl", "hamstring curl",
