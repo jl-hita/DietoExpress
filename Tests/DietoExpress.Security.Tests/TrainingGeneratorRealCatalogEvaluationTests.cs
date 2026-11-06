@@ -250,7 +250,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var report = new RealCatalogEvaluationReport(
-            "training-generator-real-catalog-evaluation-v5",
+            "training-generator-real-catalog-evaluation-v6",
             DateTimeOffset.UtcNow,
             ExerciseCatalogService.SourceUrl,
             reviewStats?.repDbTotal ?? 0,
@@ -261,6 +261,15 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             catalogImageMissingIds,
             catalogSingleImageOnlyIds,
             candidates.Select(candidate => candidate.ExerciseId).OrderBy(id => id, StringComparer.Ordinal).ToArray(),
+            candidates.OrderBy(candidate => candidate.ExerciseId, StringComparer.Ordinal)
+                .Select(candidate => new RealCatalogCandidateDiagnostic(
+                    candidate.ExerciseId, candidate.MovementPattern.ToString(),
+                    candidate.PrimaryMuscleGroups.Select(muscle => muscle.ToString()).ToArray(),
+                    candidate.SecondaryMuscleGroups.Select(muscle => muscle.ToString()).ToArray(),
+                    candidate.SuitableGoals.Select(goal => goal.ToString()).ToArray(),
+                    candidate.MinimumExperience.ToString(), candidate.RequiredEquipment,
+                    candidate.SelectionPriority))
+                .ToArray(),
             candidateCount,
             generalFitnessCandidateCount,
             scenarioResults.Count,
@@ -298,7 +307,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 .Max()
         }));
 
-        Assert.Equal("training-generator-real-catalog-evaluation-v5", report.SchemaVersion);
+        Assert.Equal("training-generator-real-catalog-evaluation-v6", report.SchemaVersion);
         Assert.Equal(324, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.GenerationErrorCount);
@@ -395,6 +404,16 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         IReadOnlyList<string> PrimaryMuscles,
         IReadOnlyList<string> SecondaryMuscles);
 
+    private sealed record RealCatalogCandidateDiagnostic(
+        string ExerciseId,
+        string MovementPattern,
+        IReadOnlyList<string> PrimaryMuscles,
+        IReadOnlyList<string> SecondaryMuscles,
+        IReadOnlyList<string> SuitableGoals,
+        string MinimumExperience,
+        IReadOnlyList<string> RequiredEquipment,
+        int SelectionPriority);
+
     private sealed record RealCatalogReviewException(
         string ExerciseId,
         string ReviewStatus,
@@ -416,6 +435,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         IReadOnlyList<string> CatalogImageMissingIds,
         IReadOnlyList<string> CatalogSingleImageOnlyIds,
         IReadOnlyList<string> CandidateIds,
+        IReadOnlyList<RealCatalogCandidateDiagnostic> CandidateDiagnostics,
         int GeneratorCandidateCount,
         int GeneralFitnessCandidateCount,
         int ScenarioCount,
