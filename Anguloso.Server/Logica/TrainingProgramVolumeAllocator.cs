@@ -280,7 +280,9 @@ public static class TrainingProgramVolumeAllocator
             // experience range. Abdominals remain a supplemental target unless explicitly prioritized.
             targets[TrainingMuscleGroup.Biceps] = baseline;
             targets[TrainingMuscleGroup.Triceps] = baseline;
-            targets[TrainingMuscleGroup.Hamstrings] = baseline;
+            // Preserve the previously agreed lower hamstring priority: half the central
+            // target, with the same experience-specific tolerance. Professionals can override it.
+            targets[TrainingMuscleGroup.Hamstrings] = Math.Max(2m, Math.Ceiling(baseline * 0.5m));
         }
         else
         {
