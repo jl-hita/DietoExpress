@@ -910,6 +910,10 @@ public sealed class TrainingProgramGeneratorTests
             .ToArray();
 
         Assert.Equal(normalExercises.Select(exercise => exercise.ExerciseId), deloadExercises.Select(exercise => exercise.ExerciseId));
+        Assert.All(normalExercises, exercise =>
+            Assert.Equal(TrainingProgressionRule.DoubleProgression, exercise.ProgressionRule));
+        Assert.All(deloadExercises, exercise =>
+            Assert.Equal(TrainingProgressionRule.None, exercise.ProgressionRule));
         Assert.True(deloadExercises.Sum(exercise => exercise.Sets) < normalExercises.Sum(exercise => exercise.Sets));
         Assert.Contains(deloadExercises.Zip(normalExercises), pair => pair.First.Sets < pair.Second.Sets);
         Assert.All(deloadExercises.Zip(normalExercises), pair =>
