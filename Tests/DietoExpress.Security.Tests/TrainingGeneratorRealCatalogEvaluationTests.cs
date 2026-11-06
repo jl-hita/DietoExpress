@@ -307,7 +307,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 .Max()
         }));
 
-        Assert.Equal("training-generator-real-catalog-evaluation-v6", report.SchemaVersion);
+        Assert.Equal("training-generator-real-catalog-evaluation-v7", report.SchemaVersion);
         Assert.Equal(405, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.GenerationErrorCount);
