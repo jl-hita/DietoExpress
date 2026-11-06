@@ -276,7 +276,12 @@ public static class TrainingProgramGenerator
     {
         var targets = TrainingProgramVolumeAllocator.GetWeeklyTargets(
             request.Goal, request.Experience, request.MuscleVolumeTargets);
-        var slots = daysPerWeek <= 3 ? 2 : 1;
+        var slots = daysPerWeek == 2 ? 3 : 2;
+        var allowedMuscles = title.Contains("superior", StringComparison.OrdinalIgnoreCase)
+            ? UpperBodyAccessoryMuscles
+            : title.Contains("inferior", StringComparison.OrdinalIgnoreCase)
+                ? LowerBodyAccessoryMuscles
+                : null;
 
         for (var slot = 0; slot < slots; slot++)
         {
@@ -297,7 +302,7 @@ public static class TrainingProgramGenerator
                 .Select(candidate => new
                 {
                     Candidate = candidate,
-                    Score = AccessoryDeficitScore(candidate, currentPrimaryVolume, targets)
+                    Score = AccessoryDeficitScore(candidate, currentPrimaryVolume, targets, allowedMuscles)
                 })
                 .Where(item => item.Score > 0m)
                 .OrderByDescending(item => item.Score)
@@ -350,15 +355,40 @@ public static class TrainingProgramGenerator
         }
     }
 
+    private static readonly HashSet<TrainingMuscleGroup> UpperBodyAccessoryMuscles =
+    [
+        TrainingMuscleGroup.Chest, TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack,
+        TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Triceps,
+        TrainingMuscleGroup.Forearms, TrainingMuscleGroup.Serratus, TrainingMuscleGroup.RotatorCuff
+    ];
+
+    private static readonly HashSet<TrainingMuscleGroup> LowerBodyAccessoryMuscles =
+    [
+        TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Hamstrings,
+        TrainingMuscleGroup.Calves, TrainingMuscleGroup.Adductors, TrainingMuscleGroup.Abductors,
+        TrainingMuscleGroup.HipFlexors, TrainingMuscleGroup.TibialisAnterior, TrainingMuscleGroup.ErectorSpinae
+    ];
+
     private static decimal AccessoryDeficitScore(
         TrainingExerciseCandidate candidate,
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> currentPrimaryVolume,
-        IReadOnlyDictionary<TrainingMuscleGroup, decimal> targets)
+        IReadOnlyDictionary<TrainingMuscleGroup, decimal> targets,
+        IReadOnlySet<TrainingMuscleGroup>? allowedMuscles)
     {
-        var muscles = candidate.PrimaryMuscleGroups.Distinct().Where(targets.ContainsKey).ToArray();
+        var muscles = candidate.PrimaryMuscleGroups.Distinct()
+            .Where(muscle => targets.ContainsKey(muscle) &&
+                             (allowedMuscles is null || allowedMuscles.Contains(muscle)))
+            .ToArray();
         if (muscles.Length == 0) return 0m;
         return muscles.Average(muscle =>
-            Math.Max(0m, targets[muscle] - currentPrimaryVolume.GetValueOrDefault(muscle)));
+        {
+            var deficit = Math.Max(0m, targets[muscle] - currentPrimaryVolume.GetValueOrDefault(muscle));
+            var importance = muscle is TrainingMuscleGroup.Chest or TrainingMuscleGroup.Lats or
+                TrainingMuscleGroup.UpperBack or TrainingMuscleGroup.Deltoids or TrainingMuscleGroup.Biceps or
+                TrainingMuscleGroup.Triceps or TrainingMuscleGroup.Glutes or TrainingMuscleGroup.Quadriceps or
+                TrainingMuscleGroup.Hamstrings or TrainingMuscleGroup.Calves ? 1m : 0.6m;
+            return deficit * importance;
+        });
     }
 
     private static IReadOnlyList<SessionTemplate> BuildSplit(int daysPerWeek)
