@@ -482,6 +482,24 @@ internal static class RepDbExerciseAutoReviewer
             "leg-curl" or "seated-leg-curl" or "nordic-hamstring-curl" =>
                 ["Ajusta la máquina o la posición para mantener la cadera estable durante todo el recorrido.",
                  "Flexiona las rodillas acercando los talones y regresa lentamente, controlando especialmente la fase de bajada."],
+            "ball-leg-curl" =>
+                ["Túmbate boca arriba con los talones y la parte inferior de las pantorrillas apoyados sobre una pelota de estabilidad.",
+                 "Eleva las caderas formando una línea recta desde los hombros hasta los tobillos.",
+                 "Mantén las caderas elevadas y flexiona las rodillas para rodar la pelota hacia los glúteos.",
+                 "Extiende las piernas lentamente sin dejar caer la pelvis.",
+                 "Baja las caderas al terminar."],
+            "banded-standing-curl" =>
+                ["Coloca una banda elástica alrededor de un tobillo y ancla el otro extremo bajo el pie de apoyo o en un punto fijo delante de ti.",
+                 "Mantente erguido y sujétate a un apoyo si necesitas equilibrio.",
+                 "Flexiona la rodilla llevando el talón hacia el glúteo y mantén el muslo quieto.",
+                 "Contrae el isquiotibial arriba y baja con control hasta extender la rodilla.",
+                 "Completa las repeticiones de un lado y cambia de pierna."],
+            "trx-hamstring-curl" =>
+                ["Túmbate boca arriba con los talones en los soportes del entrenador de suspensión y las rodillas flexionadas.",
+                 "Eleva las caderas manteniendo el tronco alineado.",
+                 "Extiende las piernas hacia delante sin dejar caer las caderas.",
+                 "Flexiona las rodillas y acerca los talones hacia los glúteos.",
+                 "Controla la extensión y evita que las caderas se hundan."],
             "standing-calf-raise" or "seated-calf-raise" =>
                 ["Apoya el antepié sobre la plataforma y comienza desde una posición estable, sin rebotes.",
                  "Eleva los talones todo lo posible de forma controlada y baja lentamente hasta un estiramiento cómodo."],
