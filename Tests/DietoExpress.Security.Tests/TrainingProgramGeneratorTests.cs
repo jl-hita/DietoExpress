@@ -53,8 +53,8 @@ public sealed class TrainingProgramGeneratorTests
             .ToArray();
 
         Assert.Equal(2, exercises.Count(exercise => exercise.ExerciseId == "squat-basic"));
-        Assert.Single(exercises.Where(exercise => exercise.ExerciseId == "exercise-hinge"));
-        Assert.Single(exercises.Where(exercise => exercise.ExerciseId == "exercise-singleleg"));
+        Assert.Single(exercises, exercise => exercise.ExerciseId == "exercise-hinge");
+        Assert.Single(exercises, exercise => exercise.ExerciseId == "exercise-singleleg");
     }
 
     [Fact]
