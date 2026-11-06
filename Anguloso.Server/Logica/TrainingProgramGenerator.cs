@@ -381,11 +381,12 @@ public static class TrainingProgramGenerator
 
         for (var slot = 0; slot < slots; slot++)
         {
-            var currentPrimaryVolume = new Dictionary<TrainingMuscleGroup, decimal>();
+            var currentEffectiveVolume = new Dictionary<TrainingMuscleGroup, decimal>();
             foreach (var exercise in previousSessions.Where(session => session.WeekNumber == week)
                          .SelectMany(session => session.Exercises).Concat(currentExercises))
-            foreach (var muscle in exercise.PrimaryMuscleGroups.Distinct())
-                currentPrimaryVolume[muscle] = currentPrimaryVolume.GetValueOrDefault(muscle) + exercise.Sets;
+            foreach (var muscle in TrainingExerciseStimulus.GetEffectiveMuscles(
+                         exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups))
+                currentEffectiveVolume[muscle] = currentEffectiveVolume.GetValueOrDefault(muscle) + exercise.Sets;
 
             var selectedThisWeek = previousSessions
                 .Where(session => session.WeekNumber == week)
@@ -412,16 +413,16 @@ public static class TrainingProgramGenerator
                 selectedThisWeek.Contains(candidate.ExerciseId));
             var prioritizeQuadricepsAccessory =
                 !hasDirectQuadricepsAccessory &&
-                currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Glutes) + QuadAccessoryGluteTargetBufferSets >=
+                currentEffectiveVolume.GetValueOrDefault(TrainingMuscleGroup.Glutes) + QuadAccessoryGluteTargetBufferSets >=
                     targets.GetValueOrDefault(TrainingMuscleGroup.Glutes) &&
-                currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Quadriceps) <
+                currentEffectiveVolume.GetValueOrDefault(TrainingMuscleGroup.Quadriceps) <
                     targets.GetValueOrDefault(TrainingMuscleGroup.Quadriceps) &&
                 (allowedMuscles is null || allowedMuscles.Contains(TrainingMuscleGroup.Quadriceps));
             // Calves are a product-priority group. Ensure at least one compatible direct
             // exposure before spending every short-session accessory slot on smaller muscles.
             var prioritizeCalfAccessory =
                 !hasDirectCalfAccessory &&
-                currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Calves) <
+                currentEffectiveVolume.GetValueOrDefault(TrainingMuscleGroup.Calves) <
                     targets.GetValueOrDefault(TrainingMuscleGroup.Calves) &&
                 (allowedMuscles is null || allowedMuscles.Contains(TrainingMuscleGroup.Calves));
 
@@ -443,7 +444,7 @@ public static class TrainingProgramGenerator
                 .Select(candidate => new
                 {
                     Candidate = candidate,
-                    Score = AccessoryDeficitScore(candidate, currentPrimaryVolume, targets, allowedMuscles)
+                    Score = AccessoryDeficitScore(candidate, currentEffectiveVolume, targets, allowedMuscles)
                 })
                 .Where(item => item.Score > 0m)
                 // Quadriceps receive first call on an accessory slot when glutes are already
@@ -466,8 +467,9 @@ public static class TrainingProgramGenerator
                 var candidate = item.Candidate;
                 var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(
                     request.Goal, request.Experience, week, daysPerWeek, TrainingMovementPattern.Accessory);
-                var underTargetMuscles = candidate.PrimaryMuscleGroups.Distinct()
-                    .Where(muscle => currentPrimaryVolume.GetValueOrDefault(muscle) < targets.GetValueOrDefault(muscle))
+                var underTargetMuscles = TrainingExerciseStimulus.GetEffectiveMuscles(
+                        candidate.ExerciseId, candidate.PrimaryMuscleGroups, candidate.SecondaryMuscleGroups)
+                    .Where(muscle => currentEffectiveVolume.GetValueOrDefault(muscle) < targets.GetValueOrDefault(muscle))
                     .ToArray();
                 var prescription = new TrainingExercisePrescription(
                     candidate.ExerciseId,
@@ -480,7 +482,7 @@ public static class TrainingProgramGenerator
                     rir,
                     rest,
                     progression,
-                    $"Accesorio seleccionado para atender el déficit primario de {string.Join(", ", underTargetMuscles)} sin sustituir los patrones básicos; metadatos {(candidate.IsReviewed ? "revisados" : "aportados por el profesional propietario")}.",
+                    $"Accesorio seleccionado para atender el déficit de estímulo efectivo de {string.Join(", ", underTargetMuscles)} sin sustituir los patrones básicos; metadatos {(candidate.IsReviewed ? "revisados" : "aportados por el profesional propietario")}.",
                     candidate.PrimaryMuscleGroups.ToArray(),
                     candidate.SecondaryMuscleGroups.ToArray());
 
@@ -520,18 +522,19 @@ public static class TrainingProgramGenerator
 
     private static decimal AccessoryDeficitScore(
         TrainingExerciseCandidate candidate,
-        IReadOnlyDictionary<TrainingMuscleGroup, decimal> currentPrimaryVolume,
+        IReadOnlyDictionary<TrainingMuscleGroup, decimal> currentEffectiveVolume,
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> targets,
         IReadOnlySet<TrainingMuscleGroup>? allowedMuscles)
     {
-        var muscles = candidate.PrimaryMuscleGroups.Distinct()
+        var muscles = TrainingExerciseStimulus.GetEffectiveMuscles(
+                candidate.ExerciseId, candidate.PrimaryMuscleGroups, candidate.SecondaryMuscleGroups)
             .Where(muscle => targets.ContainsKey(muscle) &&
                              (allowedMuscles is null || allowedMuscles.Contains(muscle)))
             .ToArray();
         if (muscles.Length == 0) return 0m;
         return muscles.Average(muscle =>
         {
-            var deficit = Math.Max(0m, targets[muscle] - currentPrimaryVolume.GetValueOrDefault(muscle));
+            var deficit = Math.Max(0m, targets[muscle] - currentEffectiveVolume.GetValueOrDefault(muscle));
             var importance = muscle == TrainingMuscleGroup.Hamstrings
                 ? 0.5m
                 : muscle is TrainingMuscleGroup.Chest or TrainingMuscleGroup.Lats or
