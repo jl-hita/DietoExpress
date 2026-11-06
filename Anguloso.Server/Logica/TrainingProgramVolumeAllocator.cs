@@ -267,14 +267,31 @@ public static class TrainingProgramVolumeAllocator
             TrainingMuscleGroup.Lats,
             TrainingMuscleGroup.UpperBack,
             TrainingMuscleGroup.Deltoids,
-            TrainingMuscleGroup.Biceps,
-            TrainingMuscleGroup.Triceps,
             TrainingMuscleGroup.Glutes,
             TrainingMuscleGroup.Quadriceps,
-            TrainingMuscleGroup.Hamstrings,
             TrainingMuscleGroup.Calves
         };
         var targets = primaryTargetMuscles.ToDictionary(muscle => muscle, _ => baseline);
+        var supplementalBaseline = Math.Max(1m, Math.Ceiling(baseline / 2m));
+
+        if (goal == TrainingGoal.Hypertrophy)
+        {
+            // In hypertrophy, all major groups (including arms and hamstrings) use the agreed
+            // experience range. Abdominals remain a supplemental target unless explicitly prioritized.
+            targets[TrainingMuscleGroup.Biceps] = baseline;
+            targets[TrainingMuscleGroup.Triceps] = baseline;
+            targets[TrainingMuscleGroup.Hamstrings] = baseline;
+        }
+        else
+        {
+            // Preserve the previous conservative dose for strength/general-fitness programs;
+            // the new ACSM-informed hypertrophy ranges must not inflate unrelated goals.
+            targets[TrainingMuscleGroup.Biceps] = supplementalBaseline;
+            targets[TrainingMuscleGroup.Triceps] = supplementalBaseline;
+            targets[TrainingMuscleGroup.Hamstrings] = Math.Max(2m, Math.Ceiling(baseline * 0.5m));
+        }
+
+        targets[TrainingMuscleGroup.Abdominals] = supplementalBaseline;
         foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
         {
             var preferenceTarget = preference.TargetWeeklyPrimarySets ?? baseline + preference.Priority * 2m;
