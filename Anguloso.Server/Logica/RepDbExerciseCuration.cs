@@ -330,6 +330,19 @@ internal static class RepDbExerciseCuration
         if (id.Equals("sit-ups", StringComparison.OrdinalIgnoreCase))
             return primary ? """["rectus_abdominis"]""" : """["hip_flexors"]""";
 
+        // Preserve the locally reviewed corrections found in the 466-record audit export.
+        // RepDB's upstream still places erector spinae as primary for the hex-bar deadlift and
+        // omits adductors from primary work for the Cossack squat.
+        if (id.Equals("hex-bar-deadlift", StringComparison.OrdinalIgnoreCase))
+            return primary
+                ? """["gluteus_maximus","quadriceps","hamstrings"]"""
+                : """["erector_spinae","forearm_flexors","trapezius"]""";
+
+        if (id.Equals("cossack-squat", StringComparison.OrdinalIgnoreCase))
+            return primary
+                ? """["gluteus_maximus","quadriceps","adductors"]"""
+                : """["hamstrings"]""";
+
         using var document = JsonDocument.Parse(string.IsNullOrWhiteSpace(sourceMusclesJson) ? "[]" : sourceMusclesJson);
         return document.RootElement.ValueKind == JsonValueKind.Array ? document.RootElement.GetRawText() : "[]";
     }
