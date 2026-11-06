@@ -4,7 +4,7 @@ using Xunit;
 namespace DietoExpress.Security.Tests;
 
 /// <summary>
-/// 27 deterministic scenarios covering the interaction of completion, recovery, pain,
+/// 28 deterministic scenarios covering the interaction of completion, recovery, pain,
 /// perceived effort, progression evidence and recent history. These are software safety
 /// regressions, not clinical validation.
 /// </summary>

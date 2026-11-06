@@ -177,6 +177,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         Assert.InRange(result.Sessions[0].EstimatedDurationMinutes, 1, 35);
         Assert.Contains(result.Warnings, warning => warning.Contains("Quadriceps", StringComparison.Ordinal));
+        Assert.Contains(result.Warnings, warning => warning.Contains("opción compatible", StringComparison.Ordinal));
     }
 
     [Fact]

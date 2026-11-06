@@ -125,7 +125,7 @@ public static class TrainingProgramVolumeAllocator
             {
                 var achieved = primaryVolume.GetValueOrDefault(muscle);
                 if (achieved + 0.001m < target)
-                    warnings.Add($"Semana {week}: {muscle} alcanza {achieved:0.##} series primarias frente al objetivo orientativo de {target:0.##}; no se fuerza más volumen porque se alcanzó el límite de series o duración disponible.");
+                    warnings.Add($"Semana {week}: {muscle} alcanza {achieved:0.##} series primarias frente al objetivo orientativo de {target:0.##}; no se fuerza más volumen porque no queda una opción compatible de ejercicio, material y tiempo que permita añadir series sin superar los límites de equilibrio muscular, series por ejercicio o duración.");
             }
 
             for (var index = 0; index < weekKeys.Length; index++)
