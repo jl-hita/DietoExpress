@@ -207,7 +207,7 @@ internal static class TrainingExerciseStimulus
             ["dumbbell-shoulder-press"] = [TrainingMuscleGroup.Triceps],
             ["machine-shoulder-press"] = [TrainingMuscleGroup.Triceps],
 
-            // Rows and vertical pulls: elbow flexors contribute dynamically under load.
+            // Rows load elbow flexors and lats dynamically; vertical pulls load elbow flexors.
             ["barbell-row"] = [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Lats],
             ["single-arm-db-row"] = [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Lats],
             ["chest-supported-db-row"] = [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Lats],
