@@ -18,6 +18,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
         foreach (var goal in Enum.GetValues<TrainingGoal>())
         foreach (var experience in Enum.GetValues<TrainingExperience>())
         foreach (var days in DaySets())
+        foreach (var durationMinutes in new[] { 35, 60, 90 })
         {
             var request = new TrainingProgramGenerationRequest(
                 goal,
@@ -25,7 +26,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
                 new DateOnly(2026, 10, 26),
                 4,
                 days,
-                60,
+                durationMinutes,
                 ["barbell", "dumbbell", "pull_up_bar", "cable", "kettlebell", "ez_bar", "shoulder_press_machine", "ab_wheel", "machine"],
                 []);
 
@@ -81,7 +82,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
             }
 
             scenarios.Add(new ScenarioReport(
-                $"goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}",
+                $"goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}-minutes-{durationMinutes}",
                 request,
                 "repdb-free-curated-v1",
                 generated.Succeeded,
@@ -99,7 +100,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
         }
 
         var report = new EvaluationReport(
-            "training-generator-evaluation-v3",
+            "training-generator-evaluation-v4",
             DateTimeOffset.UtcNow,
             scenarios.Select(scenario => scenario.Plan?.EngineVersion).FirstOrDefault(version => !string.IsNullOrWhiteSpace(version)) ?? "unknown",
             scenarios.Count,
@@ -117,7 +118,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
         File.WriteAllText(fullPath, JsonSerializer.Serialize(report, JsonOptions));
 
         Assert.Equal("0.9.0", report.EngineVersion);
-        Assert.Equal(27, report.ScenarioCount);
+        Assert.Equal(81, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.HardViolationCount);
         var selectedExerciseIds = scenarios.SelectMany(scenario => scenario.Metrics.ExerciseSelectionCounts.Keys)
