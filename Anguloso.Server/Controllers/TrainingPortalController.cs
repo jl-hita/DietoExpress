@@ -377,7 +377,6 @@ public sealed class TrainingPortalController : ControllerBase
             WHERE f.client_id = @clientId AND s.plan_id = (
                 SELECT plan_id FROM training_sessions WHERE id = @sessionId
             ) AND p.status = 'active' AND r.outcome IS NOT NULL
-              AND r.exercise_feedback IS NOT NULL
             ORDER BY s.scheduled_date DESC, r.id DESC
             LIMIT 12
             """, ("clientId", clientId), ("sessionId", sessionId)))
