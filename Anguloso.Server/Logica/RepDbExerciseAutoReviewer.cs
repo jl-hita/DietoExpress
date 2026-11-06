@@ -55,12 +55,13 @@ internal static class RepDbExerciseAutoReviewer
         };
         if (exp is null) return null;
 
-        var goals = ReadStrings(goalsJson).Select(MapGoal).Where(x => x is not null).Cast<string>().Distinct().ToArray();
-        if (goals.Length == 0)
-        {
-            // General fitness is the only safe default when the source has no interpretable goal.
-            goals = ["GeneralFitness"];
-        }
+        var goals = ReadStrings(goalsJson).Select(MapGoal).Where(x => x is not null).Cast<string>()
+            // RepDB goal tags are narrower than the app's broad training goals. A resistance
+            // exercise suitable for strength or hypertrophy is also usable in general fitness;
+            // minimum experience and equipment still constrain who can receive it.
+            .Append("GeneralFitness")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
         var requiredEquipment = MapEquipment(equipment ?? "", isBodyweight);
         if (requiredEquipment is null) return null;
@@ -73,7 +74,7 @@ internal static class RepDbExerciseAutoReviewer
 
         return new ReviewMetadata(pattern, primary, secondary, exp, goals, requiredEquipment,
             selectionPriority,
-            "Enriquecimiento automático RepDB v3: mapeo determinista de metadatos de origen; verificar si cambian las reglas.");
+            "Enriquecimiento automático RepDB v4: mapeo determinista de metadatos de origen; verificar si cambian las reglas.");
     }
 
     private static string? InferPattern(string id, string es, string en, string tagsJson,
