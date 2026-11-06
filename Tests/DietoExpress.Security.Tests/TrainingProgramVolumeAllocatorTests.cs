@@ -156,10 +156,10 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.True(explicitHamstrings.Succeeded, string.Join("; ", explicitHamstrings.Errors));
         var defaultVolume = TrainingProgramVolumeAllocator.CalculatePrimaryVolume(defaults.Sessions);
         var explicitVolume = TrainingProgramVolumeAllocator.CalculatePrimaryVolume(explicitHamstrings.Sessions);
-        Assert.Equal(6m, defaultVolume[TrainingMuscleGroup.Quadriceps]);
-        Assert.Equal(6m, defaultVolume[TrainingMuscleGroup.Glutes]);
-        Assert.Equal(6m, defaultVolume[TrainingMuscleGroup.Calves]);
-        Assert.Equal(3m, defaultVolume[TrainingMuscleGroup.Hamstrings]);
+        Assert.Equal(10m, defaultVolume[TrainingMuscleGroup.Quadriceps]);
+        Assert.Equal(10m, defaultVolume[TrainingMuscleGroup.Glutes]);
+        Assert.Equal(10m, defaultVolume[TrainingMuscleGroup.Calves]);
+        Assert.Equal(10m, defaultVolume[TrainingMuscleGroup.Hamstrings]);
         Assert.Equal(8m, explicitVolume[TrainingMuscleGroup.Hamstrings]);
     }
 
@@ -181,7 +181,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
             sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null, 60);
         Assert.True(defaults.Succeeded, string.Join("; ", defaults.Errors));
         Assert.True(defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "bench").Sets > 1);
-        Assert.Equal(3, defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "curl").Sets);
+        Assert.Equal(5, defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "curl").Sets);
         Assert.Equal(1, defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "knee-raise").Sets);
 
         var prioritized = TrainingProgramVolumeAllocator.Allocate(
@@ -300,7 +300,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
-    public void DefaultWeeklyVolumeTargetsScaleWithTimeBudgetButExplicitProfessionalTargetsDoNot()
+    public void HypertrophyTargetsRemainEvidenceInformedAndReportTimeLimitedShortfalls()
     {
         var shortSchedule = new[]
         {
@@ -324,11 +324,11 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.True(shortBudget.Succeeded, string.Join("; ", shortBudget.Errors));
         Assert.True(fullBudget.Succeeded, string.Join("; ", fullBudget.Errors));
         Assert.True(explicitTarget.Succeeded, string.Join("; ", explicitTarget.Errors));
-        Assert.Equal(6, shortBudget.Sessions.Sum(session => session.Exercises.Single().Sets));
-        Assert.Equal(8, fullBudget.Sessions.Sum(session => session.Exercises.Single().Sets));
+        Assert.Equal(10, shortBudget.Sessions.Sum(session => session.Exercises.Single().Sets));
+        Assert.Equal(10, fullBudget.Sessions.Sum(session => session.Exercises.Single().Sets));
         Assert.Equal(8, explicitTarget.Sessions.Sum(session => session.Exercises.Single().Sets));
-        Assert.Contains(shortBudget.Warnings, warning => warning.Contains("tiempo semanal disponible", StringComparison.Ordinal));
-        Assert.DoesNotContain(fullBudget.Warnings, warning => warning.Contains("tiempo semanal disponible", StringComparison.Ordinal));
+        Assert.Contains(shortBudget.Warnings, warning => warning.Contains("rango orientativo", StringComparison.Ordinal));
+        Assert.Contains(fullBudget.Warnings, warning => warning.Contains("rango orientativo", StringComparison.Ordinal));
     }
 
     [Fact]
