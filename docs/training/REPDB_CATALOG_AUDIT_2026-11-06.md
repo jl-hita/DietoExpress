@@ -189,3 +189,18 @@ Esta política evita que el motor trate por igual todos los músculos ni que sac
 - El split de cuerpo completo de 2–3 días alterna ahora dos exposiciones de sentadilla con una exposición de bisagra semanal en 2 días (y dos bisagras en 3 días), manteniendo el trabajo unilateral. Esto evita que el patrón de bisagra/hip thrust desplace innecesariamente la segunda exposición de sentadilla y mejora la dosis de cuádriceps sin depender de inflar el volumen de glúteos.
 
 - La selección de accesorios da prioridad explícita a una exposición directa de gemelos cuando falta, y a un accesorio de cuádriceps cuando los glúteos están en objetivo o dentro de un margen conservador de tres series, anticipando el volumen que el asignador añadirá después a los compuestos. Así se evita que elevaciones laterales, abdominales u otros accesorios menores consuman todos los huecos de sesiones cortas, y que el volumen de gemelos desplace la cobertura de cuádriceps en perfiles intermedios.
+
+
+## Última evaluación reproducible del generador
+
+Validación CI del commit `0afa568f6c9a12817708af3f93f57ab59db9142d` (06/11/2026, run `42297965803`):
+
+- 405/405 escenarios generados correctamente; cero errores de generación.
+- 97/97 ejercicios candidatos aprobados; cero imágenes ausentes en el catálogo seleccionado.
+- Ningún escenario carece ya de trabajo directo de gemelos. Los 40 avisos restantes de volumen de gemelos aparecen exclusivamente en sesiones limitadas a 35 minutos, con 3–5 series frente a objetivos orientativos de 6–8; el límite temporal obliga a priorizar también cuádriceps y los patrones básicos.
+- No hay déficits de volumen primario de glúteos.
+- Quedan 13 escenarios con cuádriceps una serie por debajo del objetivo: todos son rutinas de dos días (perfiles con material limitado o sesiones de 35 minutos). La mayoría conserva 5–6 series frente a objetivos de 6–7.
+- Los avisos de isquiotibiales permanecen numerosos, pero el objetivo predeterminado es secundario y la cobertura mediante bisagra se mantiene; no se persiguen curls adicionales a costa de los grupos prioritarios.
+- Persisten avisos de otros grupos (especialmente espalda alta, bíceps y deltoides). Son advertencias de dosis primaria, no errores de generación; deben interpretarse junto con las exposiciones secundarias y el tiempo disponible, no ocultarse ni convertirse automáticamente en fallos estructurales.
+
+La matriz demuestra consistencia estructural, no validación clínica individual ni prueba de que una estimación de duración coincida con el tiempo real. P1 permanece abierto hasta completar la revisión final del adaptador/progresión y de los escenarios con material y tiempo restringidos.
