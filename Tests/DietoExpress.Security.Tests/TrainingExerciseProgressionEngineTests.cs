@@ -237,6 +237,20 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void RecentPainStillRequiresReviewWhenProgressionIsDisabled()
+    {
+        var p = Prescription() with { ProgressionRule = TrainingProgressionRule.None };
+        var exposure = new TrainingExerciseExposure(
+            Enumerable.Range(0, 3)
+                .Select(_ => new TrainingExecutedSet("working", 60m, 12, 3m, true)).ToArray(),
+            PainReported: true);
+
+        var result = TrainingExerciseProgressionEngine.Evaluate(p, [exposure]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.HoldAndReview, result.Action);
+    }
+
+    [Fact]
     public void UnsupportedProgressionRule_IsNotInterpretedAsDoubleProgression()
     {
         var p = Prescription() with { ProgressionRule = TrainingProgressionRule.IncreaseLoadWithinLimits };
