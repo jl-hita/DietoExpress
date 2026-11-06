@@ -66,6 +66,44 @@ public sealed class ExerciseCatalogRegressionTests
 
 
     [Fact]
+    public void RepDbAutoReviewer_KeepsSmithMachineAsSpecificEquipment()
+    {
+        var reviewerType = typeof(TrainingProgramGenerator).Assembly.GetType(
+            "Anguloso.Server.Logica.RepDbExerciseAutoReviewer", throwOnError: true)!;
+        var tryBuild = reviewerType.GetMethod(
+            "TryBuild", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró el auto-revisor RepDB.");
+        var metadata = tryBuild.Invoke(null, new object?[]
+        {
+            "smith-machine-bench-press",
+            "Press de Banca en Máquina Smith",
+            "Smith Machine Bench Press",
+            "Ejercicio de empuje horizontal para trabajar el pecho.",
+            JsonSerializer.Serialize(new[]
+            {
+                "Coloca los pies firmes y ajusta el banco bajo la barra guiada.",
+                "Desciende la barra hacia el pecho con control.",
+                "Empuja hasta extender los brazos sin bloquear bruscamente los codos."
+            }),
+            "intermediate",
+            "smith_machine",
+            "push",
+            "compound",
+            "chest",
+            """["pectoralis_major"]""",
+            """["triceps_brachii"]""",
+            """["hypertrophy"]""",
+            "[]",
+            false
+        }) ?? throw new InvalidOperationException("El auto-revisor no aprobó el press Smith.");
+
+        var requiredEquipment = (string[])metadata.GetType()
+            .GetProperty("RequiredEquipment")!.GetValue(metadata)!;
+        Assert.Contains("smith-machine", requiredEquipment);
+        Assert.DoesNotContain("machine", requiredEquipment);
+    }
+
+    [Fact]
     public void RepDbExerciseCuration_PreservesAuditedMuscleCorrections()
     {
         var curationType = typeof(TrainingProgramGenerator).Assembly.GetType(
