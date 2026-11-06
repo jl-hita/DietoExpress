@@ -231,7 +231,7 @@ public static class TrainingProgramVolumeAllocator
         var baseBaseline = goal switch
         {
             // Midpoints of the agreed planning ranges: beginner 8–12, intermediate 10–16,
-            // advanced 12–20. Professional priority can raise the central target.
+            // advanced 12–20. Professional priority can raise the central target; default increases are capped at 20 unless an explicit target overrides that ceiling.
             TrainingGoal.Hypertrophy => experience switch
             {
                 TrainingExperience.Beginner => 10m,
