@@ -107,7 +107,7 @@ public static class TrainingExerciseProgressionEngine
         var increment = prescription.SmallestLoadIncrementKg.Value;
         if (increment > maximumIncrease)
             return Recommendation(TrainingExerciseProgressionAction.HoldAndReview,
-                $"El incremento disponible ({increment:0.##} kg) supera el límite conservador del 5 % ({maximumIncrease:0.##} kg). Mantén la carga o ajusta el material; no fuerces un salto excesivo.");
+                $"El incremento disponible ({increment:0.##} kg) supera el límite conservador configurado del {maximumIncreasePercent:0.##} % ({maximumIncrease:0.##} kg). Mantén la carga o ajusta el material; no fuerces un salto excesivo.");
 
         var suggestedLoad = decimal.Round(latest.LoadKg + increment, 2, MidpointRounding.AwayFromZero);
         return new(
