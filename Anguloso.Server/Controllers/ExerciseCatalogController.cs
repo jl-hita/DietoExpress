@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Anguloso.Server.Logica;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -96,7 +97,7 @@ public sealed class ExerciseCatalogController : ControllerBase
                 item.ReviewNotes
             }).ToArray();
 
-            return Ok(new
+            var payload = JsonSerializer.SerializeToUtf8Bytes(new
             {
                 total = stats.total,
                 returned = export.Length,
@@ -104,6 +105,8 @@ public sealed class ExerciseCatalogController : ControllerBase
                 counts = new { stats.pending, stats.approved, stats.rejected },
                 items = export
             });
+            return File(payload, "application/json; charset=utf-8",
+                $"exercise-catalog-audit-{DateTime.UtcNow:yyyyMMdd}.json");
         }
         catch (Exception exception)
         {
