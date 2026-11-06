@@ -56,6 +56,34 @@ public sealed class TrainingExerciseProgressionService
                 var recoveryInsufficient = !reader.IsDBNull(4) && reader.GetString(4) == "insufficient";
                 var sessionPain = !reader.IsDBNull(5) && reader.GetString(5) == "new_or_worsening";
                 var recordedExerciseIds = new HashSet<string>(StringComparer.Ordinal);
+                var progressionEligibility = new Dictionary<string, bool>(StringComparer.Ordinal);
+                try
+                {
+                    // The historical prescription identifies deload/non-progressable exposures.
+                    // Do not let them count toward the next normal block's top-of-range streak.
+                    if (!reader.IsDBNull(1))
+                    {
+                        using var prescriptionDocument = JsonDocument.Parse(reader.GetString(1));
+                        if (prescriptionDocument.RootElement.ValueKind == JsonValueKind.Object &&
+                            prescriptionDocument.RootElement.TryGetProperty("exercises", out var prescribed) &&
+                            prescribed.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var item in prescribed.EnumerateArray())
+                            {
+                                if (item.ValueKind != JsonValueKind.Object) continue;
+                                var exerciseId = JsonString(item, "exerciseId");
+                                if (string.IsNullOrWhiteSpace(exerciseId)) continue;
+                                progressionEligibility[exerciseId] =
+                                    ParseProgressionRule(item) == TrainingProgressionRule.DoubleProgression;
+                            }
+                        }
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Unknown historical prescription metadata must not become progression evidence.
+                }
+
                 try
                 {
                     if (!reader.IsDBNull(2))
@@ -91,7 +119,9 @@ public sealed class TrainingExerciseProgressionService
                                 var key = (planId, exerciseId);
                                 if (!history.TryGetValue(key, out var exposures))
                                     history[key] = exposures = [];
-                                exposures.Add(new(sets, completed, recoveryInsufficient, pain));
+                                exposures.Add(new(
+                                    sets, completed, recoveryInsufficient, pain,
+                                    progressionEligibility.GetValueOrDefault(exerciseId)));
                             }
                         }
                     }
@@ -102,34 +132,16 @@ public sealed class TrainingExerciseProgressionService
                     // from the independent prescription payload below.
                 }
 
-                try
+                // A prescribed exercise absent from the execution payload is not a successful
+                // exposure. Represent it as missing data so the engine cannot skip it and progress.
+                foreach (var (exerciseId, progressionEligible) in progressionEligibility)
                 {
-                    // A prescribed exercise absent from the execution payload is not a successful
-                    // exposure. Represent it as missing data so the engine cannot skip it and progress.
-                    if (!reader.IsDBNull(1))
-                    {
-                        using var prescriptionDocument = JsonDocument.Parse(reader.GetString(1));
-                        if (prescriptionDocument.RootElement.ValueKind == JsonValueKind.Object &&
-                            prescriptionDocument.RootElement.TryGetProperty("exercises", out var prescribed) &&
-                            prescribed.ValueKind == JsonValueKind.Array)
-                        {
-                            foreach (var item in prescribed.EnumerateArray())
-                            {
-                                if (item.ValueKind != JsonValueKind.Object) continue;
-                                var exerciseId = JsonString(item, "exerciseId");
-                                if (string.IsNullOrWhiteSpace(exerciseId) || recordedExerciseIds.Contains(exerciseId)) continue;
-                                var key = (planId, exerciseId);
-                                if (!history.TryGetValue(key, out var exposures))
-                                    history[key] = exposures = [];
-                                exposures.Add(new(Array.Empty<Anguloso.Server.Logica.TrainingExecutedSet>(),
-                                    completed, recoveryInsufficient, sessionPain));
-                            }
-                        }
-                    }
-                }
-                catch (JsonException)
-                {
-                    // Corrupt legacy prescriptions cannot identify exercises safely.
+                    if (recordedExerciseIds.Contains(exerciseId)) continue;
+                    var key = (planId, exerciseId);
+                    if (!history.TryGetValue(key, out var exposures))
+                        history[key] = exposures = [];
+                    exposures.Add(new(Array.Empty<Anguloso.Server.Logica.TrainingExecutedSet>(),
+                        completed, recoveryInsufficient, sessionPain, progressionEligible));
                 }
             }
         }
