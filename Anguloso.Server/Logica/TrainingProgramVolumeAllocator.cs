@@ -31,7 +31,10 @@ public static class TrainingProgramVolumeAllocator
             session => (session.WeekNumber, session.Day),
             session => session with
             {
-                Exercises = session.Exercises.Select(exercise => exercise with { Sets = MinimumSetsPerExercise }).ToArray()
+                Exercises = session.Exercises.Select(exercise => exercise with
+                {
+                    Sets = Math.Clamp(exercise.Sets, MinimumSetsPerExercise, MaximumSetsPerExercise)
+                }).ToArray()
             });
         var warnings = new List<string>();
 
