@@ -271,4 +271,21 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("ab-wheel-rollout", evaluation);
         Assert.Contains("Assert.Equal(81, report.ScenarioCount)", evaluation);
     }
+
+    [Fact]
+    public void RepDbCuration_KeepsUsefulTibialisAndRotatorCuffAccessoriesEligible()
+    {
+        Assert.False(RepDbExerciseCuration.ShouldExclude(
+            "kettlebell-tibialis-raise", "strength", "kettlebell", "calf-raise"));
+        Assert.False(RepDbExerciseCuration.ShouldExclude(
+            "cable-external-rotation", "strength", "cable", null));
+
+        var curation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseCuration.cs"));
+        var autoReviewer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseAutoReviewer.cs"));
+        Assert.Contains("[\"tibialis-raise\"] = [\"kettlebell-tibialis-raise\"]", curation);
+        Assert.Contains("\"kettlebell-tibialis-raise\" => \"tibialis-raise\"", curation);
+        Assert.Contains("tibialis raise", autoReviewer);
+        Assert.Contains("external rotation", autoReviewer);
+    }
+
 }
