@@ -393,6 +393,7 @@ public sealed class ExerciseCatalogRegressionTests
         // This RepDB export does not contain a tibialis raise record; do not pretend the whitelist imported one.
         Assert.True(Excluded("kettlebell-tibialis-raise", "strength", "kettlebell", "calf-raise"));
         Assert.False(Excluded("cable-external-rotation", "strength", "cable", null));
+        Assert.False(Excluded("side-lying-hip-adduction", "strength", "", "hip-adduction"));
 
         var curation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseCuration.cs"));
         var autoReviewer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseAutoReviewer.cs"));
