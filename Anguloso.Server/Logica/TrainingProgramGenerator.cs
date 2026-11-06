@@ -514,10 +514,12 @@ public static class TrainingProgramGenerator
         return muscles.Average(muscle =>
         {
             var deficit = Math.Max(0m, targets[muscle] - currentPrimaryVolume.GetValueOrDefault(muscle));
-            var importance = muscle is TrainingMuscleGroup.Chest or TrainingMuscleGroup.Lats or
-                TrainingMuscleGroup.UpperBack or TrainingMuscleGroup.Deltoids or TrainingMuscleGroup.Biceps or
-                TrainingMuscleGroup.Triceps or TrainingMuscleGroup.Glutes or TrainingMuscleGroup.Quadriceps or
-                TrainingMuscleGroup.Hamstrings or TrainingMuscleGroup.Calves ? 1m : 0.6m;
+            var importance = muscle == TrainingMuscleGroup.Hamstrings
+                ? 0.5m
+                : muscle is TrainingMuscleGroup.Chest or TrainingMuscleGroup.Lats or
+                    TrainingMuscleGroup.UpperBack or TrainingMuscleGroup.Deltoids or TrainingMuscleGroup.Biceps or
+                    TrainingMuscleGroup.Triceps or TrainingMuscleGroup.Glutes or TrainingMuscleGroup.Quadriceps or
+                    TrainingMuscleGroup.Calves ? 1m : 0.6m;
             return deficit * importance;
         });
     }
