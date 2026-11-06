@@ -156,3 +156,17 @@ Estos registros no entran en la biblioteca inicial porque su función ya está c
 De los 58 registros rechazados de categoría fuerza, dos se incorporan con una decisión explícita y corrección (`cable-external-rotation` y `hammer-curl`). Los otros 56 quedan fuera de la biblioteca inicial por ser ejercicios de rehabilitación/activación, variantes redundantes de menor prioridad, habilidades avanzadas de calistenia, posiciones de yoga/Pilates o trabajo de potencia/condicionamiento. Esto incluye, entre otros, `banded-clamshell`, `bird-dog`, `sled-push`, `front-lever`, `human-flag`, `muscle-ups`, `handstand-hold`, `jefferson-curl`, `medicine-ball-slam`, `wall-ball` y `band-pull-apart`. El resto de rechazados son 89 ejercicios de estiramiento y 17 de cardio, ajenos al alcance de este generador.
 
 La selección de 97 no pretende ser el catálogo universal de todo ejercicio útil. Define el conjunto inicial que el motor puede prescribir con reglas, progresión y equipamiento conocidos. Las alternativas fuera de alcance podrán incorporarse después de una revisión específica.
+
+
+### Criterio de interpretación de déficits de volumen por músculo
+
+La evaluación del generador no debe tratar todos los avisos de volumen como fallos equivalentes ni perseguir el cumplimiento mecánico de cada objetivo si eso empeora la rutina.
+
+- **Prioridad principal de tren inferior:** cuádriceps y glúteos; se debe procurar una dosis razonable y sostenible en los escenarios compatibles.
+- **Tríceps sural:** mantenerlo como grupo prioritario de cobertura directa, sin que ello obligue a añadir trabajo redundante cuando ya recibe una dosis adecuada.
+- **Isquiotibiales:** grupo importante, pero con objetivo secundario y flexible en la primera versión del generador. Se debe incluir trabajo de bisagra de cadera y/o flexión de rodilla cuando exista una opción compatible y razonable; no es requisito alcanzar el objetivo nominal en todos los perfiles de equipamiento.
+- Un déficit aislado de isquiotibiales en perfiles domésticos/restringidos **no bloquea la calidad ni el cierre de P1** si la rutina conserva los patrones básicos, una cobertura adecuada de cuádriceps y glúteos y no hay una alternativa de isquiotibiales que pueda añadirse sin sobrecargar otros grupos, exceder el tiempo o degradar la selección.
+- No se deben introducir ejercicios de baja prioridad ni aumentar el volumen de glúteos/lumbar solo para hacer desaparecer el aviso. Los avisos deben seguir disponibles en el diagnóstico para que el profesional conozca la limitación.
+- Esta jerarquía es un criterio de producto para la versión inicial, no una afirmación de que los isquiotibiales carezcan de importancia fisiológica ni una recomendación clínica universal.
+
+Por tanto, los avisos de isquiotibiales se clasifican como **limitaciones aceptables/no bloqueantes** cuando cumplen las condiciones anteriores. Los déficits de cuádriceps, glúteos o tríceps sural sí requieren una revisión específica antes de considerar satisfactorios los escenarios afectados.
