@@ -9,7 +9,7 @@ public static class TrainingProgramGenerator
     private const decimal SecondsPerRepEstimate = 2.5m;
     private const int TransitionSecondsPerExercise = 45;
     private const int WarmupAndTransitionsMinutes = 5;
-    private const decimal QuadAccessoryGluteTargetBufferSets = 3m;
+    private const decimal QuadAccessoryGluteTargetBufferSets = 6m;
 
     public static TrainingProgramGenerationResult Generate(
         TrainingProgramGenerationRequest request,
@@ -405,8 +405,8 @@ public static class TrainingProgramGenerator
 
             // Squat-pattern compounds commonly train both glutes and quadriceps. The volume
             // allocator may add several sets to those compounds later in the generation pass;
-            // reserve a direct quad accessory when glutes are within a small three-set buffer
-            // of target, so the later allocator cannot leave quads behind to avoid glute overshoot.
+            // reserve a direct quad accessory when glutes are within a six-set planning buffer
+            // of target, accounting for the compound sets the allocator may add later.
             var hasDirectQuadricepsAccessory = catalogCandidates.Any(candidate =>
                 candidate.MovementPattern == TrainingMovementPattern.Accessory &&
                 candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Quadriceps) &&
