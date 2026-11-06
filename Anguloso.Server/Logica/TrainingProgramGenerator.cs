@@ -529,7 +529,7 @@ public static class TrainingProgramGenerator
         var fullBodyA = new SessionTemplate("Cuerpo completo A",
             [TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.Hinge, TrainingMovementPattern.Core]);
         var fullBodyB = new SessionTemplate("Cuerpo completo B",
-            [TrainingMovementPattern.Hinge, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
+            [TrainingMovementPattern.Squat, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
 
         return daysPerWeek switch
         {
