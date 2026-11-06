@@ -163,19 +163,17 @@ public static class TrainingProgramVolumeAllocator
         if (primaryMuscles.Length == 0)
             return 0m;
 
-        // A compound movement can still be useful for an under-target primary muscle when
-        // another primary muscle has already reached its target. The previous all-or-nothing
-        // guard discarded that candidate entirely, creating avoidable deficits (for example,
-        // quadriceps work blocked because glutes had already reached their target).
-        var normalizedDeficit = primaryMuscles.Average(muscle =>
-            Math.Max(0m, targets[muscle] - primaryVolume.GetValueOrDefault(muscle)) / targets[muscle]);
-        if (normalizedDeficit <= 0m)
+        // A compound may contribute one additional set when another primary muscle has
+        // just reached its target, but must not keep accumulating volume once any primary
+        // muscle is already above target. This small buffer prevents a rigid all-or-nothing
+        // cutoff without allowing large glute/hamstring overshoots to chase another deficit.
+        if (primaryMuscles.Any(muscle =>
+                primaryVolume.GetValueOrDefault(muscle) > targets[muscle]))
             return 0m;
 
-        // Averaging across all primary muscles naturally ranks a focused isolation above
-        // a compound when both address the same deficit, while still allowing the compound
-        // to contribute if no more selective candidate can close the remaining gap.
-        return normalizedDeficit;
+        var normalizedDeficit = primaryMuscles.Average(muscle =>
+            Math.Max(0m, targets[muscle] - primaryVolume.GetValueOrDefault(muscle)) / targets[muscle]);
+        return normalizedDeficit > 0m ? normalizedDeficit : 0m;
     }
 
     internal static IReadOnlyDictionary<TrainingMuscleGroup, decimal> GetWeeklyTargets(
