@@ -506,6 +506,34 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void GeneratorSelectsAccessoriesForTheMusclesOfEachSplitDay()
+    {
+        var catalog = Catalog()
+            .Where(exercise => exercise.MovementPattern != TrainingMovementPattern.Accessory)
+            .Append(new TrainingExerciseCandidate(
+                "biceps-curl", "test", "Curl de bíceps", TrainingMovementPattern.Accessory,
+                [], Enum.GetValues<TrainingGoal>(), TrainingExperience.Beginner, 55, true,
+                [TrainingMuscleGroup.Biceps], []))
+            .Append(new TrainingExerciseCandidate(
+                "leg-extension", "test", "Extensión de cuádriceps", TrainingMovementPattern.Accessory,
+                [], Enum.GetValues<TrainingGoal>(), TrainingExperience.Beginner, 55, true,
+                [TrainingMuscleGroup.Quadriceps], []))
+            .ToArray();
+        var request = Request() with
+        {
+            TrainingDays = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday]
+        };
+
+        var generated = TrainingProgramGenerator.Generate(request, catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        var upper = generated.Prescription!.Sessions.Single(session => session.Title == "Tren superior A");
+        var lower = generated.Prescription.Sessions.Single(session => session.Title == "Tren inferior A");
+        Assert.Contains(upper.Exercises, exercise => exercise.ExerciseId == "biceps-curl");
+        Assert.Contains(lower.Exercises, exercise => exercise.ExerciseId == "leg-extension");
+    }
+
+    [Fact]
     public void GeneratorStillWorksWhenNoAccessoryIsAvailable()
     {
         var catalog = Catalog().Where(exercise => exercise.MovementPattern != TrainingMovementPattern.Accessory).ToArray();
