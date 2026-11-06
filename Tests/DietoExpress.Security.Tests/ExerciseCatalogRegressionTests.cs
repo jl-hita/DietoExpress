@@ -71,6 +71,12 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("s.repDbPending", reviewUi);
         Assert.Contains("s.repDbAutoApprovedV2", reviewUi);
         Assert.Contains("[HttpGet(\"review-queue/export\")]", controller);
+        Assert.Contains("[HttpGet(\"export\")]", controller);
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", controller);
+        Assert.Contains("ExportCatalogAsync", controller);
+        Assert.Contains("totalRecords = items.Count", controller);
+        Assert.Contains("FROM exercise_catalog", service);
+        Assert.Contains("ExportCatalogAsync", service);
         Assert.Contains("totalPending = stats.pending", controller);
         Assert.Contains("complete = items.Count == stats.pending", controller);
         Assert.Contains("ExportReviewQueueAsync", controller);
