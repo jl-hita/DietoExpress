@@ -393,11 +393,6 @@ public static class TrainingProgramGenerator
                 candidate.MovementPattern == TrainingMovementPattern.Accessory &&
                 candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Hamstrings) &&
                 selectedThisWeek.Contains(candidate.ExerciseId));
-            var prioritizeHamstringAccessory =
-                !hasDirectHamstringAccessory &&
-                currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Hamstrings) <
-                    targets.GetValueOrDefault(TrainingMuscleGroup.Hamstrings) &&
-                (allowedMuscles is null || allowedMuscles.Contains(TrainingMuscleGroup.Hamstrings));
 
             // Squat-pattern compounds commonly train both glutes and quadriceps. If glute
             // volume is already at/above its target while quadriceps remain materially under
@@ -436,14 +431,10 @@ public static class TrainingProgramGenerator
                     Score = AccessoryDeficitScore(candidate, currentPrimaryVolume, targets, allowedMuscles)
                 })
                 .Where(item => item.Score > 0m)
-                // When the week still lacks direct hamstring work, reserve the next available
-                // accessory slot for a reviewed hamstring accessory (e.g. a leg curl). This is
-                // conditional on a real hamstring deficit, compatible equipment and session time;
-                // it never displaces the required squat/hinge patterns or repeats once covered.
+                // Quadriceps receive first call on an accessory slot when glutes are already
+                // at target and quads remain under target. Hamstring accessories compete by
+                // their lower default target/score instead of reserving a slot unconditionally.
                 .OrderByDescending(item =>
-                    prioritizeHamstringAccessory &&
-                    item.Candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Hamstrings))
-                .ThenByDescending(item =>
                     prioritizeQuadricepsAccessory &&
                     item.Candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Quadriceps))
                 .ThenByDescending(item => item.Score)
