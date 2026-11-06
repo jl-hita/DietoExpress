@@ -251,7 +251,7 @@ La evaluación conserva las series primarias/secundarias brutas y las frecuencia
 - Intermedio: 10–16 (objetivo central 13).
 - Avanzado: 12–20 (objetivo central 16).
 - Preferencia explícita del profesional: objetivo ±2; por ejemplo, 20 equivale a 18–22.
-- La prioridad muscular desplaza el objetivo central en incrementos de dos series por nivel de prioridad. Los isquiotibiales conservan el rango objetivo, pero reciben menor prioridad de asignación (peso 0,5) cuando compiten por tiempo con cuádriceps, glúteos y gemelos.
+- La prioridad muscular desplaza el objetivo central en incrementos de dos series por nivel, con un máximo predeterminado de 20; los objetivos priorizados usan tolerancia ±2. Los isquiotibiales conservan el rango objetivo, pero reciben menor prioridad de asignación (peso 0,5) cuando compiten por tiempo con cuádriceps, glúteos y gemelos.
 - El generador no reduce silenciosamente estos objetivos por falta de tiempo. Si no cabe el volumen dentro de la duración, informa de la dosis conseguida y del déficit respecto al rango.
 - Estos rangos son política inicial del producto inspirada en ACSM 2026, no rangos oficiales del ACSM ni mínimos universales. El Position Stand respalda volúmenes de al menos 10 series y describe rendimientos decrecientes alrededor de 18–20 series semanales.
 
