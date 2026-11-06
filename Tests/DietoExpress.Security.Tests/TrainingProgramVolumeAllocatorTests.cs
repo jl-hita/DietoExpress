@@ -106,18 +106,18 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Theory]
-    [InlineData(TrainingExperience.Beginner, 8, 12, 10)]
-    [InlineData(TrainingExperience.Intermediate, 10, 16, 13)]
-    [InlineData(TrainingExperience.Advanced, 12, 20, 16)]
+    [InlineData(TrainingExperience.Beginner, 8, 12, 10, 5)]
+    [InlineData(TrainingExperience.Intermediate, 10, 16, 13, 7)]
+    [InlineData(TrainingExperience.Advanced, 12, 20, 16, 8)]
     public void HypertrophyDefaultsUseAgreedExperienceRanges(
-        TrainingExperience experience, decimal minimum, decimal maximum, decimal target)
+        TrainingExperience experience, decimal minimum, decimal maximum, decimal target, decimal hamstringTarget)
     {
         var targets = GetWeeklyTargets(TrainingGoal.Hypertrophy, experience, null);
 
         Assert.Equal(target, targets[TrainingMuscleGroup.Chest]);
         Assert.Equal(target, targets[TrainingMuscleGroup.Biceps]);
         Assert.Equal(target, targets[TrainingMuscleGroup.Triceps]);
-        Assert.Equal(target, targets[TrainingMuscleGroup.Hamstrings]);
+        Assert.Equal(hamstringTarget, targets[TrainingMuscleGroup.Hamstrings]);
         Assert.Equal(minimum, target - (experience == TrainingExperience.Beginner ? 2m : experience == TrainingExperience.Intermediate ? 3m : 4m));
         Assert.Equal(maximum, target + (experience == TrainingExperience.Beginner ? 2m : experience == TrainingExperience.Intermediate ? 3m : 4m));
     }
@@ -262,7 +262,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.Equal(10m, defaultVolume[TrainingMuscleGroup.Quadriceps]);
         Assert.Equal(10m, defaultVolume[TrainingMuscleGroup.Glutes]);
         Assert.Equal(10m, defaultVolume[TrainingMuscleGroup.Calves]);
-        Assert.Equal(10m, defaultVolume[TrainingMuscleGroup.Hamstrings]);
+        Assert.Equal(5m, defaultVolume[TrainingMuscleGroup.Hamstrings]);
         Assert.Equal(8m, explicitVolume[TrainingMuscleGroup.Hamstrings]);
     }
 
