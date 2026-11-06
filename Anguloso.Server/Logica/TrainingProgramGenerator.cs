@@ -110,7 +110,7 @@ public static class TrainingProgramGenerator
             ? ApplyConservativeDeload(allocation.Sessions)
             : allocation.Sessions;
         var plan = new TrainingProgramPrescription(
-            "0.8.0",
+            "0.9.0",
             request.Goal.ToString(),
             request.StartDate,
             request.DurationWeeks,
