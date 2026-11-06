@@ -228,8 +228,8 @@ public sealed class TrainingExerciseVolumeAdapterTests
         var exposures = TrainingExerciseVolumeFeedbackMapper.Map(records);
 
         Assert.Equal(3, exposures.Count);
-        Assert.Equal(0, exposures[0].CompletedWorkingSets);
-        Assert.Null(exposures[0].SkippedSetReason);
+        Assert.Equal(0, exposures[^1].CompletedWorkingSets);
+        Assert.Null(exposures[^1].SkippedSetReason);
         var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate(exposures));
         Assert.Equal(TrainingExerciseVolumeAction.NoChange, recommendation.Action);
     }
