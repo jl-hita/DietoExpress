@@ -125,6 +125,79 @@ public sealed class ExerciseCatalogController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// TEMPORARY public export for the RepDB catalog audit.
+    /// Deliberately excludes professional contributions, contributor identity, internal review notes,
+    /// reviewer identity and any user-owned records. Remove after the catalog audit is complete.
+    /// </summary>
+    [HttpGet("audit-export")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ExportRepDbAuditCatalog(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var allItems = await _catalog.ExportCatalogAsync(cancellationToken);
+            var items = allItems
+                .Where(item => string.Equals(item.Source, "repdb-free", StringComparison.Ordinal))
+                .Select(item => new
+                {
+                    item.Id,
+                    item.NameEs,
+                    item.NameEn,
+                    item.DescriptionEs,
+                    item.DescriptionEn,
+                    item.Category,
+                    item.ForceType,
+                    item.Mechanic,
+                    item.Difficulty,
+                    item.Equipment,
+                    item.BodyPart,
+                    item.PrimaryMuscles,
+                    item.SecondaryMuscles,
+                    item.Goals,
+                    item.Tags,
+                    item.InstructionsEs,
+                    item.TipsEs,
+                    item.Images,
+                    item.Met,
+                    item.IsUnilateral,
+                    item.IsBodyweight,
+                    item.Source,
+                    item.ReviewStatus,
+                    item.Reviewed,
+                    item.MovementPattern,
+                    item.ReviewedPrimaryMuscles,
+                    item.ReviewedSecondaryMuscles,
+                    item.MinimumExperience,
+                    item.SuitableGoals,
+                    item.RequiredEquipment,
+                    item.SelectionPriority,
+                    item.SourcePayload
+                })
+                .ToArray();
+
+            var countsByStatus = items
+                .GroupBy(item => item.ReviewStatus)
+                .ToDictionary(group => group.Key, group => group.Count());
+
+            Response.Headers.CacheControl = "no-store";
+            return Ok(new
+            {
+                purpose = "Temporary RepDB exercise catalog audit",
+                totalRecords = items.Length,
+                returned = items.Length,
+                complete = true,
+                countsByStatus,
+                items
+            });
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to export the temporary public RepDB audit catalog.");
+            return StatusCode(503, new { error = "No se pudo exportar el catálogo de ejercicios para auditoría." });
+        }
+    }
+
     [HttpPut("{id}/review")]
     [Authorize(Roles = "superadmin")]
     public async Task<IActionResult> Review(string id, [FromBody] ExerciseReviewRequest review, CancellationToken cancellationToken)
