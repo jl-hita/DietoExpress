@@ -140,7 +140,6 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("IsAutoApprovalCandidate", curation);
         var autoReviewer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseAutoReviewer.cs"));
         var manager = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "exercise-manager", "exercise-manager.component.ts"));
-        var reviewUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "admin", "admin-exercise-review.component.ts"));
         Assert.Contains("IsAccessoryExercise", autoReviewer);
         Assert.Contains("if (IsAccessoryExercise(id, es, en)) return \"Accessory\";", autoReviewer);
         Assert.Contains("'Accessory'", manager);
