@@ -170,3 +170,16 @@ La evaluación del generador no debe tratar todos los avisos de volumen como fal
 - Esta jerarquía es un criterio de producto para la versión inicial, no una afirmación de que los isquiotibiales carezcan de importancia fisiológica ni una recomendación clínica universal.
 
 Por tanto, los avisos de isquiotibiales se clasifican como **limitaciones aceptables/no bloqueantes** cuando cumplen las condiciones anteriores. Los déficits de cuádriceps, glúteos o tríceps sural sí requieren una revisión específica antes de considerar satisfactorios los escenarios afectados.
+
+
+### Aplicación de la prioridad muscular al generador
+
+La jerarquía anterior está implementada en el asignador de volumen, no es solo una nota de auditoría:
+
+- Cuádriceps, glúteos y gemelos/tríceps sural (`Calves`) comparten el objetivo predeterminado principal.
+- El objetivo predeterminado de isquiotibiales se reduce al 50 % del objetivo principal, con un mínimo de dos series primarias semanales. Las bisagras y los curls femorales compatibles siguen siendo opciones válidas.
+- Los accesorios de isquiotibiales ya no reservan automáticamente una plaza antes que los demás accesorios. Compiten con una ponderación menor; los profesionales pueden elevar o fijar su objetivo mediante preferencias explícitas.
+- Las preferencias profesionales explícitas siguen prevaleciendo sobre los valores predeterminados, incluidos los isquiotibiales.
+- Se añade una prueba que verifica los objetivos de cuádriceps, glúteos, gemelos e isquiotibiales y que el objetivo explícito del profesional no se altera.
+
+Esta política evita que el motor trate por igual todos los músculos ni que sacrifique trabajo prioritario para perseguir un objetivo nominal de isquiotibiales. El nuevo informe de evaluación debe confirmar que el cambio no introduce déficits relevantes de gemelos ni aumenta los de cuádriceps.
