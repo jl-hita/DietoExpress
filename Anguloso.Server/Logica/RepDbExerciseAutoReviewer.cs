@@ -481,7 +481,7 @@ internal static class RepDbExerciseAutoReviewer
         return instructions is null ? "[]" : JsonSerializer.Serialize(instructions);
     }
 
-    private static bool HasUsefulInstructions(string json)
+    public static bool HasUsefulInstructions(string json)
     {
         var instructions = ReadStrings(json);
         return instructions.Length >= 2 && instructions.All(x => x.Trim().Length >= 8);
