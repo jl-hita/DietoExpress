@@ -66,7 +66,9 @@ public sealed class TrainingProgramVolumeAllocatorTests
             Session(
                 new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
                     TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], []),
-                new TrainingExercisePrescription("knee-raise", "v1", "Elevación de rodillas", 2, 1, 8, 12, 2m, 90,
+                new TrainingExercisePrescription("curl", "v1", "Curl de bíceps", 2, 1, 8, 12, 2m, 90,
+                    TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Biceps], []),
+                new TrainingExercisePrescription("knee-raise", "v1", "Elevación de rodillas", 3, 1, 8, 12, 2m, 90,
                     TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.HipFlexors], []))
         };
 
@@ -74,6 +76,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
             sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null, 60);
         Assert.True(defaults.Succeeded, string.Join("; ", defaults.Errors));
         Assert.True(defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "bench").Sets > 1);
+        Assert.Equal(3, defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "curl").Sets);
         Assert.Equal(1, defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "knee-raise").Sets);
 
         var prioritized = TrainingProgramVolumeAllocator.Allocate(
