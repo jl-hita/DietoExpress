@@ -23,6 +23,7 @@ public sealed class ExerciseCatalogRegressionTests
     [InlineData("barbell-curl", "Curl con Barra", "Barbell Curl", "barbell", "Beginner")]
     [InlineData("cable-curl", "Curl con Cable", "Cable Curl", "cable", "Beginner")]
     [InlineData("incline-db-curl", "Curl con mancuernas en banco inclinado", "Incline Dumbbell Curl", "dumbbell", "Intermediate")]
+    [InlineData("hammer-curl", "Curl de Martillo con Mancuernas", "Dumbbell Hammer Curl", "dumbbell", "Beginner")]
     public void RepDbAutoReviewer_ApprovesCuratedBicepsCurlVariants(
         string id, string nameEs, string nameEn, string equipment, string difficulty)
     {
@@ -168,10 +169,10 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("review_status = 'rejected'", service);
         Assert.Contains("lower(COALESCE(category, ''))", service);
         Assert.Contains("every startup", service);
-        Assert.Contains("\"hammer-curl\"", curation);
         Assert.Contains("\"band-assisted-pull-ups\"", curation);
         Assert.DoesNotContain("\"decline-db-fly\"", curation);
         var excludedIds = curation.Split("public static readonly string[] ExcludedIds =")[1].Split("];")[0];
+        Assert.DoesNotContain("\"hammer-curl\"", excludedIds);
         Assert.DoesNotContain("\"leg-extension\"", excludedIds);
         Assert.DoesNotContain("\"lateral-raise\"", excludedIds);
         Assert.Contains("Rules are intentionally auditable", curation);
@@ -326,12 +327,20 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.NotNull(curationType);
         var ids = (string[])curationType!.GetField(
             "CuratedCatalogIds", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
-        Assert.Equal(84, ids.Length);
+        Assert.Equal(91, ids.Length);
+        Assert.Equal(ids.Length, ids.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Contains("bench-press", ids);
         Assert.Contains("lat-pulldown", ids);
         Assert.Contains("squat", ids);
         Assert.Contains("romanian-deadlift", ids);
         Assert.Contains("leg-extension", ids);
+        Assert.Contains("hammer-curl", ids);
+        Assert.Contains("hip-abduction", ids);
+        Assert.Contains("plate-loaded-glute-drive", ids);
+        Assert.Contains("shrug", ids);
+        Assert.Contains("straight-arm-pulldown", ids);
+        Assert.Contains("overhead-tricep-extension", ids);
+        Assert.Contains("incline-push-ups", ids);
         Assert.DoesNotContain("crow-pose", ids);
         Assert.DoesNotContain("dumbbell-side-bend", ids);
 
@@ -346,6 +355,7 @@ public sealed class ExerciseCatalogRegressionTests
 
         Assert.Null(Pattern("crow-pose", "Postura del Cuervo", "Crow Pose"));
         Assert.Null(Pattern("dumbbell-side-bend", "Flexión lateral con mancuerna", "Dumbbell Side Bend"));
+        Assert.Equal("Accessory", Pattern("hammer-curl", "Curl de Martillo con Mancuernas", "Dumbbell Hammer Curl"));
         Assert.Equal("VerticalPull", Pattern("lat-pulldown", "Jalón al pecho", "Lat Pulldown"));
         Assert.Equal("Squat", Pattern("front-squat", "Sentadilla frontal", "Front Squat"));
         Assert.Equal("HorizontalPush", Pattern("db-bench-press", "Press de banca con mancuernas", "Dumbbell Bench Press"));
