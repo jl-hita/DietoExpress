@@ -554,7 +554,7 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void GeneratorSelectsAccessoriesForTheMusclesOfEachSplitDay()
+    public void GeneratorDistributesAccessoriesAcrossSplitDaysWithoutRepeatingCoveredWeeklyVolume()
     {
         var catalog = Catalog()
             .Where(exercise => exercise.MovementPattern != TrainingMovementPattern.Accessory)
@@ -581,10 +581,13 @@ public sealed class TrainingProgramGeneratorTests
         var lowerSessions = weekOne.Where(session => session.Title.StartsWith("Tren inferior", StringComparison.Ordinal)).ToArray();
         Assert.Equal(2, upperSessions.Length);
         Assert.Equal(2, lowerSessions.Length);
-        Assert.All(upperSessions, session =>
-            Assert.Contains(session.Exercises, exercise => exercise.ExerciseId == "biceps-curl"));
-        Assert.All(lowerSessions, session =>
-            Assert.Contains(session.Exercises, exercise => exercise.ExerciseId == "leg-extension"));
+        // Accessory slots address remaining weekly primary-volume deficits. Once an earlier
+        // split session has brought a muscle to its target, repeating the same isolation work
+        // in every later session would add unnecessary volume rather than improve coverage.
+        Assert.Contains(upperSessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "biceps-curl");
+        Assert.Contains(lowerSessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "leg-extension");
     }
 
     [Fact]
