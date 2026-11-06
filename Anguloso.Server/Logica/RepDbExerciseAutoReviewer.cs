@@ -123,9 +123,7 @@ internal static class RepDbExerciseAutoReviewer
             "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera", "glute kickback",
             "cable kickback", "pullover", "hip bridge", "puente de cadera", "shrug", "encogimiento de hombros", "wrist roller", "plate pinch",
             "straight-arm pulldown", "straight arm pulldown", "jalon con brazos rectos",
-            "pinza de discos", "kettlebell swing", "dumbbell swing", "farmers walk", "farmer's walk",
-            "suitcase carry", "overhead carry", "sandbag carry", "ab rollout", "ab wheel", "rueda abdominal",
-            "pallof press", "v-up", "v up", "flutter kick", "scissor kick");
+            "pinza de discos");
     }
 
     private static string? MapMuscle(string value)
