@@ -84,6 +84,10 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("exercise-catalog-repdb-curation-refresh-v4", service);
         Assert.Contains("EnsureRepDbExerciseMetadataCurationV4Async", service);
         Assert.Contains("exercise-catalog-repdb-exercise-metadata-v4", service);
+        Assert.Contains("EnsureRepDbAccessoryPatternCurationV1Async", service);
+        Assert.Contains("exercise-catalog-repdb-accessory-pattern-v1", service);
+        Assert.Contains("reviewed_movement_pattern = 'Accessory'", service);
+        Assert.Contains("reviewed_selection_priority = 55", service);
         Assert.Contains("dumbbell-push-press", service);
         Assert.Contains("behind-the-neck-lat-pulldown", service);
         Assert.Contains("RepDbExerciseCuration.ShouldExclude(id, sourceCategory, equipment, variationGroup)", service);
