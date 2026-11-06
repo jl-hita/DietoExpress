@@ -154,7 +154,8 @@ public sealed class TrainingProgramVolumeAllocatorTests
         };
 
         var result = TrainingProgramVolumeAllocator.Allocate(
-            sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null, 60);
+            sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
+            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Biceps, TargetWeeklyPrimarySets: 6m)], 60);
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         Assert.Equal(6, result.Sessions.Sum(session => session.Exercises.Single().Sets));
