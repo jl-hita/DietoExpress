@@ -41,6 +41,8 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
 
         var scenarioResults = new List<RealCatalogScenarioResult>();
         var catalogReviewExceptions = new List<RealCatalogReviewException>();
+        var catalogImageMissingIds = new List<string>();
+        var catalogSingleImageOnlyIds = new List<string>();
         ExerciseCatalogService.ExerciseCatalogReviewStats? reviewStats = null;
         IReadOnlyList<TrainingExerciseCandidate> candidates = Array.Empty<TrainingExerciseCandidate>();
         var candidateCount = 0;
@@ -117,6 +119,32 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     catalogReviewExceptions.Add(new RealCatalogReviewException(
                         reader.GetString(0), reader.GetString(1), reader.GetString(2),
                         reader.GetString(3), reader.GetString(4), reader.GetString(5), reader.GetString(6)));
+                }
+            }
+            await using (var imageAudit = new NpgsqlCommand("""
+                SELECT exercise_id, COALESCE(images, '{}'::jsonb)::text
+                FROM exercise_catalog
+                WHERE source = 'repdb-free'
+                ORDER BY exercise_id
+                """, connection))
+            await using (var reader = await imageAudit.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    var exerciseId = reader.GetString(0);
+                    using var images = JsonDocument.Parse(reader.GetString(1));
+                    var root = images.RootElement;
+                    var flat = root.ValueKind == JsonValueKind.Object &&
+                               root.TryGetProperty("flat", out var flatImages)
+                        ? flatImages
+                        : root;
+                    var hasStart = HasImage(flat, "start");
+                    var hasPeak = HasImage(flat, "peak");
+                    var hasMain = HasImage(flat, "main");
+                    if (!hasStart && !hasPeak && !hasMain)
+                        catalogImageMissingIds.Add(exerciseId);
+                    else if (!hasStart || !hasPeak)
+                        catalogSingleImageOnlyIds.Add(exerciseId);
                 }
             }
             generalFitnessCandidateCount = candidates.Count(candidate =>
@@ -210,7 +238,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var report = new RealCatalogEvaluationReport(
-            "training-generator-real-catalog-evaluation-v3",
+            "training-generator-real-catalog-evaluation-v4",
             DateTimeOffset.UtcNow,
             ExerciseCatalogService.SourceUrl,
             reviewStats?.repDbTotal ?? 0,
@@ -218,6 +246,8 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             reviewStats?.repDbPending ?? 0,
             reviewStats?.repDbRejected ?? 0,
             catalogReviewExceptions,
+            catalogImageMissingIds,
+            catalogSingleImageOnlyIds,
             candidates.Select(candidate => candidate.ExerciseId).OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             candidateCount,
             generalFitnessCandidateCount,
@@ -242,6 +272,8 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             report.CatalogPending,
             report.CatalogRejected,
             report.CatalogReviewExceptions,
+            report.CatalogImageMissingIds,
+            report.CatalogSingleImageOnlyIds,
             report.GeneratorCandidateCount,
             report.GeneralFitnessCandidateCount,
             report.ScenarioCount,
@@ -254,10 +286,11 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 .Max()
         }));
 
-        Assert.Equal("training-generator-real-catalog-evaluation-v3", report.SchemaVersion);
+        Assert.Equal("training-generator-real-catalog-evaluation-v4", report.SchemaVersion);
         Assert.Equal(81, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.GenerationErrorCount);
+        Assert.Empty(report.CatalogImageMissingIds);
         Assert.All(scenarioResults, result =>
         {
             Assert.NotNull(result.MaximumEstimatedMinutes);
@@ -265,6 +298,12 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 $"{result.ScenarioId} estimated {result.MaximumEstimatedMinutes} minutes for a {result.RequestedDurationMinutes}-minute limit.");
         });
     }
+
+    private static bool HasImage(JsonElement images, string key) =>
+        images.ValueKind == JsonValueKind.Object &&
+        images.TryGetProperty(key, out var image) &&
+        image.ValueKind == JsonValueKind.String &&
+        !string.IsNullOrWhiteSpace(image.GetString());
 
     private static IReadOnlyList<DayOfWeek>[] DaySets() =>
     [
@@ -327,6 +366,8 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         long CatalogPending,
         long CatalogRejected,
         IReadOnlyList<RealCatalogReviewException> CatalogReviewExceptions,
+        IReadOnlyList<string> CatalogImageMissingIds,
+        IReadOnlyList<string> CatalogSingleImageOnlyIds,
         IReadOnlyList<string> CandidateIds,
         int GeneratorCandidateCount,
         int GeneralFitnessCandidateCount,
