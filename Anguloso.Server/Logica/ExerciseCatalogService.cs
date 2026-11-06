@@ -223,17 +223,21 @@ public sealed class ExerciseCatalogService
                 var tagsJson = JsonText(exercise, "tags");
                 var generatedDescription = string.IsNullOrWhiteSpace(descriptionEs);
                 var generatedDifficulty = string.IsNullOrWhiteSpace(difficulty);
+                var generatedInstructions = !RepDbExerciseAutoReviewer.HasUsefulInstructions(instructionsEsJson);
+                if (generatedInstructions)
+                    instructionsEsJson = RepDbExerciseAutoReviewer.GenerateInstructionsEs(id, nameEs, name);
                 if (generatedDescription)
                     descriptionEs = RepDbExerciseAutoReviewer.GenerateDescriptionEs(nameEs, name, equipment, bodyPart, primaryMusclesJson);
                 if (generatedDifficulty)
                     difficulty = RepDbExerciseAutoReviewer.InferDifficulty(null, nameEs, name, equipment,
                         ReadString(exercise, "mechanic"), ReadString(exercise, "force_type"), bodyPart,
                         tagsJson, instructionsEsJson);
-                var enrichmentNotes = generatedDescription || generatedDifficulty
+                var enrichmentNotes = generatedDescription || generatedDifficulty || generatedInstructions
                     ? string.Join("; ", new[]
                     {
                         generatedDescription && !string.IsNullOrWhiteSpace(descriptionEs) ? "Descripción en español generada automáticamente" : null,
-                        generatedDifficulty && !string.IsNullOrWhiteSpace(difficulty) ? "Dificultad estimada automáticamente" : null
+                        generatedDifficulty && !string.IsNullOrWhiteSpace(difficulty) ? "Dificultad estimada automáticamente" : null,
+                        generatedInstructions && instructionsEsJson != "[]" ? "Instrucciones en español generadas y revisables automáticamente" : null
                     }.Where(x => x is not null))
                     : null;
 
@@ -353,7 +357,7 @@ public sealed class ExerciseCatalogService
                 Add(command, "metadata_enrichment_notes", enrichmentNotes);
                 AddJson(command, "instructions_en", exercise, "instructions_en");
                 AddJson(command, "instructions_de", exercise, "instructions_de");
-                AddJson(command, "instructions_es", exercise, "instructions_es");
+                Add(command, "instructions_es", instructionsEsJson);
                 AddJson(command, "tips_en", exercise, "tips_en");
                 AddJson(command, "tips_de", exercise, "tips_de");
                 AddJson(command, "tips_es", exercise, "tips_es");
