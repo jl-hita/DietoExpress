@@ -63,6 +63,48 @@ public sealed class ExerciseCatalogRegressionTests
             (string[])metadataType.GetProperty("RequiredEquipment")!.GetValue(metadata)!);
     }
 
+
+    [Fact]
+    public void RepDbAutoReviewer_MapsTibialisRaiseAndAllRequiredEquipment()
+    {
+        var reviewerType = typeof(TrainingProgramGenerator).Assembly.GetType(
+            "Anguloso.Server.Logica.RepDbExerciseAutoReviewer", throwOnError: true)!;
+        var tryBuild = reviewerType.GetMethod(
+            "TryBuild", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró el auto-revisor RepDB.");
+        var metadata = tryBuild.Invoke(null, new object?[]
+        {
+            "kettlebell-tibialis-raise",
+            "Elevación de Tibial con Pesa Rusa",
+            "Kettlebell Tibialis Raise",
+            "Ejercicio de dorsiflexión de tobillo para trabajar el tibial anterior.",
+            JsonSerializer.Serialize(new[]
+            {
+                "Siéntate en un banco con una pierna extendida y el talón apoyado.",
+                "Cuelga una pesa rusa del antepié y eleva los dedos hacia la espinilla.",
+                "Baja lentamente y cambia de pierna al completar las repeticiones."
+            }),
+            "intermediate",
+            "kettlebell",
+            "push",
+            "isolation",
+            "lower_legs",
+            """["tibialis_anterior"]""",
+            "[]",
+            """["hypertrophy","rehabilitation"]""",
+            """["knee_safe","requires_bench"]""",
+            false
+        }) ?? throw new InvalidOperationException("El auto-revisor no aprobó el ejercicio de tibial anterior.");
+
+        var metadataType = metadata.GetType();
+        Assert.Equal("Accessory", metadataType.GetProperty("MovementPattern")!.GetValue(metadata));
+        Assert.Contains("TibialisAnterior",
+            (string[])metadataType.GetProperty("PrimaryMuscles")!.GetValue(metadata)!);
+        var requiredEquipment = (string[])metadataType.GetProperty("RequiredEquipment")!.GetValue(metadata)!;
+        Assert.Contains("bench", requiredEquipment);
+        Assert.Contains("kettlebell", requiredEquipment);
+    }
+
     [Fact]
     public void RepDbCatalog_IsStoredInPostgresWithCompleteSourcePayloadAndReviewedMetadata()
     {
@@ -327,7 +369,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.NotNull(curationType);
         var ids = (string[])curationType!.GetField(
             "CuratedCatalogIds", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
-        Assert.Equal(91, ids.Length);
+        Assert.Equal(92, ids.Length);
         Assert.Equal(ids.Length, ids.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Contains("bench-press", ids);
         Assert.Contains("lat-pulldown", ids);
@@ -341,6 +383,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("straight-arm-pulldown", ids);
         Assert.Contains("overhead-tricep-extension", ids);
         Assert.Contains("incline-push-ups", ids);
+        Assert.Contains("kettlebell-tibialis-raise", ids);
         Assert.DoesNotContain("crow-pose", ids);
         Assert.DoesNotContain("dumbbell-side-bend", ids);
 
@@ -356,6 +399,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Null(Pattern("crow-pose", "Postura del Cuervo", "Crow Pose"));
         Assert.Null(Pattern("dumbbell-side-bend", "Flexión lateral con mancuerna", "Dumbbell Side Bend"));
         Assert.Equal("Accessory", Pattern("hammer-curl", "Curl de Martillo con Mancuernas", "Dumbbell Hammer Curl"));
+        Assert.Equal("Accessory", Pattern("kettlebell-tibialis-raise", "Elevación de Tibial con Pesa Rusa", "Kettlebell Tibialis Raise"));
         Assert.Equal("VerticalPull", Pattern("lat-pulldown", "Jalón al pecho", "Lat Pulldown"));
         Assert.Equal("Squat", Pattern("front-squat", "Sentadilla frontal", "Front Squat"));
         Assert.Equal("HorizontalPush", Pattern("db-bench-press", "Press de banca con mancuernas", "Dumbbell Bench Press"));
