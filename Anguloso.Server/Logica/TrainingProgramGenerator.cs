@@ -306,7 +306,10 @@ public static class TrainingProgramGenerator
                     && (int)candidate.MinimumExperience <= (int)request.Experience
                     && (equipment.Count == 0 || candidate.RequiredEquipment.All(equipment.Contains))
                     && !excluded.Contains(candidate.ExerciseId)
-                    && !selectedThisWeek.Contains(candidate.ExerciseId))
+                    // Accessory exercises may repeat on different training days. Only prevent
+                    // duplicate prescription of the same accessory within this session.
+                    && !currentExercises.Any(exercise =>
+                        string.Equals(exercise.ExerciseId, candidate.ExerciseId, StringComparison.OrdinalIgnoreCase)))
                 .Select(candidate => new
                 {
                     Candidate = candidate,
@@ -353,7 +356,6 @@ public static class TrainingProgramGenerator
                     continue;
 
                 currentExercises.Add(prescription);
-                selectedThisWeek.Add(candidate.ExerciseId);
                 selected = true;
                 break;
             }
