@@ -533,7 +533,10 @@ public sealed class ExerciseCatalogRegressionTests
             (Id: "cable-pallof-press", Equipment: "cable", Muscles: """["obliques"]"""),
             (Id: "side-plank", Equipment: "bodyweight", Muscles: """["obliques"]"""),
             (Id: "reverse-lunge", Equipment: "dumbbell", Muscles: """["quadriceps"]"""),
-            (Id: "step-ups", Equipment: "dumbbell", Muscles: """["quadriceps"]""")
+            (Id: "step-ups", Equipment: "dumbbell", Muscles: """["quadriceps"]"""),
+            (Id: "chest-supported-db-row", Equipment: "dumbbell", Muscles: """["latissimus_dorsi"]"""),
+            (Id: "single-arm-db-row", Equipment: "dumbbell", Muscles: """["latissimus_dorsi"]"""),
+            (Id: "assisted-pull-ups", Equipment: "pull-up bar", Muscles: """["latissimus_dorsi"]""")
         };
 
         foreach (var item in cases)
