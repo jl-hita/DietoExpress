@@ -686,6 +686,41 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void GeneratorUsesReverseNordicAsDirectQuadAccessoryWhenNoExtensionMachineIsAvailable()
+    {
+        var catalog = Catalog().Append(new TrainingExerciseCandidate(
+            "reverse-nordic-curl", "test", "Nordic Curl Inverso", TrainingMovementPattern.Accessory,
+            [], [TrainingGoal.Hypertrophy, TrainingGoal.GeneralFitness],
+            TrainingExperience.Intermediate, 58, true,
+            [TrainingMuscleGroup.Quadriceps],
+            [TrainingMuscleGroup.HipFlexors, TrainingMuscleGroup.Abdominals])).ToArray();
+
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                Experience = TrainingExperience.Intermediate,
+                AvailableEquipment = ["barbell", "dumbbell", "bench", "bodyweight"],
+                MaximumSessionDurationMinutes = 90,
+                MuscleVolumeTargets =
+                [
+                    new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Glutes, TargetWeeklyPrimarySets: 2m),
+                    new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Quadriceps, TargetWeeklyPrimarySets: 6m)
+                ]
+            },
+            catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        var weekOneReverseNordics = generated.Prescription!.Sessions
+            .Where(session => session.WeekNumber == 1)
+            .SelectMany(session => session.Exercises)
+            .Where(exercise => exercise.ExerciseId == "reverse-nordic-curl")
+            .ToArray();
+        Assert.Single(weekOneReverseNordics);
+        Assert.Contains(generated.Prescription.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "squat-basic");
+    }
+
+    [Fact]
     public void GeneratorPrioritizesDirectQuadricepsAccessoryWhenGlutesAreAlreadyAtTarget()
     {
         var catalog = Catalog().Append(new TrainingExerciseCandidate(
