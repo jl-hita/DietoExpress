@@ -658,6 +658,38 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void GeneratorPrioritizesDirectQuadricepsAccessoryWhenGlutesAreAlreadyAtTarget()
+    {
+        var catalog = Catalog().Append(new TrainingExerciseCandidate(
+            "leg-extension", "test", "Extensión de cuádriceps", TrainingMovementPattern.Accessory,
+            ["leg-extension-machine"], [TrainingGoal.Hypertrophy],
+            TrainingExperience.Beginner, 1, true,
+            [TrainingMuscleGroup.Quadriceps], [])).ToArray();
+
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                MaximumSessionDurationMinutes = 90,
+                MuscleVolumeTargets =
+                [
+                    new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Glutes, TargetWeeklyPrimarySets: 2m),
+                    new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Quadriceps, TargetWeeklyPrimarySets: 6m)
+                ]
+            },
+            catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        var weekOneAccessories = generated.Prescription!.Sessions
+            .Where(session => session.WeekNumber == 1)
+            .SelectMany(session => session.Exercises)
+            .Where(exercise => exercise.ExerciseId == "leg-extension")
+            .ToArray();
+        Assert.Single(weekOneAccessories);
+        Assert.Contains(weekOneAccessories, exercise =>
+            exercise.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Quadriceps));
+    }
+
+    [Fact]
     public void GeneratorDoesNotForceHamstringAccessoryWhenTargetIsAlreadyMetOrEquipmentIsUnavailable()
     {
         var catalog = Catalog().Append(new TrainingExerciseCandidate(
