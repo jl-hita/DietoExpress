@@ -31,7 +31,11 @@ public static class TrainingProgramGenerator
             .ToArray();
         var split = BuildSplit(days.Length);
         var excluded = new HashSet<string>(request.ExcludedExerciseIds, StringComparer.OrdinalIgnoreCase);
-        var equipment = new HashSet<string>(request.AvailableEquipment, StringComparer.OrdinalIgnoreCase);
+        var equipment = new HashSet<string>(
+            request.AvailableEquipment
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(NormalizeEquipmentToken),
+            StringComparer.OrdinalIgnoreCase);
         var sessions = new List<TrainingSessionPrescription>();
         for (var week = 1; week <= request.DurationWeeks; week++)
         {
@@ -51,7 +55,7 @@ public static class TrainingProgramGenerator
                             && x.MovementPattern == pattern
                             && x.SuitableGoals.Contains(request.Goal)
                             && (int)x.MinimumExperience <= (int)request.Experience
-                            && (equipment.Count == 0 || x.RequiredEquipment.All(equipment.Contains))
+                            && (equipment.Count == 0 || HasRequiredEquipment(x.RequiredEquipment, equipment))
                             && !excluded.Contains(x.ExerciseId))
                         .OrderByDescending(x => x.SelectionPriority)
                         .ThenBy(x => x.ExerciseId, StringComparer.Ordinal)
@@ -155,6 +159,38 @@ public static class TrainingProgramGenerator
                 SelectionRationale = exercise.SelectionRationale + " Descarga activa: reducción conservadora de series y mayor reserva respecto al fallo."
             }).ToArray()
         }).ToArray();
+
+    private static string NormalizeEquipmentToken(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        // RepDB uses underscores while the application catalog uses hyphenated tokens.
+        return string.Join("-", value.Trim().ToLowerInvariant()
+            .Replace('_', ' ')
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static bool HasRequiredEquipment(
+        IReadOnlyList<string> requiredEquipment,
+        IReadOnlySet<string> availableEquipment)
+    {
+        if (availableEquipment.Count == 0) return true;
+
+        return requiredEquipment.All(required =>
+        {
+            var token = NormalizeEquipmentToken(required);
+            if (availableEquipment.Contains(token)) return true;
+
+            // "machine" is the broad gym-equipment option. It satisfies a specific machine
+            // requirement; a specific machine also satisfies a generic machine requirement.
+            if (token.Equals("machine", StringComparison.OrdinalIgnoreCase))
+                return availableEquipment.Any(value =>
+                    value.Equals("machine", StringComparison.OrdinalIgnoreCase)
+                    || value.EndsWith("-machine", StringComparison.OrdinalIgnoreCase));
+
+            return token.EndsWith("-machine", StringComparison.OrdinalIgnoreCase)
+                && availableEquipment.Contains("machine");
+        });
+    }
 
     private static string BuildCandidateDiagnostic(
         TrainingMovementPattern pattern,
@@ -311,7 +347,7 @@ public static class TrainingProgramGenerator
                     && (candidate.IsReviewed || candidate.IsOwnedByCurrentProfessional)
                     && candidate.SuitableGoals.Contains(request.Goal)
                     && (int)candidate.MinimumExperience <= (int)request.Experience
-                    && (equipment.Count == 0 || candidate.RequiredEquipment.All(equipment.Contains))
+                    && (equipment.Count == 0 || HasRequiredEquipment(candidate.RequiredEquipment, equipment))
                     && !excluded.Contains(candidate.ExerciseId)
                     // Accessory exercises may repeat on different training days. Only prevent
                     // duplicate prescription of the same accessory within this session.
