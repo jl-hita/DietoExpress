@@ -358,6 +358,7 @@ public static class TrainingProgramGenerator
     {
         var targets = TrainingProgramVolumeAllocator.GetWeeklyTargets(
             request.Goal, request.Experience, request.MuscleVolumeTargets);
+        var catalogCandidates = catalog.ToArray();
         var isFullBody = title.Contains("completo", StringComparison.OrdinalIgnoreCase);
         // Short sessions must protect time for the core movement patterns. Accessory slots
         // scale with the available duration instead of being appended in the same quantity
@@ -381,7 +382,23 @@ public static class TrainingProgramGenerator
             foreach (var muscle in exercise.PrimaryMuscleGroups.Distinct())
                 currentPrimaryVolume[muscle] = currentPrimaryVolume.GetValueOrDefault(muscle) + exercise.Sets;
 
-            var candidates = catalog
+            var selectedThisWeek = previousSessions
+                .Where(session => session.WeekNumber == week)
+                .SelectMany(session => session.Exercises)
+                .Concat(currentExercises)
+                .Select(exercise => exercise.ExerciseId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var hasDirectHamstringAccessory = catalogCandidates.Any(candidate =>
+                candidate.MovementPattern == TrainingMovementPattern.Accessory &&
+                candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Hamstrings) &&
+                selectedThisWeek.Contains(candidate.ExerciseId));
+            var prioritizeHamstringAccessory =
+                !hasDirectHamstringAccessory &&
+                currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Hamstrings) <
+                    targets.GetValueOrDefault(TrainingMuscleGroup.Hamstrings) &&
+                (allowedMuscles is null || allowedMuscles.Contains(TrainingMuscleGroup.Hamstrings));
+
+            var candidates = catalogCandidates
                 .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory
                     && (candidate.IsReviewed || candidate.IsOwnedByCurrentProfessional)
                     && IsAccessoryGoalCompatible(candidate, request.Goal)
@@ -398,7 +415,14 @@ public static class TrainingProgramGenerator
                     Score = AccessoryDeficitScore(candidate, currentPrimaryVolume, targets, allowedMuscles)
                 })
                 .Where(item => item.Score > 0m)
-                .OrderByDescending(item => item.Score)
+                // When the week still lacks direct hamstring work, reserve the next available
+                // accessory slot for a reviewed hamstring accessory (e.g. a leg curl). This is
+                // conditional on a real hamstring deficit, compatible equipment and session time;
+                // it never displaces the required squat/hinge patterns or repeats once covered.
+                .OrderByDescending(item =>
+                    prioritizeHamstringAccessory &&
+                    item.Candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Hamstrings))
+                .ThenByDescending(item => item.Score)
                 .ThenByDescending(item => item.Candidate.SelectionPriority)
                 .ThenBy(item => item.Candidate.ExerciseId, StringComparer.Ordinal)
                 .ToArray();
