@@ -118,6 +118,9 @@ internal static class RepDbExerciseAutoReviewer
             "deadlift" or "hex-bar-deadlift" or "romanian-deadlift"
                 or "dumbbell-romanian-deadlift" or "hip-thrust" or "plate-loaded-glute-drive" => "Hinge",
             "bulgarian-split-squat" or "reverse-lunge" or "step-ups" => "SingleLeg",
+            // Knee-flexion hamstring work is isolation, not a hip hinge. Keep these exercises
+            // available to the accessory selector instead of letting deadlift variants displace them.
+            "leg-curl" or "seated-leg-curl" or "nordic-hamstring-curl" => "Accessory",
             _ => (string?)null
         };
         if (explicitPattern is not null) return explicitPattern;
