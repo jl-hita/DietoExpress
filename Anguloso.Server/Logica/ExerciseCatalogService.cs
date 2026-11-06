@@ -150,6 +150,7 @@ public sealed class ExerciseCatalogService
         await EnsureRepDbExerciseMetadataCurationV4Async(cancellationToken);
         await EnsureRepDbMetadataEnrichmentAsync(cancellationToken);
         await EnsureRepDbInitialReviewAsync(cancellationToken);
+        await EnsureRepDbGeneralFitnessGoalCurationV1Async(cancellationToken);
         await EnsureRepDbAccessoryPatternCurationV1Async(cancellationToken);
         return result;
     }
@@ -1067,6 +1068,69 @@ public sealed class ExerciseCatalogService
     /// Moves previously auto-reviewed isolation exercises into the dedicated accessory pattern.
     /// Only untouched RepDB automatic metadata is eligible; professional decisions are preserved.
     /// </summary>
+    private async Task EnsureRepDbGeneralFitnessGoalCurationV1Async(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-general-fitness-goal-v1";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            const string updateSql = """
+                UPDATE exercise_catalog
+                SET reviewed_suitable_goals =
+                    CASE
+                        WHEN jsonb_typeof(COALESCE(reviewed_suitable_goals, '[]'::jsonb)) = 'array'
+                            THEN CASE
+                                WHEN COALESCE(reviewed_suitable_goals, '[]'::jsonb) @> '["GeneralFitness"]'::jsonb
+                                    THEN COALESCE(reviewed_suitable_goals, '[]'::jsonb)
+                                ELSE COALESCE(reviewed_suitable_goals, '[]'::jsonb) || '["GeneralFitness"]'::jsonb
+                            END
+                        ELSE '["GeneralFitness"]'::jsonb
+                    END,
+                    review_notes = CONCAT(COALESCE(review_notes, ''), ' GeneralFitness habilitado por curation v1.'),
+                    updated_at = NOW()
+                WHERE source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                  AND reviewed_movement_pattern IS NOT NULL
+                  AND NOT (COALESCE(reviewed_suitable_goals, '[]'::jsonb) @> '["GeneralFitness"]'::jsonb)
+                """;
+            await using (var update = new NpgsqlCommand(updateSql, connection, transaction))
+            {
+                var updatedCount = await update.ExecuteNonQueryAsync(cancellationToken);
+                _logger.LogInformation(
+                    "RepDB general-fitness goal curation added GeneralFitness to {UpdatedCount} automatic approvals.",
+                    updatedCount);
+            }
+
+            await using (var mark = new NpgsqlCommand(
+                "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING", connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
     private async Task EnsureRepDbAccessoryPatternCurationV1Async(CancellationToken cancellationToken)
     {
         const string marker = "exercise-catalog-repdb-accessory-pattern-v1";
