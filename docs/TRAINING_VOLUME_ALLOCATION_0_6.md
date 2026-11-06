@@ -70,3 +70,27 @@ La evaluación automática incluye ahora extensiones de cuádriceps, curl femora
 ## Pruebas
 
 `TrainingProgramVolumeAllocatorTests` cubre crédito secundario, objetivos/prioridades, determinismo, límites de series, duración y preferencias inválidas. `TrainingProgramGeneratorTests` cubre estabilidad de dosis entre semanas, cobertura y matriz de objetivo/experiencia/días/duración. `TrainingAdaptationReviewWorkflowTests` comprueba que no se aplican recortes globales y que los ejercicios compuestos no se alteran si alguno de sus grupos no está seleccionado.
+
+
+## Auditoría con catálogo RepDB real — ejecución 06/11/2026
+
+La ejecución CI asociada al commit `13cc1239e55fa1cb32ad27bffc415a664711e6b1` evaluó el catálogo aislado tras importar y ejecutar la autocuración real:
+
+- 301 ejercicios RepDB importados; 214 aprobados y disponibles como candidatos del generador.
+- 81/81 escenarios generados sin errores estructurales.
+- 2.304 advertencias de calidad acumuladas en las cuatro semanas de los escenarios. No son fallos de generación, pero sí requieren revisión.
+- Duración máxima observada por presupuesto: 35 min solicitados → 35 min; 60 min → 60 min; 90 min → 76 min.
+- Persisten déficits de series primarias en distintos músculos y frecuencias. La ausencia de cobertura de abductores, tibial anterior y manguito rotador aparece repetidamente; no debe ocultarse convirtiendo trabajo secundario en cobertura directa.
+- El informe anterior solo guardaba IDs y advertencias, lo que no permitía revisar los ejercicios concretos ni sus series por músculo. La siguiente versión del artefacto incorpora métricas primarias/secundarias por semana y detalle de cada sesión/ejercicio.
+
+### Corrección de selección por prioridad
+
+Se ha detectado que muchos ejercicios empataban en prioridad y el desempate alfabético por ID podía seleccionar variantes asistidas, bandas o peso corporal antes que alternativas más progresables. La nueva curation de prioridad es una heurística de producto explícita:
+
+- Favorece movimientos básicos cargables y medibles cuando son compatibles (p. ej. press, jalón, remo, sentadilla/prensa y bisagra).
+- Favorece aislamientos con carga externa o máquina/cable frente a variantes de banda o peso corporal cuando compiten por el mismo déficit.
+- No excluye automáticamente ejercicios de peso corporal o bandas; siguen siendo opciones válidas cuando el contexto lo requiere.
+- Solo modifica aprobaciones automáticas RepDB; conserva intactas las decisiones manuales de profesionales.
+- Las prioridades no representan una jerarquía científica universal ni sustituyen la revisión de metadatos y selección.
+
+La auditoría debe repetirse con el artefacto detallado después de esta corrección. No se considera superada por el mero 81/81 estructural: hay que revisar los déficits, la selección concreta, el presupuesto temporal y la cobertura real del catálogo.
