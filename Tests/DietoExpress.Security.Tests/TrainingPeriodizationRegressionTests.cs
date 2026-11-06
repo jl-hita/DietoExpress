@@ -200,8 +200,9 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("generated.qualityReport.weeklyMuscleVolumes", ui);
         Assert.Contains("muscle.primarySets", ui);
         Assert.Contains("muscle.secondarySets", ui);
+        Assert.Contains("muscle.estimatedEffectiveSets", ui);
         Assert.Contains("muscle.primaryFrequencySessions", ui);
-        Assert.Contains("HighPrimarySetWarningThreshold = 20", analyzer);
+        Assert.Contains("HighEffectiveSetReviewThreshold = 22", analyzer);
     }
 
     [Fact]
