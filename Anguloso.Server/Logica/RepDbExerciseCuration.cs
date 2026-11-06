@@ -14,6 +14,8 @@ internal static class RepDbExerciseCuration
     public static readonly string[] ExcludedIds =
     [
         // Specialist skills with little transfer to general strength/hypertrophy plans.
+        "crow-pose",
+        "dumbbell-side-bend",
         "back-lever",
         "ring-dead-hang",
         // Explicit low-value/redundant variants; this is not a blanket exclusion of isolation work.
@@ -108,6 +110,78 @@ internal static class RepDbExerciseCuration
         "rehabilitation", "rehab", "prehab", "cardio"
     };
 
+    // Deliberate first-generation strength/hypertrophy catalog. Keep the selection finite and auditable;
+    // future additions require an explicit review of usefulness, progression and source metadata.
+    public static readonly string[] CuratedCatalogIds =
+    [
+        "bench-press",
+        "db-bench-press",
+        "incline-bench-press",
+        "incline-db-press",
+        "smith-machine-bench-press",
+        "smith-machine-incline-bench-press",
+        "chest-press-machine",
+        "push-up",
+        "knee-push-ups",
+        "barbell-row",
+        "single-arm-db-row",
+        "chest-supported-db-row",
+        "seated-cable-row",
+        "chest-supported-machine-row",
+        "t-bar-row",
+        "ohp",
+        "dumbbell-shoulder-press",
+        "machine-shoulder-press",
+        "lat-pulldown",
+        "v-bar-lat-pulldown",
+        "assisted-pull-ups",
+        "pull-up",
+        "chin-ups",
+        "squat",
+        "front-squat",
+        "goblet-squat",
+        "leg-press",
+        "hack-squat",
+        "bulgarian-split-squat",
+        "reverse-lunge",
+        "step-ups",
+        "deadlift",
+        "hex-bar-deadlift",
+        "romanian-deadlift",
+        "dumbbell-romanian-deadlift",
+        "hip-thrust",
+        "barbell-glute-bridge",
+        "cable-fly",
+        "pec-deck",
+        "lateral-raise",
+        "cable-lateral-raise",
+        "dumbbell-reverse-fly",
+        "face-pull",
+        "barbell-curl",
+        "incline-db-curl",
+        "preacher-curl",
+        "cable-curl",
+        "tricep-pushdown",
+        "cable-overhead-tricep-extension",
+        "skull-crusher",
+        "leg-extension",
+        "leg-curl",
+        "seated-leg-curl",
+        "nordic-hamstring-curl",
+        "standing-calf-raise",
+        "seated-calf-raise",
+        "cable-external-rotation",
+        "hip-adduction",
+        "standing-hip-abduction",
+        "cable-crunch",
+        "ab-wheel-rollout",
+        "cable-pallof-press",
+        "side-plank",
+        "dumbbell-farmers-walk",
+        "seated-dumbbell-lateral-raise"
+    ];
+    private static readonly HashSet<string> CuratedCatalog = new(CuratedCatalogIds, StringComparer.OrdinalIgnoreCase);
+
     // Approval is based on complete, interpretable source metadata and supported generator mappings,
     // not a hard-coded ID allowlist. This lets future high-quality RepDB exercises be enriched safely.
     public static bool IsAutoApprovalCandidate(string id) => !ShouldExclude(id) && !RequiresManualReview(id);
@@ -160,7 +234,7 @@ internal static class RepDbExerciseCuration
         "sit-ups"
     };
 
-    public static bool ShouldExclude(string id) => Excluded.Contains(id);
+    public static bool ShouldExclude(string id) => Excluded.Contains(id) || !CuratedCatalog.Contains(id);
 
     public static string? CurateVariationGroup(string id, string? sourceVariationGroup) => id switch
     {
