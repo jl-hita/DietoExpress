@@ -203,7 +203,7 @@ public static class TrainingProgramGenerator
         var matchingPattern = reviewed.Where(x => x.MovementPattern == pattern).ToArray();
         var matchingGoal = matchingPattern.Where(x => x.SuitableGoals.Contains(request.Goal)).ToArray();
         var matchingExperience = matchingGoal.Where(x => (int)x.MinimumExperience <= (int)request.Experience).ToArray();
-        var matchingEquipment = matchingExperience.Where(x => equipment.Count == 0 || x.RequiredEquipment.All(equipment.Contains)).ToArray();
+        var matchingEquipment = matchingExperience.Where(x => equipment.Count == 0 || HasRequiredEquipment(x.RequiredEquipment, equipment)).ToArray();
         var matchingExclusions = matchingEquipment.Where(x => !excluded.Contains(x.ExerciseId)).ToArray();
 
         return $"No hay ejercicios compatibles para el patrón '{pattern}'. " +
