@@ -64,6 +64,33 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
 
+
+    [Fact]
+    public void RepDbExerciseCuration_PreservesAuditedMuscleCorrections()
+    {
+        var curationType = typeof(TrainingProgramGenerator).Assembly.GetType(
+            "Anguloso.Server.Logica.RepDbExerciseCuration", throwOnError: true)!;
+        var curate = curationType.GetMethod(
+            "CurateMusclesJson", BindingFlags.Static | BindingFlags.Public)
+            ?? throw new InvalidOperationException("No se encontró la corrección de musculatura RepDB.");
+
+        string Curated(string id, bool primary, string source) =>
+            (string)curate.Invoke(null, new object?[] { id, primary, source })!;
+
+        Assert.Equal("""["gluteus_maximus","quadriceps","hamstrings"]""",
+            Curated("hex-bar-deadlift", true, """["erector_spinae","gluteus_maximus","quadriceps"]"""));
+        Assert.Equal("""["erector_spinae","forearm_flexors","trapezius"]""",
+            Curated("hex-bar-deadlift", false, """["forearm_flexors","hamstrings","trapezius"]"""));
+        Assert.Equal("""["gluteus_maximus","quadriceps","adductors"]""",
+            Curated("cossack-squat", true, """["gluteus_maximus","quadriceps"]"""));
+        Assert.Equal("""["hamstrings"]""",
+            Curated("cossack-squat", false, """["adductors","hamstrings"]"""));
+        Assert.Equal("""["rectus_abdominis"]""",
+            Curated("sit-ups", true, """["hip_flexors","rectus_abdominis"]"""));
+        Assert.Equal("""["infraspinatus","teres_minor"]""",
+            Curated("cable-external-rotation", true, """["posterior_deltoid"]"""));
+    }
+
     [Fact]
     public void RepDbAutoReviewer_MapsTibialisRaiseAndAllRequiredEquipment()
     {
