@@ -40,6 +40,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var scenarioResults = new List<RealCatalogScenarioResult>();
+        var catalogReviewExceptions = new List<RealCatalogReviewException>();
         ExerciseCatalogService.ExerciseCatalogReviewStats? reviewStats = null;
         var candidateCount = 0;
         var generalFitnessCandidateCount = 0;
@@ -97,6 +98,26 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             reviewStats = await catalogService.GetReviewStatsAsync();
             var candidates = await catalogService.LoadGeneratorCandidatesAsync(ownerUserId: 0);
             candidateCount = candidates.Count;
+            await using (var reviewAudit = new NpgsqlCommand("""
+                SELECT exercise_id, review_status,
+                       COALESCE(review_notes, ''),
+                       COALESCE(metadata_enrichment_notes, ''),
+                       COALESCE(name_es, ''),
+                       COALESCE(difficulty, ''),
+                       COALESCE(equipment, '')
+                FROM exercise_catalog
+                WHERE source = 'repdb-free' AND review_status <> 'approved'
+                ORDER BY exercise_id
+                """, connection))
+            await using (var reader = await reviewAudit.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    catalogReviewExceptions.Add(new RealCatalogReviewException(
+                        reader.GetString(0), reader.GetString(1), reader.GetString(2),
+                        reader.GetString(3), reader.GetString(4), reader.GetString(5), reader.GetString(6)));
+                }
+            }
             generalFitnessCandidateCount = candidates.Count(candidate =>
                 candidate.SuitableGoals.Contains(TrainingGoal.GeneralFitness));
             Assert.True(generalFitnessCandidateCount >= 50,
@@ -188,11 +209,15 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var report = new RealCatalogEvaluationReport(
-            "training-generator-real-catalog-evaluation-v2",
+            "training-generator-real-catalog-evaluation-v3",
             DateTimeOffset.UtcNow,
             ExerciseCatalogService.SourceUrl,
             reviewStats?.repDbTotal ?? 0,
             reviewStats?.repDbApproved ?? 0,
+            reviewStats?.repDbPending ?? 0,
+            reviewStats?.repDbRejected ?? 0,
+            catalogReviewExceptions,
+            candidates.Select(candidate => candidate.ExerciseId).OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             candidateCount,
             generalFitnessCandidateCount,
             scenarioResults.Count,
@@ -213,6 +238,9 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         {
             report.CatalogTotal,
             report.CatalogApproved,
+            report.CatalogPending,
+            report.CatalogRejected,
+            report.CatalogReviewExceptions,
             report.GeneratorCandidateCount,
             report.GeneralFitnessCandidateCount,
             report.ScenarioCount,
@@ -280,12 +308,25 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         IReadOnlyList<string> PrimaryMuscles,
         IReadOnlyList<string> SecondaryMuscles);
 
+    private sealed record RealCatalogReviewException(
+        string ExerciseId,
+        string ReviewStatus,
+        string ReviewNotes,
+        string MetadataEnrichmentNotes,
+        string NameEs,
+        string Difficulty,
+        string Equipment);
+
     private sealed record RealCatalogEvaluationReport(
         string SchemaVersion,
         DateTimeOffset GeneratedAt,
         string SourceUrl,
         long CatalogTotal,
         long CatalogApproved,
+        long CatalogPending,
+        long CatalogRejected,
+        IReadOnlyList<RealCatalogReviewException> CatalogReviewExceptions,
+        IReadOnlyList<string> CandidateIds,
         int GeneratorCandidateCount,
         int GeneralFitnessCandidateCount,
         int ScenarioCount,
