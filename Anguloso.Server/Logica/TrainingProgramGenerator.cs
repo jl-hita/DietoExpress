@@ -405,7 +405,11 @@ public static class TrainingProgramGenerator
                     && (int)candidate.MinimumExperience <= (int)request.Experience
                     && (equipment.Count == 0 || HasRequiredEquipment(candidate.RequiredEquipment, equipment))
                     && !excluded.Contains(candidate.ExerciseId)
-                    // Accessory exercises may repeat on different training days. Only prevent
+                    // Once a direct hamstring accessory has covered the missing weekly pattern,
+                    // do not spend further accessory slots repeating it in the same week.
+                    && !(hasDirectHamstringAccessory &&
+                         candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Hamstrings))
+                    // Other accessory exercises may repeat on different training days. Only prevent
                     // duplicate prescription of the same accessory within this session.
                     && !currentExercises.Any(exercise =>
                         string.Equals(exercise.ExerciseId, candidate.ExerciseId, StringComparison.OrdinalIgnoreCase)))
