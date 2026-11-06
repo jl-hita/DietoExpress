@@ -60,7 +60,7 @@ internal static class RepDbExerciseAutoReviewer
         if (id is "dumbbell-romanian-deadlift" or "hip-thrust" or "barbell-glute-bridge"
             or "dumbbell-shoulder-press" or "machine-shoulder-press"
             or "cable-crunch" or "cable-pallof-press" or "side-plank"
-            or "dumbbell-farmers-walk")
+            or "dumbbell-farmers-walk" or "reverse-lunge" or "step-ups")
             exp = "Beginner";
 
         if (exp is null) return null;
