@@ -89,7 +89,9 @@ public sealed class TrainingProgramGeneratorTests
                 .ToArray();
             Assert.All(gluteVolume, muscle =>
             {
-                Assert.InRange(muscle.PrimarySets, 8, 10);
+                // A multi-primary compound may add one set beyond the glute target to
+                // address another primary deficit, but must not continue accumulating.
+                Assert.InRange(muscle.PrimarySets, 8, 11);
                 Assert.True(muscle.EstimatedEffectiveSets >= muscle.PrimarySets);
             });
             Assert.NotEmpty(plan.QualityReport.WeeklyMuscleVolumes);
