@@ -394,6 +394,9 @@ public static class TrainingProgramGenerator
                 .Concat(currentExercises)
                 .Select(exercise => exercise.ExerciseId)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var hamstringsExplicitlyPrioritized = (request.MuscleVolumeTargets ?? Array.Empty<TrainingMuscleVolumeTarget>())
+                .Any(preference => preference.MuscleGroup == TrainingMuscleGroup.Hamstrings &&
+                    (preference.Priority > 0 || preference.TargetWeeklyPrimarySets is not null));
             var hasDirectHamstringAccessory = catalogCandidates.Any(candidate =>
                 candidate.MovementPattern == TrainingMovementPattern.Accessory &&
                 candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Hamstrings) &&
@@ -433,9 +436,9 @@ public static class TrainingProgramGenerator
                     && (int)candidate.MinimumExperience <= (int)request.Experience
                     && (equipment.Count == 0 || HasRequiredEquipment(candidate.RequiredEquipment, equipment))
                     && !excluded.Contains(candidate.ExerciseId)
-                    // Once a direct hamstring accessory has covered the missing weekly pattern,
-                    // do not spend further accessory slots repeating it in the same week.
-                    && !(hasDirectHamstringAccessory &&
+                    // By default, one direct hamstring accessory is enough because this group has
+                    // lower allocation priority. An explicit professional target/priority can repeat it.
+                    && !(hasDirectHamstringAccessory && !hamstringsExplicitlyPrioritized &&
                          candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Hamstrings))
                     // Other accessory exercises may repeat on different training days. Only prevent
                     // duplicate prescription of the same accessory within this session.
@@ -444,7 +447,7 @@ public static class TrainingProgramGenerator
                 .Select(candidate => new
                 {
                     Candidate = candidate,
-                    Score = AccessoryDeficitScore(candidate, currentEffectiveVolume, targets, allowedMuscles)
+                    Score = AccessoryDeficitScore(candidate, currentEffectiveVolume, targets, allowedMuscles, request.MuscleVolumeTargets)
                 })
                 .Where(item => item.Score > 0m)
                 // Quadriceps receive first call on an accessory slot when glutes are already
@@ -524,7 +527,8 @@ public static class TrainingProgramGenerator
         TrainingExerciseCandidate candidate,
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> currentEffectiveVolume,
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> targets,
-        IReadOnlySet<TrainingMuscleGroup>? allowedMuscles)
+        IReadOnlySet<TrainingMuscleGroup>? allowedMuscles,
+        IReadOnlyList<TrainingMuscleVolumeTarget>? preferences)
     {
         var muscles = TrainingExerciseStimulus.GetEffectiveMuscles(
                 candidate.ExerciseId, candidate.PrimaryMuscleGroups, candidate.SecondaryMuscleGroups)
