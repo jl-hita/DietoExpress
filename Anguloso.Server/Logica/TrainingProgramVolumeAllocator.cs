@@ -59,25 +59,22 @@ public static class TrainingProgramVolumeAllocator
         {
             var weekKeys = output.Keys.Where(key => key.WeekNumber == week).OrderBy(key => key.Day).ToArray();
             var weekSessions = weekKeys.Select(key => output[key]).ToArray();
-            var primaryCoveredMuscles = weekSessions.SelectMany(x => x.Exercises)
+            var stimulatedMuscles = weekSessions.SelectMany(x => x.Exercises)
                 .SelectMany(x => TrainingExerciseStimulus.GetEffectiveMuscles(
                     x.ExerciseId, x.PrimaryMuscleGroups, x.SecondaryMuscleGroups))
                 .Distinct()
                 .ToArray();
             // Calves are a priority group even when the current draft omitted direct work:
             // absence must be reported rather than silently removing the target from evaluation.
-            var applicableTargets = targets.Where(target =>
-                    primaryCoveredMuscles.Contains(target.Key) || target.Key == TrainingMuscleGroup.Calves)
-                .ToDictionary(pair => pair.Key, pair => pair.Value);
+            var applicableTargets = targets.ToDictionary(pair => pair.Key, pair => pair.Value);
             var primaryVolume = CalculateEffectiveVolume(weekSessions);
 
-            foreach (var muscle in applicableTargets.Keys.Where(muscle => !primaryCoveredMuscles.Contains(muscle)))
+            foreach (var muscle in applicableTargets.Keys.Where(muscle => !stimulatedMuscles.Contains(muscle)))
                 warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado con estímulo suficiente para {muscle}; no se inventa cobertura a partir de una participación incidental.");
 
             foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
             {
-                if (!applicableTargets.ContainsKey(preference.MuscleGroup) &&
-                    !primaryCoveredMuscles.Contains(preference.MuscleGroup))
+                if (!stimulatedMuscles.Contains(preference.MuscleGroup))
                     warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado con estímulo suficiente para {preference.MuscleGroup}; no se inventa cobertura a partir de una participación incidental.");
             }
 
@@ -104,9 +101,11 @@ public static class TrainingProgramVolumeAllocator
                         var score = DeficitScore(exercise, primaryVolume, applicableTargets);
                         if (score <= 0m)
                             continue;
-                        var localPrimaryVolume = exercise.PrimaryMuscleGroups.Distinct()
+                        var localPrimaryVolume = TrainingExerciseStimulus.GetEffectiveMuscles(
+                            exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups)
                             .Select(muscle => session.Exercises
-                                .Where(item => item.PrimaryMuscleGroups.Contains(muscle))
+                                .Where(item => TrainingExerciseStimulus.GetEffectiveMuscles(
+                                    item.ExerciseId, item.PrimaryMuscleGroups, item.SecondaryMuscleGroups).Contains(muscle))
                                 .Sum(item => (decimal)item.Sets))
                             .DefaultIfEmpty(0m)
                             .Average();
@@ -133,7 +132,7 @@ public static class TrainingProgramVolumeAllocator
 
             foreach (var (muscle, target) in applicableTargets.OrderBy(x => x.Key))
             {
-                if (!primaryCoveredMuscles.Contains(muscle))
+                if (!stimulatedMuscles.Contains(muscle))
                     continue;
 
                 var achieved = primaryVolume.GetValueOrDefault(muscle);
@@ -195,10 +194,9 @@ public static class TrainingProgramVolumeAllocator
         if (primaryMuscles.Length == 0)
             return 0m;
 
-        // A compound may contribute one additional set when another primary muscle has
-        // just reached its target, but must not keep accumulating volume once any primary
-        // muscle is already above target. This small buffer prevents a rigid all-or-nothing
-        // cutoff without allowing large glute/hamstring overshoots to chase another deficit.
+        // A compound may contribute one additional set when another stimulated muscle is
+        // exactly at its target, but must not keep accumulating volume once any target
+        // muscle has exceeded its central target.
         if (primaryMuscles.Any(muscle =>
                 primaryVolume.GetValueOrDefault(muscle) > targets[muscle]))
             return 0m;
@@ -228,8 +226,8 @@ public static class TrainingProgramVolumeAllocator
     {
         var baseBaseline = goal switch
         {
-            // Midpoints of the agreed planning ranges: beginner 8–12, intermediate 11–15,
-            // advanced 14–18. Advanced priority work can be raised toward 18–20.
+            // Midpoints of the agreed planning ranges: beginner 8–12, intermediate 10–16,
+            // advanced 12–20. Professional priority can raise the central target.
             TrainingGoal.Hypertrophy => experience switch
             {
                 TrainingExperience.Beginner => 10m,
