@@ -92,7 +92,7 @@ public static class TrainingProgramVolumeAllocator
                         if (duration + addedDuration > maximumSessionDurationMinutes * 60m)
                             continue;
 
-                        var score = DeficitScore(exercise, primaryVolume, applicableTargets);
+                        var score = DeficitScore(exercise, primaryVolume, applicableTargets, goal, experience, preferences);
                         if (score <= 0m)
                             continue;
                         var localPrimaryVolume = TrainingExerciseStimulus.GetEffectiveMuscles(
@@ -181,10 +181,14 @@ public static class TrainingProgramVolumeAllocator
     private static decimal DeficitScore(
         TrainingExercisePrescription exercise,
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> primaryVolume,
-        IReadOnlyDictionary<TrainingMuscleGroup, decimal> targets)
+        IReadOnlyDictionary<TrainingMuscleGroup, decimal> targets,
+        TrainingGoal goal,
+        TrainingExperience experience,
+        IReadOnlyList<TrainingMuscleVolumeTarget>? preferences)
     {
-        // Targets refer to effective sets. Do not add another compound set when one
-        // of its meaningfully stimulated muscles has already exceeded its target.
+        // Targets refer to effective sets. A compound may continue contributing while all
+        // its stimulated muscles remain inside their accepted ranges, even if one has passed
+        // its central target. Stop before the next set would exceed any upper bound.
         var primaryMuscles = TrainingExerciseStimulus.GetEffectiveMuscles(
                 exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups)
             .Where(targets.ContainsKey)
@@ -196,7 +200,8 @@ public static class TrainingProgramVolumeAllocator
         // exactly at its target, but must not keep accumulating volume once any target
         // muscle has exceeded its central target.
         if (primaryMuscles.Any(muscle =>
-                primaryVolume.GetValueOrDefault(muscle) > targets[muscle]))
+                primaryVolume.GetValueOrDefault(muscle) >=
+                targets[muscle] + GetTargetTolerance(goal, experience, preferences, muscle)))
             return 0m;
 
         var normalizedDeficit = primaryMuscles.Average(muscle =>
