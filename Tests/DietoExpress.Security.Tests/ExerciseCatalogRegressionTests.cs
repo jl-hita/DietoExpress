@@ -453,6 +453,12 @@ public sealed class ExerciseCatalogRegressionTests
             "HasUsefulInstructions", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
         Assert.NotNull(generateInstructions);
         Assert.NotNull(hasInstructions);
+        Assert.True((bool)hasInstructions!.Invoke(null, new object?[]
+            { """["Flexiona la cadera de forma controlada.","Vuelve lentamente a la posición inicial.","Repite."]""" })!);
+        Assert.False((bool)hasInstructions.Invoke(null, new object?[]
+            { """["Flexiona la cadera de forma controlada.","Repite."]""" })!);
+        Assert.Equal("HorizontalPush", Pattern("incline-push-ups", "Push-up inclinado", "Incline Push-Up"));
+        Assert.Equal("Hinge", Pattern("plate-loaded-glute-drive", "Empuje de Glúteo en Máquina de Discos", "Plate-Loaded Glute Drive"));
         foreach (var id in ids)
         {
             var generated = (string)generateInstructions!.Invoke(null, new object?[] { id, id, id })!;
@@ -522,7 +528,7 @@ public sealed class ExerciseCatalogRegressionTests
         bool Excluded(string id, string category, string equipment, string? variationGroup) =>
             (bool)shouldExclude!.Invoke(null, new object?[] { id, category, equipment, variationGroup })!;
         // This RepDB export does not contain a tibialis raise record; do not pretend the whitelist imported one.
-        Assert.True(Excluded("kettlebell-tibialis-raise", "strength", "kettlebell", "calf-raise"));
+        Assert.False(Excluded("kettlebell-tibialis-raise", "strength", "kettlebell", "calf-raise"));
         Assert.False(Excluded("cable-external-rotation", "strength", "cable", null));
         Assert.False(Excluded("side-lying-hip-adduction", "strength", "", "hip-adduction"));
 
