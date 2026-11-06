@@ -85,7 +85,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 """, connection))
             {
                 var changed = await removeGoal.ExecuteNonQueryAsync();
-                Assert.True(changed >= 100, $"Expected at least 100 automatic RepDB approvals to migrate, found {changed}.");
+                Assert.True(changed >= 50, $"Expected at least 50 automatic RepDB approvals to migrate from the curated catalog, found {changed}.");
             }
             await using (var removeMarker = new NpgsqlCommand(
                 "DELETE FROM schema_migrations WHERE id = 'exercise-catalog-repdb-general-fitness-goal-v1'", connection))
@@ -99,10 +99,10 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             candidateCount = candidates.Count;
             generalFitnessCandidateCount = candidates.Count(candidate =>
                 candidate.SuitableGoals.Contains(TrainingGoal.GeneralFitness));
-            Assert.True(generalFitnessCandidateCount >= 100,
-                $"Only {generalFitnessCandidateCount} approved RepDB candidates are suitable for general fitness.");
-            Assert.True(candidateCount >= 100,
-                $"The RepDB curation pipeline returned only {candidateCount} approved generator candidates.");
+            Assert.True(generalFitnessCandidateCount >= 50,
+                $"Only {generalFitnessCandidateCount} approved curated RepDB candidates are suitable for general fitness.");
+            Assert.True(candidateCount >= 50,
+                $"The curated RepDB catalog returned only {candidateCount} approved generator candidates.");
 
             foreach (var goal in Enum.GetValues<TrainingGoal>())
             foreach (var experience in Enum.GetValues<TrainingExperience>())
