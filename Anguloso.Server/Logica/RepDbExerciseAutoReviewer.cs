@@ -53,6 +53,16 @@ internal static class RepDbExerciseAutoReviewer
             "advanced" or "expert" or "hard" or "avanzado" => "Advanced",
             _ => (string?)null
         };
+
+        // RepDB difficulty is not a direct minimum-experience requirement. These controlled,
+        // scalable variants are appropriate beginner options when load and range are adapted.
+        // Keep technically demanding barbell deadlifts and ab-wheel rollouts intermediate.
+        if (id is "dumbbell-romanian-deadlift" or "hip-thrust" or "barbell-glute-bridge"
+            or "dumbbell-shoulder-press" or "machine-shoulder-press"
+            or "cable-crunch" or "cable-pallof-press" or "side-plank"
+            or "dumbbell-farmers-walk")
+            exp = "Beginner";
+
         if (exp is null) return null;
 
         var goals = ReadStrings(goalsJson).Select(MapGoal).Where(x => x is not null).Cast<string>()
