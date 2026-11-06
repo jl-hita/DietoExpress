@@ -109,6 +109,22 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
+    public void AdvancedPriorityTargetIsCappedAtTwentyAndUsesNarrowEighteenToTwentyTwoRange()
+    {
+        var session = Session(new TrainingExercisePrescription(
+            "bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
+            TrainingProgressionRule.DoubleProgression, "test",
+            [TrainingMuscleGroup.Chest], []));
+        var result = TrainingProgramVolumeAllocator.Allocate(
+            [session], TrainingGoal.Hypertrophy, TrainingExperience.Advanced,
+            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Chest, Priority: 3)], 60);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.Contains(result.Warnings, warning =>
+            warning.Contains("rango orientativo 18–22", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ExplicitTwentySeriesHypertrophyTargetUsesEighteenToTwentyTwoRange()
     {
         var target = new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Chest, TargetWeeklyPrimarySets: 20m);
