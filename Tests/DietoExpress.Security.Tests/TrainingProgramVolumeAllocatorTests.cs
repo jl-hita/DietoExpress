@@ -84,6 +84,33 @@ public sealed class TrainingProgramVolumeAllocatorTests
 
 
     [Fact]
+    public void AllocationCanUseACompoundForAnUnderTargetMuscleWhenAnotherPrimaryMuscleIsAlreadyAtTarget()
+    {
+        var sessions = new[]
+        {
+            Session(
+                new TrainingExercisePrescription("squat", "v1", "Sentadilla", 1, 1, 8, 12, 2m, 120,
+                    TrainingProgressionRule.DoubleProgression, "test",
+                    [TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes], []),
+                new TrainingExercisePrescription("glute-bridge", "v1", "Puente de glúteos", 2, 1, 8, 12, 2m, 120,
+                    TrainingProgressionRule.DoubleProgression, "test",
+                    [TrainingMuscleGroup.Glutes], []))
+        };
+
+        var result = TrainingProgramVolumeAllocator.Allocate(
+            sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
+            [
+                new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Quadriceps, TargetWeeklyPrimarySets: 4m),
+                new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Glutes, TargetWeeklyPrimarySets: 1m)
+            ], 60);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        var volume = TrainingProgramVolumeAllocator.CalculatePrimaryVolume(result.Sessions);
+        Assert.Equal(4m, volume[TrainingMuscleGroup.Quadriceps]);
+        Assert.True(volume[TrainingMuscleGroup.Glutes] > 1m);
+    }
+
+    [Fact]
     public void AllocationDistributesTheSameAccessoryAcrossSessionsBeforeMaxingOneSession()
     {
         var sessions = new[]
