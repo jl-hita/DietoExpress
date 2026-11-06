@@ -6,6 +6,29 @@ namespace DietoExpress.Security.Tests;
 public sealed class TrainingProgramVolumeAllocatorTests
 {
     [Fact]
+    public void EveryCuratedCatalogExerciseHasAnExplicitStimulusAuditDecision()
+    {
+        var assembly = typeof(TrainingProgramGenerator).Assembly;
+        var curationType = assembly.GetType("Anguloso.Server.Logica.RepDbExerciseCuration");
+        var stimulusType = assembly.GetType("Anguloso.Server.Logica.TrainingExerciseStimulus");
+        Assert.NotNull(curationType);
+        Assert.NotNull(stimulusType);
+
+        var catalogIds = (string[])curationType!
+            .GetField("CuratedCatalogIds", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!
+            .GetValue(null)!;
+        var isReviewed = stimulusType!
+            .GetMethod("IsReviewed", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!;
+
+        var unreviewed = catalogIds
+            .Where(id => !(bool)isReviewed.Invoke(null, [id])!)
+            .ToArray();
+
+        Assert.Equal(97, catalogIds.Length);
+        Assert.Empty(unreviewed);
+    }
+
+    [Fact]
     public void BenchPressCountsMeaningfulTricepsStimulusAsAFullSet()
     {
         var session = Session(new TrainingExercisePrescription(
