@@ -152,7 +152,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("leg extension", autoReviewer);
         Assert.Contains("lateral raise", autoReviewer);
         Assert.Contains("curl femoral", autoReviewer);
-        Assert.Contains("var selectionPriority = IsAccessoryExercise", autoReviewer);
+        Assert.Contains("var selectionPriority = GetSelectionPriority", autoReviewer);
         Assert.Contains(".Append(\"GeneralFitness\")", autoReviewer);
         Assert.Contains("EnsureRepDbGeneralFitnessGoalCurationV1Async", service);
         Assert.Contains("selectionPriority", autoReviewer);
