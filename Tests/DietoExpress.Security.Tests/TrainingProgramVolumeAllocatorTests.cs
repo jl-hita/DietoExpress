@@ -74,6 +74,8 @@ public sealed class TrainingProgramVolumeAllocatorTests
             new TrainingSessionPrescription(1, DayOfWeek.Wednesday, "Sesión B", 5,
             [
                 new TrainingExercisePrescription("incline", "v1", "Press inclinado", 1, 1, 8, 12, 2m, 120,
+                    TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], []),
+                new TrainingExercisePrescription("db-fly", "v1", "Aperturas", 2, 1, 10, 15, 2m, 90,
                     TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], [])
             ])
         };
@@ -217,7 +219,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
 
 
     [Fact]
-    public void AllocationCanUseACompoundForAnUnderTargetMuscleWhenAnotherPrimaryMuscleIsAlreadyAtTarget()
+    public void AllocationUsesCompoundStimulusAndAcceptsTheLowerEdgeOfAnExplicitTargetRange()
     {
         var sessions = new[]
         {
@@ -241,7 +243,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         var volume = TrainingProgramVolumeAllocator.CalculatePrimaryVolume(result.Sessions);
         Assert.Equal(2m, volume[TrainingMuscleGroup.Quadriceps]);
         Assert.Equal(3m, volume[TrainingMuscleGroup.Glutes]);
-        Assert.Contains(result.Warnings, warning => warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
+        Assert.DoesNotContain(result.Warnings, warning => warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
     }
 
     [Fact]
