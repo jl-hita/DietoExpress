@@ -608,7 +608,7 @@ public sealed class ExerciseCatalogRegressionTests
         string? Pattern(string id, string es, string en) =>
             (string?)method!.Invoke(null, new object?[]
             {
-                id, es, en, "[]", "pull", "isolation", "lower_legs", ["hamstrings"]
+                id, es, en, "[]", "pull", "isolation", "lower_legs", new[] { "hamstrings" }
             });
 
         Assert.Equal("Accessory", Pattern("leg-curl", "Curl femoral", "Leg Curl"));
