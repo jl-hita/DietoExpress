@@ -97,3 +97,28 @@ Se ha detectado que muchos ejercicios empataban en prioridad y el desempate alfa
 - Las prioridades no representan una jerarquía científica universal ni sustituyen la revisión de metadatos y selección.
 
 La auditoría debe repetirse con el artefacto detallado después de esta corrección. No se considera superada por el mero 81/81 estructural: hay que revisar los déficits, la selección concreta, el presupuesto temporal y la cobertura real del catálogo.
+
+
+## Auditoría anatómica y prioridad del catálogo — bloqueo P1 (06/11/2026)
+
+La evaluación con catálogo real selecciona 55 IDs distintos en sus 81 escenarios, sobre un catálogo de 214 candidatos aprobados. La aprobación automática actual no equivale a una validación anatómica individual: `RepDbExerciseAutoReviewer` traduce los campos `primary_muscles` y `secondary_muscles` de RepDB y asigna prioridad mediante reglas de texto/patrón; no constituye una revisión biomecánica por ejercicio.
+
+La primera comprobación del catálogo fuente ya detecta inconsistencias entre variantes de sentadilla:
+- `squat` (sentadilla trasera con barra) declara glúteo mayor y cuádriceps como principales, y erectores espinales e isquiotibiales como secundarios; no incluye aductores.
+- `barbell-box-squat`, `squat-hold` y `squat-pulse` sí incluyen aductores secundarios.
+- `db-squat` tampoco los incluye.
+- `db-goblet-squat` sí incluye aductores secundarios.
+
+Esto no demuestra que todas las variantes deban tener exactamente la misma lista: la profundidad, la postura, el apoyo y la mecánica cambian la contribución muscular. Sí demuestra que no debemos aceptar sin revisión las etiquetas del proveedor ni trasladarlas directamente al cómputo de volumen.
+
+Criterio de auditoría pendiente:
+1. Revisar individualmente los 214 candidatos aprobados que puede utilizar el generador; empezar por los 55 IDs observados en las evaluaciones y continuar con el resto.
+2. Asignar prioridad de selección por utilidad para fuerza/hipertrofia general, capacidad de sobrecarga y progresión, estabilidad, facilidad de aprendizaje y redundancia; no por popularidad ni por coincidencia de palabras.
+3. Revisar músculos principales/secundarios por ejecución concreta. Un secundario solo debe incluirse si recibe una contribución dinámica/isométrica relevante; no añadir estabilizadores menores por defecto ni tratar el crédito secundario como una serie completa.
+4. Separar metadatos anatómicos del rol del ejercicio (básico, variante, aislamiento, accesorio, regresión/técnica). No excluir automáticamente aislamientos útiles ni variantes con peso corporal cuando tengan una función clara.
+5. Añadir correcciones explícitas y versionadas por ID, con pruebas de regresión que impidan que una actualización de RepDB sobrescriba la curación local.
+6. Repetir la evaluación de los 81 escenarios y comparar selección, cobertura y volumen antes/después.
+
+La prioridad actual de `GetSelectionPriority` es una heurística de texto/patrón, no una valoración manual completa por ID. Por tanto, **la auditoría del catálogo es bloqueante para dar P1 por terminado**.
+
+Restricción de distribución: la licencia RepDB permite el uso dentro de la aplicación con atribución, pero prohíbe redistribuir el dataset o derivados como descarga/API masiva. La revisión debe hacerse dentro del flujo administrativo de DietoExpress y persistir las correcciones allí; no se añadirá un endpoint de exportación completa.
