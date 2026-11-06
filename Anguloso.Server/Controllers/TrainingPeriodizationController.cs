@@ -175,7 +175,6 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 var weekStart = prescription.StartDate.AddDays((week - 1) * 7);
                 var weekEnd = prescription.StartDate.AddDays(week * 7 - 1);
                 var microcycleEnd = weekEnd > mesocycleEnd ? mesocycleEnd : weekEnd;
-                int microcycleId;
                 await using (var command = connection.CreateCommand())
                 {
                     command.Transaction = transaction;
