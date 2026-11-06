@@ -105,9 +105,9 @@ public sealed class TrainingProgramGeneratorTests
                 .ToArray();
             Assert.All(gluteVolume, muscle =>
             {
-                // A multi-primary compound may add one set beyond the glute target to
-                // address another primary deficit, but must not continue accumulating.
-                Assert.InRange(muscle.PrimarySets, 8, 11);
+                // Advanced hypertrophy uses a 12–20 effective-set range; the central
+                // target is 16, with no requirement to reach its upper edge.
+                Assert.InRange(muscle.EstimatedEffectiveSets, 12m, 20m);
                 Assert.True(muscle.EstimatedEffectiveSets >= muscle.PrimarySets);
             });
             Assert.NotEmpty(plan.QualityReport.WeeklyMuscleVolumes);
@@ -501,7 +501,7 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void QualityReportCalculatesPrimaryVolumeAndFrequencyByWeek()
+    public void QualityReportCalculatesEffectiveVolumeAndFrequencyByWeek()
     {
         var result = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 4 }, Catalog());
 
@@ -517,13 +517,12 @@ public sealed class TrainingProgramGeneratorTests
         var weekFourQuads = report.WeeklyMuscleVolumes.Single(week => week.WeekNumber == 4)
             .Muscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Quadriceps);
 
-        // The two-day full-body split now includes a squat exposure on both days.
-        // The fixture has no quad isolation candidate, but the compound distribution
-        // reaches the conservative short-session target without overfeeding glutes.
-        Assert.Equal(5, weekOneQuads.PrimarySets);
+        // The two-day full-body split includes a squat exposure on both days.
+        // Count the audited effective dose, not only the provider's primary label.
+        Assert.InRange(weekOneQuads.EstimatedEffectiveSets, 8m, 12m);
         Assert.Equal(2, weekOneQuads.PrimaryFrequencySessions);
-        Assert.Equal(weekOneQuads.PrimarySets, weekTwoQuads.PrimarySets);
-        Assert.Equal(weekOneQuads.PrimarySets, weekFourQuads.PrimarySets);
+        Assert.Equal(weekOneQuads.EstimatedEffectiveSets, weekTwoQuads.EstimatedEffectiveSets);
+        Assert.Equal(weekOneQuads.EstimatedEffectiveSets, weekFourQuads.EstimatedEffectiveSets);
         Assert.DoesNotContain(report.Warnings, warning =>
             warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
         Assert.DoesNotContain(report.Warnings, warning =>
@@ -559,7 +558,7 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void QualityReportFlagsVeryHighPrimarySetVolumeWithoutRejectingThePlan()
+    public void QualityReportFlagsVeryHighEffectiveSetVolumeWithoutRejectingThePlan()
     {
         var result = TrainingProgramGenerator.Generate(Request(), Catalog());
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
@@ -579,7 +578,7 @@ public sealed class TrainingProgramGeneratorTests
         };
 
         var report = TrainingProgramQualityAnalyzer.Analyze(exaggeratedPlan);
-        Assert.Contains(report.Warnings, warning => warning.Contains("series primarias", StringComparison.Ordinal));
+        Assert.Contains(report.Warnings, warning => warning.Contains("series con estímulo efectivo", StringComparison.Ordinal));
     }
 
     [Fact]
