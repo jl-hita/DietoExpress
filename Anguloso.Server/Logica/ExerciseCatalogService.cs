@@ -387,6 +387,9 @@ public sealed class ExerciseCatalogService
                 await command.ExecuteNonQueryAsync(cancellationToken);
                 imported++;
             }
+            if (replaceRepDbOnly && imported != RepDbExerciseCuration.CuratedCatalogIds.Length)
+                throw new InvalidDataException(
+                    $"The source returned {imported} curated exercises; expected {RepDbExerciseCuration.CuratedCatalogIds.Length}. The existing catalog was left unchanged.");
             await ResetLegacyAutoReviewsAsync(connection, transaction, cancellationToken);
             if (markBootstrapComplete)
             {
