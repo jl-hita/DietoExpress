@@ -1046,9 +1046,10 @@ public sealed class TrainingProgramGeneratorTests
             catalog);
 
         Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
-        var upper = Assert.Single(generated.Prescription!.Sessions.Where(session =>
+        var generatedSessions = generated.Prescription!.Sessions;
+        var upper = Assert.Single(generatedSessions.Where(session =>
             session.Title.StartsWith("Tren superior", StringComparison.Ordinal)));
-        var lower = Assert.Single(generated.Prescription.Sessions.Where(session =>
+        var lower = Assert.Single(generatedSessions.Where(session =>
             session.Title.StartsWith("Tren inferior", StringComparison.Ordinal)));
 
         Assert.DoesNotContain(upper.Exercises, exercise =>
