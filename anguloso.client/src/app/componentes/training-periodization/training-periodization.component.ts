@@ -16,7 +16,7 @@ interface GeneratedExercise {
   exerciseId: string; catalogVersion: string; exerciseNameSnapshot: string; order: number;
   sets: number; minRepetitions: number; maxRepetitions: number; targetRepetitionsInReserve?: number | null;
   restSeconds: number; progressionRule: string; selectionRationale: string;
-  primaryMuscleGroups?: string[]; secondaryMuscleGroups?: string[];
+  primaryMuscleGroups?: Array<string | number>; secondaryMuscleGroups?: Array<string | number>;
   smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null;
 }
 interface GeneratedSession {
