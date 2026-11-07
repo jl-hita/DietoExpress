@@ -1,0 +1,42 @@
+using Anguloso.Server.Logica;
+using Xunit;
+
+namespace DietoExpress.Security.Tests;
+
+public sealed class TrainingManualVolumeAnalysisTests
+{
+    [Fact]
+    public void ManualVolumeReportKeepsSessionsSeparateEvenWhenTheyShareTheSameWeekday()
+    {
+        var benchPress = new TrainingExerciseCandidate(
+            "bench-press", "catalog-v1", "Press banca",
+            TrainingMovementPattern.HorizontalPush,
+            Array.Empty<string>(),
+            [TrainingGoal.Hypertrophy, TrainingGoal.Strength],
+            TrainingExperience.Beginner,
+            100,
+            true,
+            [TrainingMuscleGroup.Chest],
+            [TrainingMuscleGroup.Triceps]);
+
+        var result = TrainingProgramQualityAnalyzer.AnalyzeManual(
+            [benchPress],
+            [
+                new TrainingManualVolumeSessionInput(DayOfWeek.Monday, "Torso A",
+                    [new TrainingManualVolumeExerciseInput("bench-press", "Press banca", 3)]),
+                new TrainingManualVolumeSessionInput(DayOfWeek.Monday, "Torso B",
+                    [new TrainingManualVolumeExerciseInput("bench-press", "Press banca", 2)])
+            ]);
+
+        var weekly = Assert.Single(result.QualityReport.WeeklyMuscleVolumes);
+        Assert.Equal(5, Assert.Single(weekly.Muscles.Where(x => x.MuscleGroup == TrainingMuscleGroup.Chest)).EstimatedEffectiveSets);
+        Assert.Equal(5, Assert.Single(weekly.Muscles.Where(x => x.MuscleGroup == TrainingMuscleGroup.Triceps)).EstimatedEffectiveSets);
+        Assert.Equal(2, result.SessionReports.Count);
+        Assert.Equal("Torso A", result.SessionReports[0].Title);
+        Assert.Equal("Torso B", result.SessionReports[1].Title);
+        Assert.Equal(3, Assert.Single(result.SessionReports[0].QualityReport.WeeklyMuscleVolumes[0].Muscles
+            .Where(x => x.MuscleGroup == TrainingMuscleGroup.Chest)).EstimatedEffectiveSets);
+        Assert.Equal(2, Assert.Single(result.SessionReports[1].QualityReport.WeeklyMuscleVolumes[0].Muscles
+            .Where(x => x.MuscleGroup == TrainingMuscleGroup.Chest)).EstimatedEffectiveSets);
+    }
+}
