@@ -34,6 +34,10 @@ interface GenerationRequest {
   muscleVolumeTargets?: Array<{ muscleGroup: string; priority: number; targetWeeklyPrimarySets?: number | null }>;
   isDeload?: boolean;
 }
+interface ManualVolumePreview {
+  qualityReport: NonNullable<GeneratedProgram['qualityReport']>;
+  unclassifiedExerciseNames: string[];
+}
 interface MuscleVolumePreferenceDraft {
   muscleGroup: string; label: string; enabled: boolean; priority: number; targetWeeklyPrimarySets: number | null;
 }
@@ -657,7 +661,20 @@ interface RepDbExercise {
                       <button type="button" class="secondary" (click)="removePrescriptionLine(sessionDrafts[plan.id], lineIndex)" aria-label="Quitar ejercicio">×</button>
                     </div>
                   </div>
-                  <div *ngIf="muscleSetSummary(sessionDrafts[plan.id].exercisePrescription).length" class="muscle-set-summary session-editor-wide"><strong>Resumen de series por grupo muscular · sesión</strong><span *ngFor="let item of muscleSetSummary(sessionDrafts[plan.id].exercisePrescription)">{{ item.muscle }}: {{ item.sets }} series</span><small>Estimación orientativa según las etiquetas musculares disponibles en la ficha del ejercicio; no sustituye al cálculo de series efectivas del generador.</small></div>
+                  <section class="manual-volume-dashboard session-editor-wide" style="padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><strong>Volumen muscular efectivo estimado · semana</strong><span *ngIf="manualVolumePreviewLoading[plan.id]" role="status">Calculando…</span></div>
+                    <p *ngIf="manualVolumePreviewErrors[plan.id]" class="muted" role="status">{{ manualVolumePreviewErrors[plan.id] }}</p>
+                    <div *ngIf="manualVolumePreviews[plan.id] as volume">
+                      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:7px;margin-top:10px">
+                        <div *ngFor="let muscle of volume.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e7edf4;border-radius:9px">
+                          <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
+                        </div>
+                      </div>
+                      <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted" style="margin:10px 0 0">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}. No se inventa su contribución.</p>
+                      <small>Se usa el mismo motor de estímulo auditado que en la generación automática. Incluye las sesiones programadas de esta semana y el borrador actual.</small>
+                    </div>
+                    <p *ngIf="!manualVolumePreviews[plan.id] && !manualVolumePreviewLoading[plan.id] && !manualVolumePreviewErrors[plan.id]" class="muted">Añade ejercicios reconocidos para calcular el volumen de la semana.</p>
+                  </section>
                 </div>
                 <div class="editor-footer"><span>La fecha debe estar dentro del periodo del plan.</span><button type="submit" [disabled]="saving || !sessionDrafts[plan.id].title.trim()">＋ Añadir sesión</button></div>
               </form>
@@ -817,6 +834,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   sessionViews: Record<number, 'week' | 'list'> = {};
   weekOffsets: Record<number, number> = {};
   sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string; exercisePrescriptionData: Record<string, unknown> | null }> = {};
+  manualVolumePreviews: Record<number, ManualVolumePreview | null> = {};
+  manualVolumePreviewErrors: Record<number, string> = {};
+  manualVolumePreviewLoading: Record<number, boolean> = {};
+  private manualVolumePreviewTimers: Record<number, ReturnType<typeof setTimeout>> = {};
+  private manualVolumePreviewSubscriptions: Record<number, Subscription> = {};
   exerciseSearch = '';
   private exerciseCatalogSearchTimer: ReturnType<typeof setTimeout> | null = null;
   private exerciseCatalogRequest: Subscription | null = null;
