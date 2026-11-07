@@ -206,10 +206,11 @@ test.describe('MVP de periodización deportiva', () => {
 
     for (let week = 0; week < 5; week++) await page.getByRole('button', { name: 'Semana siguiente' }).click();
     await page.getByRole('button', { name: 'Editor semanal' }).click();
-    const weeklySets = page.locator('input[name^="weeklyExerciseSets"]').first();
+    const weeklySessionEditor = page.locator('.weekly-structured-editor article').filter({ hasText: sessionTitle });
+    const weeklySets = weeklySessionEditor.locator('input[name^="weeklyExerciseSets"]').first();
     await expect(weeklySets).toBeVisible();
     await weeklySets.fill('4');
-    await page.getByRole('button', { name: 'Guardar esta sesión' }).click();
+    await weeklySessionEditor.getByRole('button', { name: 'Guardar esta sesión' }).click();
     const savedWeeklySessions = await api.get(apiUrl(`/api/training/plans/${plan.id}/sessions`));
     expect(savedWeeklySessions.ok()).toBeTruthy();
     const updatedWeeklySession = (await savedWeeklySessions.json()).find(item => item.title === sessionTitle);
