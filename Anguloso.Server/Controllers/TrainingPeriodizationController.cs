@@ -117,15 +117,16 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 currentSplit.Transaction = transaction;
                 currentSplit.CommandText = "SELECT split_type, cardinality(training_days) FROM training_plan_split_preferences WHERE plan_id = @planId";
                 currentSplit.Parameters.AddWithValue("planId", planId);
-                await using var splitReader = await currentSplit.ExecuteReaderAsync(cancellationToken);
                 var currentSplitType = 0;
                 var currentDayCount = 3;
-                if (await splitReader.ReadAsync(cancellationToken))
+                await using (var splitReader = await currentSplit.ExecuteReaderAsync(cancellationToken))
                 {
-                    currentSplitType = splitReader.GetInt16(0);
-                    currentDayCount = splitReader.GetInt32(1);
+                    if (await splitReader.ReadAsync(cancellationToken))
+                    {
+                        currentSplitType = splitReader.GetInt16(0);
+                        currentDayCount = splitReader.GetInt32(1);
+                    }
                 }
-                await splitReader.DisposeAsync();
                 if (request.SplitType != currentSplitType || request.TrainingDays.Length != currentDayCount)
                 {
                     await transaction.RollbackAsync(cancellationToken);
