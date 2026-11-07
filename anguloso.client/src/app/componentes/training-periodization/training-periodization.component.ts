@@ -22,6 +22,10 @@ interface GeneratedExercise {
 interface GeneratedSession {
   weekNumber: number; day: number; title: string; estimatedDurationMinutes: number; exercises: GeneratedExercise[];
 }
+interface TrainingExerciseCatalogItem {
+  id: string; name: string; muscles: string; goal: string; equipment: string; equipmentLabel: string;
+  instructions: string; prescription: string; imageUrl?: string; source?: string;
+}
 interface GeneratedProgram {
   engineVersion: string; goal: string; startDate: string; durationWeeks: number; sessions: GeneratedSession[];
   qualityReport?: {
@@ -1038,7 +1042,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   generatorGoal = 'strength';
   generatorLevel = 'beginner';
   generatorEquipment = 'mixed';
-  exerciseCatalog: Array<{ id: string; name: string; muscles: string; goal: string; equipment: string; equipmentLabel: string; instructions: string; prescription: string; imageUrl?: string; source?: string }> = [
+  exerciseCatalog: TrainingExerciseCatalogItem[] = [
     { id:'squat', name:'Sentadilla', muscles:'Cuádriceps y glúteos', goal:'strength', equipment:'bodyweight', equipmentLabel:'Peso corporal', instructions:'Mantén el tronco estable y las rodillas alineadas con los pies.', prescription:'Sentadilla · 3 × 8–12 · descanso 90 s' },
     { id:'goblet-squat', name:'Sentadilla goblet', muscles:'Cuádriceps y glúteos', goal:'strength', equipment:'dumbbell', equipmentLabel:'Mancuerna', instructions:'Sujeta la mancuerna cerca del pecho y controla la bajada.', prescription:'Sentadilla goblet · 3 × 8–12 · descanso 90 s' },
     { id:'deadlift', name:'Peso muerto', muscles:'Cadena posterior', goal:'strength', equipment:'barbell', equipmentLabel:'Barra', instructions:'Bisagra de cadera, carga próxima al cuerpo y espalda neutra.', prescription:'Peso muerto · 3 × 5–8 · descanso 2–3 min' },
