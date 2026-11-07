@@ -207,7 +207,15 @@ test.describe('MVP de periodización deportiva', () => {
     for (let week = 0; week < 5; week++) await page.getByRole('button', { name: 'Semana siguiente' }).click();
     await page.getByRole('button', { name: 'Editor semanal' }).click();
     const weeklySessionEditor = page.locator('.weekly-structured-editor article').filter({ hasText: sessionTitle });
-    const weeklySets = weeklySessionEditor.locator('input[name^="weeklyExerciseSets"]').first();
+    const weeklyExerciseNames = weeklySessionEditor.locator('input[name^="weeklyExerciseName"]');
+    await expect(weeklyExerciseNames).toHaveCount(2);
+    await weeklySessionEditor.getByRole('button', { name: 'Bajar ejercicio' }).first().click();
+    await expect(weeklyExerciseNames.first()).toHaveValue('Peso muerto rumano');
+    await weeklySessionEditor.getByRole('button', { name: /Añadir ejercicio/ }).click();
+    await expect(weeklyExerciseNames).toHaveCount(3);
+    await weeklySessionEditor.getByRole('button', { name: 'Eliminar ejercicio' }).last().click();
+    await expect(weeklyExerciseNames).toHaveCount(2);
+    const weeklySets = weeklySessionEditor.locator('input[name^="weeklyExerciseSets"]').nth(1);
     await expect(weeklySets).toBeVisible();
     await weeklySets.fill('4');
     await weeklySessionEditor.getByRole('button', { name: 'Guardar esta sesión' }).click();
@@ -215,8 +223,9 @@ test.describe('MVP de periodización deportiva', () => {
     expect(savedWeeklySessions.ok()).toBeTruthy();
     const updatedWeeklySession = (await savedWeeklySessions.json()).find(item => item.title === sessionTitle);
     expect(updatedWeeklySession.exercisePrescription).toContain('4 × 8');
+    expect(updatedWeeklySession.exercisePrescription.indexOf('Peso muerto rumano'))
+      .toBeLessThan(updatedWeeklySession.exercisePrescription.indexOf('Sentadilla'));
 
-    await expect(page.locator('.weekly-structured-editor')).toContainText('Comparación por sesión');
     await page.getByRole('button', { name: 'Reorganizar split' }).click();
     await expect(page.getByRole('heading', { name: 'Reorganizar distribución semanal' })).toBeVisible();
     await page.getByRole('button', { name: 'Preparar propuesta conservando sesiones' }).click();
@@ -243,6 +252,7 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(sessionCard).toContainText('Sentadilla · 4 × 8 · descanso 120 s · RIR 2');
 
     await sessionCard.getByRole('button', { name: 'Editar' }).click();
+    await expect(sessionCard.locator('.manual-volume-dashboard')).toContainText('Comparación por sesión');
     await sessionCard.locator('input[name^="editSessionTitle"]').fill('Sesión E2E fuerza editada');
     await sessionCard.locator('input[name^="editSessionIntensity"]').fill('RPE 8 - progresión');
     await sessionCard.locator('textarea[name^="editSessionInstructions"]').fill('Versión actualizada de las instrucciones.');
