@@ -143,6 +143,50 @@ jobs:
           TRAINING_GENERATOR_REAL_CATALOG_REPORT_PATH: ${{ github.workspace }}/artifacts/training-generator-real-catalog-evaluation.json
         run: dotnet test Tests/DietoExpress.Security.Tests/DietoExpress.Security.Tests.csproj -c Release --no-restore
 
+      - name: Descargar export temporal del catálogo RepDB desplegado
+        if: github.head_ref == 'audit/repdb-p1-quality-20261107'
+        id: live_catalog_export
+        continue-on-error: true
+        run: |
+          mkdir -p artifacts
+          curl --fail --silent --show-error --location \\
+            --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 180 \\
+            'https://jlhitap.duckdns.org/api/exercise-catalog/audit-export' \\
+            --output artifacts/repdb-live-catalog-audit.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('artifacts/repdb-live-catalog-audit.json', 'utf8'));
+          if (report.complete !== true || !Array.isArray(report.items) ||
+              report.totalRecords !== report.returned || report.items.length !== report.totalRecords) {
+            throw new Error('El endpoint no ha devuelto un export completo y verificable.');
+          }
+          const summary = {
+            totalRecords: report.totalRecords,
+            returned: report.returned,
+            countsByStatus: report.countsByStatus ?? {},
+            sourceCounts: report.items.reduce((counts, item) => {
+              const source = item.source ?? 'unknown';
+              counts[source] = (counts[source] ?? 0) + 1;
+              return counts;
+            }, {})
+          };
+          console.log(JSON.stringify(summary, null, 2));
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            '## Export real del catálogo RepDB desplegado\\n\\n' +
+            '- Registros: **' + summary.totalRecords + '**\\n' +
+            '- Estados: `' + JSON.stringify(summary.countsByStatus) + '`\\n' +
+            '- Fuentes: `' + JSON.stringify(summary.sourceCounts) + '`\\n');
+          NODE
+
+      - name: Publicar export temporal del catálogo RepDB desplegado
+        if: github.head_ref == 'audit/repdb-p1-quality-20261107' && steps.live_catalog_export.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: repdb-live-catalog-audit
+          path: artifacts/repdb-live-catalog-audit.json
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Resumen de evaluación del generador
         if: always()
         env:
