@@ -457,8 +457,8 @@ interface RepDbExercise {
                     <h6 style="margin:0 0 10px;font-size:14px">Volumen semanal · semana {{ week.weekNumber }}</h6>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">
                       <div *ngFor="let muscle of week.muscles" style="display:flex;justify-content:space-between;gap:10px;padding:9px 10px;border:1px solid #e7edf4;border-radius:9px">
-                        <span>{{ muscle.muscleGroup }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
-                        <small style="color:#64748b">P {{ muscle.primarySets }} · S {{ muscle.secondarySets }} · {{ muscle.primaryFrequencySessions + muscle.secondaryFrequencySessions }} exp.</small>
+                        <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
+                        <small style="color:#64748b">P {{ muscle.primarySets }} · S {{ muscle.secondarySets }} · frecuencia P {{ muscle.primaryFrequencySessions }} / S {{ muscle.secondaryFrequencySessions }}</small>
                       </div>
                     </div>
                     <p style="margin:10px 0 0;color:#64748b;font-size:11px">El total usa la auditoría de estímulo efectivo. P/S son las etiquetas originales del catálogo; una exposición puede aparecer en ambas frecuencias.</p>
@@ -1781,6 +1781,18 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.generatingPlan = false;
       this.changeDetector.detectChanges();
     });
+  }
+
+  muscleLabel(value: string): string {
+    const labels: Record<string, string> = {
+      Chest: 'Pecho', Lats: 'Dorsales', UpperBack: 'Espalda alta', Deltoids: 'Deltoides',
+      Biceps: 'Bíceps', Triceps: 'Tríceps', Forearms: 'Antebrazos', Abdominals: 'Abdominales',
+      Obliques: 'Oblicuos', ErectorSpinae: 'Erectores espinales', Glutes: 'Glúteos',
+      Quadriceps: 'Cuádriceps', Hamstrings: 'Isquiotibiales', Calves: 'Gemelos',
+      Adductors: 'Aductores', Abductors: 'Abductores', HipFlexors: 'Flexores de cadera',
+      Serratus: 'Serrato', TibialisAnterior: 'Tibial anterior', RotatorCuff: 'Manguito rotador'
+    };
+    return labels[value] || value;
   }
 
   private validateMuscleVolumePreferences(): string {
