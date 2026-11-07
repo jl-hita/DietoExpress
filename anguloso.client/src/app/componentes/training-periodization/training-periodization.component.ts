@@ -612,8 +612,9 @@ interface RepDbExercise {
                 <p *ngIf="splitReorganizationDrafts[plan.id].error" class="error" role="alert">{{ splitReorganizationDrafts[plan.id].error }}</p>
                 <div *ngIf="splitReorganizationDrafts[plan.id].moves as moves" style="margin-top:12px">
                   <strong>Propuesta · {{ moves.length }} sesiones</strong>
-                  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr><th style="text-align:left;padding:7px">Sesión</th><th style="text-align:left;padding:7px">Fecha actual</th><th style="text-align:left;padding:7px">Nueva fecha</th></tr></thead><tbody><tr *ngFor="let move of moves"><td style="padding:7px">{{ move.title }}</td><td style="padding:7px">{{ move.oldDate | date:'dd/MM/yyyy' }}</td><td style="padding:7px"><strong>{{ move.scheduledDate | date:'EEEE d MMMM' }}</strong></td></tr></tbody></table></div>
-                  <p class="muted">Se conservarán todas las prescripciones y el historial. Las fechas se aplicarán en una única transacción.</p>
+                  <p *ngIf="!moves.length" class="muted">No hay sesiones futuras pendientes desde la próxima semana. Se guardará esta distribución como preferencia para las próximas rutinas.</p>
+                  <div *ngIf="moves.length" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr><th style="text-align:left;padding:7px">Sesión</th><th style="text-align:left;padding:7px">Fecha actual</th><th style="text-align:left;padding:7px">Nueva fecha</th></tr></thead><tbody><tr *ngFor="let move of moves"><td style="padding:7px">{{ move.title }}</td><td style="padding:7px">{{ move.oldDate | date:'dd/MM/yyyy' }}</td><td style="padding:7px"><strong>{{ move.scheduledDate | date:'EEEE d MMMM' }}</strong></td></tr></tbody></table></div>
+                  <p *ngIf="moves.length" class="muted">Se conservarán todas las prescripciones y el historial. Las fechas se aplicarán en una única transacción.</p>
                   <button type="button" (click)="applySplitReorganization(plan)" [disabled]="saving || splitReorganizationSaving[plan.id]">{{ splitReorganizationSaving[plan.id] ? 'Aplicando…' : 'Confirmar reorganización' }}</button>
                 </div>
               </section>
@@ -2532,7 +2533,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     }
     const today = this.localDateInputValue();
     const nextMonday = this.addUtcDays(this.weekStartDate(today), 7);
-    const futureSessions = (this.sessions[plan.id] || []).filter(session =>
+    const allSessions = this.sessions[plan.id] || [];
+    const completedDates = new Set(allSessions.filter(session => !!session.completedAt || session.status === 'completed')
+      .map(session => session.scheduledDate.slice(0, 10)));
+    const futureSessions = allSessions.filter(session =>
       !session.completedAt && session.status !== 'completed' && session.scheduledDate.slice(0, 10) >= nextMonday
     );
     const byWeek = new Map<string, TrainingSession[]>();
@@ -2553,6 +2557,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       rows.forEach((session, index) => {
         const dayOffset = days[index] === 0 ? 6 : days[index] - 1;
         const newDate = this.addUtcDays(week, dayOffset);
+        if (completedDates.has(newDate)) {
+          draft.error = 'La fecha ' + newDate + ' ya contiene una sesión completada. Se conserva esa sesión y no se aplicará una reorganización que la solape.';
+          draft.moves = null;
+          return;
+        }
         if (newDate < nextMonday || newDate < plan.startDate.slice(0, 10) || (plan.endDate && newDate > plan.endDate.slice(0, 10))) {
           draft.error = 'La fecha propuesta para «' + session.title + '» queda fuera del periodo permitido. Ajusta los días o las fechas del plan.';
           draft.moves = null;
@@ -2564,12 +2573,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     }
     draft.moves = moves;
     draft.error = '';
-    if (!moves.length) draft.error = 'No hay sesiones futuras pendientes desde la próxima semana. Se guardará el split como preferencia para las próximas rutinas.';
   }
 
   applySplitReorganization(plan: TrainingPlan): void {
     const draft = this.splitReorganizationDrafts[plan.id];
-    if (!draft || draft.moves === null || draft.error && draft.moves.length === 0) return;
+    if (!draft || draft.moves === null) return;
     this.splitReorganizationSaving[plan.id] = true;
     this.http.post<{ updatedSessions: number }>('/api/training/plans/' + plan.id + '/reorganize-split', {
       splitType: draft.splitType,
