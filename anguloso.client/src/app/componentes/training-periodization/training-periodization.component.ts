@@ -16,6 +16,8 @@ interface GeneratedExercise {
   exerciseId: string; catalogVersion: string; exerciseNameSnapshot: string; order: number;
   sets: number; minRepetitions: number; maxRepetitions: number; targetRepetitionsInReserve?: number | null;
   restSeconds: number; progressionRule: string; selectionRationale: string;
+  primaryMuscleGroups?: string[]; secondaryMuscleGroups?: string[];
+  smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null;
 }
 interface GeneratedSession {
   weekNumber: number; day: number; title: string; estimatedDurationMinutes: number; exercises: GeneratedExercise[];
@@ -63,6 +65,9 @@ interface TrainingSession {
 }
 interface StructuredExerciseDraft {
   exerciseName: string; sets: number; repetitions: string; rir: number | null; restSeconds: number; notes: string;
+  exerciseId?: string; catalogVersion?: string; progressionRule?: string;
+  primaryMuscleGroups?: Array<string | number>; secondaryMuscleGroups?: Array<string | number>;
+  smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null; selectionRationale?: string;
 }
 interface WeeklySessionDraft {
   date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string;
@@ -886,7 +891,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   notice = '';
   recordingSessionId: number | null = null;
   editingSessionId: number | null = null;
-  sessionEditDraft: { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string } | null = null;
+  sessionEditDraft: { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string; exercisePrescriptionData: Record<string, unknown> | null } | null = null;
   recordDrafts: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
   adaptationProposals: TrainingAdaptationProposal[] = [];
   adaptationReviewNotes: Record<number, string> = {};
@@ -2884,25 +2889,43 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.weeklyEditorDrafts[session.id] = {
         date: session.scheduledDate.slice(0, 10), title: session.title, type: session.sessionType,
         duration: session.durationMinutes ?? 60, intensity: session.intensityTarget ?? '',
-        instructions: session.instructions ?? '', exercises: this.parseStructuredExerciseDrafts(session.exercisePrescription)
+        instructions: session.instructions ?? '', exercises: this.parseStructuredExerciseDrafts(session.exercisePrescription, session.exercisePrescriptionData)
       };
     }
     return this.weeklyEditorDrafts[session.id];
   }
 
-  private parseStructuredExerciseDrafts(prescription: string | null | undefined): StructuredExerciseDraft[] {
-    return this.prescriptionLines(prescription).map(line => {
+  private parseStructuredExerciseDrafts(
+    prescription: string | null | undefined,
+    prescriptionData?: Record<string, unknown> | null
+  ): StructuredExerciseDraft[] {
+    const structuredItems = Array.isArray(prescriptionData?.['exercises'])
+      ? prescriptionData['exercises'] as Array<Record<string, unknown>>
+      : [];
+    return this.prescriptionLines(prescription).map((line, index) => {
       const match = line.match(/^(.*?)\s*[·|—-]\s*(\d+)\s*[×x]\s*([^·|—]+?)(?=\s*[·|—]|$)(.*)$/i);
       const tail = match?.[4] ?? line;
       const restMatch = tail.match(/descanso\s*(\d+)\s*(s|seg(?:undos?)?|min(?:utos?)?)?/i);
       const rirMatch = tail.match(/RIR\s*(\d+(?:[.,]\d+)?)/i);
+      const exerciseName = (match?.[1] ?? line).trim().replace(/^\d+\.\s*/, '');
+      const metadata = structuredItems.find(item =>
+        String(item['exerciseNameSnapshot'] ?? '').trim().toLocaleLowerCase('es') === exerciseName.toLocaleLowerCase('es')
+      ) ?? structuredItems[index];
       return {
-        exerciseName: (match?.[1] ?? line).trim().replace(/^\d+\.\s*/, ''),
+        exerciseName,
         sets: match ? Math.max(1, Math.min(10, Number(match[2]))) : 0,
         repetitions: (match?.[3] ?? '').trim(),
         rir: rirMatch ? Number(rirMatch[1].replace(',', '.')) : (match ? 2 : null),
         restSeconds: restMatch ? Number(restMatch[1]) * (/min/i.test(restMatch[2] ?? '') ? 60 : 1) : (match ? 90 : 0),
-        notes: match ? '' : line
+        notes: match ? '' : line,
+        exerciseId: typeof metadata?.['exerciseId'] === 'string' ? metadata['exerciseId'] : undefined,
+        catalogVersion: typeof metadata?.['catalogVersion'] === 'string' ? metadata['catalogVersion'] : undefined,
+        progressionRule: typeof metadata?.['progressionRule'] === 'string' ? metadata['progressionRule'] : undefined,
+        primaryMuscleGroups: Array.isArray(metadata?.['primaryMuscleGroups']) ? metadata['primaryMuscleGroups'] as Array<string | number> : undefined,
+        secondaryMuscleGroups: Array.isArray(metadata?.['secondaryMuscleGroups']) ? metadata['secondaryMuscleGroups'] as Array<string | number> : undefined,
+        smallestLoadIncrementKg: typeof metadata?.['smallestLoadIncrementKg'] === 'number' ? metadata['smallestLoadIncrementKg'] : undefined,
+        maximumLoadIncreasePercent: typeof metadata?.['maximumLoadIncreasePercent'] === 'number' ? metadata['maximumLoadIncreasePercent'] : undefined,
+        selectionRationale: typeof metadata?.['selectionRationale'] === 'string' ? metadata['selectionRationale'] : undefined
       };
     }).filter(item => item.exerciseName.length > 0);
   }
@@ -2928,8 +2951,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         const minRepetitions = repetitions ? Number(repetitions[1]) : undefined;
         const maxRepetitions = repetitions ? Number(repetitions[2] || repetitions[1]) : undefined;
         return {
-          exerciseId: catalogItem?.id.replace(/^repdb-/, ''),
-          catalogVersion: catalogItem?.source === 'repdb' ? 'repdb' : 'manual',
+          exerciseId: item.exerciseId ?? catalogItem?.id.replace(/^repdb-/, ''),
+          catalogVersion: item.catalogVersion ?? (catalogItem?.source === 'repdb' ? 'repdb' : 'manual'),
           exerciseNameSnapshot: item.exerciseName.trim(),
           order: index + 1,
           sets: item.sets,
@@ -2937,7 +2960,12 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
           maxRepetitions,
           targetRepetitionsInReserve: item.rir,
           restSeconds: item.restSeconds,
-          progressionRule: 'None'
+          progressionRule: item.progressionRule ?? 'None',
+          primaryMuscleGroups: item.primaryMuscleGroups,
+          secondaryMuscleGroups: item.secondaryMuscleGroups,
+          smallestLoadIncrementKg: item.smallestLoadIncrementKg,
+          maximumLoadIncreasePercent: item.maximumLoadIncreasePercent,
+          selectionRationale: item.selectionRationale
         };
       })
     };
@@ -3039,7 +3067,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.editingSessionId = session.id;
     this.recordingSessionId = null;
     this.sessionEditDraft = { date: session.scheduledDate, title: session.title, type: session.sessionType,
-      duration: session.durationMinutes ?? 60, intensity: session.intensityTarget ?? '', instructions: session.instructions ?? '', exercisePrescription: session.exercisePrescription ?? '' };
+      duration: session.durationMinutes ?? 60, intensity: session.intensityTarget ?? '', instructions: session.instructions ?? '',
+      exercisePrescription: session.exercisePrescription ?? '', exercisePrescriptionData: session.exercisePrescriptionData ?? null };
     this.refreshManualVolumePreview(
       (this.plans || []).find(plan => plan.id === session.planId) ?? { id: session.planId } as TrainingPlan,
       session.scheduledDate, session.exercisePrescription ?? '', session.id);
@@ -3055,7 +3084,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.http.put(`/api/training/sessions/${session.id}`, { scheduledDate: d.date, title: d.title.trim(), sessionType: d.type,
       durationMinutes: d.duration, intensityTarget: d.intensity.trim() || null, instructions: d.instructions.trim() || null,
       exercisePrescription: d.exercisePrescription.trim() || null,
-      exercisePrescriptionData: this.buildStructuredPrescriptionData(d.date, d.duration, this.parseStructuredExerciseDrafts(d.exercisePrescription)) }).subscribe({
+      exercisePrescriptionData: this.buildStructuredPrescriptionData(d.date, d.duration,
+        this.parseStructuredExerciseDrafts(d.exercisePrescription, d.exercisePrescriptionData)) }).subscribe({
       next: () => { this.editingSessionId = null; this.sessionEditDraft = null; this.saving = false; this.refreshSessions(session.planId); },
       error: e => { this.error = e?.error?.message || 'No se pudo actualizar la sesión.'; this.saving = false; }
     });
