@@ -182,6 +182,7 @@ test.describe('MVP de periodización deportiva', () => {
     const manualVolume = await volumePreviewResponse.json();
     expect(manualVolume.sessionReports).toHaveLength(1);
     expect(manualVolume.sessionReports[0].title).toBe('Sesión E2E volumen');
+    expect(manualVolume.sessionReports[0].qualityReport.weeklyMuscleVolumes).toHaveLength(1);
 
     const splitSaveResponse = await api.post(apiUrl(`/api/training/plans/${plan.id}/reorganize-split`), {
       data: { splitType: 2, trainingDays: [1, 4], moves: [] }
@@ -202,8 +203,19 @@ test.describe('MVP de periodización deportiva', () => {
     const updatedWeeklySession = (await savedWeeklySessions.json()).find(item => item.title === sessionTitle);
     expect(updatedWeeklySession.exercisePrescription).toContain('4 × 8');
 
+    await expect(page.locator('.weekly-structured-editor')).toContainText('Comparación por sesión');
     await page.getByRole('button', { name: 'Reorganizar split' }).click();
     await expect(page.getByRole('heading', { name: 'Reorganizar distribución semanal' })).toBeVisible();
+    await page.getByRole('button', { name: 'Preparar propuesta conservando sesiones' }).click();
+    await expect(page.getByText('Propuesta · 2 sesiones')).toBeVisible();
+    await page.getByRole('button', { name: 'Confirmar reorganización' }).click();
+    const reorganizedSessionsResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/sessions`));
+    expect(reorganizedSessionsResponse.ok()).toBeTruthy();
+    const reorganizedSessions = (await reorganizedSessionsResponse.json()).filter(session =>
+      session.scheduledDate.slice(0, 10) >= start && session.scheduledDate.slice(0, 10) <= datePlusDays(6));
+    expect(reorganizedSessions).toHaveLength(2);
+    expect(new Set(reorganizedSessions.map(session => session.scheduledDate.slice(0, 10))).size).toBe(2);
+    expect(reorganizedSessions.map(session => new Date(session.scheduledDate.slice(0, 10) + 'T12:00:00Z').getUTCDay()).sort()).toEqual([1, 4]);
     const csvDownload = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Exportar CSV' }).click();
     expect((await csvDownload).suggestedFilename()).toMatch(/dietoexpress-entrenamiento-.*\.csv/);
@@ -272,8 +284,16 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(page.locator('.generated-preview')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('.quality-report')).toBeVisible();
     await expect(page.locator('.generated-session')).toHaveCount(4);
-    await page.getByRole('button', { name: 'Confirmar y guardar mesociclo' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Mesociclo guardado' })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('.generated-session').first()).toContainText('Volumen efectivo de esta sesión');
+    const volumeDeficitAcknowledgement = page.getByRole('checkbox', { name: /He revisado los déficits y acepto expresamente esta dosis/ });
+    if (await volumeDeficitAcknowledgement.count()) {
+      const saveGeneratedMesocycle = page.getByRole('button', { name: 'Guardar mesociclo y sus sesiones' });
+      await expect(saveGeneratedMesocycle).toBeDisabled();
+      await volumeDeficitAcknowledgement.check();
+      await expect(saveGeneratedMesocycle).toBeEnabled();
+    }
+    await page.getByRole('button', { name: 'Guardar mesociclo y sus sesiones' }).click();
+    await expect(page.getByRole('status').filter({ hasText: /Mesociclo y rutinas creados/ })).toBeVisible({ timeout: 20_000 });
     const generatedSessionsResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/sessions`));
     expect(generatedSessionsResponse.ok(), 'Debe poder consultarse el mesociclo guardado').toBeTruthy();
     const generatedSessions = await generatedSessionsResponse.json();
