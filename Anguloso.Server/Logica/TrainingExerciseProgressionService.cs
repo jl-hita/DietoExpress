@@ -57,6 +57,7 @@ public sealed class TrainingExerciseProgressionService
                 var sessionPain = !reader.IsDBNull(5) && reader.GetString(5) == "new_or_worsening";
                 var recordedExerciseIds = new HashSet<string>(StringComparer.Ordinal);
                 var progressionEligibility = new Dictionary<string, bool>(StringComparer.Ordinal);
+                var historicalPrescriptions = new Dictionary<string, Anguloso.Server.Logica.TrainingExerciseProgressionPrescriptionSnapshot>(StringComparer.Ordinal);
                 try
                 {
                     // The historical prescription identifies deload/non-progressable exposures.
@@ -75,6 +76,11 @@ public sealed class TrainingExerciseProgressionService
                                 if (string.IsNullOrWhiteSpace(exerciseId)) continue;
                                 progressionEligibility[exerciseId] =
                                     ParseProgressionRule(item) == TrainingProgressionRule.DoubleProgression;
+                                historicalPrescriptions[exerciseId] = new(
+                                    JsonInt(item, "sets"),
+                                    JsonInt(item, "minRepetitions"),
+                                    JsonInt(item, "maxRepetitions"),
+                                    JsonDecimal(item, "targetRepetitionsInReserve"));
                             }
                         }
                     }
@@ -119,9 +125,11 @@ public sealed class TrainingExerciseProgressionService
                                 var key = (planId, exerciseId);
                                 if (!history.TryGetValue(key, out var exposures))
                                     history[key] = exposures = [];
+                                historicalPrescriptions.TryGetValue(exerciseId, out var historicalPrescription);
                                 exposures.Add(new(
                                     sets, completed, recoveryInsufficient, pain,
-                                    ProgressionEligible: progressionEligibility.GetValueOrDefault(exerciseId)));
+                                    ProgressionEligible: progressionEligibility.GetValueOrDefault(exerciseId),
+                                    HistoricalPrescription: historicalPrescription));
                             }
                         }
                     }
@@ -140,8 +148,10 @@ public sealed class TrainingExerciseProgressionService
                     var key = (planId, exerciseId);
                     if (!history.TryGetValue(key, out var exposures))
                         history[key] = exposures = [];
+                    historicalPrescriptions.TryGetValue(exerciseId, out var historicalPrescription);
                     exposures.Add(new(Array.Empty<Anguloso.Server.Logica.TrainingExecutedSet>(),
-                        completed, recoveryInsufficient, sessionPain, ProgressionEligible: progressionEligible));
+                        completed, recoveryInsufficient, sessionPain, ProgressionEligible: progressionEligible,
+                        HistoricalPrescription: historicalPrescription));
                 }
             }
         }
