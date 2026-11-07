@@ -70,6 +70,16 @@ interface WeeklySessionDraft {
 }
 interface SplitReorganizationMove { sessionId: number; title: string; oldDate: string; scheduledDate: string; }
 interface SplitReorganizationDraft { splitType: number; trainingDays: number[]; moves: SplitReorganizationMove[] | null; error: string; }
+interface SplitReplacementSession {
+  scheduledDate: string; title: string; sessionType: string; durationMinutes: number;
+  intensityTarget: string | null; instructions: string | null; exercisePrescription: string;
+  exercisePrescriptionData: Record<string, unknown> | null;
+}
+interface SplitReplacementPreview {
+  replaceFromDate: string; replaceThroughDate: string; sessions: SplitReplacementSession[];
+  weeklyVolumes: Array<{ weekNumber: number; result: ManualVolumePreview }>;
+  preservedManualEdits: number; retainedCustomExercises: number; warnings: string[];
+}
 interface TrainingLoadWeek { weekStart: string; completedSessions: number; plannedMinutes: number; actualMinutes: number; loadScore: number; }
 interface TrainingMesocycle { id: number; planId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; objective?: string | null; notes?: string | null; }
 interface MacrocyclePhase { id: number; name: string; sequenceNumber: number; startDate: string; endDate: string; objective?: string | null; phaseType: 'accumulation' | 'intensification' | 'deload' | 'realization' | 'general'; }
@@ -608,7 +618,7 @@ interface RepDbExercise {
                   <fieldset class="auto-day-picker"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'reorgDay' + plan.id + day.value" [checked]="splitReorganizationDrafts[plan.id].trainingDays.includes(day.value)" (change)="toggleReorganizationDay(plan, day.value, $any($event.target).checked)" /><span>{{ day.label }}</span></label></div></fieldset>
                 </div>
                 <p class="muted">Distribuciones válidas: cuerpo completo 2–3 días, torso/pierna 2 o 4, PPL 3 o 6. Para conservar íntegra cada sesión, el número de sesiones por semana debe coincidir con los días seleccionados. Si cambia la frecuencia, genera un nuevo bloque y revísalo antes de sustituir el actual.</p>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" (click)="prepareSplitReorganization(plan)" [disabled]="saving">Preparar propuesta</button><button type="button" class="secondary" (click)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''">Limpiar propuesta</button></div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" (click)="prepareSplitReorganization(plan)" [disabled]="saving">Preparar propuesta conservando sesiones</button><button type="button" class="secondary" (click)="generateSplitReplacementPreview(plan)" [disabled]="saving || splitReplacementLoading[plan.id]">{{ splitReplacementLoading[plan.id] ? 'Generando propuesta…' : 'Generar propuesta con este split' }}</button><button type="button" class="secondary" (click)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''; splitReplacementPreviews[plan.id] = null">Limpiar propuesta</button></div>
                 <p *ngIf="splitReorganizationDrafts[plan.id].error" class="error" role="alert">{{ splitReorganizationDrafts[plan.id].error }}</p>
                 <div *ngIf="splitReorganizationDrafts[plan.id].moves as moves" style="margin-top:12px">
                   <strong>Propuesta · {{ moves.length }} sesiones</strong>
@@ -617,6 +627,27 @@ interface RepDbExercise {
                   <p *ngIf="moves.length" class="muted">Se conservarán todas las prescripciones y el historial. Las fechas se aplicarán en una única transacción.</p>
                   <button type="button" (click)="applySplitReorganization(plan)" [disabled]="saving || splitReorganizationSaving[plan.id]">{{ splitReorganizationSaving[plan.id] ? 'Aplicando…' : 'Confirmar reorganización' }}</button>
                 </div>
+                <p *ngIf="splitReplacementErrors[plan.id]" class="error" role="alert">{{ splitReplacementErrors[plan.id] }}</p>
+                <section *ngIf="splitReplacementPreviews[plan.id] as replacement" style="margin-top:14px;padding:14px;border:1px solid #cbd5e1;border-radius:12px;background:#fff">
+                  <div class="section-heading"><div><h6>Propuesta regenerada · {{ replacement.sessions.length }} sesiones</h6><p>{{ replacement.replaceFromDate | date:'dd/MM/yyyy' }} — {{ replacement.replaceThroughDate | date:'dd/MM/yyyy' }} · {{ replacement.preservedManualEdits }} ajustes manuales coincidentes conservados</p></div></div>
+                  <p *ngIf="replacement.retainedCustomExercises" class="muted">{{ replacement.retainedCustomExercises }} ejercicios personalizados que no estaban en la nueva selección se han conservado en sus sesiones ordinales. Revisa su distribución antes de confirmar.</p>
+                  <ul *ngIf="replacement.warnings.length"><li *ngFor="let warning of replacement.warnings">{{ warning }}</li></ul>
+                  <div *ngFor="let week of replacement.weeklyVolumes" style="margin-top:12px;padding:12px;border:1px solid #e7edf4;border-radius:10px">
+                    <strong>Volumen efectivo · semana {{ week.weekNumber }}</strong>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;margin-top:8px">
+                      <div *ngFor="let muscle of week.result.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:5px 7px;border:1px solid #edf1f5;border-radius:7px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></div>
+                    </div>
+                    <div *ngFor="let comparison of week.result.sessionReports" style="margin-top:10px;padding:9px;background:#f8fafc;border-radius:8px">
+                      <strong>{{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px;margin-top:5px">
+                        <span *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" [hidden]="muscle.estimatedEffectiveSets === 0" style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></span>
+                      </div>
+                    </div>
+                    <p *ngIf="week.result.unclassifiedExerciseNames.length" class="muted">No clasificados: {{ week.result.unclassifiedExerciseNames.join(', ') }}</p>
+                  </div>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" (click)="applySplitReplacement(plan)" [disabled]="saving || splitReplacementLoading[plan.id]">Sustituir sesiones futuras con esta propuesta</button><button type="button" class="secondary" (click)="splitReplacementPreviews[plan.id] = null">Descartar</button></div>
+                  <p class="muted">La sustitución solo afecta al periodo futuro mostrado. Las sesiones completadas y sus registros no se borran ni se modifican. Los ajustes manuales coincidentes se incorporan a la propuesta.</p>
+                </section>
               </section>
               <section *ngIf="current.canManage && weeklyEditorOpen[plan.id] && sessionViews[plan.id] !== 'list'" class="weekly-structured-editor" style="margin:14px 0;padding:16px;border:1px solid var(--border-color,#dbe3ed);border-radius:14px;background:var(--surface-container,#f8fafc)">
                 <div class="section-heading"><div><h5>Editor semanal estructurado</h5><p>Modifica cada sesión y sus ejercicios sin editar líneas de texto. Las sesiones completadas se muestran como solo lectura.</p></div><span class="session-count">{{ weekSessions(plan.id, plan).length }} sesiones</span></div>
@@ -946,6 +977,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   splitReorganizationDrafts: Record<number, SplitReorganizationDraft> = {};
   splitPreferences: Record<number, { splitType: number; trainingDays: number[] }> = {};
   splitReorganizationSaving: Record<number, boolean> = {};
+  splitReplacementPreviews: Record<number, SplitReplacementPreview | null> = {};
+  splitReplacementErrors: Record<number, string> = {};
+  splitReplacementLoading: Record<number, boolean> = {};
   sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string; exercisePrescriptionData: Record<string, unknown> | null }> = {};
   manualVolumePreviews: Record<number, ManualVolumePreview | null> = {};
   manualVolumePreviewErrors: Record<number, string> = {};
