@@ -1729,6 +1729,21 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.generationErrors[plan.id] = 'Selecciona entre 2 y 6 días de entrenamiento.';
       return;
     }
+    const splitDayCountIsValid =
+      this.autoSplit === 0 ? days.length >= 2 && days.length <= 4 :
+      this.autoSplit === 1 ? days.length === 2 || days.length === 3 :
+      this.autoSplit === 2 ? days.length === 2 || days.length === 4 :
+      this.autoSplit === 3 ? days.length === 3 || days.length === 6 : false;
+    if (!splitDayCountIsValid) {
+      this.generationErrors[plan.id] = this.autoSplit === 1
+        ? 'Cuerpo completo admite 2 o 3 días por semana.'
+        : this.autoSplit === 2
+          ? 'Torso/Pierna admite 2 o 4 días por semana.'
+          : this.autoSplit === 3
+            ? 'Push/Pull/Legs admite 3 o 6 días por semana.'
+            : 'La distribución automática admite entre 2 y 4 días por semana.';
+      return;
+    }
     if (!Number.isInteger(this.autoDurationWeeks) || this.autoDurationWeeks < 1 || this.autoDurationWeeks > 52 ||
         !Number.isInteger(this.autoMaximumMinutes) || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
       this.generationErrors[plan.id] = 'Revisa la duración del ciclo y el límite de minutos por sesión.';
