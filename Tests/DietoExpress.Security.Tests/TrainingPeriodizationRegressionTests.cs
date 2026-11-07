@@ -243,6 +243,9 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("Doble progresión", ui);
         Assert.Contains("Sin progresión automática", ui);
         Assert.Contains("progressionRule: 'DoubleProgression'", ui);
+        Assert.Contains("manualVolumeExercisesFromStructuredDrafts", ui);
+        Assert.Contains("session.exercisePrescriptionData", ui);
+        Assert.Contains("overrideExercises", ui);
         Assert.Contains("Revisa y confirma expresamente los déficits de volumen antes de guardar el mesociclo.", ui);
         Assert.Contains("el profesional ha revisado y aceptado los déficits de volumen/cobertura", ui);
         Assert.Contains("const warnings: string[] = [...(generated.qualityReport?.warnings ?? [])]", ui);
