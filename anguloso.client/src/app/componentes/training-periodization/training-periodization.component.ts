@@ -2463,12 +2463,12 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   private parseStructuredExerciseDrafts(prescription: string | null | undefined): StructuredExerciseDraft[] {
     return this.prescriptionLines(prescription).map(line => {
-      const match = line.match(/^(.*?)\\s*[·|—-]\\s*(\\d+)\\s*[×x]\\s*([^·|—]+?)(?=\\s*[·|—]|$)(.*)$/i);
+      const match = line.match(/^(.*?)\s*[·|—-]\s*(\d+)\s*[×x]\s*([^·|—]+?)(?=\s*[·|—]|$)(.*)$/i);
       const tail = match?.[4] ?? line;
-      const restMatch = tail.match(/descanso\\s*(\\d+)\\s*(s|seg(?:undos?)?|min(?:utos?)?)?/i);
-      const rirMatch = tail.match(/RIR\\s*(\\d+(?:[.,]\\d+)?)/i);
+      const restMatch = tail.match(/descanso\s*(\d+)\s*(s|seg(?:undos?)?|min(?:utos?)?)?/i);
+      const rirMatch = tail.match(/RIR\s*(\d+(?:[.,]\d+)?)/i);
       return {
-        exerciseName: (match?.[1] ?? line).trim().replace(/^\\d+\\.\\s*/, ''),
+        exerciseName: (match?.[1] ?? line).trim().replace(/^\d+\.\s*/, ''),
         sets: Math.max(1, Math.min(10, Number(match?.[2] ?? 3))),
         repetitions: (match?.[3] ?? '8–12').trim(),
         rir: rirMatch ? Number(rirMatch[1].replace(',', '.')) : 2,
@@ -2484,7 +2484,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       ' × ' + (item.repetitions.trim() || '8–12') + ' · descanso ' +
       Math.max(0, Math.min(3600, Math.round(Number(item.restSeconds) || 0))) + ' s' +
       (item.rir === null || !Number.isFinite(item.rir) ? '' : ' · RIR ' + Math.max(0, Math.min(10, item.rir)))
-    ).join('\\n');
+    ).join('\n');
   }
 
   onWeeklyDraftChanged(plan: TrainingPlan, session: TrainingSession): void {
