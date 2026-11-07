@@ -170,6 +170,147 @@ public sealed class TrainingPeriodizationController : ControllerBase
         }
     }
 
+    [HttpPost("plans/{planId:int}/replace-future-split")]
+    public async Task<IActionResult> ReplaceFutureSplit(
+        int planId,
+        [FromBody] ReplaceFutureTrainingSplitRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        var validation = ValidateTrainingSplit(request.SplitType, request.TrainingDays);
+        if (validation is not null) return BadRequest(new { message = validation });
+        if (request.ReplaceFromDate < DateOnly.FromDateTime(DateTime.UtcNow) ||
+            request.ReplaceThroughDate < request.ReplaceFromDate ||
+            request.Sessions is null || request.Sessions.Count is < 1 or > 42)
+            return BadRequest(new { message = "El periodo de sustitución debe ser futuro y contener entre una y 42 sesiones." });
+        if (request.Sessions.Select(session => session.ScheduledDate).Distinct().Count() != request.Sessions.Count ||
+            request.Sessions.Any(session => session.ScheduledDate < request.ReplaceFromDate ||
+                session.ScheduledDate > request.ReplaceThroughDate ||
+                !request.TrainingDays.Contains((int)session.ScheduledDate.DayOfWeek)))
+            return BadRequest(new { message = "Las sesiones propuestas deben tener fechas únicas, dentro del periodo y en los días seleccionados." });
+        if (request.Sessions.Any(session => string.IsNullOrWhiteSpace(session.Title) || session.Title.Trim().Length > 160 ||
+            session.DurationMinutes is < 1 or > 1440 || session.IntensityTarget?.Length > 120 ||
+            session.Instructions?.Length > 4000 || session.ExercisePrescription?.Length > 6000 ||
+            session.SessionType is not ("endurance" or "strength" or "mobility" or "recovery" or "health" or "general" or "other") ||
+            (session.ExercisePrescriptionData.HasValue &&
+             (session.ExercisePrescriptionData.Value.ValueKind != JsonValueKind.Object ||
+              session.ExercisePrescriptionData.Value.GetRawText().Length > 20000))))
+            return BadRequest(new { message = "Una o más sesiones contienen campos no válidos o superan los límites permitidos." });
+
+        var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            DateOnly planStart;
+            DateOnly? planEnd;
+            await using (var planCommand = connection.CreateCommand())
+            {
+                planCommand.Transaction = transaction;
+                planCommand.CommandText = "SELECT start_date, end_date FROM training_plans WHERE id = @planId FOR UPDATE";
+                planCommand.Parameters.AddWithValue("planId", planId);
+                await using var reader = await planCommand.ExecuteReaderAsync(cancellationToken);
+                if (!await reader.ReadAsync(cancellationToken))
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return NotFound();
+                }
+                planStart = reader.GetFieldValue<DateOnly>(0);
+                planEnd = reader.IsDBNull(1) ? null : reader.GetFieldValue<DateOnly>(1);
+            }
+
+            if (request.ReplaceFromDate < planStart ||
+                (planEnd.HasValue && request.ReplaceThroughDate > planEnd.Value))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Conflict(new { message = "El periodo de sustitución queda fuera de las fechas del plan." });
+            }
+
+            await using (var completedCheck = connection.CreateCommand())
+            {
+                completedCheck.Transaction = transaction;
+                completedCheck.CommandText = """
+                    SELECT COUNT(*) FROM training_sessions s
+                    WHERE s.plan_id = @planId
+                      AND s.scheduled_date BETWEEN @fromDate AND @throughDate
+                      AND EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
+                    """;
+                completedCheck.Parameters.AddWithValue("planId", planId);
+                completedCheck.Parameters.AddWithValue("fromDate", request.ReplaceFromDate);
+                completedCheck.Parameters.AddWithValue("throughDate", request.ReplaceThroughDate);
+                if (Convert.ToInt32(await completedCheck.ExecuteScalarAsync(cancellationToken)) > 0)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Conflict(new { message = "El periodo contiene sesiones con realizaciones registradas. Amplía el inicio de la sustitución para dejarlas fuera; no se ha modificado nada." });
+                }
+            }
+
+            await using (var delete = connection.CreateCommand())
+            {
+                delete.Transaction = transaction;
+                delete.CommandText = """
+                    DELETE FROM training_sessions
+                    WHERE plan_id = @planId
+                      AND scheduled_date BETWEEN @fromDate AND @throughDate
+                      AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = training_sessions.id)
+                    """;
+                delete.Parameters.AddWithValue("planId", planId);
+                delete.Parameters.AddWithValue("fromDate", request.ReplaceFromDate);
+                delete.Parameters.AddWithValue("throughDate", request.ReplaceThroughDate);
+                await delete.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            foreach (var session in request.Sessions)
+            {
+                await using var insert = connection.CreateCommand();
+                insert.Transaction = transaction;
+                insert.CommandText = """
+                    INSERT INTO training_sessions(
+                        plan_id, scheduled_date, title, session_type, duration_minutes,
+                        intensity_target, instructions, exercise_prescription, exercise_prescription_data)
+                    VALUES (
+                        @planId, @date, @title, @type, @duration,
+                        @intensity, @instructions, @prescription, @prescriptionData::jsonb)
+                    """;
+                insert.Parameters.AddWithValue("planId", planId);
+                insert.Parameters.AddWithValue("date", session.ScheduledDate);
+                insert.Parameters.AddWithValue("title", session.Title.Trim());
+                insert.Parameters.AddWithValue("type", session.SessionType);
+                insert.Parameters.AddWithValue("duration", (object?)session.DurationMinutes ?? DBNull.Value);
+                insert.Parameters.AddWithValue("intensity", (object?)session.IntensityTarget?.Trim() ?? DBNull.Value);
+                insert.Parameters.AddWithValue("instructions", (object?)session.Instructions?.Trim() ?? DBNull.Value);
+                insert.Parameters.AddWithValue("prescription", (object?)session.ExercisePrescription?.Trim() ?? DBNull.Value);
+                insert.Parameters.AddWithValue("prescriptionData", session.ExercisePrescriptionData.HasValue
+                    ? session.ExercisePrescriptionData.Value.GetRawText()
+                    : DBNull.Value);
+                await insert.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using (var savePreference = connection.CreateCommand())
+            {
+                savePreference.Transaction = transaction;
+                savePreference.CommandText = """
+                    INSERT INTO training_plan_split_preferences(plan_id, split_type, training_days, updated_at)
+                    VALUES (@planId, @splitType, @trainingDays, NOW())
+                    ON CONFLICT (plan_id) DO UPDATE SET split_type = EXCLUDED.split_type,
+                        training_days = EXCLUDED.training_days, updated_at = NOW()
+                    """;
+                savePreference.Parameters.AddWithValue("planId", planId);
+                savePreference.Parameters.AddWithValue("splitType", (short)request.SplitType);
+                savePreference.Parameters.AddWithValue("trainingDays", request.TrainingDays.Select(day => (short)day).ToArray());
+                await savePreference.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return Ok(new { sessionsCreated = request.Sessions.Count, splitType = request.SplitType, trainingDays = request.TrainingDays });
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     private static string? ValidateTrainingSplit(int splitType, IReadOnlyList<int>? trainingDays)
     {
         if (splitType is < 0 or > 3 || trainingDays is null || trainingDays.Count is < 2 or > 6 ||
@@ -2066,6 +2207,17 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return command;
     }
 }
+
+public sealed record ReplaceFutureTrainingSplitRequest(
+    DateOnly ReplaceFromDate,
+    DateOnly ReplaceThroughDate,
+    int SplitType,
+    int[] TrainingDays,
+    IReadOnlyList<ReplaceFutureTrainingSessionRequest> Sessions);
+public sealed record ReplaceFutureTrainingSessionRequest(
+    DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes,
+    string? IntensityTarget, string? Instructions, string? ExercisePrescription,
+    JsonElement? ExercisePrescriptionData = null);
 
 public sealed record ReorganizeTrainingSplitRequest(
     int SplitType,
