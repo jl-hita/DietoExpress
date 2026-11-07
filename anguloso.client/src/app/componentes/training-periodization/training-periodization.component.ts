@@ -682,9 +682,15 @@ interface RepDbExercise {
                 </section>
               </section>
               <section *ngIf="current.canManage && weeklyEditorOpen[plan.id] && sessionViews[plan.id] !== 'list'" class="weekly-structured-editor" style="margin:14px 0;padding:16px;border:1px solid var(--border-color,#dbe3ed);border-radius:14px;background:var(--surface-container,#f8fafc)">
-                <div class="section-heading"><div><h5>Editor semanal estructurado</h5><p>Modifica cada sesión y sus ejercicios sin editar líneas de texto. Las sesiones completadas se muestran como solo lectura.</p></div><span class="session-count">{{ weekSessions(plan.id, plan).length }} sesiones</span></div>
+                <div class="section-heading"><div><h5>Editor semanal estructurado</h5><p>Modifica cada sesión y sus ejercicios sin editar líneas de texto. Las sesiones completadas se muestran como solo lectura.</p></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ weekSessions(plan.id, plan).length }} sesiones</span><button type="button" class="secondary" (click)="prepareWeeklySessionCreation(plan)">Añadir sesión a esta semana</button></div></div>
                 <article *ngFor="let session of weekSessions(plan.id, plan)" style="padding:12px;margin-top:10px;border:1px solid #e2e8f0;border-radius:12px;background:#fff">
-                  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><strong>{{ session.title }}</strong><span class="week-session-status">{{ session.completedAt ? 'Realizada · protegida' : 'Pendiente de revisión' }}</span></div>
+                  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><strong>{{ session.title }}</strong><span class="week-session-status">{{ session.completedAt ? 'Realizada · protegida' : 'Pendiente de revisión' }}</span><button *ngIf="canDeleteWeeklySession(session)" type="button" class="secondary" (click)="confirmWeeklySessionDeletion(plan, session)" [disabled]="saving">Eliminar sesión</button></div>
+                  <div *ngIf="weeklyDeleteConfirmIds[plan.id] === session.id" role="group" aria-label="Confirmar eliminación de sesión" style="margin-top:8px;padding:10px;border:1px solid #f0c6c6;border-radius:9px;background:#fff8f8">
+                    <p>Se eliminará esta sesión futura únicamente si no tiene registros de realización. El historial registrado está protegido.</p>
+                    <button type="button" class="secondary" (click)="deleteWeeklySession(plan, session)" [disabled]="saving">Confirmar eliminación</button>
+                    <button type="button" class="secondary" (click)="weeklyDeleteConfirmIds[plan.id] = null" [disabled]="saving">Cancelar</button>
+                  </div>
+                  <p *ngIf="weeklyDeleteErrors[plan.id]" class="error" role="alert">{{ weeklyDeleteErrors[plan.id] }}</p>
                   <ng-container *ngIf="!session.completedAt && weeklyDraft(session) as weekly">
                     <div class="session-editor-grid" style="margin-top:10px">
                       <label>Fecha<input type="date" [name]="'weeklyDate' + session.id" [(ngModel)]="weekly.date" (ngModelChange)="onWeeklyDraftChanged(plan, session)" [min]="plan.startDate" [max]="plan.endDate || null" /></label>
@@ -752,7 +758,7 @@ interface RepDbExercise {
                 </article>
               </div>
               <p *ngIf="!sessions[plan.id]?.length && sessionViews[plan.id] !== 'list'" class="session-empty">Tu calendario está vacío. Programa una sesión para empezar; aparecerá automáticamente en su día.</p>
-              <form *ngIf="current.canManage" (ngSubmit)="createSession(plan)" class="session-editor">
+              <form *ngIf="current.canManage" (ngSubmit)="createSession(plan)" class="session-editor" [attr.id]="'session-editor-' + plan.id">
                 <div class="editor-title"><span class="editor-icon">＋</span><div><strong>Programar sesión</strong><p>Añade una sesión al calendario de este plan.</p></div></div>
                 <section class="saved-session-templates" aria-label="Plantillas de sesión">
                   <div class="saved-session-heading"><div><strong>Plantillas de sesiones</strong><p>Guarda una sesión de gimnasio y reutilízala en cualquier plan que gestiones.</p></div><span class="session-count">{{ sessionTemplates.length }}</span></div>
@@ -1032,6 +1038,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   weeklyEditorOpen: Record<number, boolean> = {};
   weeklyEditorDrafts: Record<number, WeeklySessionDraft> = {};
   weeklyEditorDirty: Record<number, boolean> = {};
+  weeklyDeleteConfirmIds: Record<number, number | null> = {};
+  weeklyDeleteErrors: Record<number, string> = {};
   splitReorganizationOpen: Record<number, boolean> = {};
   splitReorganizationDrafts: Record<number, SplitReorganizationDraft> = {};
   splitPreferences: Record<number, { splitType: number; trainingDays: number[] }> = {};
@@ -3289,6 +3297,60 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       },
       error: error => { this.saving = false; this.error = error?.error?.message || 'No se pudo guardar la sesión.'; }
     });
+  }
+
+  canDeleteWeeklySession(session: TrainingSession): boolean {
+    return !session.completedAt && session.scheduledDate >= this.localDateInputValue();
+  }
+
+  confirmWeeklySessionDeletion(plan: TrainingPlan, session: TrainingSession): void {
+    if (!this.canDeleteWeeklySession(session)) return;
+    this.weeklyDeleteConfirmIds[plan.id] = session.id;
+    delete this.weeklyDeleteErrors[plan.id];
+  }
+
+  deleteWeeklySession(plan: TrainingPlan, session: TrainingSession): void {
+    if (this.weeklyDeleteConfirmIds[plan.id] !== session.id || !this.canDeleteWeeklySession(session)) return;
+    this.saving = true;
+    this.http.delete('/api/training/sessions/' + session.id).subscribe({
+      next: () => {
+        this.saving = false;
+        this.weeklyDeleteConfirmIds[plan.id] = null;
+        delete this.weeklyEditorDrafts[session.id];
+        delete this.weeklyEditorDirty[session.id];
+        this.sessions[plan.id] = (this.sessions[plan.id] || []).filter(item => item.id !== session.id);
+        delete this.weeklyDeleteErrors[plan.id];
+        this.notice = 'Sesión eliminada. El historial de realización permanece protegido.';
+        this.refreshManualVolumePreview(plan);
+        this.refreshSessions(plan.id);
+      },
+      error: error => {
+        this.saving = false;
+        this.weeklyDeleteErrors[plan.id] = error?.error?.message || 'No se pudo eliminar la sesión.';
+      }
+    });
+  }
+
+  prepareWeeklySessionCreation(plan: TrainingPlan): void {
+    const draft = this.sessionDrafts[plan.id];
+    if (!draft) return;
+    const hasUnsavedContent = !!(draft.title.trim() || draft.exercisePrescription.trim() || draft.instructions.trim());
+    if (hasUnsavedContent) {
+      this.notice = 'Ya hay un borrador de sesión sin guardar. Guárdalo o vacíalo antes de preparar otra sesión.';
+    } else {
+      const weekDates = this.weekDays(plan).map(day => day.date);
+      const occupiedDates = new Set(this.weekSessions(plan.id, plan).map(session => session.scheduledDate));
+      draft.date = weekDates.find(date => !occupiedDates.has(date)) || weekDates[0] || plan.startDate;
+      draft.title = '';
+      draft.type = 'strength';
+      draft.duration = 60;
+      draft.intensity = '';
+      draft.instructions = '';
+      draft.exercisePrescription = '';
+      draft.exercisePrescriptionData = null;
+      this.notice = 'Formulario preparado para añadir una sesión en esta semana.';
+    }
+    document.getElementById('session-editor-' + plan.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   weekPlannedMinutes(planId: number, plan: TrainingPlan): number {
