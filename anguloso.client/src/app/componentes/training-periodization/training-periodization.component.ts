@@ -648,7 +648,15 @@ interface RepDbExercise {
                   <label>Intensidad / zona objetivo<input name="sessionIntensity{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].intensity" maxlength="120" placeholder="Ej. RPE 7 · Z2 · 250 W · 5:00/km" /></label>
                   <label class="session-editor-wide">Instrucciones<textarea name="sessionInstructions{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].instructions" rows="2" maxlength="4000" placeholder="Calentamiento, bloques principales, pausas y vuelta a la calma…"></textarea></label>
                   <label class="session-editor-wide">Prescripción de ejercicios<textarea name="sessionExercises{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].exercisePrescription" (ngModelChange)="sessionDrafts[plan.id].exercisePrescriptionData = null" rows="3" maxlength="6000" placeholder="Sentadilla · 3 × 8 · descanso 2 min · RPE 7&#10;Peso muerto rumano · 3 × 10 · descanso 90 s"></textarea><small>Indica ejercicio, series, repeticiones, descanso y observaciones. Puedes anotar ritmo o potencia en la zona objetivo.</small></label>
-                  <div *ngIf="muscleSetSummary(sessionDrafts[plan.id].exercisePrescription).length" class="muscle-set-summary session-editor-wide"><strong>Resumen de series por grupo muscular</strong><span *ngFor="let item of muscleSetSummary(sessionDrafts[plan.id].exercisePrescription)">{{ item.muscle }}: {{ item.sets }} series</span><small>Cuenta las series prescritas de los ejercicios reconocidos en el catálogo; un ejercicio puede contribuir a varios grupos musculares.</small></div>
+                  <div *ngIf="prescriptionLines(sessionDrafts[plan.id].exercisePrescription).length" class="prescription-line-editor session-editor-wide">
+                    <div *ngFor="let line of prescriptionLines(sessionDrafts[plan.id].exercisePrescription); let lineIndex = index" class="prescription-line-row">
+                      <input [name]="'draftExerciseLine' + plan.id + lineIndex" [ngModel]="line" (ngModelChange)="updatePrescriptionLine(sessionDrafts[plan.id], lineIndex, $event)" aria-label="Prescripción del ejercicio" />
+                      <button type="button" class="secondary" (click)="movePrescriptionLine(sessionDrafts[plan.id], lineIndex, -1)" [disabled]="lineIndex === 0" aria-label="Subir ejercicio">↑</button>
+                      <button type="button" class="secondary" (click)="movePrescriptionLine(sessionDrafts[plan.id], lineIndex, 1)" [disabled]="lineIndex === prescriptionLines(sessionDrafts[plan.id].exercisePrescription).length - 1" aria-label="Bajar ejercicio">↓</button>
+                      <button type="button" class="secondary" (click)="removePrescriptionLine(sessionDrafts[plan.id], lineIndex)" aria-label="Quitar ejercicio">×</button>
+                    </div>
+                  </div>
+                  <div *ngIf="muscleSetSummary(sessionDrafts[plan.id].exercisePrescription).length" class="muscle-set-summary session-editor-wide"><strong>Resumen de series por grupo muscular · sesión</strong><span *ngFor="let item of muscleSetSummary(sessionDrafts[plan.id].exercisePrescription)">{{ item.muscle }}: {{ item.sets }} series</span><small>Estimación orientativa según las etiquetas musculares disponibles en la ficha del ejercicio; no sustituye al cálculo de series efectivas del generador.</small></div>
                 </div>
                 <div class="editor-footer"><span>La fecha debe estar dentro del periodo del plan.</span><button type="submit" [disabled]="saving || !sessionDrafts[plan.id].title.trim()">＋ Añadir sesión</button></div>
               </form>
@@ -674,6 +682,15 @@ interface RepDbExercise {
                         <label>Intensidad / zona<input name="editSessionIntensity{{session.id}}" [(ngModel)]="edit.intensity" maxlength="120" /></label>
                         <label class="session-editor-wide">Instrucciones<textarea name="editSessionInstructions{{session.id}}" [(ngModel)]="edit.instructions" rows="3" maxlength="4000"></textarea></label>
                         <label class="session-editor-wide">Prescripción de ejercicios<textarea name="editSessionExercises{{session.id}}" [(ngModel)]="edit.exercisePrescription" rows="4" maxlength="6000" placeholder="Ejercicio · series × repeticiones · descanso · notas"></textarea></label>
+                        <div *ngIf="prescriptionLines(edit.exercisePrescription).length" class="prescription-line-editor session-editor-wide">
+                          <div *ngFor="let line of prescriptionLines(edit.exercisePrescription); let lineIndex = index" class="prescription-line-row">
+                            <input [name]="'editExerciseLine' + session.id + lineIndex" [ngModel]="line" (ngModelChange)="updatePrescriptionLine(edit, lineIndex, $event)" aria-label="Prescripción del ejercicio" />
+                            <button type="button" class="secondary" (click)="movePrescriptionLine(edit, lineIndex, -1)" [disabled]="lineIndex === 0" aria-label="Subir ejercicio">↑</button>
+                            <button type="button" class="secondary" (click)="movePrescriptionLine(edit, lineIndex, 1)" [disabled]="lineIndex === prescriptionLines(edit.exercisePrescription).length - 1" aria-label="Bajar ejercicio">↓</button>
+                            <button type="button" class="secondary" (click)="removePrescriptionLine(edit, lineIndex)" aria-label="Quitar ejercicio">×</button>
+                          </div>
+                        </div>
+                        <div *ngIf="muscleSetSummary(edit.exercisePrescription).length" class="muscle-set-summary session-editor-wide"><strong>Resumen de series por grupo muscular · sesión</strong><span *ngFor="let item of muscleSetSummary(edit.exercisePrescription)">{{ item.muscle }}: {{ item.sets }} series</span><small>Estimación orientativa según las etiquetas musculares disponibles en la ficha del ejercicio.</small></div>
                       </div>
                       <div class="editor-footer"><span>Los registros de realización se conservan al editar.</span><div><button type="button" class="secondary" (click)="editingSessionId = null; sessionEditDraft = null">Cancelar</button> <button type="submit" [disabled]="saving">Guardar cambios</button></div></div>
                     </form>
@@ -960,6 +977,48 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const safeReps = reps.trim() || '8–12';
     const safeRest = rest.trim() || '90 s';
     return exercise.name + ' · ' + safeSets + ' × ' + safeReps + ' · descanso ' + safeRest;
+  }
+
+  prescriptionLines(prescription: string | null | undefined): string[] {
+    return typeof prescription === 'string'
+      ? prescription.split(/\\r?\\n/).map(line => line.trim()).filter(Boolean)
+      : [];
+  }
+
+  updatePrescriptionLine(
+    target: { exercisePrescription: string; exercisePrescriptionData?: Record<string, unknown> | null },
+    index: number,
+    value: string
+  ): void {
+    const lines = this.prescriptionLines(target.exercisePrescription);
+    if (index < 0 || index >= lines.length) return;
+    lines[index] = value;
+    target.exercisePrescription = lines.join('\\n');
+    if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
+  }
+
+  movePrescriptionLine(
+    target: { exercisePrescription: string; exercisePrescriptionData?: Record<string, unknown> | null },
+    index: number,
+    offset: number
+  ): void {
+    const lines = this.prescriptionLines(target.exercisePrescription);
+    const destination = index + offset;
+    if (index < 0 || index >= lines.length || destination < 0 || destination >= lines.length) return;
+    [lines[index], lines[destination]] = [lines[destination], lines[index]];
+    target.exercisePrescription = lines.join('\\n');
+    if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
+  }
+
+  removePrescriptionLine(
+    target: { exercisePrescription: string; exercisePrescriptionData?: Record<string, unknown> | null },
+    index: number
+  ): void {
+    const lines = this.prescriptionLines(target.exercisePrescription);
+    if (index < 0 || index >= lines.length) return;
+    lines.splice(index, 1);
+    target.exercisePrescription = lines.join('\\n');
+    if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
   }
 
   muscleSetSummary(prescription: string | null | undefined): Array<{ muscle: string; sets: number }> {
