@@ -406,11 +406,11 @@ interface RepDbExercise {
               <section *ngIf="current.canManage" style="margin-top:16px;padding:16px;border:1px solid var(--border-color,#dfe9e4);border-radius:14px">
                 <div class="macro-overview-heading"><div><span class="macro-kicker">PASO 2</span><h4>Generar mesociclos y rutinas</h4><p>Usa las fases guardadas como bloques. Puedes generar todo el macrociclo de una vez o trabajar fase por fase.</p></div></div>
                 <div class="form-grid">
-                  <label>Objetivo<select name="macroAutoGoal{{plan.id}}" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
-                  <label>Nivel<select name="macroAutoExperience{{plan.id}}" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+                  <label>Objetivo<select name="macroAutoGoal{{plan.id}}" [(ngModel)]="autoGoal" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
+                  <label>Nivel<select name="macroAutoExperience{{plan.id}}" [(ngModel)]="autoExperience" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
                   <label>Distribución semanal<select name="macroAutoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>Se aplicará a las rutinas de las fases que todavía no tengan planificación.</small></label>
-                  <label>Duración máxima por sesión<input type="number" name="macroAutoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" min="35" max="180" /></label>
-                  <label>Material disponible (opcional)<input name="macroAutoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Lista separada por comas. Guiones y guiones bajos son equivalentes; «machine» incluye máquinas específicas. Para restringir, usa «leg-press-machine», «hack-squat-machine» o «smith-machine». Vacío = todo el material.</small></label>
+                  <label>Duración máxima por sesión<input type="number" name="macroAutoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" (ngModelChange)="invalidateSplitReplacement(plan)" min="35" max="180" /></label>
+                  <label>Material disponible (opcional)<input name="macroAutoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" (ngModelChange)="invalidateSplitReplacement(plan)" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Lista separada por comas. Guiones y guiones bajos son equivalentes; «machine» incluye máquinas específicas. Para restringir, usa «leg-press-machine», «hack-squat-machine» o «smith-machine». Vacío = todo el material.</small></label>
                   <fieldset class="auto-day-picker full"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'macroAutoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -619,7 +619,7 @@ interface RepDbExercise {
               <section *ngIf="current.canManage && splitReorganizationOpen[plan.id]" class="split-reorganization-panel" style="margin:14px 0;padding:16px;border:1px solid var(--border-color,#dbe3ed);border-radius:14px;background:var(--surface-container,#f8fafc)">
                 <div class="section-heading"><div><h5>Reorganizar distribución semanal</h5><p>Solo se moverán sesiones futuras sin realización registrada. No se cambian ejercicios, series, cargas ni sesiones completadas. La semana en curso queda intacta.</p></div></div>
                 <div class="session-editor-grid">
-                  <label>Split<select [name]="'reorgSplit' + plan.id" [(ngModel)]="splitReorganizationDrafts[plan.id].splitType" (ngModelChange)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''"><option [ngValue]="0">Automático</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select></label>
+                  <label>Split<select [name]="'reorgSplit' + plan.id" [(ngModel)]="splitReorganizationDrafts[plan.id].splitType" (ngModelChange)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''; invalidateSplitReplacement(plan)"><option [ngValue]="0">Automático</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select></label>
                   <fieldset class="auto-day-picker"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'reorgDay' + plan.id + day.value" [checked]="splitReorganizationDrafts[plan.id].trainingDays.includes(day.value)" (change)="toggleReorganizationDay(plan, day.value, $any($event.target).checked)" /><span>{{ day.label }}</span></label></div></fieldset>
                 </div>
                 <div class="session-editor-grid" style="margin-top:10px">
@@ -2562,6 +2562,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     }
   }
 
+  invalidateSplitReplacement(plan: TrainingPlan): void {
+    this.splitReplacementPreviews[plan.id] = null;
+    this.splitReplacementErrors[plan.id] = '';
+  }
+
   toggleReorganizationDay(plan: TrainingPlan, day: number, checked: boolean): void {
     const draft = this.splitReorganizationDrafts[plan.id];
     draft.trainingDays = checked
@@ -2569,6 +2574,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       : draft.trainingDays.filter(value => value !== day);
     draft.moves = null;
     draft.error = '';
+    this.invalidateSplitReplacement(plan);
   }
 
   prepareSplitReorganization(plan: TrainingPlan): void {
