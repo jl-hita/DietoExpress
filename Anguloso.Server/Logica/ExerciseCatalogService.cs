@@ -428,16 +428,20 @@ public sealed class ExerciseCatalogService
 
 
     /// <summary>
-    /// Replaces the RepDB import with the explicitly curated general strength/hypertrophy catalog.
-    /// The source rows are deleted and reimported in one transaction; professional contributions
-    /// are preserved. Training plans keep their historical exercise-name/ID snapshots and need
-    /// not be deleted because they do not own catalog rows.
+    /// Loads manual-volume candidates from the complete approved catalog, including human-reviewed
+    /// RepDB rows outside the generator's curated subset. Owner-supplied exercises remain available.
     /// </summary>
     public Task<IReadOnlyList<TrainingExerciseCandidate>> LoadManualVolumeCandidatesAsync(
         int ownerUserId,
         CancellationToken cancellationToken = default) =>
         LoadGeneratorCandidatesAsync(ownerUserId, cancellationToken, includeNonCuratedRepDb: true);
 
+    /// <summary>
+    /// Replaces the RepDB import with the explicitly curated general strength/hypertrophy catalog.
+    /// The source rows are deleted and reimported in one transaction; professional contributions
+    /// and human-reviewed decisions are preserved. Training plans keep their historical
+    /// exercise-name/ID snapshots and need not be deleted because they do not own catalog rows.
+    /// </summary>
     private async Task EnsureRepDbIdealCatalogV1Async(CancellationToken cancellationToken)
     {
         var completed = await _db.Database.SqlQueryRaw<bool>(
