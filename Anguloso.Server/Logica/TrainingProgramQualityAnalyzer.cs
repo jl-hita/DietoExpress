@@ -14,8 +14,8 @@ public static class TrainingProgramQualityAnalyzer
     {
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(sessions);
-        if (sessions.Count > 7)
-            throw new ArgumentOutOfRangeException(nameof(sessions), "Una vista semanal admite como máximo siete días.");
+        if (sessions.Count > 42)
+            throw new ArgumentOutOfRangeException(nameof(sessions), "La vista admite hasta 42 sesiones.");
         if (sessions.Any(session => session is null || !Enum.IsDefined(session.Day)))
             throw new ArgumentException("Todas las sesiones deben indicar un día válido.", nameof(sessions));
         if (sessions.Any(session => !string.IsNullOrWhiteSpace(session.Title) && session.Title!.Length > 160))
@@ -31,20 +31,16 @@ public static class TrainingProgramQualityAnalyzer
         var byName = catalog
             .GroupBy(candidate => NormalizeExerciseName(candidate.Name), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
-        var unclassified = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var allUnclassified = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var prescriptions = new List<TrainingSessionPrescription>();
+        var sessionReports = new List<TrainingManualVolumeSessionResult>();
 
-        foreach (var dayGroup in sessions.GroupBy(session => session.Day).OrderBy(group => (int)group.Key))
+        foreach (var inputSession in sessions)
         {
-            if (!Enum.IsDefined(dayGroup.Key))
-                throw new ArgumentOutOfRangeException(nameof(sessions), "La sesión contiene un día no válido.");
-
+            var unclassified = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var exercises = new List<TrainingExercisePrescription>();
-            foreach (var input in dayGroup.SelectMany(session => session.Exercises ?? []))
+            foreach (var input in inputSession.Exercises)
             {
-                if (input.Sets is < 1 or > 10)
-                    throw new ArgumentOutOfRangeException(nameof(sessions), "Las series de cada ejercicio deben estar entre 1 y 10.");
-
                 TrainingExerciseCandidate? candidate = null;
                 if (!string.IsNullOrWhiteSpace(input.ExerciseId))
                     byId.TryGetValue(input.ExerciseId.Trim(), out candidate);
@@ -53,41 +49,51 @@ public static class TrainingProgramQualityAnalyzer
                 if (candidate is null)
                 {
                     if (!string.IsNullOrWhiteSpace(input.ExerciseName))
+                    {
                         unclassified.Add(input.ExerciseName.Trim());
+                        allUnclassified.Add(input.ExerciseName.Trim());
+                    }
                     continue;
                 }
 
                 exercises.Add(new TrainingExercisePrescription(
-                    candidate.ExerciseId,
-                    candidate.CatalogVersion,
-                    candidate.Name,
-                    exercises.Count + 1,
-                    input.Sets,
-                    8,
-                    12,
-                    null,
-                    90,
-                    TrainingProgressionRule.None,
+                    candidate.ExerciseId, candidate.CatalogVersion, candidate.Name, exercises.Count + 1,
+                    input.Sets, 8, 12, null, 90, TrainingProgressionRule.None,
                     "Prescripción manual; metadatos revisados del catálogo.",
-                    candidate.PrimaryMuscleGroups,
-                    candidate.SecondaryMuscleGroups));
+                    candidate.PrimaryMuscleGroups, candidate.SecondaryMuscleGroups));
             }
 
+            var title = string.IsNullOrWhiteSpace(inputSession.Title) ? "Sesión manual" : inputSession.Title.Trim();
             if (exercises.Count > 0)
-                prescriptions.Add(new TrainingSessionPrescription(
-                    1, dayGroup.Key, dayGroup.First().Title?.Trim() is { Length: > 0 } title ? title : "Sesión manual",
-                    60, exercises));
+            {
+                var sessionPrescription = new TrainingSessionPrescription(
+                    1, inputSession.Day, title, 60, exercises);
+                prescriptions.Add(sessionPrescription);
+                var sessionPlan = new TrainingProgramPrescription(
+                    "manual-volume-preview-v1", "Manual", new DateOnly(2026, 1, 5), 1,
+                    [sessionPrescription]);
+                sessionReports.Add(new TrainingManualVolumeSessionResult(
+                    inputSession.Day, title, Analyze(sessionPlan), unclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray()));
+            }
+            else
+            {
+                sessionReports.Add(new TrainingManualVolumeSessionResult(
+                    inputSession.Day, title,
+                    new TrainingProgramQualityReport(
+                        "No hay ejercicios con metadatos revisados suficientes para calcular el volumen de esta sesión.",
+                        [new TrainingWeeklyMuscleVolume(1, Enum.GetValues<TrainingMuscleGroup>()
+                            .Select(muscle => new TrainingMuscleVolume(muscle, 0, 0, 0, 0, 0)).ToArray())],
+                        []),
+                    unclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray()));
+            }
         }
 
         var plan = new TrainingProgramPrescription(
-            "manual-volume-preview-v1",
-            "Manual",
-            new DateOnly(2026, 1, 5),
-            1,
-            prescriptions);
+            "manual-volume-preview-v1", "Manual", new DateOnly(2026, 1, 5), 1, prescriptions);
         return new TrainingManualVolumeAnalysisResult(
             Analyze(plan),
-            unclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray());
+            allUnclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray(),
+            sessionReports);
     }
 
     private static string NormalizeExerciseName(string value) =>
@@ -189,9 +195,16 @@ public sealed record TrainingManualVolumeExerciseInput(
     string ExerciseName,
     int Sets);
 
-public sealed record TrainingManualVolumeAnalysisResult(
+public sealed record TrainingManualVolumeSessionResult(
+    DayOfWeek Day,
+    string Title,
     TrainingProgramQualityReport QualityReport,
     IReadOnlyList<string> UnclassifiedExerciseNames);
+
+public sealed record TrainingManualVolumeAnalysisResult(
+    TrainingProgramQualityReport QualityReport,
+    IReadOnlyList<string> UnclassifiedExerciseNames,
+    IReadOnlyList<TrainingManualVolumeSessionResult> SessionReports);
 
 public sealed record TrainingManualVolumePreviewRequest(
     IReadOnlyList<TrainingManualVolumeSessionInput> Sessions);
