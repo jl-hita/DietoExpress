@@ -1011,6 +1011,53 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void UpperLowerSplitKeepsAccessoryExercisesWithinTheirSessionMuscleGroups()
+    {
+        var catalog = Catalog()
+            .Where(candidate => candidate.MovementPattern != TrainingMovementPattern.Accessory)
+            .Concat(new[]
+            {
+                new TrainingExerciseCandidate("straight-arm-pulldown", "catalog-2026-10", "Jalón con brazos rectos",
+                    TrainingMovementPattern.Accessory, ["cable"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 58, true, [TrainingMuscleGroup.Lats], []),
+                new TrainingExerciseCandidate("cable-fly", "catalog-2026-10", "Aperturas en polea",
+                    TrainingMovementPattern.Accessory, ["cable"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Deltoids]),
+                new TrainingExerciseCandidate("lateral-raise", "catalog-2026-10", "Elevación lateral",
+                    TrainingMovementPattern.Accessory, ["dumbbell"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Deltoids], []),
+                new TrainingExerciseCandidate("machine-calf-raise", "catalog-2026-10", "Gemelo en máquina",
+                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Calves], []),
+                new TrainingExerciseCandidate("leg-extension", "catalog-2026-10", "Extensión de cuádriceps",
+                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Quadriceps], [])
+            })
+            .ToArray();
+
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                TrainingDays = [DayOfWeek.Monday, DayOfWeek.Thursday],
+                Split = TrainingProgramSplit.UpperLower,
+                DurationWeeks = 1,
+                MaximumSessionDurationMinutes = 90
+            },
+            catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        var upper = Assert.Single(generated.Prescription!.Sessions.Where(session =>
+            session.Title.StartsWith("Tren superior", StringComparison.Ordinal)));
+        var lower = Assert.Single(generated.Prescription.Sessions.Where(session =>
+            session.Title.StartsWith("Tren inferior", StringComparison.Ordinal)));
+
+        Assert.DoesNotContain(upper.Exercises, exercise =>
+            exercise.ExerciseId is "leg-extension" or "machine-calf-raise");
+        Assert.DoesNotContain(lower.Exercises, exercise =>
+            exercise.ExerciseId is "cable-fly" or "lateral-raise" or "straight-arm-pulldown");
+    }
+
+    [Fact]
     public void ManualVolumeReportsExercisesWithoutReviewedCatalogMetadataInsteadOfGuessing()
     {
         var result = TrainingProgramQualityAnalyzer.AnalyzeManual(
