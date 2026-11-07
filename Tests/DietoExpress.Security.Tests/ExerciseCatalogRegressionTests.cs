@@ -572,7 +572,8 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("replaceRepDbOnly: true", service);
         Assert.Contains("DELETE FROM exercise_catalog", service);
         Assert.Contains("reviewed_by IS NULL OR reviewed_by LIKE 'RepDB automatic metadata%'", service);
-        Assert.Contains("AND (source <> 'repdb-free' OR exercise_id = ANY(@curated_ids))", service);
+        Assert.Contains("AND (@include_non_curated_repdb OR source <> 'repdb-free' OR exercise_id = ANY(@curated_ids))", service);
+        Assert.Contains("includeNonCuratedRepDb: true", service);
         Assert.Contains("Add(command, \"curated_ids\", RepDbExerciseCuration.CuratedCatalogIds)", service);
         Assert.Contains("markIdealCatalogComplete: true", service);
         Assert.Contains("Training plans keep their historical exercise-name/ID snapshots", service);
