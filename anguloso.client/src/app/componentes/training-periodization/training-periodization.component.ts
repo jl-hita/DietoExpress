@@ -60,6 +60,13 @@ interface TrainingSession {
   intensityTarget?: string | null; instructions?: string | null; status: string; completedAt?: string | null;
   actualDurationMinutes?: number | null; sessionRpe?: number | null; recordNotes?: string | null; exercisePrescription?: string | null; exercisePrescriptionData?: Record<string, unknown> | null;
 }
+interface StructuredExerciseDraft {
+  exerciseName: string; sets: number; repetitions: string; rir: number | null; restSeconds: number; notes: string;
+}
+interface WeeklySessionDraft {
+  date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string;
+  exercises: StructuredExerciseDraft[];
+}
 interface TrainingLoadWeek { weekStart: string; completedSessions: number; plannedMinutes: number; actualMinutes: number; loadScore: number; }
 interface TrainingMesocycle { id: number; planId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; objective?: string | null; notes?: string | null; }
 interface MacrocyclePhase { id: number; name: string; sequenceNumber: number; startDate: string; endDate: string; objective?: string | null; phaseType: 'accumulation' | 'intensification' | 'deload' | 'realization' | 'general'; }
@@ -555,7 +562,7 @@ interface RepDbExercise {
             <ng-container *ngIf="activePlanWorkspace[plan.id] === 'routines'"><section class="session-workspace">
               <div class="session-workspace-heading">
                 <div><p class="eyebrow">TRABAJO DIARIO</p><h4>Calendario de entrenamiento</h4><p>Planifica la semana de un vistazo y entra en cada sesión para ajustar sus detalles.</p></div>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span><button type="button" class="secondary" (click)="exportSessions(plan)" [disabled]="!sessions[plan.id]?.length">Exportar CSV</button></div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span><button type="button" class="secondary" (click)="weeklyEditorOpen[plan.id] = !weeklyEditorOpen[plan.id]">{{ weeklyEditorOpen[plan.id] ? 'Cerrar editor semanal' : 'Editor semanal' }}</button><button type="button" class="secondary" (click)="exportSessions(plan)" [disabled]="!sessions[plan.id]?.length">Exportar CSV</button></div>
               </div>
               <section *ngIf="loadTrends[plan.id]?.length" class="load-trend" style="margin:16px 0;padding:14px;border:1px solid #e2e8f0;border-radius:12px">
                 <h5 style="margin:0 0 4px">Evolución de carga · últimas semanas</h5>
@@ -585,6 +592,35 @@ interface RepDbExercise {
                 <div><span class="summary-dot minutes-dot"></span><span><strong>{{ weekPlannedMinutes(plan.id, plan) }} min</strong><small>duración planificada</small></span></div>
                 <div><span class="summary-dot completed-dot"></span><span><strong>{{ weekCompletedCount(plan.id, plan) }} / {{ weekSessions(plan.id, plan).length }}</strong><small>sesiones realizadas</small></span></div>
               </div>
+              <section *ngIf="current.canManage && weeklyEditorOpen[plan.id] && sessionViews[plan.id] !== 'list'" class="weekly-structured-editor" style="margin:14px 0;padding:16px;border:1px solid var(--border-color,#dbe3ed);border-radius:14px;background:var(--surface-container,#f8fafc)">
+                <div class="section-heading"><div><h5>Editor semanal estructurado</h5><p>Modifica cada sesión y sus ejercicios sin editar líneas de texto. Las sesiones completadas se muestran como solo lectura.</p></div><span class="session-count">{{ weekSessions(plan.id, plan).length }} sesiones</span></div>
+                <article *ngFor="let session of weekSessions(plan.id, plan)" style="padding:12px;margin-top:10px;border:1px solid #e2e8f0;border-radius:12px;background:#fff">
+                  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><strong>{{ session.title }}</strong><span class="week-session-status">{{ session.completedAt ? 'Realizada · protegida' : 'Pendiente de revisión' }}</span></div>
+                  <ng-container *ngIf="!session.completedAt">
+                    <div class="session-editor-grid" style="margin-top:10px">
+                      <label>Fecha<input type="date" [name]="'weeklyDate' + session.id" [(ngModel)]="weeklyDraft(session).date" (ngModelChange)="onWeeklyDraftChanged(plan, session)" [min]="plan.startDate" [max]="plan.endDate || null" /></label>
+                      <label>Nombre de sesión<input [name]="'weeklyTitle' + session.id" [(ngModel)]="weeklyDraft(session).title" maxlength="160" (ngModelChange)="onWeeklyDraftChanged(plan, session)" /></label>
+                      <label>Duración (min)<input type="number" [name]="'weeklyDuration' + session.id" [(ngModel)]="weeklyDraft(session).duration" min="1" max="1440" /></label>
+                      <label>Intensidad / RIR objetivo<input [name]="'weeklyIntensity' + session.id" [(ngModel)]="weeklyDraft(session).intensity" maxlength="120" /></label>
+                      <label class="session-editor-wide">Instrucciones<textarea [name]="'weeklyInstructions' + session.id" [(ngModel)]="weeklyDraft(session).instructions" rows="2" maxlength="4000"></textarea></label>
+                    </div>
+                    <div style="margin-top:12px"><strong>Ejercicios de la sesión</strong>
+                      <div *ngFor="let exercise of weeklyDraft(session).exercises; let exerciseIndex = index" style="display:grid;grid-template-columns:minmax(160px,2fr) repeat(4,minmax(75px,0.7fr)) auto;gap:7px;align-items:end;padding:9px 0;border-bottom:1px solid #edf1f5">
+                        <label>Ejercicio<input [name]="'weeklyExerciseName' + session.id + exerciseIndex" [(ngModel)]="exercise.exerciseName" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="160" placeholder="Nombre del ejercicio" /></label>
+                        <label>Series<input type="number" [name]="'weeklyExerciseSets' + session.id + exerciseIndex" [(ngModel)]="exercise.sets" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="1" max="10" /></label>
+                        <label>Reps<input [name]="'weeklyExerciseReps' + session.id + exerciseIndex" [(ngModel)]="exercise.repetitions" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="30" placeholder="8–12" /></label>
+                        <label>RIR<input type="number" [name]="'weeklyExerciseRir' + session.id + exerciseIndex" [(ngModel)]="exercise.rir" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="10" step="0.5" /></label>
+                        <label>Descanso (s)<input type="number" [name]="'weeklyExerciseRest' + session.id + exerciseIndex" [(ngModel)]="exercise.restSeconds" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="3600" /></label>
+                        <div style="display:flex;gap:3px"><button type="button" class="secondary" (click)="moveWeeklyExercise(session, exerciseIndex, -1)" [disabled]="exerciseIndex === 0" aria-label="Subir ejercicio">↑</button><button type="button" class="secondary" (click)="moveWeeklyExercise(session, exerciseIndex, 1)" [disabled]="exerciseIndex === weeklyDraft(session).exercises.length - 1" aria-label="Bajar ejercicio">↓</button><button type="button" class="secondary" (click)="removeWeeklyExercise(plan, session, exerciseIndex)" aria-label="Eliminar ejercicio">×</button></div>
+                      </div>
+                      <button type="button" class="secondary" style="margin-top:10px" (click)="addWeeklyExercise(plan, session)">＋ Añadir ejercicio</button>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;margin-top:12px"><button type="button" (click)="saveWeeklySession(plan, session)" [disabled]="saving">Guardar esta sesión</button></div>
+                  </ng-container>
+                  <p *ngIf="session.completedAt" class="muted">La prescripción, fecha e historial de realización se mantienen intactos.</p>
+                </article>
+                <p *ngIf="!weekSessions(plan.id, plan).length" class="muted">No hay sesiones en esta semana. Programa una sesión para comenzar.</p>
+              </section>
               <div *ngIf="sessions[plan.id]?.length && sessionViews[plan.id] !== 'list'" class="week-grid">
                 <article *ngFor="let day of weekDays(plan)" class="week-day" [class.today]="day.isToday" [class.day-has-sessions]="sessionsForDay(plan.id, day.date).length">
                   <header class="week-day-heading"><span>{{ day.date | date:'EEE' }}</span><strong>{{ day.date | date:'d' }}</strong></header>
@@ -877,6 +913,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   loadTrends: Record<number, TrainingLoadWeek[]> = {};
   sessionViews: Record<number, 'week' | 'list'> = {};
   weekOffsets: Record<number, number> = {};
+  weeklyEditorOpen: Record<number, boolean> = {};
+  weeklyEditorDrafts: Record<number, WeeklySessionDraft> = {};
   sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string; exercisePrescriptionData: Record<string, unknown> | null }> = {};
   manualVolumePreviews: Record<number, ManualVolumePreview | null> = {};
   manualVolumePreviewErrors: Record<number, string> = {};
@@ -1163,7 +1201,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     plan: TrainingPlan,
     overrideDate?: string,
     overridePrescription?: string,
-    excludeSessionId?: number
+    excludeSessionId?: number,
+    overrideTitle?: string
   ): void {
     const planId = plan.id;
     const existingTimer = this.manualVolumePreviewTimers[planId];
@@ -1190,7 +1229,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         addSession(session.scheduledDate, session.title, session.exercisePrescription);
       }
       const currentPrescription = overridePrescription ?? draft?.exercisePrescription ?? '';
-      addSession(overrideDate || draft?.date || targetDate, draft?.title || 'Sesión en edición', currentPrescription);
+      addSession(overrideDate || draft?.date || targetDate, overrideTitle || draft?.title || 'Sesión en edición', currentPrescription);
       if (!requestSessions.length) {
         this.manualVolumePreviewSubscriptions[planId]?.unsubscribe();
         this.manualVolumePreviews[planId] = null;
@@ -2408,6 +2447,93 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return (this.sessions[planId] ?? []).filter(session => {
       const date = session.scheduledDate.slice(0, 10);
       return date >= first && date <= last;
+    });
+  }
+
+  weeklyDraft(session: TrainingSession): WeeklySessionDraft {
+    if (!this.weeklyEditorDrafts[session.id]) {
+      this.weeklyEditorDrafts[session.id] = {
+        date: session.scheduledDate.slice(0, 10), title: session.title, type: session.sessionType,
+        duration: session.durationMinutes ?? 60, intensity: session.intensityTarget ?? '',
+        instructions: session.instructions ?? '', exercises: this.parseStructuredExerciseDrafts(session.exercisePrescription)
+      };
+    }
+    return this.weeklyEditorDrafts[session.id];
+  }
+
+  private parseStructuredExerciseDrafts(prescription: string | null | undefined): StructuredExerciseDraft[] {
+    return this.prescriptionLines(prescription).map(line => {
+      const match = line.match(/^(.*?)\\s*[·|—-]\\s*(\\d+)\\s*[×x]\\s*([^·|—]+?)(?=\\s*[·|—]|$)(.*)$/i);
+      const tail = match?.[4] ?? line;
+      const restMatch = tail.match(/descanso\\s*(\\d+)\\s*(s|seg(?:undos?)?|min(?:utos?)?)?/i);
+      const rirMatch = tail.match(/RIR\\s*(\\d+(?:[.,]\\d+)?)/i);
+      return {
+        exerciseName: (match?.[1] ?? line).trim().replace(/^\\d+\\.\\s*/, ''),
+        sets: Math.max(1, Math.min(10, Number(match?.[2] ?? 3))),
+        repetitions: (match?.[3] ?? '8–12').trim(),
+        rir: rirMatch ? Number(rirMatch[1].replace(',', '.')) : 2,
+        restSeconds: restMatch ? Number(restMatch[1]) * (/min/i.test(restMatch[2] ?? '') ? 60 : 1) : 90,
+        notes: ''
+      };
+    }).filter(item => item.exerciseName.length > 0);
+  }
+
+  private serializeStructuredExerciseDrafts(exercises: StructuredExerciseDraft[]): string {
+    return exercises.filter(item => item.exerciseName.trim()).map(item =>
+      item.exerciseName.trim() + ' · ' + Math.max(1, Math.min(10, Math.round(Number(item.sets) || 1))) +
+      ' × ' + (item.repetitions.trim() || '8–12') + ' · descanso ' +
+      Math.max(0, Math.min(3600, Math.round(Number(item.restSeconds) || 0))) + ' s' +
+      (item.rir === null || !Number.isFinite(item.rir) ? '' : ' · RIR ' + Math.max(0, Math.min(10, item.rir)))
+    ).join('\\n');
+  }
+
+  onWeeklyDraftChanged(plan: TrainingPlan, session: TrainingSession): void {
+    const draft = this.weeklyDraft(session);
+    this.refreshManualVolumePreview(plan, draft.date, this.serializeStructuredExerciseDrafts(draft.exercises), session.id, draft.title);
+  }
+
+  addWeeklyExercise(plan: TrainingPlan, session: TrainingSession): void {
+    this.weeklyDraft(session).exercises.push({ exerciseName: '', sets: 3, repetitions: '8–12', rir: 2, restSeconds: 90, notes: '' });
+    this.onWeeklyDraftChanged(plan, session);
+  }
+
+  removeWeeklyExercise(plan: TrainingPlan, session: TrainingSession, index: number): void {
+    this.weeklyDraft(session).exercises.splice(index, 1);
+    this.onWeeklyDraftChanged(plan, session);
+  }
+
+  moveWeeklyExercise(plan: TrainingPlan, session: TrainingSession, index: number, offset: number): void {
+    const rows = this.weeklyDraft(session).exercises;
+    const destination = index + offset;
+    if (index < 0 || destination < 0 || destination >= rows.length) return;
+    [rows[index], rows[destination]] = [rows[destination], rows[index]];
+    this.onWeeklyDraftChanged(plan, session);
+  }
+
+  saveWeeklySession(plan: TrainingPlan, session: TrainingSession): void {
+    const draft = this.weeklyDraft(session);
+    const prescription = this.serializeStructuredExerciseDrafts(draft.exercises);
+    if (!draft.title.trim() || !draft.date || draft.duration === null || !Number.isInteger(draft.duration) || draft.duration < 1 || draft.duration > 1440) {
+      this.error = 'Revisa el nombre, la fecha y la duración de la sesión.';
+      return;
+    }
+    if (draft.exercises.some(item => item.exerciseName.trim() && (!Number.isInteger(item.sets) || item.sets < 1 || item.sets > 10 || !item.repetitions.trim() || !Number.isInteger(item.restSeconds) || item.restSeconds < 0 || item.restSeconds > 3600 || (item.rir !== null && (item.rir < 0 || item.rir > 10))))) {
+      this.error = 'Revisa series (1–10), repeticiones, descanso (0–3600 s) y RIR (0–10).';
+      return;
+    }
+    this.saving = true;
+    this.http.put('/api/training/sessions/' + session.id, {
+      scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type,
+      durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null,
+      instructions: draft.instructions.trim() || null, exercisePrescription: prescription || null
+    }).subscribe({
+      next: () => {
+        this.saving = false;
+        delete this.weeklyEditorDrafts[session.id];
+        this.notice = 'Sesión actualizada. El registro de realización se ha conservado.';
+        this.refreshSessions(plan.id);
+      },
+      error: error => { this.saving = false; this.error = error?.error?.message || 'No se pudo guardar la sesión.'; }
     });
   }
 
