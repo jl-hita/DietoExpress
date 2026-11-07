@@ -211,6 +211,33 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void WeeklyEditorAndSplitReorganizationAreStructuredAndProtectCompletedSessions()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var splitSchema = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingPlanSplitSchema.cs"));
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+        var analyzer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingProgramQualityAnalyzer.cs"));
+
+        Assert.Contains("TrainingPlanSplitSchema.Initialize(context)", bootstrap);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS training_plan_split_preferences", splitSchema);
+        Assert.Contains("[HttpGet(\"plans/{planId:int}/split\")]", controller);
+        Assert.Contains("[HttpPost(\"plans/{planId:int}/reorganize-split\")]", controller);
+        Assert.Contains("NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)", controller);
+        Assert.Contains("await transaction.CommitAsync(cancellationToken)", controller);
+        Assert.Contains("await transaction.RollbackAsync(cancellationToken)", controller);
+        Assert.Contains("Editor semanal estructurado", ui);
+        Assert.Contains("saveWeeklySession(plan, session)", ui);
+        Assert.Contains("moveWeeklyExercise(session", ui);
+        Assert.Contains("Reorganizar distribución semanal", ui);
+        Assert.Contains("Preparar propuesta", ui);
+        Assert.Contains("Confirmar reorganización", ui);
+        Assert.Contains("TrainingSessionMuscleVolume", analyzer);
+        Assert.Contains("sessionVolumes", analyzer);
+        Assert.Contains("Comparación por sesión", ui);
+    }
+
+    [Fact]
     public void PatientTrainingFeedback_IsPersistedAndFeedsOnlyARecommendation()
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
