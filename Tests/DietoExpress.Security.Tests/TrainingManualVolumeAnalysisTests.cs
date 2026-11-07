@@ -6,6 +6,31 @@ namespace DietoExpress.Security.Tests;
 public sealed class TrainingManualVolumeAnalysisTests
 {
     [Fact]
+    public void ManualVolumeReportWarnsWhenEffectiveWeeklyVolumeExceedsTwentySets()
+    {
+        var benchPress = new TrainingExerciseCandidate(
+            "bench-press", "catalog-v1", "Press banca",
+            TrainingMovementPattern.HorizontalPush,
+            Array.Empty<string>(),
+            [TrainingGoal.Hypertrophy, TrainingGoal.Strength],
+            TrainingExperience.Beginner,
+            100,
+            true,
+            [TrainingMuscleGroup.Chest],
+            [TrainingMuscleGroup.Triceps]);
+
+        var result = TrainingProgramQualityAnalyzer.AnalyzeManual(
+            [benchPress],
+            [new TrainingManualVolumeSessionInput(DayOfWeek.Monday, "Torso",
+                [new TrainingManualVolumeExerciseInput("bench-press", "Press banca", 21)])]);
+
+        Assert.Contains(result.QualityReport.Warnings,
+            warning => warning.Contains("Chest acumula 21 series", StringComparison.Ordinal));
+        Assert.Contains(result.QualityReport.Warnings,
+            warning => warning.Contains("Triceps acumula 21 series", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ManualVolumeReportKeepsSessionsSeparateEvenWhenTheyShareTheSameWeekday()
     {
         var benchPress = new TrainingExerciseCandidate(
