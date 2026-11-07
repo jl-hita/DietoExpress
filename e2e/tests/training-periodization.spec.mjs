@@ -353,6 +353,27 @@ test.describe('MVP de periodización deportiva', () => {
     const structuredSessions = generatedSessions.filter(session => session.exercisePrescriptionData?.exercises?.length > 0);
     expect(structuredSessions, 'Las sesiones generadas deben persistir su prescripción estructurada').toHaveLength(4);
 
+    // The replacement preview must respect a plan whose start date is in the future,
+    // preserve the old block until confirmation, and expose weekly/per-session volume.
+    await page.getByRole('button', { name: /Rutinas/ }).click();
+    await page.getByRole('button', { name: 'Reorganizar split' }).click();
+    const splitPanel = page.locator('.split-reorganization-panel');
+    await expect(splitPanel).toBeVisible();
+    await splitPanel.locator(`select[name="reorgSplit${plan.id}"]`).selectOption('1');
+    await splitPanel.locator(`input[name="reorgDay${plan.id}3"]`).uncheck();
+    await splitPanel.locator(`input[name="reorgDay${plan.id}5"]`).uncheck();
+    await splitPanel.locator(`input[name="reorgDay${plan.id}4"]`).check();
+    await splitPanel.locator(`select[name="reorgGoal${plan.id}"]`).selectOption('1');
+    await splitPanel.locator(`select[name="reorgExperience${plan.id}"]`).selectOption('0');
+    await splitPanel.locator(`input[name="reorgMinutes${plan.id}"]`).fill('90');
+    await splitPanel.locator(`input[name="reorgEquipment${plan.id}"]`).fill('barbell, dumbbell, bench, pull_up_bar, cable, kettlebell, ez_bar, shoulder_press_machine, ab_wheel, machine');
+    await splitPanel.getByRole('button', { name: 'Generar propuesta con este split' }).click();
+    await expect(splitPanel.getByRole('heading', { name: /Propuesta regenerada/ })).toBeVisible({ timeout: 45_000 });
+    const replacementPreview = splitPanel.locator('section').last();
+    await expect(replacementPreview.locator('table tbody tr')).toHaveCount(4);
+    await expect(replacementPreview).toContainText('Volumen efectivo');
+    await expect(replacementPreview.locator('strong').filter({ hasText: /^Semana [12] ·/ })).toHaveCount(4);
+
     const copiedPlanResponse = await api.post(apiUrl(`/api/training/clients/${patientId}/plans/from-template/${template.id}`), {
       data: { name: 'Plan creado desde plantilla E2E', startDate: datePlusDays(120) }
     });
