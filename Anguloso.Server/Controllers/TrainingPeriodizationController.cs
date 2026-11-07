@@ -243,11 +243,22 @@ public sealed class TrainingPeriodizationController : ControllerBase
             request.ReplaceThroughDate < request.ReplaceFromDate ||
             request.Sessions is null || request.Sessions.Count is < 1 or > 312)
             return BadRequest(new { message = "El periodo de sustitución debe ser futuro y contener entre una y 312 sesiones." });
+        if (request.ReplaceFromDate.DayOfWeek != DayOfWeek.Monday ||
+            request.ReplaceThroughDate.DayOfWeek != DayOfWeek.Sunday ||
+            (request.ReplaceThroughDate.DayNumber - request.ReplaceFromDate.DayNumber + 1) % 7 != 0)
+            return BadRequest(new { message = "El periodo de sustitución debe abarcar semanas completas, de lunes a domingo." });
+        var replacementWeeks = (request.ReplaceThroughDate.DayNumber - request.ReplaceFromDate.DayNumber + 1) / 7;
+        if (replacementWeeks is < 1 or > 52 || request.Sessions.Count != replacementWeeks * request.TrainingDays.Length)
+            return BadRequest(new { message = "La propuesta debe contener exactamente una sesión por cada día de entrenamiento y semana del periodo." });
         if (request.Sessions.Select(session => session.ScheduledDate).Distinct().Count() != request.Sessions.Count ||
             request.Sessions.Any(session => session.ScheduledDate < request.ReplaceFromDate ||
                 session.ScheduledDate > request.ReplaceThroughDate ||
                 !request.TrainingDays.Contains((int)session.ScheduledDate.DayOfWeek)))
             return BadRequest(new { message = "Las sesiones propuestas deben tener fechas únicas, dentro del periodo y en los días seleccionados." });
+        if (request.Sessions.GroupBy(session => session.ScheduledDate.AddDays(-(((int)session.ScheduledDate.DayOfWeek + 6) % 7)))
+            .Any(week => week.Count() != request.TrainingDays.Length ||
+                week.Select(session => (int)session.ScheduledDate.DayOfWeek).Distinct().Count() != request.TrainingDays.Length))
+            return BadRequest(new { message = "Cada semana debe incluir exactamente una sesión en cada día seleccionado." });
         if (request.Sessions.Any(session => string.IsNullOrWhiteSpace(session.Title) || session.Title.Trim().Length > 160 ||
             session.DurationMinutes is < 1 or > 1440 || session.IntensityTarget?.Length > 120 ||
             session.Instructions?.Length > 4000 || session.ExercisePrescription?.Length > 6000 ||
