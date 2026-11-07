@@ -223,7 +223,10 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("CREATE TABLE IF NOT EXISTS training_plan_split_preferences", splitSchema);
         Assert.Contains("[HttpGet(\"plans/{planId:int}/split\")]", controller);
         Assert.Contains("[HttpPost(\"plans/{planId:int}/reorganize-split\")]", controller);
+        Assert.Contains("[HttpPost(\"plans/{planId:int}/replace-future-split\")]", controller);
+        Assert.Contains("ReplaceFutureTrainingSplitRequest", controller);
         Assert.Contains("NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)", controller);
+        Assert.Contains("exercise_prescription_data)", controller);
         Assert.Contains("await transaction.CommitAsync(cancellationToken)", controller);
         Assert.Contains("await transaction.RollbackAsync(cancellationToken)", controller);
         Assert.Contains("Editor semanal estructurado", ui);
@@ -232,6 +235,10 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("Reorganizar distribución semanal", ui);
         Assert.Contains("Preparar propuesta", ui);
         Assert.Contains("Confirmar reorganización", ui);
+        Assert.Contains("Generar propuesta con este split", ui);
+        Assert.Contains("applySplitReplacement(plan)", ui);
+        Assert.Contains("parseStructuredExerciseDrafts(session.exercisePrescription, session.exercisePrescriptionData)", ui);
+        Assert.Contains("progressionRule: item.progressionRule", ui);
         Assert.Contains("TrainingSessionMuscleVolume", analyzer);
         Assert.Contains("sessionVolumes", analyzer);
         Assert.Contains("Comparación por sesión", ui);
