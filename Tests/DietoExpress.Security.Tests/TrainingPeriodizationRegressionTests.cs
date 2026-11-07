@@ -144,6 +144,23 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void ExerciseProgressionUsesHistoricalPrescriptionAndFailsClosedOnUnstructuredStrengthSessions()
+    {
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingExerciseProgressionService.cs"));
+        var engine = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingExerciseProgressionEngine.cs"));
+
+        Assert.Contains("s.session_type = 'strength'", service);
+        Assert.Contains("blockedPlans.Contains(planId)", service);
+        Assert.Contains("blockedPlans.Add(planId)", service);
+        Assert.Contains("HistoricalPrescription: historicalPrescription", service);
+        Assert.Contains("historical.PlannedWorkingSets != prescription.PlannedWorkingSets", engine);
+        Assert.Contains("historical.MinRepetitions != prescription.MinRepetitions", engine);
+        Assert.Contains("historical.MaxRepetitions != prescription.MaxRepetitions", engine);
+        Assert.Contains("historical.TargetRir != prescription.TargetRir", engine);
+        Assert.Contains("!x.ProgressionEligible", engine);
+    }
+
+    [Fact]
     public void PatientPortalRendersStructuredGeneratedExerciseDetailsAndFallsBackToLegacyText()
     {
         var component = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.ts"));
