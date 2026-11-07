@@ -614,7 +614,7 @@ interface RepDbExercise {
                 <div class="section-heading"><div><h5>Editor semanal estructurado</h5><p>Modifica cada sesión y sus ejercicios sin editar líneas de texto. Las sesiones completadas se muestran como solo lectura.</p></div><span class="session-count">{{ weekSessions(plan.id, plan).length }} sesiones</span></div>
                 <article *ngFor="let session of weekSessions(plan.id, plan)" style="padding:12px;margin-top:10px;border:1px solid #e2e8f0;border-radius:12px;background:#fff">
                   <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><strong>{{ session.title }}</strong><span class="week-session-status">{{ session.completedAt ? 'Realizada · protegida' : 'Pendiente de revisión' }}</span></div>
-                  <ng-container *ngIf="!session.completedAt && weekly as weekly">
+                  <ng-container *ngIf="!session.completedAt && weeklyDraft(session) as weekly">
                     <div class="session-editor-grid" style="margin-top:10px">
                       <label>Fecha<input type="date" [name]="'weeklyDate' + session.id" [(ngModel)]="weekly.date" (ngModelChange)="onWeeklyDraftChanged(plan, session)" [min]="plan.startDate" [max]="plan.endDate || null" /></label>
                       <label>Nombre de sesión<input [name]="'weeklyTitle' + session.id" [(ngModel)]="weekly.title" maxlength="160" (ngModelChange)="onWeeklyDraftChanged(plan, session)" /></label>
