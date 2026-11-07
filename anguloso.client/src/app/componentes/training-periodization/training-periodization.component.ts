@@ -3026,6 +3026,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         const restSeconds = typeof item['restSeconds'] === 'number' && Number.isFinite(item['restSeconds'])
           ? Math.max(0, Math.min(3600, Math.round(item['restSeconds']))) : 0;
         const targetRir = item['targetRepetitionsInReserve'];
+        const rawProgressionRule = item['progressionRule'];
+        const progressionRule = rawProgressionRule === null || rawProgressionRule === undefined ||
+          rawProgressionRule === 1 || rawProgressionRule === '1' || rawProgressionRule === 'DoubleProgression'
+          ? 'DoubleProgression' : 'None';
         return {
           exerciseName,
           originalExerciseName: exerciseName,
@@ -3037,8 +3041,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
           notes: typeof item['notes'] === 'string' ? item['notes'] : '',
           exerciseId: typeof item['exerciseId'] === 'string' ? item['exerciseId'] : undefined,
           catalogVersion: typeof item['catalogVersion'] === 'string' ? item['catalogVersion'] : undefined,
-          progressionRule: item['progressionRule'] === 1 || item['progressionRule'] === '1' ||
-            item['progressionRule'] === 'DoubleProgression' ? 'DoubleProgression' : 'None',
+          progressionRule,
           primaryMuscleGroups: Array.isArray(item['primaryMuscleGroups'])
             ? item['primaryMuscleGroups'] as Array<string | number> : undefined,
           secondaryMuscleGroups: Array.isArray(item['secondaryMuscleGroups'])
