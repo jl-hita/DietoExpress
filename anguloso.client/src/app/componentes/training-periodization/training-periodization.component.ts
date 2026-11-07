@@ -1011,19 +1011,22 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   updatePrescriptionLine(
     target: { exercisePrescription: string; exercisePrescriptionData?: Record<string, unknown> | null },
     index: number,
-    value: string
+    value: string,
+    plan?: TrainingPlan
   ): void {
     const lines = this.prescriptionLines(target.exercisePrescription);
     if (index < 0 || index >= lines.length) return;
     lines[index] = value;
     target.exercisePrescription = lines.join('\n');
     if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
+    if (plan) this.refreshManualVolumeForTarget(target, plan);
   }
 
   movePrescriptionLine(
     target: { exercisePrescription: string; exercisePrescriptionData?: Record<string, unknown> | null },
     index: number,
-    offset: number
+    offset: number,
+    plan?: TrainingPlan
   ): void {
     const lines = this.prescriptionLines(target.exercisePrescription);
     const destination = index + offset;
@@ -1031,17 +1034,149 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     [lines[index], lines[destination]] = [lines[destination], lines[index]];
     target.exercisePrescription = lines.join('\n');
     if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
+    if (plan) this.refreshManualVolumeForTarget(target, plan);
   }
 
   removePrescriptionLine(
     target: { exercisePrescription: string; exercisePrescriptionData?: Record<string, unknown> | null },
-    index: number
+    index: number,
+    plan?: TrainingPlan
   ): void {
     const lines = this.prescriptionLines(target.exercisePrescription);
     if (index < 0 || index >= lines.length) return;
     lines.splice(index, 1);
     target.exercisePrescription = lines.join('\n');
     if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
+    if (plan) this.refreshManualVolumeForTarget(target, plan);
+  }
+
+  onManualPrescriptionChanged(plan: TrainingPlan): void {
+    const draft = this.sessionDrafts[plan.id];
+    if (!draft) return;
+    draft.exercisePrescriptionData = null;
+    this.refreshManualVolumePreview(plan);
+  }
+
+  onManualSessionDateChanged(plan: TrainingPlan, date: string): void {
+    const draft = this.sessionDrafts[plan.id];
+    if (!draft) return;
+    draft.date = date;
+    this.refreshManualVolumePreview(plan);
+  }
+
+  onEditedSessionPrescriptionChanged(plan: TrainingPlan, session: TrainingSession, value: string): void {
+    if (!this.sessionEditDraft) return;
+    this.sessionEditDraft.exercisePrescription = value;
+    this.refreshManualVolumePreview(plan, this.sessionEditDraft.date, value, session.id);
+  }
+
+  onEditedSessionDateChanged(plan: TrainingPlan, session: TrainingSession, date: string): void {
+    if (!this.sessionEditDraft) return;
+    this.sessionEditDraft.date = date;
+    this.refreshManualVolumePreview(plan, date, this.sessionEditDraft.exercisePrescription, session.id);
+  }
+
+  private refreshManualVolumeForTarget(
+    target: { exercisePrescription: string },
+    plan: TrainingPlan
+  ): void {
+    if (target === this.sessionEditDraft && this.sessionEditDraft && this.editingSessionId !== null) {
+      this.refreshManualVolumePreview(plan, this.sessionEditDraft.date,
+        this.sessionEditDraft.exercisePrescription, this.editingSessionId);
+    } else {
+      this.refreshManualVolumePreview(plan);
+    }
+  }
+
+  private parseManualVolumeExercises(prescription: string | null | undefined): Array<{ exerciseId: string | null; exerciseName: string; sets: number }> {
+    const parsed: Array<{ exerciseId: string | null; exerciseName: string; sets: number }> = [];
+    for (const line of this.prescriptionLines(prescription)) {
+      const match = line.match(/^(.*?)\s*[·|—-]\s*(\d+)\s*[×x]\s*\d+/i);
+      if (!match) continue;
+      const exerciseName = match[1].trim();
+      const sets = Number(match[2]);
+      if (!exerciseName || !Number.isInteger(sets) || sets < 1 || sets > 10) continue;
+      const item = this.exerciseCatalog.find(exercise =>
+        exercise.name.trim().toLocaleLowerCase('es') === exerciseName.toLocaleLowerCase('es'));
+      parsed.push({
+        exerciseId: item ? item.id.replace(/^repdb-/, '') : null,
+        exerciseName,
+        sets
+      });
+    }
+    return parsed;
+  }
+
+  private weekStartDate(dateValue: string): string {
+    const date = new Date(dateValue.slice(0, 10) + 'T00:00:00Z');
+    if (Number.isNaN(date.getTime())) return '';
+    date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+    return date.toISOString().slice(0, 10);
+  }
+
+  private refreshManualVolumePreview(
+    plan: TrainingPlan,
+    overrideDate?: string,
+    overridePrescription?: string,
+    excludeSessionId?: number
+  ): void {
+    const planId = plan.id;
+    const existingTimer = this.manualVolumePreviewTimers[planId];
+    if (existingTimer) clearTimeout(existingTimer);
+    this.manualVolumePreviewLoading[planId] = true;
+    this.manualVolumePreviewErrors[planId] = '';
+
+    this.manualVolumePreviewTimers[planId] = setTimeout(() => {
+      const draft = this.sessionDrafts[planId];
+      const targetDate = (overrideDate || draft?.date || this.defaultSessionDate(plan)).slice(0, 10);
+      const targetWeek = this.weekStartDate(targetDate);
+      const daySessions = new Map<number, { title: string; exercises: Array<{ exerciseId: string | null; exerciseName: string; sets: number }> }>();
+      const addSession = (dateValue: string, title: string, prescription: string | null | undefined): void => {
+        const date = dateValue.slice(0, 10);
+        if (!date || this.weekStartDate(date) !== targetWeek) return;
+        const exercises = this.parseManualVolumeExercises(prescription);
+        if (!exercises.length) return;
+        const day = new Date(date + 'T00:00:00Z').getUTCDay();
+        const existing = daySessions.get(day) || { title, exercises: [] };
+        existing.exercises.push(...exercises);
+        daySessions.set(day, existing);
+      };
+
+      for (const session of this.sessions[planId] || []) {
+        if (session.id === excludeSessionId) continue;
+        addSession(session.scheduledDate, session.title, session.exercisePrescription);
+      }
+      const currentPrescription = overridePrescription ?? draft?.exercisePrescription ?? '';
+      addSession(overrideDate || draft?.date || targetDate, draft?.title || 'Sesión en edición', currentPrescription);
+
+      const requestSessions = [...daySessions.entries()].map(([day, value]) => ({
+        day, title: value.title, exercises: value.exercises
+      }));
+      if (!requestSessions.length) {
+        this.manualVolumePreviewSubscriptions[planId]?.unsubscribe();
+        this.manualVolumePreviews[planId] = null;
+        this.manualVolumePreviewLoading[planId] = false;
+        this.changeDetector.markForCheck();
+        return;
+      }
+
+      this.manualVolumePreviewSubscriptions[planId]?.unsubscribe();
+      this.manualVolumePreviewSubscriptions[planId] = this.http.post<ManualVolumePreview>(
+        '/api/training/volume-preview', { sessions: requestSessions }
+      ).subscribe({
+        next: result => {
+          this.manualVolumePreviews[planId] = result;
+          this.manualVolumePreviewLoading[planId] = false;
+          this.changeDetector.markForCheck();
+        },
+        error: error => {
+          this.manualVolumePreviews[planId] = null;
+          this.manualVolumePreviewErrors[planId] = error?.error?.message || 'No se pudo calcular el volumen semanal con el catálogo revisado.';
+          this.manualVolumePreviewLoading[planId] = false;
+          this.changeDetector.markForCheck();
+        }
+      });
+    }, 250);
   }
 
   muscleSetSummary(prescription: string | null | undefined): Array<{ muscle: string; sets: number }> {
@@ -1238,6 +1373,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.exerciseCatalogSearchTimer !== null) clearTimeout(this.exerciseCatalogSearchTimer);
     this.exerciseCatalogRequest?.unsubscribe();
+    for (const timer of Object.values(this.manualVolumePreviewTimers)) clearTimeout(timer);
+    for (const subscription of Object.values(this.manualVolumePreviewSubscriptions)) subscription.unsubscribe();
   }
 
   loadInvitations(): void {
