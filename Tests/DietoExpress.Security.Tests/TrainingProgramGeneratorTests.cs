@@ -988,7 +988,7 @@ public sealed class TrainingProgramGeneratorTests
             .ToArray();
         var request = new TrainingProgramGenerationRequest(
             TrainingGoal.Strength, TrainingExperience.Advanced, new DateOnly(2026, 10, 26), 4,
-            [DayOfWeek.Monday, DayOfWeek.Thursday], 90, [], [])
+            [DayOfWeek.Monday, DayOfWeek.Thursday], 90, ["barbell", "dumbbell", "machine", "cable"], [])
         {
             Split = TrainingProgramSplit.FullBody
         };
@@ -1045,7 +1045,8 @@ public sealed class TrainingProgramGeneratorTests
                 TrainingDays = [DayOfWeek.Monday, DayOfWeek.Thursday],
                 Split = TrainingProgramSplit.UpperLower,
                 DurationWeeks = 1,
-                MaximumSessionDurationMinutes = 90
+                MaximumSessionDurationMinutes = 90,
+                AvailableEquipment = ["barbell", "dumbbell", "machine", "cable"]
             },
             catalog);
 
