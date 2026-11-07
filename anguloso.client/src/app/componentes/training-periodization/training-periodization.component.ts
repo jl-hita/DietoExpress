@@ -1275,6 +1275,14 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     }
   }
 
+  private findUniqueCatalogExerciseByName(name: string): TrainingExerciseCatalogItem | undefined {
+    const normalized = name.trim().toLocaleLowerCase('es');
+    if (!normalized) return undefined;
+    const matches = this.exerciseCatalog.filter(exercise =>
+      exercise.name.trim().toLocaleLowerCase('es') === normalized);
+    return matches.length === 1 ? matches[0] : undefined;
+  }
+
   private parseManualVolumeExercises(prescription: string | null | undefined): Array<{ exerciseId: string | null; exerciseName: string; sets: number }> {
     const parsed: Array<{ exerciseId: string | null; exerciseName: string; sets: number }> = [];
     for (const line of this.prescriptionLines(prescription)) {
@@ -1283,8 +1291,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       const exerciseName = match[1].trim().replace(/^\d+\.\s*/, '');
       const sets = Number(match[2]);
       if (!exerciseName || !Number.isInteger(sets) || sets < 1 || sets > 10) continue;
-      const item = this.exerciseCatalog.find(exercise =>
-        exercise.name.trim().toLocaleLowerCase('es') === exerciseName.toLocaleLowerCase('es'));
+      const item = this.findUniqueCatalogExerciseByName(exerciseName);
       const stableId = line.match(/\[ID:\s*([^;\]]+)/i)?.[1]?.trim();
       parsed.push({
         exerciseId: stableId || (item ? item.id.replace(/^repdb-/, '') : null),
@@ -1301,8 +1308,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return exercises
       .filter(item => item.exerciseName.trim().length > 0 && Number.isFinite(item.sets) && item.sets >= 1)
       .map(item => {
-        const catalogItem = this.exerciseCatalog.find(exercise =>
-          exercise.name.trim().toLocaleLowerCase('es') === item.exerciseName.trim().toLocaleLowerCase('es'));
+        const catalogItem = this.findUniqueCatalogExerciseByName(item.exerciseName);
         return {
           exerciseId: item.exerciseId?.trim() || catalogItem?.id.replace(/^repdb-/, '') || null,
           exerciseName: item.exerciseName.trim(),
@@ -1413,7 +1419,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       const exerciseName = match[1].trim().toLocaleLowerCase('es');
       const sets = Number(match[2]);
       if (!Number.isFinite(sets) || sets < 1) continue;
-      const exercise = this.exerciseCatalog.find(item => exerciseName === item.name.toLocaleLowerCase('es'));
+      const exercise = this.findUniqueCatalogExerciseByName(exerciseName);
       if (!exercise?.muscles) continue;
       const muscles = exercise.muscles.split(/,|\s+y\s+|\s+and\s+|\s*\/\s*/i).map(value => value.trim()).filter(Boolean);
       for (const muscle of muscles) totals.set(muscle, (totals.get(muscle) ?? 0) + sets);
@@ -2885,11 +2891,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
           const generatedId = exercise.exerciseId.replace(/^repdb-/, '').toLocaleLowerCase('es');
           const manualIndex = manualRows.findIndex(item => {
             if (item.consumed) return false;
-            const catalogItem = this.exerciseCatalog.find(candidate =>
-              candidate.name.trim().toLocaleLowerCase('es') === item.row.exerciseName.trim().toLocaleLowerCase('es'));
+            const catalogItem = this.findUniqueCatalogExerciseByName(item.row.exerciseName);
             const manualId = (item.row.exerciseId ?? catalogItem?.id)?.replace(/^repdb-/, '').toLocaleLowerCase('es');
-            return item.row.exerciseName.trim().toLocaleLowerCase('es') === generatedName.toLocaleLowerCase('es') ||
-              (!!manualId && manualId === generatedId);
+            return item.row.exerciseId
+              ? manualId === generatedId
+              : !!catalogItem && item.row.exerciseName.trim().toLocaleLowerCase('es') === generatedName.toLocaleLowerCase('es');
           });
           if (manualIndex >= 0) {
             const manual = manualRows[manualIndex];
@@ -3139,8 +3145,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       day: this.dayName(new Date(date.slice(0, 10) + 'T00:00:00Z').getUTCDay()),
       estimatedDurationMinutes: duration ?? 60,
       exercises: structured.map((item, index) => {
-        const catalogItem = this.exerciseCatalog.find(exercise =>
-          exercise.name.trim().toLocaleLowerCase('es') === item.exerciseName.trim().toLocaleLowerCase('es'));
+        const catalogItem = this.findUniqueCatalogExerciseByName(item.exerciseName);
         const repetitions = item.repetitions.match(/(\d+)(?:\s*[-–]\s*(\d+))?/);
         const minRepetitions = repetitions ? Number(repetitions[1]) : undefined;
         const maxRepetitions = repetitions ? Number(repetitions[2] || repetitions[1]) : undefined;
