@@ -175,6 +175,12 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(weeklyVolumeDashboard.locator('section').last().locator('article')).toHaveCount(2);
     await weeklyEditor.getByRole('button', { name: 'Guardar esta sesión' }).first().click();
     await expect(page.getByRole('status').filter({ hasText: 'Sesión actualizada' })).toBeVisible({ timeout: 20_000 });
+    const comparisonSessionCard = weeklyEditor.locator('article').filter({ hasText: 'Sesión comparativa E2E' }).first();
+    await comparisonSessionCard.getByRole('button', { name: 'Eliminar sesión' }).click();
+    await comparisonSessionCard.getByRole('button', { name: 'Confirmar eliminación' }).click();
+    await expect(weeklyEditor.locator('article').filter({ hasText: 'Sesión comparativa E2E' })).toHaveCount(0, { timeout: 20_000 });
+    await weeklyEditor.getByRole('button', { name: 'Añadir sesión a esta semana' }).click();
+    await expect(page.locator(`#session-editor-${plan.id}`)).toBeInViewport();
     await page.getByRole('button', { name: 'Cerrar editor semanal' }).click();
     await expect(page.getByRole('heading', { name: 'Construye la sesión' })).toBeVisible();
     const savedTemplateSelect = page.locator(`select[name="savedSessionTemplate${plan.id}"]`);
