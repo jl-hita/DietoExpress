@@ -137,21 +137,58 @@ public sealed class TrainingPeriodizationController : ControllerBase
             if (request.Moves.Count > 0)
             {
                 var ids = request.Moves.Select(move => move.SessionId).ToArray();
-                await using var verify = connection.CreateCommand();
-                verify.Transaction = transaction;
-                verify.CommandText = """
-                    SELECT COUNT(*) FROM training_sessions s
-                    WHERE s.plan_id = @planId AND s.id = ANY(@sessionIds)
-                      AND s.scheduled_date >= CURRENT_DATE
-                      AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
-                    """;
-                verify.Parameters.AddWithValue("planId", planId);
-                verify.Parameters.AddWithValue("sessionIds", ids);
-                var eligible = Convert.ToInt32(await verify.ExecuteScalarAsync(cancellationToken));
-                if (eligible != ids.Length)
+                var scheduledDates = request.Moves.Select(move => move.ScheduledDate).ToArray();
+                var currentDates = new Dictionary<int, DateOnly>();
+                await using (var verify = connection.CreateCommand())
+                {
+                    verify.Transaction = transaction;
+                    verify.CommandText = """
+                        SELECT s.id, s.scheduled_date FROM training_sessions s
+                        WHERE s.plan_id = @planId AND s.id = ANY(@sessionIds)
+                          AND s.scheduled_date >= CURRENT_DATE
+                          AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
+                        FOR UPDATE OF s
+                        """;
+                    verify.Parameters.AddWithValue("planId", planId);
+                    verify.Parameters.AddWithValue("sessionIds", ids);
+                    await using var reader = await verify.ExecuteReaderAsync(cancellationToken);
+                    while (await reader.ReadAsync(cancellationToken))
+                        currentDates[reader.GetInt32(0)] = reader.GetFieldValue<DateOnly>(1);
+                }
+                if (currentDates.Count != ids.Length)
                 {
                     await transaction.RollbackAsync(cancellationToken);
                     return Conflict(new { message = "Una o más sesiones ya no son futuras, no pertenecen al plan o tienen una realización registrada. No se ha cambiado ninguna sesión." });
+                }
+
+                foreach (var move in request.Moves)
+                {
+                    var currentDate = currentDates[move.SessionId];
+                    var currentWeek = currentDate.AddDays(-(((int)currentDate.DayOfWeek + 6) % 7));
+                    var targetWeek = move.ScheduledDate.AddDays(-(((int)move.ScheduledDate.DayOfWeek + 6) % 7));
+                    if (currentWeek != targetWeek)
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        return Conflict(new { message = "La reorganización solo puede cambiar el día dentro de la misma semana; no desplazará sesiones entre semanas." });
+                    }
+                }
+
+                await using (var collisionCheck = connection.CreateCommand())
+                {
+                    collisionCheck.Transaction = transaction;
+                    collisionCheck.CommandText = """
+                        SELECT COUNT(*) FROM training_sessions s
+                        WHERE s.plan_id = @planId AND s.scheduled_date = ANY(@scheduledDates)
+                          AND NOT (s.id = ANY(@sessionIds))
+                        """;
+                    collisionCheck.Parameters.AddWithValue("planId", planId);
+                    collisionCheck.Parameters.AddWithValue("scheduledDates", scheduledDates);
+                    collisionCheck.Parameters.AddWithValue("sessionIds", ids);
+                    if (Convert.ToInt32(await collisionCheck.ExecuteScalarAsync(cancellationToken)) > 0)
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        return Conflict(new { message = "Una de las fechas propuestas ya contiene otra sesión que no forma parte de la reorganización." });
+                    }
                 }
 
                 await using var update = connection.CreateCommand();
@@ -163,7 +200,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     WHERE s.id = changes.session_id AND s.plan_id = @planId
                     """;
                 update.Parameters.AddWithValue("sessionIds", ids);
-                update.Parameters.AddWithValue("scheduledDates", request.Moves.Select(move => move.ScheduledDate).ToArray());
+                update.Parameters.AddWithValue("scheduledDates", scheduledDates);
                 update.Parameters.AddWithValue("planId", planId);
                 await update.ExecuteNonQueryAsync(cancellationToken);
             }
