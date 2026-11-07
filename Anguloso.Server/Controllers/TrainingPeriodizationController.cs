@@ -76,10 +76,10 @@ public sealed class TrainingPeriodizationController : ControllerBase
         if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
         var validation = ValidateTrainingSplit(request.SplitType, request.TrainingDays);
         if (validation is not null) return BadRequest(new { message = validation });
-        if (request.Moves is null || request.Moves.Count > 42 ||
+        if (request.Moves is null || request.Moves.Count > 312 ||
             request.Moves.Select(move => move.SessionId).Distinct().Count() != request.Moves.Count ||
             request.Moves.Select(move => move.ScheduledDate).Distinct().Count() != request.Moves.Count)
-            return BadRequest(new { message = "La propuesta contiene sesiones o fechas duplicadas, o supera 42 sesiones." });
+            return BadRequest(new { message = "La propuesta contiene sesiones o fechas duplicadas, o supera 312 sesiones." });
         if (request.Moves.Any(move => !request.TrainingDays.Contains((int)move.ScheduledDate.DayOfWeek)))
             return BadRequest(new { message = "Todas las fechas propuestas deben coincidir con los días seleccionados." });
 
