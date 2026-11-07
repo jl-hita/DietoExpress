@@ -1418,6 +1418,46 @@ public sealed class TrainingPeriodizationController : ControllerBase
             : Ok(new { id = Convert.ToInt32(id), clientId = clientId.Value, message = "Sesión actualizada." });
     }
 
+    [HttpDelete("sessions/{sessionId:int}")]
+    public async Task<IActionResult> DeleteFutureSession(int sessionId, CancellationToken cancellationToken)
+    {
+        var clientId = await GetSessionClientId(sessionId, cancellationToken);
+        if (!clientId.HasValue || !await CanManageClient(clientId.Value, cancellationToken)) return NotFound();
+
+        // Lock the session before checking for records. A concurrent execution record must
+        // never be cascaded away by a professional deleting a session from the weekly editor.
+        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        await using var find = Command("""
+            SELECT scheduled_date
+            FROM training_sessions
+            WHERE id = @sessionId
+            FOR UPDATE
+            """, ("sessionId", sessionId));
+        var scheduledDateValue = await find.ExecuteScalarAsync(cancellationToken);
+        if (scheduledDateValue is not DateOnly scheduledDate) return NotFound();
+        if (scheduledDate < DateOnly.FromDateTime(DateTime.UtcNow))
+            return Conflict(new { message = "No se pueden eliminar sesiones pasadas; conserva el historial de entrenamiento." });
+
+        await using var hasRecords = Command("""
+            SELECT EXISTS (
+                SELECT 1 FROM training_session_records WHERE session_id = @sessionId
+            )
+            """, ("sessionId", sessionId));
+        if (Convert.ToBoolean(await hasRecords.ExecuteScalarAsync(cancellationToken)))
+            return Conflict(new { message = "Esta sesión ya tiene un registro de realización y no se puede eliminar." });
+
+        await using var delete = Command("""
+            DELETE FROM training_sessions
+            WHERE id = @sessionId AND scheduled_date >= CURRENT_DATE
+            """, ("sessionId", sessionId));
+        var deleted = await delete.ExecuteNonQueryAsync(cancellationToken);
+        if (deleted != 1)
+            return Conflict(new { message = "La sesión ya no está disponible para eliminarse." });
+
+        await transaction.CommitAsync(cancellationToken);
+        return NoContent();
+    }
+
     [HttpPost("sessions/{sessionId:int}/record")]
     public async Task<IActionResult> RecordSession(int sessionId, [FromBody] RecordTrainingSessionRequest request, CancellationToken cancellationToken)
     {
