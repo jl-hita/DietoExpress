@@ -216,6 +216,7 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(weeklyExerciseNames).toHaveCount(3);
     await weeklySessionEditor.getByRole('button', { name: 'Eliminar ejercicio' }).last().click();
     await expect(weeklyExerciseNames).toHaveCount(2);
+    await weeklySessionEditor.locator('input[name^="weeklyExerciseName"]').nth(1).fill('Sentadilla personalizada E2E');
     const weeklySets = weeklySessionEditor.locator('input[name^="weeklyExerciseSets"]').nth(1);
     await expect(weeklySets).toBeVisible();
     await weeklySets.fill('4');
@@ -225,7 +226,11 @@ test.describe('MVP de periodización deportiva', () => {
     const updatedWeeklySession = (await savedWeeklySessions.json()).find(item => item.title === sessionTitle);
     expect(updatedWeeklySession.exercisePrescription).toContain('4 × 8');
     expect(updatedWeeklySession.exercisePrescription.indexOf('Peso muerto rumano'))
-      .toBeLessThan(updatedWeeklySession.exercisePrescription.indexOf('Sentadilla'));
+      .toBeLessThan(updatedWeeklySession.exercisePrescription.indexOf('Sentadilla personalizada E2E'));
+    const customExercise = updatedWeeklySession.exercisePrescriptionData.exercises
+      .find(exercise => exercise.exerciseNameSnapshot === 'Sentadilla personalizada E2E');
+    expect(customExercise).toBeTruthy();
+    expect(customExercise.exerciseId ?? null).toBeNull();
 
     await page.getByRole('button', { name: 'Reorganizar split' }).click();
     await expect(page.getByRole('heading', { name: 'Reorganizar distribución semanal' })).toBeVisible();
