@@ -1139,6 +1139,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const planId = plan.id;
     const existingTimer = this.manualVolumePreviewTimers[planId];
     if (existingTimer) clearTimeout(existingTimer);
+    this.manualVolumePreviewSubscriptions[planId]?.unsubscribe();
     this.manualVolumePreviewLoading[planId] = true;
     this.manualVolumePreviewErrors[planId] = '';
 
