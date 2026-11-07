@@ -21,8 +21,14 @@ public sealed class TrainingManualVolumeAnalysisTests
 
         var result = TrainingProgramQualityAnalyzer.AnalyzeManual(
             [benchPress],
-            [new TrainingManualVolumeSessionInput(DayOfWeek.Monday, "Torso",
-                [new TrainingManualVolumeExerciseInput("bench-press", "Press banca", 21)])]);
+            [
+                new TrainingManualVolumeSessionInput(DayOfWeek.Monday, "Torso A",
+                    [new TrainingManualVolumeExerciseInput("bench-press", "Press banca", 7)]),
+                new TrainingManualVolumeSessionInput(DayOfWeek.Wednesday, "Torso B",
+                    [new TrainingManualVolumeExerciseInput("bench-press", "Press banca", 7)]),
+                new TrainingManualVolumeSessionInput(DayOfWeek.Friday, "Torso C",
+                    [new TrainingManualVolumeExerciseInput("bench-press", "Press banca", 7)])
+            ]);
 
         Assert.Contains(result.QualityReport.Warnings,
             warning => warning.Contains("Chest acumula 21 series", StringComparison.Ordinal));
@@ -54,14 +60,14 @@ public sealed class TrainingManualVolumeAnalysisTests
             ]);
 
         var weekly = Assert.Single(result.QualityReport.WeeklyMuscleVolumes);
-        Assert.Equal(5m, Assert.Single(weekly.Muscles.Where(x => x.MuscleGroup == TrainingMuscleGroup.Chest)).EstimatedEffectiveSets);
-        Assert.Equal(5, Assert.Single(weekly.Muscles.Where(x => x.MuscleGroup == TrainingMuscleGroup.Triceps)).EstimatedEffectiveSets);
+        Assert.Equal(5m, Assert.Single(weekly.Muscles, x => x.MuscleGroup == TrainingMuscleGroup.Chest).EstimatedEffectiveSets);
+        Assert.Equal(5, Assert.Single(weekly.Muscles, x => x.MuscleGroup == TrainingMuscleGroup.Triceps).EstimatedEffectiveSets);
         Assert.Equal(2, result.SessionReports.Count);
         Assert.Equal("Torso A", result.SessionReports[0].Title);
         Assert.Equal("Torso B", result.SessionReports[1].Title);
-        Assert.Equal(3m, Assert.Single(result.SessionReports[0].QualityReport.WeeklyMuscleVolumes[0].Muscles
-            .Where(x => x.MuscleGroup == TrainingMuscleGroup.Chest)).EstimatedEffectiveSets);
-        Assert.Equal(2m, Assert.Single(result.SessionReports[1].QualityReport.WeeklyMuscleVolumes[0].Muscles
-            .Where(x => x.MuscleGroup == TrainingMuscleGroup.Chest)).EstimatedEffectiveSets);
+        Assert.Equal(3m, Assert.Single(result.SessionReports[0].QualityReport.WeeklyMuscleVolumes[0].Muscles,
+            x => x.MuscleGroup == TrainingMuscleGroup.Chest).EstimatedEffectiveSets);
+        Assert.Equal(2m, Assert.Single(result.SessionReports[1].QualityReport.WeeklyMuscleVolumes[0].Muscles,
+            x => x.MuscleGroup == TrainingMuscleGroup.Chest).EstimatedEffectiveSets);
     }
 }
