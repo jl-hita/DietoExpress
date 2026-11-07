@@ -103,6 +103,7 @@ public static class TrainingProgramQualityAnalyzer
     {
         ArgumentNullException.ThrowIfNull(plan);
         var weeklyVolumes = new List<TrainingWeeklyMuscleVolume>();
+        var sessionVolumes = new List<TrainingSessionMuscleVolume>();
         var warnings = new List<string>();
 
         for (var week = 1; week <= plan.DurationWeeks; week++)
@@ -152,6 +153,23 @@ public static class TrainingProgramQualityAnalyzer
                     warnings.Add($"Semana {week}: {muscle} acumula {estimatedEffectiveSets:0.##} series con estímulo efectivo estimado; revisa volumen, rendimiento y recuperación.");
             }
 
+            foreach (var session in sessions)
+            {
+                var sessionMuscles = Enum.GetValues<TrainingMuscleGroup>().Select(muscle =>
+                {
+                    var primary = session.Exercises.Where(exercise => exercise.PrimaryMuscleGroups.Contains(muscle)).Sum(exercise => exercise.Sets);
+                    var secondary = session.Exercises.Where(exercise => exercise.SecondaryMuscleGroups.Contains(muscle)).Sum(exercise => exercise.Sets);
+                    var effective = session.Exercises
+                        .Where(exercise => TrainingExerciseStimulus.GetEffectiveMuscles(
+                            exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups).Contains(muscle))
+                        .Sum(exercise => exercise.Sets);
+                    return new TrainingMuscleVolume(muscle, primary, secondary,
+                        primary > 0 ? 1 : 0, secondary > 0 ? 1 : 0, effective);
+                }).ToArray();
+                sessionVolumes.Add(new TrainingSessionMuscleVolume(
+                    session.WeekNumber, session.Day, session.Title, sessionMuscles));
+            }
+
             // Zero exposure for an accessory or stabilizing muscle is not automatically a
             // programming defect. Whether adductors, tibialis anterior, serratus, rotator cuff,
             // etc. need direct work depends on the goal, exercise selection, user priorities and
@@ -164,14 +182,22 @@ public static class TrainingProgramQualityAnalyzer
         return new TrainingProgramQualityReport(
             "Estimación basada en series prescritas y una auditoría explícita por ejercicio: cuentan las series de músculos primarios y las contribuciones secundarias con estímulo dinámico relevante. No se contabilizan estabilizadores ni participaciones incidentales. Las contribuciones secundarias no tienen un crédito fraccionario universal.",
             weeklyVolumes,
-            warnings.Distinct(StringComparer.Ordinal).ToArray());
+            warnings.Distinct(StringComparer.Ordinal).ToArray(),
+            sessionVolumes);
     }
 }
 
 public sealed record TrainingProgramQualityReport(
     string Methodology,
     IReadOnlyList<TrainingWeeklyMuscleVolume> WeeklyMuscleVolumes,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    IReadOnlyList<TrainingSessionMuscleVolume>? SessionVolumes = null);
+
+public sealed record TrainingSessionMuscleVolume(
+    int WeekNumber,
+    DayOfWeek Day,
+    string Title,
+    IReadOnlyList<TrainingMuscleVolume> Muscles);
 
 public sealed record TrainingWeeklyMuscleVolume(
     int WeekNumber,
