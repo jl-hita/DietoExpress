@@ -439,7 +439,7 @@ public static class TrainingProgramGenerator
                     .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory &&
                         string.Equals(candidate.ExerciseId, exercise.ExerciseId, StringComparison.OrdinalIgnoreCase))
                     .SelectMany(candidate => candidate.PrimaryMuscleGroups.Where(muscle =>
-                    targets.ContainsKey(muscle) && (allowedMuscles is null || allowedMuscles.Contains(muscle))))
+                    targets.ContainsKey(muscle) && (allowedMuscles is null || allowedMuscles.Contains(muscle)))))
                 .ToHashSet();
 
             // Squat-pattern compounds commonly train both glutes and quadriceps. The volume
