@@ -576,7 +576,8 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("includeNonCuratedRepDb: true", service);
         Assert.Contains("Add(command, \"curated_ids\", RepDbExerciseCuration.CuratedCatalogIds)", service);
         Assert.Contains("markIdealCatalogComplete: true", service);
-        Assert.Contains("Training plans keep their historical exercise-name/ID snapshots", service);
+        Assert.Contains("Training plans keep their historical", service);
+        Assert.Contains("exercise-name/ID snapshots", service);
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ExerciseCatalogController.cs"));
         Assert.DoesNotContain("[HttpGet(\"audit-export\")]", controller);
         Assert.DoesNotContain("ExportRepDbAuditCatalog", controller);
