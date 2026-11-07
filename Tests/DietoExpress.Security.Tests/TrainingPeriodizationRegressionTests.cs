@@ -425,4 +425,21 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("NOT EXISTS (SELECT 1 FROM training_microcycles mc WHERE mc.mesocycle_id = m.id)", controller);
     }
 
+    [Fact]
+    public void WeeklyEditorCanAddAndSafelyDeleteOnlyUnrecordedFutureSessions()
+    {
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var trainingUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+
+        Assert.Contains("[HttpDelete(\"sessions/{sessionId:int}\")]", controller);
+        Assert.Contains("IsolationLevel.Serializable", controller);
+        Assert.Contains("FOR UPDATE", controller);
+        Assert.Contains("FROM training_session_records WHERE session_id = @sessionId", controller);
+        Assert.Contains("scheduledDate < DateOnly.FromDateTime(DateTime.UtcNow)", controller);
+        Assert.Contains("prepareWeeklySessionCreation", trainingUi);
+        Assert.Contains("deleteWeeklySession", trainingUi);
+        Assert.Contains("Añadir sesión a esta semana", trainingUi);
+        Assert.Contains("Confirmar eliminación de sesión", trainingUi);
+    }
+
 }
