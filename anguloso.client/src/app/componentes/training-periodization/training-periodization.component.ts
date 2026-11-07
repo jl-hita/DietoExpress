@@ -2405,7 +2405,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const draft = this.sessionDrafts[plan.id];
     if (!draft?.title.trim() || !draft.date) return;
     this.saving = true; this.error = '';
-    this.http.post(`/api/training/plans/${plan.id}/sessions`, { scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type, durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null, instructions: draft.instructions.trim() || null, exercisePrescription: draft.exercisePrescription.trim() || null, exercisePrescriptionData: draft.exercisePrescriptionData }).subscribe({
+    this.http.post(`/api/training/plans/${plan.id}/sessions`, { scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type, durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null, instructions: draft.instructions.trim() || null, exercisePrescription: draft.exercisePrescription.trim() || null,
+      exercisePrescriptionData: this.buildStructuredPrescriptionData(draft.date, draft.duration, this.parseStructuredExerciseDrafts(draft.exercisePrescription)) }).subscribe({
       next: () => { draft.title = ''; draft.intensity = ''; draft.instructions = ''; draft.exercisePrescription = ''; this.saving = false; this.refreshSessions(plan.id); },
       error: e => { this.error = e?.error?.message || 'No se pudo crear la sesión.'; this.saving = false; }
     });
@@ -2611,13 +2612,48 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       const rirMatch = tail.match(/RIR\s*(\d+(?:[.,]\d+)?)/i);
       return {
         exerciseName: (match?.[1] ?? line).trim().replace(/^\d+\.\s*/, ''),
-        sets: Math.max(1, Math.min(10, Number(match?.[2] ?? 3))),
-        repetitions: (match?.[3] ?? '8–12').trim(),
-        rir: rirMatch ? Number(rirMatch[1].replace(',', '.')) : 2,
-        restSeconds: restMatch ? Number(restMatch[1]) * (/min/i.test(restMatch[2] ?? '') ? 60 : 1) : 90,
+        sets: match ? Math.max(1, Math.min(10, Number(match[2]))) : 0,
+        repetitions: (match?.[3] ?? '').trim(),
+        rir: rirMatch ? Number(rirMatch[1].replace(',', '.')) : (match ? 2 : null),
+        restSeconds: restMatch ? Number(restMatch[1]) * (/min/i.test(restMatch[2] ?? '') ? 60 : 1) : (match ? 90 : 0),
         notes: ''
       };
     }).filter(item => item.exerciseName.length > 0);
+  }
+
+  private buildStructuredPrescriptionData(
+    date: string,
+    duration: number | null,
+    exercises: StructuredExerciseDraft[]
+  ): Record<string, unknown> | null {
+    const structured = exercises.filter(item => item.exerciseName.trim() && item.sets >= 1 && item.repetitions.trim());
+    if (!structured.length) return null;
+    return {
+      engineVersion: 'manual-editor-v1',
+      goal: 'Manual',
+      weekNumber: 1,
+      day: this.dayName(new Date(date.slice(0, 10) + 'T00:00:00Z').getUTCDay()),
+      estimatedDurationMinutes: duration ?? 60,
+      exercises: structured.map((item, index) => {
+        const catalogItem = this.exerciseCatalog.find(exercise =>
+          exercise.name.trim().toLocaleLowerCase('es') === item.exerciseName.trim().toLocaleLowerCase('es'));
+        const repetitions = item.repetitions.match(/(\\d+)(?:\\s*[-–]\\s*(\\d+))?/);
+        const minRepetitions = repetitions ? Number(repetitions[1]) : undefined;
+        const maxRepetitions = repetitions ? Number(repetitions[2] || repetitions[1]) : undefined;
+        return {
+          exerciseId: catalogItem?.id.replace(/^repdb-/, ''),
+          catalogVersion: catalogItem?.source === 'repdb' ? 'repdb' : 'manual',
+          exerciseNameSnapshot: item.exerciseName.trim(),
+          order: index + 1,
+          sets: item.sets,
+          minRepetitions,
+          maxRepetitions,
+          targetRepetitionsInReserve: item.rir,
+          restSeconds: item.restSeconds,
+          progressionRule: 'None'
+        };
+      })
+    };
   }
 
   private serializeStructuredExerciseDrafts(exercises: StructuredExerciseDraft[]): string {
@@ -2667,7 +2703,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.http.put('/api/training/sessions/' + session.id, {
       scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type,
       durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null,
-      instructions: draft.instructions.trim() || null, exercisePrescription: prescription || null
+      instructions: draft.instructions.trim() || null, exercisePrescription: prescription || null,
+      exercisePrescriptionData: this.buildStructuredPrescriptionData(draft.date, draft.duration, draft.exercises)
     }).subscribe({
       next: () => {
         this.saving = false;
@@ -2728,7 +2765,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     }
     this.saving = true; this.error = '';
     this.http.put(`/api/training/sessions/${session.id}`, { scheduledDate: d.date, title: d.title.trim(), sessionType: d.type,
-      durationMinutes: d.duration, intensityTarget: d.intensity.trim() || null, instructions: d.instructions.trim() || null, exercisePrescription: d.exercisePrescription.trim() || null }).subscribe({
+      durationMinutes: d.duration, intensityTarget: d.intensity.trim() || null, instructions: d.instructions.trim() || null,
+      exercisePrescription: d.exercisePrescription.trim() || null,
+      exercisePrescriptionData: this.buildStructuredPrescriptionData(d.date, d.duration, this.parseStructuredExerciseDrafts(d.exercisePrescription)) }).subscribe({
       next: () => { this.editingSessionId = null; this.sessionEditDraft = null; this.saving = false; this.refreshSessions(session.planId); },
       error: e => { this.error = e?.error?.message || 'No se pudo actualizar la sesión.'; this.saving = false; }
     });
