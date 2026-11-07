@@ -1108,13 +1108,14 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     for (const line of this.prescriptionLines(prescription)) {
       const match = line.match(/^(.*?)\s*[·|—-]\s*(\d+)\s*[×x]\s*\d+/i);
       if (!match) continue;
-      const exerciseName = match[1].trim();
+      const exerciseName = match[1].trim().replace(/^\d+\.\s*/, '');
       const sets = Number(match[2]);
       if (!exerciseName || !Number.isInteger(sets) || sets < 1 || sets > 10) continue;
       const item = this.exerciseCatalog.find(exercise =>
         exercise.name.trim().toLocaleLowerCase('es') === exerciseName.toLocaleLowerCase('es'));
+      const stableId = line.match(/\[ID:\s*([^;\]]+)/i)?.[1]?.trim();
       parsed.push({
-        exerciseId: item ? item.id.replace(/^repdb-/, '') : null,
+        exerciseId: stableId || (item ? item.id.replace(/^repdb-/, '') : null),
         exerciseName,
         sets
       });
