@@ -568,7 +568,10 @@ public sealed class ExerciseCatalogRegressionTests
         var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ExerciseCatalogService.cs"));
         Assert.Contains("exercise-catalog-ideal-strength-hypertrophy-v1", service);
         Assert.Contains("replaceRepDbOnly: true", service);
-        Assert.Contains("DELETE FROM exercise_catalog WHERE source = 'repdb-free' AND owner_user_id IS NULL", service);
+        Assert.Contains("DELETE FROM exercise_catalog", service);
+        Assert.Contains("reviewed_by IS NULL OR reviewed_by LIKE 'RepDB automatic metadata%'", service);
+        Assert.Contains("AND (source <> 'repdb-free' OR exercise_id = ANY(@curated_ids))", service);
+        Assert.Contains("Add(command, \"curated_ids\", RepDbExerciseCuration.CuratedCatalogIds)", service);
         Assert.Contains("markIdealCatalogComplete: true", service);
         Assert.Contains("Training plans keep their historical exercise-name/ID snapshots", service);
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ExerciseCatalogController.cs"));
