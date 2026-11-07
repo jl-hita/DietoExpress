@@ -2786,7 +2786,18 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
               manual.row.rir !== exercise.targetRepetitionsInReserve ||
               manual.row.restSeconds !== exercise.restSeconds;
             if (differs) preservedManualEdits++;
-            rowsByGeneratedSession[sessionIndex].push({ ...manual.row, exerciseName: generatedName });
+            rowsByGeneratedSession[sessionIndex].push({
+              ...manual.row,
+              exerciseName: generatedName,
+              exerciseId: exercise.exerciseId,
+              catalogVersion: exercise.catalogVersion,
+              progressionRule: exercise.progressionRule,
+              primaryMuscleGroups: exercise.primaryMuscleGroups,
+              secondaryMuscleGroups: exercise.secondaryMuscleGroups,
+              smallestLoadIncrementKg: exercise.smallestLoadIncrementKg,
+              maximumLoadIncreasePercent: exercise.maximumLoadIncreasePercent,
+              selectionRationale: exercise.selectionRationale
+            });
           } else {
             rowsByGeneratedSession[sessionIndex].push({
               exerciseName: generatedName, sets: exercise.sets,
@@ -2794,7 +2805,14 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
                 ? String(exercise.minRepetitions)
                 : exercise.minRepetitions + '–' + exercise.maxRepetitions,
               rir: exercise.targetRepetitionsInReserve ?? null,
-              restSeconds: exercise.restSeconds, notes: ''
+              restSeconds: exercise.restSeconds, notes: '',
+              exerciseId: exercise.exerciseId, catalogVersion: exercise.catalogVersion,
+              progressionRule: exercise.progressionRule,
+              primaryMuscleGroups: exercise.primaryMuscleGroups,
+              secondaryMuscleGroups: exercise.secondaryMuscleGroups,
+              smallestLoadIncrementKg: exercise.smallestLoadIncrementKg,
+              maximumLoadIncreasePercent: exercise.maximumLoadIncreasePercent,
+              selectionRationale: exercise.selectionRationale
             });
           }
         }
