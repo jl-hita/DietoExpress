@@ -3138,7 +3138,6 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         // A renamed exercise must never keep the previous exercise's stable ID or anatomy.
         exercise.exerciseId = undefined;
         exercise.catalogVersion = undefined;
-        exercise.progressionRule = undefined;
         exercise.primaryMuscleGroups = undefined;
         exercise.secondaryMuscleGroups = undefined;
         exercise.smallestLoadIncrementKg = undefined;
