@@ -303,6 +303,16 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void DeloadExposureDoesNotCountTowardStagnationDetection()
+    {
+        var deload = Exposure(10) with { ProgressionEligible = false };
+        var result = TrainingExerciseProgressionEngine.Evaluate(
+            Prescription(), [Exposure(10), deload, Exposure(10)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.AddRepetitions, result.Action);
+    }
+
+    [Fact]
     public void NoProgressionRule_ReturnsNotApplicable()
     {
         var p = Prescription() with { ProgressionRule = TrainingProgressionRule.None };
