@@ -37,6 +37,47 @@ public sealed class TrainingManualVolumeAnalysisTests
     }
 
     [Fact]
+    public void ManualVolumeUsesStableIdsAndDoesNotGuessAmbiguousExerciseNames()
+    {
+        var benchPress = new TrainingExerciseCandidate(
+            "bench-press", "catalog-v1", "Press banca",
+            TrainingMovementPattern.HorizontalPush,
+            Array.Empty<string>(),
+            [TrainingGoal.Hypertrophy, TrainingGoal.Strength],
+            TrainingExperience.Beginner,
+            100,
+            true,
+            [TrainingMuscleGroup.Chest],
+            [TrainingMuscleGroup.Triceps]);
+        var ambiguousExercise = new TrainingExerciseCandidate(
+            "machine-chest-press", "catalog-v1", "Press banca",
+            TrainingMovementPattern.HorizontalPush,
+            ["machine"],
+            [TrainingGoal.Hypertrophy, TrainingGoal.Strength],
+            TrainingExperience.Beginner,
+            90,
+            true,
+            [TrainingMuscleGroup.Deltoids],
+            [TrainingMuscleGroup.Chest]);
+
+        var result = TrainingProgramQualityAnalyzer.AnalyzeManual(
+            [benchPress, ambiguousExercise],
+            [
+                new TrainingManualVolumeSessionInput(DayOfWeek.Monday, "Con ID estable",
+                    [new TrainingManualVolumeExerciseInput("bench-press", "Press banca", 3)]),
+                new TrainingManualVolumeSessionInput(DayOfWeek.Wednesday, "Nombre ambiguo",
+                    [new TrainingManualVolumeExerciseInput(null, "Press banca", 4)])
+            ]);
+
+        Assert.Contains("Press banca", result.UnclassifiedExerciseNames);
+        Assert.Equal(3m, Assert.Single(result.SessionReports[0].QualityReport.WeeklyMuscleVolumes[0].Muscles,
+            muscle => muscle.MuscleGroup == TrainingMuscleGroup.Chest).EstimatedEffectiveSets);
+        Assert.Equal(0m, Assert.Single(result.SessionReports[1].QualityReport.WeeklyMuscleVolumes[0].Muscles,
+            muscle => muscle.MuscleGroup == TrainingMuscleGroup.Chest).EstimatedEffectiveSets);
+        Assert.Contains("Press banca", result.SessionReports[1].UnclassifiedExerciseNames);
+    }
+
+    [Fact]
     public void ManualVolumeReportKeepsSessionsSeparateEvenWhenTheyShareTheSameWeekday()
     {
         var benchPress = new TrainingExerciseCandidate(
