@@ -3012,10 +3012,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       const restMatch = tail.match(/descanso\s*(\d+)\s*(s|seg(?:undos?)?|min(?:utos?)?)?/i);
       const rirMatch = tail.match(/RIR\s*(\d+(?:[.,]\d+)?)/i);
       const exerciseName = (match?.[1] ?? line).trim().replace(/^\d+\.\s*/, '');
-      const normalizedExerciseName = exerciseName.replace(/\\s+/g, ' ').toLocaleLowerCase('es');
+      const normalizedExerciseName = exerciseName.replace(/\s+/g, ' ').toLocaleLowerCase('es');
       const metadataIndex = structuredItems.findIndex((item, itemIndex) =>
         !usedMetadataIndices.has(itemIndex) &&
-        String(item['exerciseNameSnapshot'] ?? '').trim().replace(/\\s+/g, ' ').toLocaleLowerCase('es') === normalizedExerciseName
+        String(item['exerciseNameSnapshot'] ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es') === normalizedExerciseName
       );
       const metadata = metadataIndex >= 0 ? structuredItems[metadataIndex] : undefined;
       if (metadataIndex >= 0) usedMetadataIndices.add(metadataIndex);
