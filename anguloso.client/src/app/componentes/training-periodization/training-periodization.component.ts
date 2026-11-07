@@ -67,6 +67,8 @@ interface WeeklySessionDraft {
   date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string;
   exercises: StructuredExerciseDraft[];
 }
+interface SplitReorganizationMove { sessionId: number; title: string; oldDate: string; scheduledDate: string; }
+interface SplitReorganizationDraft { splitType: number; trainingDays: number[]; moves: SplitReorganizationMove[] | null; error: string; }
 interface TrainingLoadWeek { weekStart: string; completedSessions: number; plannedMinutes: number; actualMinutes: number; loadScore: number; }
 interface TrainingMesocycle { id: number; planId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; objective?: string | null; notes?: string | null; }
 interface MacrocyclePhase { id: number; name: string; sequenceNumber: number; startDate: string; endDate: string; objective?: string | null; phaseType: 'accumulation' | 'intensification' | 'deload' | 'realization' | 'general'; }
@@ -562,7 +564,7 @@ interface RepDbExercise {
             <ng-container *ngIf="activePlanWorkspace[plan.id] === 'routines'"><section class="session-workspace">
               <div class="session-workspace-heading">
                 <div><p class="eyebrow">TRABAJO DIARIO</p><h4>Calendario de entrenamiento</h4><p>Planifica la semana de un vistazo y entra en cada sesión para ajustar sus detalles.</p></div>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span><button type="button" class="secondary" (click)="weeklyEditorOpen[plan.id] = !weeklyEditorOpen[plan.id]">{{ weeklyEditorOpen[plan.id] ? 'Cerrar editor semanal' : 'Editor semanal' }}</button><button type="button" class="secondary" (click)="exportSessions(plan)" [disabled]="!sessions[plan.id]?.length">Exportar CSV</button></div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span><button type="button" class="secondary" (click)="weeklyEditorOpen[plan.id] = !weeklyEditorOpen[plan.id]">{{ weeklyEditorOpen[plan.id] ? 'Cerrar editor semanal' : 'Editor semanal' }}</button><button type="button" class="secondary" (click)="toggleSplitReorganization(plan)">{{ splitReorganizationOpen[plan.id] ? 'Cerrar reorganización' : 'Reorganizar split' }}</button><button type="button" class="secondary" (click)="exportSessions(plan)" [disabled]="!sessions[plan.id]?.length">Exportar CSV</button></div>
               </div>
               <section *ngIf="loadTrends[plan.id]?.length" class="load-trend" style="margin:16px 0;padding:14px;border:1px solid #e2e8f0;border-radius:12px">
                 <h5 style="margin:0 0 4px">Evolución de carga · últimas semanas</h5>
@@ -592,6 +594,22 @@ interface RepDbExercise {
                 <div><span class="summary-dot minutes-dot"></span><span><strong>{{ weekPlannedMinutes(plan.id, plan) }} min</strong><small>duración planificada</small></span></div>
                 <div><span class="summary-dot completed-dot"></span><span><strong>{{ weekCompletedCount(plan.id, plan) }} / {{ weekSessions(plan.id, plan).length }}</strong><small>sesiones realizadas</small></span></div>
               </div>
+              <section *ngIf="current.canManage && splitReorganizationOpen[plan.id]" class="split-reorganization-panel" style="margin:14px 0;padding:16px;border:1px solid var(--border-color,#dbe3ed);border-radius:14px;background:var(--surface-container,#f8fafc)">
+                <div class="section-heading"><div><h5>Reorganizar distribución semanal</h5><p>Solo se moverán sesiones futuras sin realización registrada. No se cambian ejercicios, series, cargas ni sesiones completadas. La semana en curso queda intacta.</p></div></div>
+                <div class="session-editor-grid">
+                  <label>Split<select [name]="'reorgSplit' + plan.id" [(ngModel)]="splitReorganizationDrafts[plan.id].splitType" (ngModelChange)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''"><option [ngValue]="0">Automático</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select></label>
+                  <fieldset class="auto-day-picker"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'reorgDay' + plan.id + day.value" [checked]="splitReorganizationDrafts[plan.id].trainingDays.includes(day.value)" (change)="toggleReorganizationDay(plan, day.value, $any($event.target).checked)" /><span>{{ day.label }}</span></label></div></fieldset>
+                </div>
+                <p class="muted">Distribuciones válidas: cuerpo completo 2–3 días, torso/pierna 2 o 4, PPL 3 o 6. Para conservar íntegra cada sesión, el número de sesiones por semana debe coincidir con los días seleccionados. Si cambia la frecuencia, genera un nuevo bloque y revísalo antes de sustituir el actual.</p>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" (click)="prepareSplitReorganization(plan)" [disabled]="saving">Preparar propuesta</button><button type="button" class="secondary" (click)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''">Limpiar propuesta</button></div>
+                <p *ngIf="splitReorganizationDrafts[plan.id].error" class="error" role="alert">{{ splitReorganizationDrafts[plan.id].error }}</p>
+                <div *ngIf="splitReorganizationDrafts[plan.id].moves as moves" style="margin-top:12px">
+                  <strong>Propuesta · {{ moves.length }} sesiones</strong>
+                  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr><th style="text-align:left;padding:7px">Sesión</th><th style="text-align:left;padding:7px">Fecha actual</th><th style="text-align:left;padding:7px">Nueva fecha</th></tr></thead><tbody><tr *ngFor="let move of moves"><td style="padding:7px">{{ move.title }}</td><td style="padding:7px">{{ move.oldDate | date:'dd/MM/yyyy' }}</td><td style="padding:7px"><strong>{{ move.scheduledDate | date:'EEEE d MMMM' }}</strong></td></tr></tbody></table></div>
+                  <p class="muted">Se conservarán todas las prescripciones y el historial. Las fechas se aplicarán en una única transacción.</p>
+                  <button type="button" (click)="applySplitReorganization(plan)" [disabled]="saving || splitReorganizationSaving[plan.id]">{{ splitReorganizationSaving[plan.id] ? 'Aplicando…' : 'Confirmar reorganización' }}</button>
+                </div>
+              </section>
               <section *ngIf="current.canManage && weeklyEditorOpen[plan.id] && sessionViews[plan.id] !== 'list'" class="weekly-structured-editor" style="margin:14px 0;padding:16px;border:1px solid var(--border-color,#dbe3ed);border-radius:14px;background:var(--surface-container,#f8fafc)">
                 <div class="section-heading"><div><h5>Editor semanal estructurado</h5><p>Modifica cada sesión y sus ejercicios sin editar líneas de texto. Las sesiones completadas se muestran como solo lectura.</p></div><span class="session-count">{{ weekSessions(plan.id, plan).length }} sesiones</span></div>
                 <article *ngFor="let session of weekSessions(plan.id, plan)" style="padding:12px;margin-top:10px;border:1px solid #e2e8f0;border-radius:12px;background:#fff">
@@ -915,6 +933,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   weekOffsets: Record<number, number> = {};
   weeklyEditorOpen: Record<number, boolean> = {};
   weeklyEditorDrafts: Record<number, WeeklySessionDraft> = {};
+  splitReorganizationOpen: Record<number, boolean> = {};
+  splitReorganizationDrafts: Record<number, SplitReorganizationDraft> = {};
+  splitPreferences: Record<number, { splitType: number; trainingDays: number[] }> = {};
+  splitReorganizationSaving: Record<number, boolean> = {};
   sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string; exercisePrescriptionData: Record<string, unknown> | null }> = {};
   manualVolumePreviews: Record<number, ManualVolumePreview | null> = {};
   manualVolumePreviewErrors: Record<number, string> = {};
@@ -1792,6 +1814,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         .map(item => ({ ...item, title: typeof item.title === 'string' && item.title.trim() ? item.title : 'Sesión sin título' })) : []);
       this.changeDetector.detectChanges();
       for (const plan of plans) {
+        this.loadPlanSplitPreference(plan);
         this.http.get<TrainingLoadWeek[]>(`/api/training/plans/${plan.id}/load-trend`)
           .pipe(catchError(() => of([] as TrainingLoadWeek[])))
           .subscribe(weeks => {
@@ -1947,11 +1970,15 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return date.toISOString().slice(0, 10);
   }
 
+  private isSplitDayCountValidFor(split: number, dayCount: number): boolean {
+    return split === 0 ? dayCount >= 2 && dayCount <= 4 :
+      split === 1 ? dayCount === 2 || dayCount === 3 :
+      split === 2 ? dayCount === 2 || dayCount === 4 :
+      split === 3 ? dayCount === 3 || dayCount === 6 : false;
+  }
+
   private isSplitDayCountValid(dayCount: number): boolean {
-    return this.autoSplit === 0 ? dayCount >= 2 && dayCount <= 4 :
-      this.autoSplit === 1 ? dayCount === 2 || dayCount === 3 :
-      this.autoSplit === 2 ? dayCount === 2 || dayCount === 4 :
-      this.autoSplit === 3 ? dayCount === 3 || dayCount === 6 : false;
+    return this.isSplitDayCountValidFor(this.autoSplit, dayCount);
   }
 
   syncAutoTrainingDays(): void {
@@ -2447,6 +2474,108 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return (this.sessions[planId] ?? []).filter(session => {
       const date = session.scheduledDate.slice(0, 10);
       return date >= first && date <= last;
+    });
+  }
+
+  private loadPlanSplitPreference(plan: TrainingPlan): void {
+    this.http.get<{ splitType: number; trainingDays: number[] }>(`/api/training/plans/${plan.id}/split`)
+      .pipe(catchError(() => of({ splitType: 0, trainingDays: [1, 3, 5] })))
+      .subscribe(value => {
+        const safeDays = Array.isArray(value.trainingDays) ? value.trainingDays.filter(day => Number.isInteger(day) && day >= 0 && day <= 6) : [1, 3, 5];
+        this.splitPreferences[plan.id] = { splitType: value.splitType, trainingDays: safeDays };
+        if (!this.splitReorganizationDrafts[plan.id]) this.splitReorganizationDrafts[plan.id] = { splitType: value.splitType, trainingDays: [...safeDays], moves: null, error: '' };
+        this.changeDetector.markForCheck();
+      });
+  }
+
+  toggleSplitReorganization(plan: TrainingPlan): void {
+    this.splitReorganizationOpen[plan.id] = !this.splitReorganizationOpen[plan.id];
+    if (!this.splitReorganizationDrafts[plan.id]) {
+      const saved = this.splitPreferences[plan.id] || { splitType: 0, trainingDays: [1, 3, 5] };
+      this.splitReorganizationDrafts[plan.id] = { splitType: saved.splitType, trainingDays: [...saved.trainingDays], moves: null, error: '' };
+    }
+  }
+
+  toggleReorganizationDay(plan: TrainingPlan, day: number, checked: boolean): void {
+    const draft = this.splitReorganizationDrafts[plan.id];
+    draft.trainingDays = checked
+      ? [...new Set([...draft.trainingDays, day])]
+      : draft.trainingDays.filter(value => value !== day);
+    draft.moves = null;
+    draft.error = '';
+  }
+
+  prepareSplitReorganization(plan: TrainingPlan): void {
+    const draft = this.splitReorganizationDrafts[plan.id];
+    const days = [...draft.trainingDays].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+    if (!this.isSplitDayCountValidFor(draft.splitType, days.length)) {
+      draft.error = draft.splitType === 1 ? 'Cuerpo completo admite 2 o 3 días.' :
+        draft.splitType === 2 ? 'Torso/Pierna admite 2 o 4 días.' :
+        draft.splitType === 3 ? 'Push/Pull/Legs admite 3 o 6 días.' :
+        'La distribución automática admite entre 2 y 4 días.';
+      draft.moves = null;
+      return;
+    }
+    const today = this.localDateInputValue();
+    const nextMonday = this.addUtcDays(this.weekStartDate(today), 7);
+    const futureSessions = (this.sessions[plan.id] || []).filter(session =>
+      !session.completedAt && session.status !== 'completed' && session.scheduledDate.slice(0, 10) >= nextMonday
+    );
+    const byWeek = new Map<string, TrainingSession[]>();
+    for (const session of futureSessions) {
+      const week = this.weekStartDate(session.scheduledDate);
+      const rows = byWeek.get(week) || [];
+      rows.push(session);
+      byWeek.set(week, rows);
+    }
+    const moves: SplitReorganizationMove[] = [];
+    for (const [week, rows] of [...byWeek.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      if (rows.length !== days.length) {
+        draft.error = 'La semana que comienza el ' + week + ' tiene ' + rows.length + ' sesiones pendientes, pero el split seleccionado requiere ' + days.length + '. No se han movido sesiones. Para cambiar la frecuencia, genera y revisa un nuevo bloque.';
+        draft.moves = null;
+        return;
+      }
+      rows.sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate) || a.id - b.id);
+      rows.forEach((session, index) => {
+        const dayOffset = days[index] === 0 ? 6 : days[index] - 1;
+        const newDate = this.addUtcDays(week, dayOffset);
+        if (newDate < nextMonday || newDate < plan.startDate.slice(0, 10) || (plan.endDate && newDate > plan.endDate.slice(0, 10))) {
+          draft.error = 'La fecha propuesta para «' + session.title + '» queda fuera del periodo permitido. Ajusta los días o las fechas del plan.';
+          draft.moves = null;
+          return;
+        }
+        moves.push({ sessionId: session.id, title: session.title, oldDate: session.scheduledDate.slice(0, 10), scheduledDate: newDate });
+      });
+      if (draft.error) return;
+    }
+    draft.moves = moves;
+    draft.error = '';
+    if (!moves.length) draft.error = 'No hay sesiones futuras pendientes desde la próxima semana. Se guardará el split como preferencia para las próximas rutinas.';
+  }
+
+  applySplitReorganization(plan: TrainingPlan): void {
+    const draft = this.splitReorganizationDrafts[plan.id];
+    if (!draft || draft.moves === null || draft.error && draft.moves.length === 0) return;
+    this.splitReorganizationSaving[plan.id] = true;
+    this.http.post<{ updatedSessions: number }>('/api/training/plans/' + plan.id + '/reorganize-split', {
+      splitType: draft.splitType,
+      trainingDays: draft.trainingDays,
+      moves: draft.moves.map(move => ({ sessionId: move.sessionId, scheduledDate: move.scheduledDate }))
+    }).subscribe({
+      next: result => {
+        this.splitPreferences[plan.id] = { splitType: draft.splitType, trainingDays: [...draft.trainingDays] };
+        this.splitReorganizationSaving[plan.id] = false;
+        draft.moves = null;
+        draft.error = '';
+        this.notice = 'Distribución guardada. Se han reorganizado ' + result.updatedSessions + ' sesiones futuras sin modificar sus prescripciones ni los registros completados.';
+        this.refreshSessions(plan.id);
+        this.changeDetector.detectChanges();
+      },
+      error: error => {
+        this.splitReorganizationSaving[plan.id] = false;
+        draft.error = error?.error?.message || 'No se pudo reorganizar la semana. No se ha aplicado ningún cambio.';
+        this.changeDetector.detectChanges();
+      }
     });
   }
 
