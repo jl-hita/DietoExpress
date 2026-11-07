@@ -50,6 +50,32 @@ public sealed class TrainingPeriodizationController : ControllerBase
         }
     }
 
+    [HttpPost("volume-preview")]
+    public async Task<IActionResult> PreviewManualVolume(
+        [FromBody] TrainingManualVolumePreviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        if (request?.Sessions is null || request.Sessions.Count > 7)
+            return BadRequest(new { message = "Envía una semana con hasta siete días de sesiones." });
+
+        try
+        {
+            var candidates = await _exerciseCatalog.LoadGeneratorCandidatesAsync(userId.Value, cancellationToken);
+            var result = TrainingProgramQualityAnalyzer.AnalyzeManual(candidates, request.Sessions);
+            return Ok(result);
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(503, new { message = "No se pudo calcular el volumen de la rutina manual con el catálogo revisado." });
+        }
+    }
+
     [HttpPost("plans/{planId:int}/generate-mesocycle")]
     public async Task<IActionResult> GenerateAndSaveMesocycle(
         int planId,
