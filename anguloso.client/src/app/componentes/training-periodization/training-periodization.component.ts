@@ -77,7 +77,7 @@ interface SplitReplacementSession {
 }
 interface SplitReplacementPreview {
   replaceFromDate: string; replaceThroughDate: string; sessions: SplitReplacementSession[];
-  weeklyVolumes: Array<{ weekNumber: number; result: ManualVolumePreview }>;
+  volumePreview: ManualVolumePreview;
   preservedManualEdits: number; retainedCustomExercises: number; warnings: string[];
 }
 interface TrainingLoadWeek { weekStart: string; completedSessions: number; plannedMinutes: number; actualMinutes: number; loadScore: number; }
@@ -632,19 +632,19 @@ interface RepDbExercise {
                   <div class="section-heading"><div><h6>Propuesta regenerada · {{ replacement.sessions.length }} sesiones</h6><p>{{ replacement.replaceFromDate | date:'dd/MM/yyyy' }} — {{ replacement.replaceThroughDate | date:'dd/MM/yyyy' }} · {{ replacement.preservedManualEdits }} ajustes manuales coincidentes conservados</p></div></div>
                   <p *ngIf="replacement.retainedCustomExercises" class="muted">{{ replacement.retainedCustomExercises }} ejercicios personalizados que no estaban en la nueva selección se han conservado en sus sesiones ordinales. Revisa su distribución antes de confirmar.</p>
                   <ul *ngIf="replacement.warnings.length"><li *ngFor="let warning of replacement.warnings">{{ warning }}</li></ul>
-                  <div *ngFor="let week of replacement.weeklyVolumes" style="margin-top:12px;padding:12px;border:1px solid #e7edf4;border-radius:10px">
+                  <div *ngFor="let week of replacement.volumePreview.qualityReport.weeklyMuscleVolumes" style="margin-top:12px;padding:12px;border:1px solid #e7edf4;border-radius:10px">
                     <strong>Volumen efectivo · semana {{ week.weekNumber }}</strong>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;margin-top:8px">
-                      <div *ngFor="let muscle of week.result.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:5px 7px;border:1px solid #edf1f5;border-radius:7px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></div>
+                      <div *ngFor="let muscle of week.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:5px 7px;border:1px solid #edf1f5;border-radius:7px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></div>
                     </div>
-                    <div *ngFor="let comparison of week.result.sessionReports" style="margin-top:10px;padding:9px;background:#f8fafc;border-radius:8px">
-                      <strong>{{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
-                      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px;margin-top:5px">
-                        <span *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" [hidden]="muscle.estimatedEffectiveSets === 0" style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></span>
-                      </div>
-                    </div>
-                    <p *ngIf="week.result.unclassifiedExerciseNames.length" class="muted">No clasificados: {{ week.result.unclassifiedExerciseNames.join(', ') }}</p>
                   </div>
+                  <div *ngFor="let comparison of replacement.volumePreview.sessionReports" style="margin-top:10px;padding:9px;background:#f8fafc;border-radius:8px">
+                    <strong>Semana {{ comparison.weekNumber }} · {{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px;margin-top:5px">
+                      <span *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" [hidden]="muscle.estimatedEffectiveSets === 0" style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></span>
+                    </div>
+                  </div>
+                  <p *ngIf="replacement.volumePreview.unclassifiedExerciseNames.length" class="muted">No clasificados: {{ replacement.volumePreview.unclassifiedExerciseNames.join(', ') }}</p>
                   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" (click)="applySplitReplacement(plan)" [disabled]="saving || splitReplacementLoading[plan.id]">Sustituir sesiones futuras con esta propuesta</button><button type="button" class="secondary" (click)="splitReplacementPreviews[plan.id] = null">Descartar</button></div>
                   <p class="muted">La sustitución solo afecta al periodo futuro mostrado. Las sesiones completadas y sus registros no se borran ni se modifican. Los ajustes manuales coincidentes se incorporan a la propuesta.</p>
                 </section>
