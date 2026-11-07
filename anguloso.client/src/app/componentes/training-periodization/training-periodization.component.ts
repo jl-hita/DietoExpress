@@ -15,7 +15,7 @@ interface TrainingPlan {
 interface GeneratedExercise {
   exerciseId: string; catalogVersion: string; exerciseNameSnapshot: string; order: number;
   sets: number; minRepetitions: number; maxRepetitions: number; targetRepetitionsInReserve?: number | null;
-  restSeconds: number; progressionRule: string; selectionRationale: string;
+  restSeconds: number; progressionRule: string | number; selectionRationale: string;
   primaryMuscleGroups?: Array<string | number>; secondaryMuscleGroups?: Array<string | number>;
   smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null;
 }
@@ -65,7 +65,7 @@ interface TrainingSession {
 }
 interface StructuredExerciseDraft {
   exerciseName: string; sets: number; repetitions: string; rir: number | null; restSeconds: number; notes: string;
-  exerciseId?: string; catalogVersion?: string; progressionRule?: string;
+  exerciseId?: string; catalogVersion?: string; progressionRule?: string | number;
   primaryMuscleGroups?: Array<string | number>; secondaryMuscleGroups?: Array<string | number>;
   smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null; selectionRationale?: string;
 }
@@ -2938,7 +2938,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         notes: match ? '' : line,
         exerciseId: typeof metadata?.['exerciseId'] === 'string' ? metadata['exerciseId'] : undefined,
         catalogVersion: typeof metadata?.['catalogVersion'] === 'string' ? metadata['catalogVersion'] : undefined,
-        progressionRule: typeof metadata?.['progressionRule'] === 'string' ? metadata['progressionRule'] : undefined,
+        progressionRule: typeof metadata?.['progressionRule'] === 'string' || typeof metadata?.['progressionRule'] === 'number' ? metadata['progressionRule'] as string | number : undefined,
         primaryMuscleGroups: Array.isArray(metadata?.['primaryMuscleGroups']) ? metadata['primaryMuscleGroups'] as Array<string | number> : undefined,
         secondaryMuscleGroups: Array.isArray(metadata?.['secondaryMuscleGroups']) ? metadata['secondaryMuscleGroups'] as Array<string | number> : undefined,
         smallestLoadIncrementKg: typeof metadata?.['smallestLoadIncrementKg'] === 'number' ? metadata['smallestLoadIncrementKg'] : undefined,
