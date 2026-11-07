@@ -3005,15 +3005,20 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const structuredItems = Array.isArray(prescriptionData?.['exercises'])
       ? prescriptionData['exercises'] as Array<Record<string, unknown>>
       : [];
-    return this.prescriptionLines(prescription).map((line, index) => {
+    const usedMetadataIndices = new Set<number>();
+    return this.prescriptionLines(prescription).map(line => {
       const match = line.match(/^(.*?)\s*[·|—-]\s*(\d+)\s*[×x]\s*([^·|—]+?)(?=\s*[·|—]|$)(.*)$/i);
       const tail = match?.[4] ?? line;
       const restMatch = tail.match(/descanso\s*(\d+)\s*(s|seg(?:undos?)?|min(?:utos?)?)?/i);
       const rirMatch = tail.match(/RIR\s*(\d+(?:[.,]\d+)?)/i);
       const exerciseName = (match?.[1] ?? line).trim().replace(/^\d+\.\s*/, '');
-      const metadata = structuredItems.find(item =>
-        String(item['exerciseNameSnapshot'] ?? '').trim().toLocaleLowerCase('es') === exerciseName.toLocaleLowerCase('es')
+      const normalizedExerciseName = exerciseName.replace(/\\s+/g, ' ').toLocaleLowerCase('es');
+      const metadataIndex = structuredItems.findIndex((item, itemIndex) =>
+        !usedMetadataIndices.has(itemIndex) &&
+        String(item['exerciseNameSnapshot'] ?? '').trim().replace(/\\s+/g, ' ').toLocaleLowerCase('es') === normalizedExerciseName
       );
+      const metadata = metadataIndex >= 0 ? structuredItems[metadataIndex] : undefined;
+      if (metadataIndex >= 0) usedMetadataIndices.add(metadataIndex);
       return {
         exerciseName,
         originalExerciseName: String(metadata?.['exerciseNameSnapshot'] ?? exerciseName).trim(),
