@@ -16,6 +16,18 @@ function datePlusDays(days) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+function mondayOfWeek(value) {
+  const date = new Date(value + 'T12:00:00Z');
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+  return date.toISOString().slice(0, 10);
+}
+
+function shiftDate(value, days) {
+  const date = new Date(value + 'T12:00:00Z');
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function apiUrl(path) {
   return new URL(path, baseURL).toString();
 }
@@ -73,7 +85,7 @@ test.describe('MVP de periodización deportiva', () => {
     });
     expect(profileResponse.ok(), 'Debe poder activarse el perfil deportivo').toBeTruthy();
 
-    const start = datePlusDays(30);
+    const start = mondayOfWeek(datePlusDays(30));
     const end = datePlusDays(90);
     const planResponse = await api.post(apiUrl(`/api/training/clients/${patientId}/plans`), {
       data: { name: 'Plan E2E ciclos', periodizationModel: 'linear', startDate: start, endDate: end, notes: 'Plan ficticio E2E' }
@@ -212,7 +224,7 @@ test.describe('MVP de periodización deportiva', () => {
     const reorganizedSessionsResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/sessions`));
     expect(reorganizedSessionsResponse.ok()).toBeTruthy();
     const reorganizedSessions = (await reorganizedSessionsResponse.json()).filter(session =>
-      session.scheduledDate.slice(0, 10) >= start && session.scheduledDate.slice(0, 10) <= datePlusDays(6));
+      session.scheduledDate.slice(0, 10) >= start && session.scheduledDate.slice(0, 10) <= shiftDate(start, 6));
     expect(reorganizedSessions).toHaveLength(2);
     expect(new Set(reorganizedSessions.map(session => session.scheduledDate.slice(0, 10))).size).toBe(2);
     expect(reorganizedSessions.map(session => new Date(session.scheduledDate.slice(0, 10) + 'T12:00:00Z').getUTCDay()).sort()).toEqual([1, 4]);
