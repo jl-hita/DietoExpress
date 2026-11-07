@@ -1288,6 +1288,22 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return parsed;
   }
 
+  private manualVolumeExercisesFromStructuredDrafts(
+    exercises: StructuredExerciseDraft[]
+  ): Array<{ exerciseId: string | null; exerciseName: string; sets: number }> {
+    return exercises
+      .filter(item => item.exerciseName.trim().length > 0 && Number.isFinite(item.sets) && item.sets >= 1)
+      .map(item => {
+        const catalogItem = this.exerciseCatalog.find(exercise =>
+          exercise.name.trim().toLocaleLowerCase('es') === item.exerciseName.trim().toLocaleLowerCase('es'));
+        return {
+          exerciseId: item.exerciseId?.trim() || catalogItem?.id.replace(/^repdb-/, '') || null,
+          exerciseName: item.exerciseName.trim(),
+          sets: Math.max(1, Math.min(10, Math.round(item.sets)))
+        };
+      });
+  }
+
   private weekStartDate(dateValue: string): string {
     const date = new Date(dateValue.slice(0, 10) + 'T00:00:00Z');
     if (Number.isNaN(date.getTime())) return '';
@@ -1300,7 +1316,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     overrideDate?: string,
     overridePrescription?: string,
     excludeSessionId?: number,
-    overrideTitle?: string
+    overrideTitle?: string,
+    overrideExercises?: StructuredExerciseDraft[]
   ): void {
     const planId = plan.id;
     const existingTimer = this.manualVolumePreviewTimers[planId];
@@ -1314,20 +1331,45 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       const targetDate = (overrideDate || draft?.date || this.defaultSessionDate(plan)).slice(0, 10);
       const targetWeek = this.weekStartDate(targetDate);
       const requestSessions: Array<{ weekNumber: number; day: number; title: string; exercises: Array<{ exerciseId: string | null; exerciseName: string; sets: number }> }> = [];
-      const addSession = (dateValue: string, title: string, prescription: string | null | undefined): void => {
+      const addSession = (
+        dateValue: string,
+        title: string,
+        prescription: string | null | undefined,
+        prescriptionData?: Record<string, unknown> | null
+      ): void => {
         const date = dateValue.slice(0, 10);
         if (!date || this.weekStartDate(date) !== targetWeek) return;
-        const exercises = this.parseManualVolumeExercises(prescription);
+        const structuredDrafts = prescriptionData
+          ? this.parseStructuredExerciseDrafts(prescription, prescriptionData)
+          : [];
+        const exercises = structuredDrafts.length
+          ? this.manualVolumeExercisesFromStructuredDrafts(structuredDrafts)
+          : this.parseManualVolumeExercises(prescription);
         if (!exercises.length) return;
         requestSessions.push({ weekNumber: 1, day: new Date(date + 'T00:00:00Z').getUTCDay(), title, exercises });
       };
 
       for (const session of this.sessions[planId] || []) {
         if (session.id === excludeSessionId) continue;
-        addSession(session.scheduledDate, session.title, session.exercisePrescription);
+        addSession(session.scheduledDate, session.title, session.exercisePrescription, session.exercisePrescriptionData);
       }
       const currentPrescription = overridePrescription ?? draft?.exercisePrescription ?? '';
-      addSession(overrideDate || draft?.date || targetDate, overrideTitle || draft?.title || 'Sesión en edición', currentPrescription);
+      const currentStructuredExercises = overrideExercises ??
+        (draft?.exercisePrescriptionData
+          ? this.parseStructuredExerciseDrafts(currentPrescription, draft.exercisePrescriptionData)
+          : []);
+      const currentExercises = currentStructuredExercises.length
+        ? this.manualVolumeExercisesFromStructuredDrafts(currentStructuredExercises)
+        : this.parseManualVolumeExercises(currentPrescription);
+      const currentDate = (overrideDate || draft?.date || targetDate).slice(0, 10);
+      if (currentDate && this.weekStartDate(currentDate) === targetWeek && currentExercises.length) {
+        requestSessions.push({
+          weekNumber: 1,
+          day: new Date(currentDate + 'T00:00:00Z').getUTCDay(),
+          title: overrideTitle || draft?.title || 'Sesión en edición',
+          exercises: currentExercises
+        });
+      }
       if (!requestSessions.length) {
         this.manualVolumePreviewSubscriptions[planId]?.unsubscribe();
         this.manualVolumePreviews[planId] = null;
@@ -3150,7 +3192,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       }
     }
     this.weeklyEditorDirty[session.id] = true;
-    this.refreshManualVolumePreview(plan, draft.date, this.serializeStructuredExerciseDrafts(draft.exercises), session.id, draft.title);
+    this.refreshManualVolumePreview(plan, draft.date, this.serializeStructuredExerciseDrafts(draft.exercises), session.id, draft.title, draft.exercises);
   }
 
   addWeeklyExercise(plan: TrainingPlan, session: TrainingSession): void {
