@@ -341,8 +341,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId is null) return Unauthorized();
-        if (request?.Sessions is null || request.Sessions.Count > 42)
-            return BadRequest(new { message = "Envía una semana con hasta 42 sesiones individuales." });
+        if (request?.Sessions is null || request.Sessions.Count > 312)
+            return BadRequest(new { message = "Envía una semana con hasta 312 sesiones individuales." });
 
         try
         {
