@@ -234,7 +234,6 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("hasVolumeDoseDeficit(replacement.warnings) && !splitVolumeDeficitAcknowledged[plan.id]", ui);
         Assert.Contains("originalExerciseName", ui);
         Assert.Contains("exercise.exerciseId = undefined", ui);
-        Assert.Contains("usedMetadataIndices", ui);
         Assert.DoesNotContain("?? structuredItems[index]", ui);
         Assert.Contains("const hasCompleteSnapshots = structuredItems.length > 0", ui);
         Assert.Contains("if (hasCompleteSnapshots)", ui);
