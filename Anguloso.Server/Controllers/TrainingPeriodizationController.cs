@@ -50,6 +50,149 @@ public sealed class TrainingPeriodizationController : ControllerBase
         }
     }
 
+    [HttpGet("plans/{planId:int}/split")]
+    public async Task<IActionResult> GetPlanSplit(int planId, CancellationToken cancellationToken)
+    {
+        if (!await CanAccessPlan(planId, cancellationToken)) return NotFound();
+        await using var command = Command("""
+            SELECT split_type, training_days FROM training_plan_split_preferences WHERE plan_id = @planId
+            """, ("planId", planId));
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            return Ok(new { splitType = 0, trainingDays = new[] { 1, 3, 5 } });
+        return Ok(new
+        {
+            splitType = reader.GetInt16(0),
+            trainingDays = reader.GetFieldValue<short[]>(1).Select(day => (int)day).ToArray()
+        });
+    }
+
+    [HttpPost("plans/{planId:int}/reorganize-split")]
+    public async Task<IActionResult> ReorganizePlanSplit(
+        int planId,
+        [FromBody] ReorganizeTrainingSplitRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        var validation = ValidateTrainingSplit(request.SplitType, request.TrainingDays);
+        if (validation is not null) return BadRequest(new { message = validation });
+        if (request.Moves is null || request.Moves.Count > 42 ||
+            request.Moves.Select(move => move.SessionId).Distinct().Count() != request.Moves.Count ||
+            request.Moves.Select(move => move.ScheduledDate).Distinct().Count() != request.Moves.Count)
+            return BadRequest(new { message = "La propuesta contiene sesiones o fechas duplicadas, o supera 42 sesiones." });
+        if (request.Moves.Any(move => !request.TrainingDays.Contains((int)move.ScheduledDate.DayOfWeek)))
+            return BadRequest(new { message = "Todas las fechas propuestas deben coincidir con los días seleccionados." });
+
+        var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            DateOnly planStart;
+            DateOnly? planEnd;
+            await using (var planCommand = connection.CreateCommand())
+            {
+                planCommand.Transaction = transaction;
+                planCommand.CommandText = "SELECT start_date, end_date FROM training_plans WHERE id = @planId FOR UPDATE";
+                planCommand.Parameters.AddWithValue("planId", planId);
+                await using var reader = await planCommand.ExecuteReaderAsync(cancellationToken);
+                if (!await reader.ReadAsync(cancellationToken))
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return NotFound();
+                }
+                planStart = reader.GetFieldValue<DateOnly>(0);
+                planEnd = reader.IsDBNull(1) ? null : reader.GetFieldValue<DateOnly>(1);
+            }
+
+            if (request.Moves.Any(move => move.ScheduledDate < planStart || (planEnd.HasValue && move.ScheduledDate > planEnd.Value)))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Conflict(new { message = "La reorganización dejaría sesiones fuera del periodo del plan." });
+            }
+
+            if (request.Moves.Count > 0)
+            {
+                var ids = request.Moves.Select(move => move.SessionId).ToArray();
+                await using var verify = connection.CreateCommand();
+                verify.Transaction = transaction;
+                verify.CommandText = """
+                    SELECT COUNT(*) FROM training_sessions s
+                    WHERE s.plan_id = @planId AND s.id = ANY(@sessionIds)
+                      AND s.scheduled_date >= CURRENT_DATE
+                      AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
+                    """;
+                verify.Parameters.AddWithValue("planId", planId);
+                verify.Parameters.AddWithValue("sessionIds", ids);
+                var eligible = Convert.ToInt32(await verify.ExecuteScalarAsync(cancellationToken));
+                if (eligible != ids.Length)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Conflict(new { message = "Una o más sesiones ya no son futuras, no pertenecen al plan o tienen una realización registrada. No se ha cambiado ninguna sesión." });
+                }
+
+                await using var update = connection.CreateCommand();
+                update.Transaction = transaction;
+                update.CommandText = """
+                    UPDATE training_sessions s
+                    SET scheduled_date = changes.scheduled_date, updated_at = NOW()
+                    FROM unnest(@sessionIds::integer[], @scheduledDates::date[]) AS changes(session_id, scheduled_date)
+                    WHERE s.id = changes.session_id AND s.plan_id = @planId
+                    """;
+                update.Parameters.AddWithValue("sessionIds", ids);
+                update.Parameters.AddWithValue("scheduledDates", request.Moves.Select(move => move.ScheduledDate).ToArray());
+                update.Parameters.AddWithValue("planId", planId);
+                await update.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using (var savePreference = connection.CreateCommand())
+            {
+                savePreference.Transaction = transaction;
+                savePreference.CommandText = """
+                    INSERT INTO training_plan_split_preferences(plan_id, split_type, training_days, updated_at)
+                    VALUES (@planId, @splitType, @trainingDays, NOW())
+                    ON CONFLICT (plan_id) DO UPDATE SET split_type = EXCLUDED.split_type,
+                        training_days = EXCLUDED.training_days, updated_at = NOW()
+                    """;
+                savePreference.Parameters.AddWithValue("planId", planId);
+                savePreference.Parameters.AddWithValue("splitType", (short)request.SplitType);
+                savePreference.Parameters.AddWithValue("trainingDays", request.TrainingDays.Select(day => (short)day).ToArray());
+                await savePreference.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return Ok(new { updatedSessions = request.Moves.Count, splitType = request.SplitType, trainingDays = request.TrainingDays });
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    private static string? ValidateTrainingSplit(int splitType, IReadOnlyList<int>? trainingDays)
+    {
+        if (splitType is < 0 or > 3 || trainingDays is null || trainingDays.Count is < 2 or > 6 ||
+            trainingDays.Any(day => day is < 0 or > 6) || trainingDays.Distinct().Count() != trainingDays.Count)
+            return "Selecciona una distribución válida y entre dos y seis días distintos.";
+        var count = trainingDays.Count;
+        var valid = splitType switch
+        {
+            0 => count is >= 2 and <= 4,
+            1 => count is 2 or 3,
+            2 => count is 2 or 4,
+            3 => count is 3 or 6,
+            _ => false
+        };
+        return valid ? null : splitType switch
+        {
+            1 => "Cuerpo completo admite 2 o 3 días.",
+            2 => "Torso/Pierna admite 2 o 4 días.",
+            3 => "Push/Pull/Legs admite 3 o 6 días.",
+            _ => "La distribución automática admite entre 2 y 4 días."
+        };
+    }
+
     [HttpPost("volume-preview")]
     public async Task<IActionResult> PreviewManualVolume(
         [FromBody] TrainingManualVolumePreviewRequest request,
@@ -1916,6 +2059,12 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return command;
     }
 }
+
+public sealed record ReorganizeTrainingSplitRequest(
+    int SplitType,
+    int[] TrainingDays,
+    IReadOnlyList<TrainingSessionMoveRequest> Moves);
+public sealed record TrainingSessionMoveRequest(int SessionId, DateOnly ScheduledDate);
 
 public sealed record ReviewTrainingAdaptationProposalRequest(
     string Decision,
