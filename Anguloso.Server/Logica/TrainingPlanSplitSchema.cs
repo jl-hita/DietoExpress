@@ -17,7 +17,6 @@ public static class TrainingPlanSplitSchema
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 CONSTRAINT ck_training_plan_split_days CHECK (
                     cardinality(training_days) BETWEEN 2 AND 6
-                    AND (SELECT COUNT(DISTINCT day) FROM unnest(training_days) AS day) = cardinality(training_days)
                     AND 0 <= ALL(training_days) AND 6 >= ALL(training_days)
                 )
             );
