@@ -92,7 +92,7 @@ public sealed class TrainingExerciseVolumeAdapterMatrixTests
             yield return new object[]
             {
                 new[] { Exposure(skippedReason: "fatigue", completedSession: false), Exposure(skippedReason: "fatigue"), Exposure(skippedReason: "fatigue") },
-                TrainingExerciseVolumeAction.NoChange, 3
+                TrainingExerciseVolumeAction.ProposeReduceOneSet, 3
             };
             yield return new object[]
             {
