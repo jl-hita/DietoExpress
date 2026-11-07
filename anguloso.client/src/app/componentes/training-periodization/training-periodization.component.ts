@@ -983,6 +983,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   weekOffsets: Record<number, number> = {};
   weeklyEditorOpen: Record<number, boolean> = {};
   weeklyEditorDrafts: Record<number, WeeklySessionDraft> = {};
+  weeklyEditorDirty: Record<number, boolean> = {};
   splitReorganizationOpen: Record<number, boolean> = {};
   splitReorganizationDrafts: Record<number, SplitReorganizationDraft> = {};
   splitPreferences: Record<number, { splitType: number; trainingDays: number[] }> = {};
@@ -2583,6 +2584,12 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const futureSessions = allSessions.filter(session =>
       !session.completedAt && session.status !== 'completed' && session.scheduledDate.slice(0, 10) >= nextMonday
     );
+    if (futureSessions.some(session => this.weeklyEditorDirty[session.id]) ||
+        (this.editingSessionId !== null && futureSessions.some(session => session.id === this.editingSessionId))) {
+      draft.error = 'Hay cambios de sesión sin guardar. Guarda o descarta esos cambios antes de reorganizar el split.';
+      draft.moves = null;
+      return;
+    }
     if (futureSessions.length) {
       const current = this.splitPreferences[plan.id] || { splitType: 0, trainingDays: [1, 3, 5] };
       if (draft.splitType !== current.splitType || days.length !== current.trainingDays.length) {
@@ -2630,6 +2637,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   applySplitReorganization(plan: TrainingPlan): void {
     const draft = this.splitReorganizationDrafts[plan.id];
     if (!draft || draft.moves === null) return;
+    const movedIds = draft.moves.map(move => move.sessionId);
+    if (movedIds.some(id => this.weeklyEditorDirty[id]) || (this.editingSessionId !== null && movedIds.includes(this.editingSessionId))) {
+      draft.error = 'Hay cambios de sesión sin guardar. Guarda o descarta esos cambios antes de aplicar la reorganización.';
+      return;
+    }
     this.splitReorganizationSaving[plan.id] = true;
     this.http.post<{ updatedSessions: number }>('/api/training/plans/' + plan.id + '/reorganize-split', {
       splitType: draft.splitType,
@@ -2639,6 +2651,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       next: result => {
         this.splitPreferences[plan.id] = { splitType: draft.splitType, trainingDays: [...draft.trainingDays] };
         this.splitReorganizationSaving[plan.id] = false;
+        movedIds.forEach(id => { delete this.weeklyEditorDrafts[id]; delete this.weeklyEditorDirty[id]; });
+        if (this.editingSessionId !== null && movedIds.includes(this.editingSessionId)) {
+          this.editingSessionId = null;
+          this.sessionEditDraft = null;
+        }
         draft.moves = null;
         draft.error = '';
         this.notice = 'Distribución guardada. Se han reorganizado ' + result.updatedSessions + ' sesiones futuras sin modificar sus prescripciones ni los registros completados.';
@@ -2669,6 +2686,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       session.scheduledDate.slice(0, 10) >= nextMonday && !session.completedAt && session.status !== 'completed');
     if (!futureSessions.length) {
       this.splitReplacementErrors[plan.id] = 'No hay sesiones futuras pendientes que permitan determinar el periodo que se va a reorganizar.';
+      return;
+    }
+    if (futureSessions.some(session => this.weeklyEditorDirty[session.id]) ||
+        (this.editingSessionId !== null && futureSessions.some(session => session.id === this.editingSessionId))) {
+      this.splitReplacementErrors[plan.id] = 'Hay cambios de sesión sin guardar. Guarda o descarta esos cambios antes de generar otra distribución.';
       return;
     }
     const lastDate = futureSessions.reduce((latest, session) =>
@@ -2878,6 +2900,14 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const draft = this.splitReorganizationDrafts[plan.id];
     const preview = this.splitReplacementPreviews[plan.id];
     if (!draft || !preview || !preview.sessions.length) return;
+    const replacedSessions = (this.sessions[plan.id] || []).filter(session =>
+      session.scheduledDate.slice(0, 10) >= preview.replaceFromDate &&
+      session.scheduledDate.slice(0, 10) <= preview.replaceThroughDate);
+    if (replacedSessions.some(session => this.weeklyEditorDirty[session.id]) ||
+        (this.editingSessionId !== null && replacedSessions.some(session => session.id === this.editingSessionId))) {
+      this.splitReplacementErrors[plan.id] = 'Hay cambios de sesión sin guardar. Guarda o descarta esos cambios antes de sustituir el bloque.';
+      return;
+    }
     this.splitReplacementLoading[plan.id] = true;
     this.http.post<{ sessionsCreated: number }>('/api/training/plans/' + plan.id + '/replace-future-split', {
       replaceFromDate: preview.replaceFromDate,
@@ -2889,6 +2919,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       next: result => {
         this.splitPreferences[plan.id] = { splitType: draft.splitType, trainingDays: [...draft.trainingDays] };
         this.splitReplacementLoading[plan.id] = false;
+        replacedSessions.forEach(session => { delete this.weeklyEditorDrafts[session.id]; delete this.weeklyEditorDirty[session.id]; });
+        if (this.editingSessionId !== null && replacedSessions.some(session => session.id === this.editingSessionId)) {
+          this.editingSessionId = null;
+          this.sessionEditDraft = null;
+        }
         this.splitReplacementPreviews[plan.id] = null;
         this.notice = 'Nueva distribución aplicada: ' + result.sessionsCreated + ' sesiones. Se han conservado las sesiones completadas y los ajustes manuales coincidentes.';
         this.refreshSessions(plan.id);
@@ -3001,6 +3036,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   onWeeklyDraftChanged(plan: TrainingPlan, session: TrainingSession): void {
     const draft = this.weeklyDraft(session);
+    this.weeklyEditorDirty[session.id] = true;
     this.refreshManualVolumePreview(plan, draft.date, this.serializeStructuredExerciseDrafts(draft.exercises), session.id, draft.title);
   }
 
@@ -3043,6 +3079,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       next: () => {
         this.saving = false;
         delete this.weeklyEditorDrafts[session.id];
+        delete this.weeklyEditorDirty[session.id];
         this.notice = 'Sesión actualizada. El registro de realización se ha conservado.';
         this.refreshSessions(plan.id);
       },
