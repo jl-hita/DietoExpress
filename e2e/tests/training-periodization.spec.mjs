@@ -215,7 +215,7 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(sessionCard).toBeVisible();
     await expect(sessionCard).toContainText('RPE 7 - técnica controlada');
     await expect(sessionCard).toContainText('Calentamiento, tres bloques principales y vuelta a la calma.');
-    await expect(sessionCard).toContainText('Sentadilla · 3 × 8 · descanso 2 min · RPE 7');
+    await expect(sessionCard).toContainText('Sentadilla · 4 × 8 · descanso 120 s · RIR 2');
 
     await sessionCard.getByRole('button', { name: 'Editar' }).click();
     await sessionCard.locator('input[name^="editSessionTitle"]').fill('Sesión E2E fuerza editada');
