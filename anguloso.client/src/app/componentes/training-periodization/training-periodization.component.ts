@@ -667,10 +667,10 @@ interface RepDbExercise {
                     <div class="session-editor-grid" style="margin-top:10px">
                       <label>Fecha<input type="date" [name]="'weeklyDate' + session.id" [(ngModel)]="weekly.date" (ngModelChange)="onWeeklyDraftChanged(plan, session)" [min]="plan.startDate" [max]="plan.endDate || null" /></label>
                       <label>Nombre de sesión<input [name]="'weeklyTitle' + session.id" [(ngModel)]="weekly.title" maxlength="160" (ngModelChange)="onWeeklyDraftChanged(plan, session)" /></label>
-                      <label>Duración (min)<input type="number" [name]="'weeklyDuration' + session.id" [(ngModel)]="weekly.duration" min="1" max="1440" /></label>
-                      <label>Tipo<select [name]="'weeklyType' + session.id" [(ngModel)]="weekly.type"><option value="strength">Fuerza</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">General</option><option value="other">Otro</option></select></label>
-                      <label>Intensidad / RIR objetivo<input [name]="'weeklyIntensity' + session.id" [(ngModel)]="weekly.intensity" maxlength="120" /></label>
-                      <label class="session-editor-wide">Instrucciones<textarea [name]="'weeklyInstructions' + session.id" [(ngModel)]="weekly.instructions" rows="2" maxlength="4000"></textarea></label>
+                      <label>Duración (min)<input type="number" [name]="'weeklyDuration' + session.id" [(ngModel)]="weekly.duration" (ngModelChange)="markWeeklyDraftDirty(session)" min="1" max="1440" /></label>
+                      <label>Tipo<select [name]="'weeklyType' + session.id" [(ngModel)]="weekly.type" (ngModelChange)="markWeeklyDraftDirty(session)"><option value="strength">Fuerza</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">General</option><option value="other">Otro</option></select></label>
+                      <label>Intensidad / RIR objetivo<input [name]="'weeklyIntensity' + session.id" [(ngModel)]="weekly.intensity" (ngModelChange)="markWeeklyDraftDirty(session)" maxlength="120" /></label>
+                      <label class="session-editor-wide">Instrucciones<textarea [name]="'weeklyInstructions' + session.id" [(ngModel)]="weekly.instructions" (ngModelChange)="markWeeklyDraftDirty(session)" rows="2" maxlength="4000"></textarea></label>
                     </div>
                     <div style="margin-top:12px"><strong>Ejercicios de la sesión</strong>
                       <div *ngFor="let exercise of weekly.exercises; let exerciseIndex = index" style="display:grid;grid-template-columns:minmax(160px,2fr) repeat(4,minmax(75px,0.7fr)) auto;gap:7px;align-items:end;padding:9px 0;border-bottom:1px solid #edf1f5">
@@ -3032,6 +3032,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         Math.max(0, Math.min(3600, Math.round(Number(item.restSeconds) || 0))) + ' s' +
         (item.rir === null || !Number.isFinite(item.rir) ? '' : ' · RIR ' + Math.max(0, Math.min(10, item.rir)));
     }).join('\n');
+  }
+
+  markWeeklyDraftDirty(session: TrainingSession): void {
+    this.weeklyEditorDirty[session.id] = true;
   }
 
   onWeeklyDraftChanged(plan: TrainingPlan, session: TrainingSession): void {
