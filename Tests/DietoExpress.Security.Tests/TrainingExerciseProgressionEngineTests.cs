@@ -247,6 +247,62 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void ChangedHistoricalRepRangeBreaksTopOfRangeStreak()
+    {
+        var currentPrescription = Prescription(1.25m) with { MinRepetitions = 6, MaxRepetitions = 8 };
+        var previousBlock = Exposure(12) with
+        {
+            HistoricalPrescription = new(3, 8, 12, 2m)
+        };
+        var currentBlock = Exposure(8) with
+        {
+            HistoricalPrescription = new(3, 6, 8, 2m)
+        };
+
+        var result = TrainingExerciseProgressionEngine.Evaluate(
+            currentPrescription, [previousBlock, currentBlock]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.ConfirmTopOfRange, result.Action);
+        Assert.Null(result.SuggestedLoadKg);
+    }
+
+    [Fact]
+    public void LatestExposureWithDifferentHistoricalPrescriptionRequiresFreshEvidence()
+    {
+        var currentPrescription = Prescription() with { MinRepetitions = 6, MaxRepetitions = 8 };
+        var oldRangeExposure = Exposure(12) with
+        {
+            HistoricalPrescription = new(3, 8, 12, 2m)
+        };
+
+        var result = TrainingExerciseProgressionEngine.Evaluate(
+            currentPrescription, [oldRangeExposure, oldRangeExposure]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.HoldAndReview, result.Action);
+        Assert.Contains("prescripción de este ejercicio cambió", result.Explanation);
+        Assert.Null(result.SuggestedLoadKg);
+    }
+
+    [Fact]
+    public void ChangedHistoricalSetCountBreaksTopOfRangeStreak()
+    {
+        var previousBlock = Exposure(12) with
+        {
+            HistoricalPrescription = new(4, 8, 12, 2m)
+        };
+        var currentBlock = Exposure(12) with
+        {
+            HistoricalPrescription = new(3, 8, 12, 2m)
+        };
+
+        var result = TrainingExerciseProgressionEngine.Evaluate(
+            Prescription(1.25m), [previousBlock, currentBlock]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.ConfirmTopOfRange, result.Action);
+        Assert.Null(result.SuggestedLoadKg);
+    }
+
+    [Fact]
     public void NoProgressionRule_ReturnsNotApplicable()
     {
         var p = Prescription() with { ProgressionRule = TrainingProgressionRule.None };
