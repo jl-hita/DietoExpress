@@ -181,8 +181,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
         if (validation is not null) return BadRequest(new { message = validation });
         if (request.ReplaceFromDate < DateOnly.FromDateTime(DateTime.UtcNow) ||
             request.ReplaceThroughDate < request.ReplaceFromDate ||
-            request.Sessions is null || request.Sessions.Count is < 1 or > 42)
-            return BadRequest(new { message = "El periodo de sustitución debe ser futuro y contener entre una y 42 sesiones." });
+            request.Sessions is null || request.Sessions.Count is < 1 or > 312)
+            return BadRequest(new { message = "El periodo de sustitución debe ser futuro y contener entre una y 312 sesiones." });
         if (request.Sessions.Select(session => session.ScheduledDate).Distinct().Count() != request.Sessions.Count ||
             request.Sessions.Any(session => session.ScheduledDate < request.ReplaceFromDate ||
                 session.ScheduledDate > request.ReplaceThroughDate ||
