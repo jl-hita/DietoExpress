@@ -274,6 +274,26 @@ public static class TrainingProgramGenerator
                 errors.Add("No se puede repetir un día de entrenamiento.");
         }
         if (!Enum.IsDefined(request.Split)) errors.Add("La distribución semanal seleccionada no es válida.");
+        else if (request.TrainingDays is not null)
+        {
+            var dayCount = request.TrainingDays.Count;
+            var supportedDayCount = request.Split switch
+            {
+                TrainingProgramSplit.Automatic => dayCount is >= 2 and <= 4,
+                TrainingProgramSplit.FullBody => dayCount is 2 or 3,
+                TrainingProgramSplit.UpperLower => dayCount is 2 or 4,
+                TrainingProgramSplit.PushPullLegs => dayCount is 3 or 6,
+                _ => false
+            };
+            if (!supportedDayCount)
+                errors.Add(request.Split switch
+                {
+                    TrainingProgramSplit.FullBody => "Cuerpo completo admite 2 o 3 días; cambia la disponibilidad o elige otra distribución.",
+                    TrainingProgramSplit.UpperLower => "Torso/Pierna admite 2 o 4 días; cambia la disponibilidad o elige otra distribución.",
+                    TrainingProgramSplit.PushPullLegs => "Push/Pull/Legs admite 3 o 6 días; cambia la disponibilidad o elige otra distribución.",
+                    _ => "La distribución automática admite entre 2 y 4 días."
+                });
+        }
         if (request.MaximumSessionDurationMinutes is < 35 or > 180)
             errors.Add("La duración máxima de sesión debe estar entre 35 y 180 minutos.");
         if (request.AvailableEquipment is null)
@@ -376,9 +396,13 @@ public static class TrainingProgramGenerator
                 : (isFullBody ? 4 : 3);
         var allowedMuscles = title.Contains("superior", StringComparison.OrdinalIgnoreCase)
             ? UpperBodyAccessoryMuscles
-            : title.Contains("inferior", StringComparison.OrdinalIgnoreCase)
+            : title.Contains("inferior", StringComparison.OrdinalIgnoreCase) || title.Contains("pierna", StringComparison.OrdinalIgnoreCase)
                 ? LowerBodyAccessoryMuscles
-                : null;
+                : title.Contains("empuje", StringComparison.OrdinalIgnoreCase)
+                    ? new[] { TrainingMuscleGroup.Chest, TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Triceps }
+                    : title.Contains("tracción", StringComparison.OrdinalIgnoreCase) || title.Contains("traccion", StringComparison.OrdinalIgnoreCase)
+                        ? new[] { TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack, TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Forearms }
+                        : null;
 
         for (var slot = 0; slot < slots; slot++)
         {
