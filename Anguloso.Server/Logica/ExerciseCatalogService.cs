@@ -192,10 +192,14 @@ public sealed class ExerciseCatalogService
             }
             else if (replaceRepDbOnly)
             {
-                // Replace only the imported public-source catalog. Professional contributions
-                // and their ownership/review metadata are not part of this bootstrap reset.
+                // Replace only unreviewed/automatically reviewed public-source rows.
+                // Human-reviewed RepDB decisions and professional contributions must survive.
                 await using var deleteCommand = new NpgsqlCommand(
-                    "DELETE FROM exercise_catalog WHERE source = 'repdb-free' AND owner_user_id IS NULL",
+                    """
+                    DELETE FROM exercise_catalog
+                    WHERE source = 'repdb-free' AND owner_user_id IS NULL
+                      AND (reviewed_by IS NULL OR reviewed_by LIKE 'RepDB automatic metadata%')
+                    """,
                     connection, transaction);
                 await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
             }
@@ -441,7 +445,7 @@ public sealed class ExerciseCatalogService
             var result = await SyncFromSourceAsync(
                 cancellationToken, replaceRepDbOnly: true, markIdealCatalogComplete: true);
             _logger.LogInformation(
-                "Ideal RepDB exercise catalog v1 bootstrapped: {Count} selected exercises imported; non-curated RepDB rows removed.",
+                "Ideal RepDB exercise catalog v1 bootstrapped: {Count} curated exercises imported; non-curated automatic/unreviewed rows removed and human reviews preserved.",
                 result.ImportedCount);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -480,6 +484,7 @@ public sealed class ExerciseCatalogService
                 DELETE FROM exercise_catalog
                 WHERE source = 'repdb-free'
                   AND owner_user_id IS NULL
+                  AND (reviewed_by IS NULL OR reviewed_by LIKE 'RepDB automatic metadata%')
                   AND (
                     exercise_id = ANY(@excluded_ids)
                     OR source_payload->>'category' IN ('olympic', 'plyometrics')
@@ -1975,8 +1980,9 @@ public sealed class ExerciseCatalogService
                    CASE WHEN review_status = 'approved' THEN reviewed_selection_priority ELSE COALESCE(owner_selection_priority, 50) END,
                    source, owner_user_id
             FROM exercise_catalog
-            WHERE review_status = 'approved'
-               OR (review_status = 'pending' AND owner_user_id = @owner_user_id)
+            WHERE (review_status = 'approved'
+               OR (review_status = 'pending' AND owner_user_id = @owner_user_id))
+              AND (source <> 'repdb-free' OR exercise_id = ANY(@curated_ids))
             ORDER BY exercise_id
             """;
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
@@ -1986,6 +1992,7 @@ public sealed class ExerciseCatalogService
         {
             await using var command = new NpgsqlCommand(sql, connection);
             Add(command, "owner_user_id", ownerUserId);
+            Add(command, "curated_ids", RepDbExerciseCuration.CuratedCatalogIds);
             var result = new List<TrainingExerciseCandidate>();
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
