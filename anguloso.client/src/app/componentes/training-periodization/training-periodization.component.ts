@@ -981,7 +981,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   prescriptionLines(prescription: string | null | undefined): string[] {
     return typeof prescription === 'string'
-      ? prescription.split(/\\r?\\n/).map(line => line.trim()).filter(Boolean)
+      ? prescription.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
       : [];
   }
 
@@ -993,7 +993,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const lines = this.prescriptionLines(target.exercisePrescription);
     if (index < 0 || index >= lines.length) return;
     lines[index] = value;
-    target.exercisePrescription = lines.join('\\n');
+    target.exercisePrescription = lines.join('\n');
     if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
   }
 
@@ -1006,7 +1006,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const destination = index + offset;
     if (index < 0 || index >= lines.length || destination < 0 || destination >= lines.length) return;
     [lines[index], lines[destination]] = [lines[destination], lines[index]];
-    target.exercisePrescription = lines.join('\\n');
+    target.exercisePrescription = lines.join('\n');
     if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
   }
 
@@ -1017,7 +1017,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const lines = this.prescriptionLines(target.exercisePrescription);
     if (index < 0 || index >= lines.length) return;
     lines.splice(index, 1);
-    target.exercisePrescription = lines.join('\\n');
+    target.exercisePrescription = lines.join('\n');
     if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
   }
 
