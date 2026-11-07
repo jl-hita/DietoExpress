@@ -668,8 +668,10 @@ interface RepDbExercise {
                       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:7px;margin-top:10px">
                         <div *ngFor="let muscle of volume.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e7edf4;border-radius:9px">
                           <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
+                          <small style="grid-column:1 / -1;color:#64748b">Primarias {{ muscle.primarySets }} · secundarias {{ muscle.secondarySets }} · frecuencia P {{ muscle.primaryFrequencySessions }} / S {{ muscle.secondaryFrequencySessions }}</small>
                         </div>
                       </div>
+                      <ul *ngIf="volume.qualityReport.warnings.length" style="margin:8px 0;padding-left:18px"><li *ngFor="let warning of volume.qualityReport.warnings">{{ warning }}</li></ul>
                       <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted" style="margin:10px 0 0">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}. No se inventa su contribución.</p>
                       <small>Se usa el mismo motor de estímulo auditado que en la generación automática. Incluye las sesiones programadas de esta semana y el borrador actual.</small>
                     </div>
