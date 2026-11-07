@@ -213,6 +213,8 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("hasVolumeDoseDeficit(generated.qualityReport.warnings)", ui);
         Assert.Contains("Revisión profesional: déficit de volumen o cobertura", ui);
         Assert.Contains("volumeDeficitAcknowledged[plan.id]", ui);
+        Assert.Contains("hasVolumeDoseDeficit(generated.qualityReport?.warnings) && !volumeDeficitAcknowledged[plan.id]", ui);
+        Assert.Contains("hasVolumeDoseDeficit(replacement.warnings) && !splitVolumeDeficitAcknowledged[plan.id]", ui);
         Assert.Contains("Revisa y confirma expresamente los déficits de volumen antes de guardar el mesociclo.", ui);
         Assert.Contains("el profesional ha revisado y aceptado los déficits de volumen/cobertura", ui);
         Assert.Contains("const warnings: string[] = [...(generated.qualityReport?.warnings ?? [])]", ui);
