@@ -1280,10 +1280,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   }
 
   private findUniqueCatalogExerciseByName(name: string): TrainingExerciseCatalogItem | undefined {
-    const normalized = name.trim().toLocaleLowerCase('es');
+    const normalized = name.trim().split(/\s+/).join(' ').toLocaleLowerCase('es');
     if (!normalized) return undefined;
     const matches = this.exerciseCatalog.filter(exercise =>
-      exercise.name.trim().toLocaleLowerCase('es') === normalized);
+      exercise.name.trim().split(/\s+/).join(' ').toLocaleLowerCase('es') === normalized);
     return matches.length === 1 ? matches[0] : undefined;
   }
 
