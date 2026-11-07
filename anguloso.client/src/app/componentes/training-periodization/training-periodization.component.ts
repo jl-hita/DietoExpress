@@ -711,6 +711,28 @@ interface RepDbExercise {
                   </ng-container>
                   <p *ngIf="session.completedAt" class="muted">La prescripción, fecha e historial de realización se mantienen intactos.</p>
                 </article>
+                <section *ngIf="manualVolumePreviews[plan.id] as volume" class="manual-volume-dashboard" style="margin-top:14px;padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+                  <div class="section-heading"><div><h6>Volumen efectivo de la semana editada</h6><p>El mismo analizador que utiliza el generador; se recalcula al modificar ejercicios, series o fechas.</p></div><span *ngIf="manualVolumePreviewLoading[plan.id]" role="status">Actualizando…</span></div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px">
+                    <div *ngFor="let muscle of volume.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid #e7edf4;border-radius:8px">
+                      <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }}</strong>
+                    </div>
+                  </div>
+                  <section *ngIf="volume.sessionReports.length" style="margin-top:12px">
+                    <strong>Comparación por sesión</strong>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:8px">
+                      <article *ngFor="let comparison of volume.sessionReports" style="padding:9px;border:1px solid #e7edf4;border-radius:9px">
+                        <strong>{{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                        <div *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0">
+                          <span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b>
+                        </div>
+                        <small *ngIf="comparison.unclassifiedExerciseNames.length" class="muted">Sin clasificar: {{ comparison.unclassifiedExerciseNames.join(', ') }}</small>
+                      </article>
+                    </div>
+                  </section>
+                  <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}.</p>
+                  <p *ngIf="manualVolumePreviewErrors[plan.id]" class="error" role="alert">{{ manualVolumePreviewErrors[plan.id] }}</p>
+                </section>
                 <p *ngIf="!weekSessions(plan.id, plan).length" class="muted">No hay sesiones en esta semana. Programa una sesión para comenzar.</p>
               </section>
               <div *ngIf="sessions[plan.id]?.length && sessionViews[plan.id] !== 'list'" class="week-grid">
