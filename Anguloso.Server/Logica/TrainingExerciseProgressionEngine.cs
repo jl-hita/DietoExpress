@@ -160,6 +160,14 @@ public static class TrainingExerciseProgressionEngine
         TrainingExerciseProgressionPrescription prescription,
         TrainingExerciseExposure exposure)
     {
+        if (exposure.HistoricalPrescription is { } historical &&
+            (historical.PlannedWorkingSets != prescription.PlannedWorkingSets ||
+             historical.MinRepetitions != prescription.MinRepetitions ||
+             historical.MaxRepetitions != prescription.MaxRepetitions ||
+             historical.TargetRir != prescription.TargetRir))
+            return ExposureAnalysis.Failure(
+                "La prescripción de este ejercicio cambió entre exposiciones (series, rango o RIR). Espera a registrar una sesión con la prescripción actual antes de progresar.");
+
         if (exposure.WorkingSets is null || exposure.WorkingSets.Count != prescription.PlannedWorkingSets)
             return ExposureAnalysis.Failure("El número de series efectivas registradas no coincide con las prescritas.");
 
@@ -234,7 +242,14 @@ public sealed record TrainingExerciseExposure(
     bool SessionCompleted = true,
     bool RecoveryInsufficient = false,
     bool PainReported = false,
-    bool ProgressionEligible = true);
+    bool ProgressionEligible = true,
+    TrainingExerciseProgressionPrescriptionSnapshot? HistoricalPrescription = null);
+
+public sealed record TrainingExerciseProgressionPrescriptionSnapshot(
+    int? PlannedWorkingSets,
+    int? MinRepetitions,
+    int? MaxRepetitions,
+    decimal? TargetRir);
 
 public sealed record TrainingExecutedSet(
     string Kind,
