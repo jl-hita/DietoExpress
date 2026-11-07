@@ -40,7 +40,7 @@ public sealed class TrainingExerciseProgressionService
                 JOIN training_plans p ON p.id = s.plan_id
                 JOIN training_profiles f ON f.id = p.profile_id
                 WHERE f.client_id = @clientId AND f.enabled = TRUE AND p.status = 'active'
-                  AND r.outcome IS NOT NULL
+                  AND r.outcome IS NOT NULL AND s.session_type = 'strength'
             )
             SELECT plan_id, session_type, prescription_json, feedback_json, outcome, recovery_rating, pain_signal
             FROM ranked_history
