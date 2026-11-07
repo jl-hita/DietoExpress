@@ -2771,7 +2771,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
             if (item.consumed) return false;
             const catalogItem = this.exerciseCatalog.find(candidate =>
               candidate.name.trim().toLocaleLowerCase('es') === item.row.exerciseName.trim().toLocaleLowerCase('es'));
-            const manualId = catalogItem?.id.replace(/^repdb-/, '').toLocaleLowerCase('es');
+            const manualId = (item.row.exerciseId ?? catalogItem?.id)?.replace(/^repdb-/, '').toLocaleLowerCase('es');
             return item.row.exerciseName.trim().toLocaleLowerCase('es') === generatedName.toLocaleLowerCase('es') ||
               (!!manualId && manualId === generatedId);
           });
