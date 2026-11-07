@@ -14,10 +14,12 @@ public static class TrainingProgramQualityAnalyzer
     {
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(sessions);
-        if (sessions.Count > 42)
+        if (sessions.Count > 312)
             throw new ArgumentOutOfRangeException(nameof(sessions), "La vista admite hasta 42 sesiones.");
         if (sessions.Any(session => session is null || !Enum.IsDefined(session.Day)))
             throw new ArgumentException("Todas las sesiones deben indicar un día válido.", nameof(sessions));
+        if (sessions.Any(session => session.WeekNumber is < 1 or > 52))
+            throw new ArgumentException("La semana de cada sesión debe estar entre 1 y 52.", nameof(sessions));
         if (sessions.Any(session => !string.IsNullOrWhiteSpace(session.Title) && session.Title!.Length > 160))
             throw new ArgumentException("El título de cada sesión admite hasta 160 caracteres.", nameof(sessions));
         if (sessions.Any(session => session.Exercises is null || session.Exercises.Count > 20))
@@ -67,18 +69,18 @@ public static class TrainingProgramQualityAnalyzer
             if (exercises.Count > 0)
             {
                 var sessionPrescription = new TrainingSessionPrescription(
-                    1, inputSession.Day, title, 60, exercises);
+                    inputSession.WeekNumber, inputSession.Day, title, 60, exercises);
                 prescriptions.Add(sessionPrescription);
                 var sessionPlan = new TrainingProgramPrescription(
-                    "manual-volume-preview-v1", "Manual", new DateOnly(2026, 1, 5), 1,
+                    "manual-volume-preview-v1", "Manual", new DateOnly(2026, 1, 5), inputSession.WeekNumber,
                     [sessionPrescription]);
                 sessionReports.Add(new TrainingManualVolumeSessionResult(
-                    inputSession.Day, title, Analyze(sessionPlan), unclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray()));
+                    inputSession.WeekNumber, inputSession.Day, title, Analyze(sessionPlan), unclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray()));
             }
             else
             {
                 sessionReports.Add(new TrainingManualVolumeSessionResult(
-                    inputSession.Day, title,
+                    inputSession.WeekNumber, inputSession.Day, title,
                     new TrainingProgramQualityReport(
                         "No hay ejercicios con metadatos revisados suficientes para calcular el volumen de esta sesión.",
                         [new TrainingWeeklyMuscleVolume(1, Enum.GetValues<TrainingMuscleGroup>()
@@ -89,7 +91,8 @@ public static class TrainingProgramQualityAnalyzer
         }
 
         var plan = new TrainingProgramPrescription(
-            "manual-volume-preview-v1", "Manual", new DateOnly(2026, 1, 5), 1, prescriptions);
+            "manual-volume-preview-v1", "Manual", new DateOnly(2026, 1, 5),
+            sessions.Count == 0 ? 1 : sessions.Max(session => session.WeekNumber), prescriptions);
         return new TrainingManualVolumeAnalysisResult(
             Analyze(plan),
             allUnclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray(),
@@ -214,7 +217,8 @@ public sealed record TrainingMuscleVolume(
 public sealed record TrainingManualVolumeSessionInput(
     DayOfWeek Day,
     string? Title,
-    IReadOnlyList<TrainingManualVolumeExerciseInput> Exercises);
+    IReadOnlyList<TrainingManualVolumeExerciseInput> Exercises,
+    int WeekNumber = 1);
 
 public sealed record TrainingManualVolumeExerciseInput(
     string? ExerciseId,
@@ -222,6 +226,7 @@ public sealed record TrainingManualVolumeExerciseInput(
     int Sets);
 
 public sealed record TrainingManualVolumeSessionResult(
+    int WeekNumber,
     DayOfWeek Day,
     string Title,
     TrainingProgramQualityReport QualityReport,
