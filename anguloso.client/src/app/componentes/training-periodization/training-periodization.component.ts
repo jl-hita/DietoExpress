@@ -1650,6 +1650,13 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return date.toISOString().slice(0, 10);
   }
 
+  private isSplitDayCountValid(dayCount: number): boolean {
+    return this.autoSplit === 0 ? dayCount >= 2 && dayCount <= 4 :
+      this.autoSplit === 1 ? dayCount === 2 || dayCount === 3 :
+      this.autoSplit === 2 ? dayCount === 2 || dayCount === 4 :
+      this.autoSplit === 3 ? dayCount === 3 || dayCount === 6 : false;
+  }
+
   syncAutoTrainingDays(): void {
     this.autoTrainingDaysCsv = this.autoTrainingDayOptions
       .filter(day => this.autoTrainingDaySelection[day.value])
@@ -1729,12 +1736,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.generationErrors[plan.id] = 'Selecciona entre 2 y 6 días de entrenamiento.';
       return;
     }
-    const splitDayCountIsValid =
-      this.autoSplit === 0 ? days.length >= 2 && days.length <= 4 :
-      this.autoSplit === 1 ? days.length === 2 || days.length === 3 :
-      this.autoSplit === 2 ? days.length === 2 || days.length === 4 :
-      this.autoSplit === 3 ? days.length === 3 || days.length === 6 : false;
-    if (!splitDayCountIsValid) {
+    if (!this.isSplitDayCountValid(days.length)) {
       this.generationErrors[plan.id] = this.autoSplit === 1
         ? 'Cuerpo completo admite 2 o 3 días por semana.'
         : this.autoSplit === 2
@@ -2416,8 +2418,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const phases = this.macrocyclePhases(plan).slice().sort((a, b) => a.sequenceNumber - b.sequenceNumber);
     if (!phases.length || this.saving || this.generatingPlan || this.bulkGenerationProgress[plan.id]) return;
     const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
-    if (days.length < 2 || days.length > 4 || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
-      this.generationErrors[plan.id] = 'Selecciona entre 2 y 4 días de entrenamiento y una duración máxima de 35 a 180 minutos.';
+    if (days.length < 2 || days.length > 6 || !this.isSplitDayCountValid(days.length) || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
+      this.generationErrors[plan.id] = 'Revisa los días compatibles con la distribución elegida (2–6 días) y la duración máxima de 35 a 180 minutos.';
       return;
     }
     if (!confirm('Se generarán mesociclos, microciclos y sesiones para todas las fases del macrociclo que todavía no tengan planificación. Los bloques existentes con contenido se conservarán. ¿Continuar?')) return;
@@ -2454,8 +2456,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   async generateMacrocyclePhaseMesocycle(plan: TrainingPlan, phase: MacrocyclePhase): Promise<void> {
     if (this.saving || this.generatingPlan || this.bulkGenerationProgress[plan.id]) return;
     const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
-    if (days.length < 2 || days.length > 4 || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
-      this.generationErrors[plan.id] = 'Selecciona entre 2 y 4 días de entrenamiento y una duración máxima de 35 a 180 minutos.';
+    if (days.length < 2 || days.length > 6 || !this.isSplitDayCountValid(days.length) || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
+      this.generationErrors[plan.id] = 'Revisa los días compatibles con la distribución elegida (2–6 días) y la duración máxima de 35 a 180 minutos.';
       return;
     }
     this.generatingPlan = true;
@@ -2501,7 +2503,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
       excludedExerciseIds: [],
       muscleVolumeTargets: this.buildMuscleVolumeTargets(),
-      isDeload: phase.phaseType === 'deload'
+      isDeload: phase.phaseType === 'deload',
+      split: this.autoSplit
     };
     const sequenceNumber = existing?.sequenceNumber ??
       Math.max(0, ...(this.mesocycles[plan.id] || []).map(meso => meso.sequenceNumber)) + 1;
