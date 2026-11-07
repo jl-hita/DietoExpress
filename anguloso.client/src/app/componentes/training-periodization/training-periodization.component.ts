@@ -484,6 +484,14 @@ interface RepDbExercise {
                 <section *ngIf="generated.qualityReport" class="quality-report">
                   <strong>Chequeos orientativos de volumen y cobertura</strong>
                   <p class="muted">{{ generated.qualityReport.methodology }}</p>
+                  <div *ngIf="hasVolumeDoseDeficit(generated.qualityReport.warnings)" role="status" style="margin:12px 0;padding:12px 14px;border:1px solid #d97706;border-radius:10px;background:#fffbeb;color:#78350f">
+                    <strong>Revisión profesional: déficit de volumen o cobertura</strong>
+                    <p style="margin:6px 0">Algunos grupos no alcanzan el rango orientativo. Puede ser una limitación aceptable por el tiempo o el material disponibles; el generador no fuerza más series si comprometen la duración o el equilibrio de la rutina.</p>
+                    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px">
+                      <input type="checkbox" [checked]="volumeDeficitAcknowledged[plan.id] === true" (change)="volumeDeficitAcknowledged[plan.id] = $any($event.target).checked" />
+                      <span>He revisado los déficits y acepto expresamente esta dosis para el tiempo y material disponibles.</span>
+                    </label>
+                  </div>
                   <ul *ngIf="generated.qualityReport.warnings.length; else noQualityWarnings">
                     <li *ngFor="let warning of generated.qualityReport.warnings">{{ warning }}</li>
                   </ul>
@@ -962,6 +970,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   autoMesoNames: Record<number, string> = {};
   autoTargetMesocycleIds: Record<number, number | null> = {};
   generatedPreviews: Record<number, GeneratedProgram | null> = {};
+  volumeDeficitAcknowledged: Record<number, boolean> = {};
   generationRequests: Record<number, GenerationRequest | null> = {};
   generationErrors: Record<number, string> = {};
   generatingPlan = false;
@@ -2165,6 +2174,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       isDeload: this.autoIsDeload
     };
     this.generatingPlan = true;
+    this.volumeDeficitAcknowledged[plan.id] = false;
     this.generationErrors[plan.id] = '';
     this.generationRequests[plan.id] = request;
     this.http.post<GeneratedProgram>('/api/training/generate-preview', request).pipe(
@@ -2217,6 +2227,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const generation = this.generationRequests[plan.id];
     const preview = this.generatedPreviews[plan.id];
     if (!generation || !preview) return;
+    if (this.hasVolumeDoseDeficit(preview.qualityReport?.warnings) && !this.volumeDeficitAcknowledged[plan.id]) {
+      this.generationErrors[plan.id] = 'Revisa y confirma expresamente los déficits de volumen antes de guardar el mesociclo.';
+      return;
+    }
     const name = (this.autoMesoNames[plan.id] || ('Mesociclo ' + ((this.mesocycles[plan.id]?.length || 0) + 1))).trim();
     if (!name) { this.generationErrors[plan.id] = 'Indica un nombre para el mesociclo.'; return; }
     const sequenceNumber = Math.max(0, ...(this.mesocycles[plan.id] || []).map(item => item.sequenceNumber)) + 1;
@@ -2225,7 +2239,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const existingMesocycleId = this.autoTargetMesocycleIds[plan.id] ?? null;
     this.http.post<{ sessionsCreated: number; durationWeeks: number; requiresProfessionalReview: boolean; addedToExistingMesocycle?: boolean }>(
       `/api/training/plans/${plan.id}/generate-mesocycle`,
-      { name, sequenceNumber, generation, existingMesocycleId, notes: 'Generado automáticamente; requiere revisión profesional antes de asignarlo al paciente.' }
+      { name, sequenceNumber, generation, existingMesocycleId, notes: this.hasVolumeDoseDeficit(preview.qualityReport?.warnings) ? 'Generado automáticamente; el profesional ha revisado y aceptado los déficits de volumen/cobertura de la vista previa. Requiere revisión antes de asignarlo al paciente.' : 'Generado automáticamente; requiere revisión profesional antes de asignarlo al paciente.' }
     ).subscribe({
       next: result => {
         this.notice = result.addedToExistingMesocycle
@@ -2247,6 +2261,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   discardGeneratedPreview(planId: number): void {
     this.generatedPreviews[planId] = null;
     this.generationRequests[planId] = null;
+    this.volumeDeficitAcknowledged[planId] = false;
     this.generationErrors[planId] = '';
   }
 
@@ -2257,6 +2272,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   sessionVolume(generated: GeneratedProgram, session: GeneratedSession): { muscles: Array<{ muscleGroup: string; estimatedEffectiveSets: number }> } | null {
     return generated.qualityReport?.sessionVolumes?.find(item =>
       item.weekNumber === session.weekNumber && item.day === session.day && item.title === session.title) ?? null;
+  }
+
+  hasVolumeDoseDeficit(warnings: string[] | null | undefined): boolean {
+    return (warnings ?? []).some(warning =>
+      /alcanza .* series con estímulo efectivo frente al rango|no hay ningún ejercicio disponible con estímulo suficiente/i.test(warning));
   }
 
   dayName(day: number): string {
