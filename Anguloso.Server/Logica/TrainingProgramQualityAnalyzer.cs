@@ -182,3 +182,6 @@ public sealed record TrainingManualVolumeExerciseInput(
 public sealed record TrainingManualVolumeAnalysisResult(
     TrainingProgramQualityReport QualityReport,
     IReadOnlyList<string> UnclassifiedExerciseNames);
+
+public sealed record TrainingManualVolumePreviewRequest(
+    IReadOnlyList<TrainingManualVolumeSessionInput> Sessions);
