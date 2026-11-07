@@ -3092,7 +3092,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   onWeeklyDraftChanged(plan: TrainingPlan, session: TrainingSession): void {
     const draft = this.weeklyDraft(session);
     for (const exercise of draft.exercises) {
-      const normalizeName = (value: string) => value.trim().replace(/\\s+/g, ' ').toLocaleLowerCase('es');
+      const normalizeName = (value: string) => value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
       const originalName = exercise.originalExerciseName ?? exercise.exerciseName;
       if (normalizeName(originalName) !== normalizeName(exercise.exerciseName)) {
         // A renamed exercise must never keep the previous exercise's stable ID or anatomy.
