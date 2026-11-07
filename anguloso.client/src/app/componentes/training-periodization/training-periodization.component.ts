@@ -1247,13 +1247,17 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   onEditedSessionPrescriptionChanged(plan: TrainingPlan, session: TrainingSession, value: string): void {
     if (!this.sessionEditDraft) return;
     this.sessionEditDraft.exercisePrescription = value;
+    this.sessionEditDraft.exercisePrescriptionData = null;
     this.refreshManualVolumePreview(plan, this.sessionEditDraft.date, value, session.id);
   }
 
   onEditedSessionDateChanged(plan: TrainingPlan, session: TrainingSession, date: string): void {
     if (!this.sessionEditDraft) return;
     this.sessionEditDraft.date = date;
-    this.refreshManualVolumePreview(plan, date, this.sessionEditDraft.exercisePrescription, session.id);
+    const structuredExercises = this.sessionEditDraft.exercisePrescriptionData
+      ? this.parseStructuredExerciseDrafts(this.sessionEditDraft.exercisePrescription, this.sessionEditDraft.exercisePrescriptionData)
+      : undefined;
+    this.refreshManualVolumePreview(plan, date, this.sessionEditDraft.exercisePrescription, session.id, undefined, structuredExercises);
   }
 
   private refreshManualVolumeForTarget(
@@ -1261,8 +1265,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     plan: TrainingPlan
   ): void {
     if (target === this.sessionEditDraft && this.sessionEditDraft && this.editingSessionId !== null) {
+      const structuredExercises = this.sessionEditDraft.exercisePrescriptionData
+        ? this.parseStructuredExerciseDrafts(this.sessionEditDraft.exercisePrescription, this.sessionEditDraft.exercisePrescriptionData)
+        : undefined;
       this.refreshManualVolumePreview(plan, this.sessionEditDraft.date,
-        this.sessionEditDraft.exercisePrescription, this.editingSessionId);
+        this.sessionEditDraft.exercisePrescription, this.editingSessionId, undefined, structuredExercises);
     } else {
       this.refreshManualVolumePreview(plan);
     }
@@ -3279,9 +3286,12 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.sessionEditDraft = { date: session.scheduledDate, title: session.title, type: session.sessionType,
       duration: session.durationMinutes ?? 60, intensity: session.intensityTarget ?? '', instructions: session.instructions ?? '',
       exercisePrescription: session.exercisePrescription ?? '', exercisePrescriptionData: session.exercisePrescriptionData ?? null };
+    const structuredExercises = session.exercisePrescriptionData
+      ? this.parseStructuredExerciseDrafts(session.exercisePrescription, session.exercisePrescriptionData)
+      : undefined;
     this.refreshManualVolumePreview(
       (this.plans || []).find(plan => plan.id === session.planId) ?? { id: session.planId } as TrainingPlan,
-      session.scheduledDate, session.exercisePrescription ?? '', session.id);
+      session.scheduledDate, session.exercisePrescription ?? '', session.id, undefined, structuredExercises);
   }
 
   saveSession(session: TrainingSession): void {
