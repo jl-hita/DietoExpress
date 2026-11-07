@@ -3016,7 +3016,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         const maxRepetitions = typeof item['maxRepetitions'] === 'number' ? item['maxRepetitions'] : minRepetitions;
         const repetitions = minRepetitions !== null && minRepetitions >= 1
           ? (maxRepetitions !== null && maxRepetitions > minRepetitions
-            ? \`${minRepetitions}-${maxRepetitions}\` : String(minRepetitions))
+            ? `${minRepetitions}-${maxRepetitions}` : String(minRepetitions))
           : '';
         const sets = typeof item['sets'] === 'number' && Number.isFinite(item['sets'])
           ? Math.max(0, Math.min(10, Math.round(item['sets']))) : 0;
