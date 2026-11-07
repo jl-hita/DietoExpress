@@ -700,15 +700,28 @@ interface RepDbExercise {
                         <label>Intensidad / zona<input name="editSessionIntensity{{session.id}}" [(ngModel)]="edit.intensity" maxlength="120" /></label>
                         <label class="session-editor-wide">Instrucciones<textarea name="editSessionInstructions{{session.id}}" [(ngModel)]="edit.instructions" rows="3" maxlength="4000"></textarea></label>
                         <label class="session-editor-wide">Prescripción de ejercicios<textarea name="editSessionExercises{{session.id}}" [ngModel]="edit.exercisePrescription" (ngModelChange)="onEditedSessionPrescriptionChanged(plan, session, $event)" rows="4" maxlength="6000" placeholder="Ejercicio · series × repeticiones · descanso · notas"></textarea></label>
-                        <div *ngIf="prescriptionLines(edit.exercisePrescription).length" class="prescription-line-editor session-editor-wide">
-                          <div *ngFor="let line of prescriptionLines(edit.exercisePrescription); let lineIndex = index" class="prescription-line-row">
+                        <div *ngIf="prescriptionLines(edit.exercisePrescription).length" class="prescription-line-editor session-editor-wide" style="display:grid;gap:7px;margin:8px 0">
+                          <div *ngFor="let line of prescriptionLines(edit.exercisePrescription); let lineIndex = index" class="prescription-line-row" style="display:grid;grid-template-columns:minmax(0,1fr) repeat(3,auto);gap:6px;align-items:center">
                             <input [name]="'editExerciseLine' + session.id + lineIndex" [ngModel]="line" (ngModelChange)="updatePrescriptionLine(edit, lineIndex, $event, plan)" aria-label="Prescripción del ejercicio" />
                             <button type="button" class="secondary" (click)="movePrescriptionLine(edit, lineIndex, -1, plan)" [disabled]="lineIndex === 0" aria-label="Subir ejercicio">↑</button>
                             <button type="button" class="secondary" (click)="movePrescriptionLine(edit, lineIndex, 1, plan)" [disabled]="lineIndex === prescriptionLines(edit.exercisePrescription).length - 1" aria-label="Bajar ejercicio">↓</button>
                             <button type="button" class="secondary" (click)="removePrescriptionLine(edit, lineIndex, plan)" aria-label="Quitar ejercicio">×</button>
                           </div>
                         </div>
-                        <div *ngIf="muscleSetSummary(edit.exercisePrescription).length" class="muscle-set-summary session-editor-wide"><strong>Resumen de series por grupo muscular · sesión</strong><span *ngFor="let item of muscleSetSummary(edit.exercisePrescription)">{{ item.muscle }}: {{ item.sets }} series</span><small>Estimación orientativa según las etiquetas musculares disponibles en la ficha del ejercicio.</small></div>
+                        <section class="manual-volume-dashboard session-editor-wide" style="padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+                          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><strong>Volumen muscular efectivo estimado · semana</strong><span *ngIf="manualVolumePreviewLoading[plan.id]" role="status">Calculando…</span></div>
+                          <p *ngIf="manualVolumePreviewErrors[plan.id]" class="muted" role="status">{{ manualVolumePreviewErrors[plan.id] }}</p>
+                          <div *ngIf="manualVolumePreviews[plan.id] as volume">
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:7px;margin-top:10px">
+                              <div *ngFor="let muscle of volume.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e7edf4;border-radius:9px">
+                                <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
+                              </div>
+                            </div>
+                            <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted" style="margin:10px 0 0">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}.</p>
+                            <small>El cálculo incluye el resto de sesiones de esta semana y esta edición, con el mismo motor que la generación automática.</small>
+                          </div>
+                          <p *ngIf="!manualVolumePreviews[plan.id] && !manualVolumePreviewLoading[plan.id] && !manualVolumePreviewErrors[plan.id]" class="muted">Añade ejercicios reconocidos para calcular el volumen de la semana.</p>
+                        </section>
                       </div>
                       <div class="editor-footer"><span>Los registros de realización se conservan al editar.</span><div><button type="button" class="secondary" (click)="editingSessionId = null; sessionEditDraft = null">Cancelar</button> <button type="submit" [disabled]="saving">Guardar cambios</button></div></div>
                     </form>
