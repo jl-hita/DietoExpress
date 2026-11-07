@@ -174,6 +174,36 @@ test.describe('MVP de periodización deportiva', () => {
     await page.getByRole('button', { name: /Añadir sesión/ }).click();
     await expect(page.locator('.week-session').filter({ hasText: sessionTitle })).toBeVisible();
     await expect(page.locator('.week-summary')).toContainText('60 min');
+
+    const volumePreviewResponse = await api.post(apiUrl('/api/training/volume-preview'), {
+      data: { sessions: [{ weekNumber: 1, day: 1, title: 'Sesión E2E volumen', exercises: [{ exerciseId: null, exerciseName: 'Sentadilla', sets: 3 }] }] }
+    });
+    expect(volumePreviewResponse.ok(), 'Debe calcular el volumen y devolver comparación por sesión').toBeTruthy();
+    const manualVolume = await volumePreviewResponse.json();
+    expect(manualVolume.sessionReports).toHaveLength(1);
+    expect(manualVolume.sessionReports[0].title).toBe('Sesión E2E volumen');
+
+    const splitSaveResponse = await api.post(apiUrl(`/api/training/plans/${plan.id}/reorganize-split`), {
+      data: { splitType: 2, trainingDays: [1, 4], moves: [] }
+    });
+    expect(splitSaveResponse.ok(), 'Debe guardar la preferencia Torso/Pierna aunque aún no haya sesiones futuras para mover').toBeTruthy();
+    const splitReadResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/split`));
+    expect(splitReadResponse.ok()).toBeTruthy();
+    expect(await splitReadResponse.json()).toMatchObject({ splitType: 2, trainingDays: [1, 4] });
+
+    for (let week = 0; week < 5; week++) await page.getByRole('button', { name: 'Semana siguiente' }).click();
+    await page.getByRole('button', { name: 'Editor semanal' }).click();
+    const weeklySets = page.locator('input[name^="weeklyExerciseSets"]').first();
+    await expect(weeklySets).toBeVisible();
+    await weeklySets.fill('4');
+    await page.getByRole('button', { name: 'Guardar esta sesión' }).click();
+    const savedWeeklySessions = await api.get(apiUrl(`/api/training/plans/${plan.id}/sessions`));
+    expect(savedWeeklySessions.ok()).toBeTruthy();
+    const updatedWeeklySession = (await savedWeeklySessions.json()).find(item => item.title === sessionTitle);
+    expect(updatedWeeklySession.exercisePrescription).toContain('4 × 8');
+
+    await page.getByRole('button', { name: 'Reorganizar split' }).click();
+    await expect(page.getByRole('heading', { name: 'Reorganizar distribución semanal' })).toBeVisible();
     const csvDownload = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Exportar CSV' }).click();
     expect((await csvDownload).suggestedFilename()).toMatch(/dietoexpress-entrenamiento-.*\.csv/);
