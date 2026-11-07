@@ -957,6 +957,60 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void FullBodyAccessorySlotsPrioritizeMissingLatsAndAvoidDuplicatePrimaryMuscleAccessories()
+    {
+        var catalog = Catalog()
+            .Where(candidate => candidate.MovementPattern != TrainingMovementPattern.Accessory)
+            .Concat(new[]
+            {
+                new TrainingExerciseCandidate("straight-arm-pulldown", "catalog-2026-10", "Jalón con brazos rectos",
+                    TrainingMovementPattern.Accessory, ["cable"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 58, true, [TrainingMuscleGroup.Lats], []),
+                new TrainingExerciseCandidate("cable-fly", "catalog-2026-10", "Aperturas en polea",
+                    TrainingMovementPattern.Accessory, ["cable"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Deltoids]),
+                new TrainingExerciseCandidate("cable-lateral-raise", "catalog-2026-10", "Elevación lateral en polea",
+                    TrainingMovementPattern.Accessory, ["cable"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.UpperBack]),
+                new TrainingExerciseCandidate("lateral-raise", "catalog-2026-10", "Elevación lateral",
+                    TrainingMovementPattern.Accessory, ["dumbbell"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Deltoids], []),
+                new TrainingExerciseCandidate("machine-calf-raise", "catalog-2026-10", "Gemelo en máquina",
+                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Calves], []),
+                new TrainingExerciseCandidate("leg-extension", "catalog-2026-10", "Extensión de cuádriceps",
+                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Quadriceps], []),
+                new TrainingExerciseCandidate("shrug", "catalog-2026-10", "Encogimientos",
+                    TrainingMovementPattern.Accessory, ["dumbbell"], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.UpperBack], [])
+            })
+            .ToArray();
+        var request = new TrainingProgramGenerationRequest(
+            TrainingGoal.Strength, TrainingExperience.Advanced, new DateOnly(2026, 10, 26), 4,
+            [DayOfWeek.Monday, DayOfWeek.Thursday], 90, [], []);
+
+        var result = TrainingProgramGenerator.Generate(request, catalog);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.Contains(result.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "straight-arm-pulldown");
+
+        var accessoryIds = catalog
+            .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory)
+            .ToDictionary(candidate => candidate.ExerciseId, candidate => candidate);
+        foreach (var session in result.Sessions)
+        {
+            var accessoryPrimaryMuscles = session.Exercises
+                .Where(exercise => accessoryIds.ContainsKey(exercise.ExerciseId))
+                .SelectMany(exercise => accessoryIds[exercise.ExerciseId].PrimaryMuscleGroups)
+                .ToArray();
+            Assert.All(accessoryPrimaryMuscles.GroupBy(muscle => muscle),
+                group => Assert.Single(group));
+        }
+    }
+
+    [Fact]
     public void ManualVolumeReportsExercisesWithoutReviewedCatalogMetadataInsteadOfGuessing()
     {
         var result = TrainingProgramQualityAnalyzer.AnalyzeManual(
