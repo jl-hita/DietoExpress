@@ -39,7 +39,7 @@ interface ManualVolumePreview {
   qualityReport: NonNullable<GeneratedProgram['qualityReport']>;
   unclassifiedExerciseNames: string[];
   sessionReports: Array<{
-    day: number; title: string;
+    weekNumber: number; day: number; title: string;
     qualityReport: NonNullable<GeneratedProgram['qualityReport']>;
     unclassifiedExerciseNames: string[];
   }>;
@@ -1280,13 +1280,13 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       const draft = this.sessionDrafts[planId];
       const targetDate = (overrideDate || draft?.date || this.defaultSessionDate(plan)).slice(0, 10);
       const targetWeek = this.weekStartDate(targetDate);
-      const requestSessions: Array<{ day: number; title: string; exercises: Array<{ exerciseId: string | null; exerciseName: string; sets: number }> }> = [];
+      const requestSessions: Array<{ weekNumber: number; day: number; title: string; exercises: Array<{ exerciseId: string | null; exerciseName: string; sets: number }> }> = [];
       const addSession = (dateValue: string, title: string, prescription: string | null | undefined): void => {
         const date = dateValue.slice(0, 10);
         if (!date || this.weekStartDate(date) !== targetWeek) return;
         const exercises = this.parseManualVolumeExercises(prescription);
         if (!exercises.length) return;
-        requestSessions.push({ day: new Date(date + 'T00:00:00Z').getUTCDay(), title, exercises });
+        requestSessions.push({ weekNumber: 1, day: new Date(date + 'T00:00:00Z').getUTCDay(), title, exercises });
       };
 
       for (const session of this.sessions[planId] || []) {
