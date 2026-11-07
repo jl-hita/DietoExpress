@@ -37,6 +37,11 @@ interface GenerationRequest {
 interface ManualVolumePreview {
   qualityReport: NonNullable<GeneratedProgram['qualityReport']>;
   unclassifiedExerciseNames: string[];
+  sessionReports: Array<{
+    day: number; title: string;
+    qualityReport: NonNullable<GeneratedProgram['qualityReport']>;
+    unclassifiedExerciseNames: string[];
+  }>;
 }
 interface MuscleVolumePreferenceDraft {
   muscleGroup: string; label: string; enabled: boolean; priority: number; targetWeeklyPrimarySets: number | null;
@@ -671,6 +676,18 @@ interface RepDbExercise {
                           <small style="grid-column:1 / -1;color:#64748b">Primarias {{ muscle.primarySets }} · secundarias {{ muscle.secondarySets }} · frecuencia P {{ muscle.primaryFrequencySessions }} / S {{ muscle.secondaryFrequencySessions }}</small>
                         </div>
                       </div>
+                      <section *ngIf="volume.sessionReports?.length" style="margin-top:14px">
+                        <strong>Comparación por sesión</strong>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px;margin-top:8px">
+                          <article *ngFor="let comparison of volume.sessionReports" style="padding:10px;border:1px solid #e7edf4;border-radius:10px">
+                            <strong>{{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                            <div *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0">
+                              <span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b>
+                            </div>
+                            <small *ngIf="comparison.unclassifiedExerciseNames.length" class="muted">Sin clasificar: {{ comparison.unclassifiedExerciseNames.join(', ') }}</small>
+                          </article>
+                        </div>
+                      </section>
                       <ul *ngIf="volume.qualityReport.warnings.length" style="margin:8px 0;padding-left:18px"><li *ngFor="let warning of volume.qualityReport.warnings">{{ warning }}</li></ul>
                       <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted" style="margin:10px 0 0">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}. No se inventa su contribución.</p>
                       <small>Se usa el mismo motor de estímulo auditado que en la generación automática. Incluye las sesiones programadas de esta semana y el borrador actual.</small>
@@ -719,6 +736,18 @@ interface RepDbExercise {
                                 <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
                               </div>
                             </div>
+                            <section *ngIf="volume.sessionReports?.length" style="margin-top:14px">
+                              <strong>Comparación por sesión</strong>
+                              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px;margin-top:8px">
+                                <article *ngFor="let comparison of volume.sessionReports" style="padding:10px;border:1px solid #e7edf4;border-radius:10px">
+                                  <strong>{{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                                  <div *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0">
+                                    <span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b>
+                                  </div>
+                                  <small *ngIf="comparison.unclassifiedExerciseNames.length" class="muted">Sin clasificar: {{ comparison.unclassifiedExerciseNames.join(', ') }}</small>
+                                </article>
+                              </div>
+                            </section>
                             <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted" style="margin:10px 0 0">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}.</p>
                             <small>El cálculo incluye el resto de sesiones de esta semana y esta edición, con el mismo motor que la generación automática.</small>
                           </div>
@@ -1147,16 +1176,13 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       const draft = this.sessionDrafts[planId];
       const targetDate = (overrideDate || draft?.date || this.defaultSessionDate(plan)).slice(0, 10);
       const targetWeek = this.weekStartDate(targetDate);
-      const daySessions = new Map<number, { title: string; exercises: Array<{ exerciseId: string | null; exerciseName: string; sets: number }> }>();
+      const requestSessions: Array<{ day: number; title: string; exercises: Array<{ exerciseId: string | null; exerciseName: string; sets: number }> }> = [];
       const addSession = (dateValue: string, title: string, prescription: string | null | undefined): void => {
         const date = dateValue.slice(0, 10);
         if (!date || this.weekStartDate(date) !== targetWeek) return;
         const exercises = this.parseManualVolumeExercises(prescription);
         if (!exercises.length) return;
-        const day = new Date(date + 'T00:00:00Z').getUTCDay();
-        const existing = daySessions.get(day) || { title, exercises: [] };
-        existing.exercises.push(...exercises);
-        daySessions.set(day, existing);
+        requestSessions.push({ day: new Date(date + 'T00:00:00Z').getUTCDay(), title, exercises });
       };
 
       for (const session of this.sessions[planId] || []) {
@@ -1165,10 +1191,6 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       }
       const currentPrescription = overridePrescription ?? draft?.exercisePrescription ?? '';
       addSession(overrideDate || draft?.date || targetDate, draft?.title || 'Sesión en edición', currentPrescription);
-
-      const requestSessions = [...daySessions.entries()].map(([day, value]) => ({
-        day, title: value.title, exercises: value.exercises
-      }));
       if (!requestSessions.length) {
         this.manualVolumePreviewSubscriptions[planId]?.unsubscribe();
         this.manualVolumePreviews[planId] = null;
