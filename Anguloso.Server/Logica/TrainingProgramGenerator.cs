@@ -438,7 +438,8 @@ public static class TrainingProgramGenerator
                 .SelectMany(exercise => catalogCandidates
                     .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory &&
                         string.Equals(candidate.ExerciseId, exercise.ExerciseId, StringComparison.OrdinalIgnoreCase))
-                    .SelectMany(candidate => candidate.PrimaryMuscleGroups))
+                    .SelectMany(candidate => candidate.PrimaryMuscleGroups.Where(muscle =>
+                    targets.ContainsKey(muscle) && (allowedMuscles is null || allowedMuscles.Contains(muscle))))
                 .ToHashSet();
 
             // Squat-pattern compounds commonly train both glutes and quadriceps. The volume
@@ -476,6 +477,9 @@ public static class TrainingProgramGenerator
                     && (int)candidate.MinimumExperience <= (int)request.Experience
                     && (equipment.Count == 0 || HasRequiredEquipment(candidate.RequiredEquipment, equipment))
                     && !excluded.Contains(candidate.ExerciseId)
+                    && (allowedMuscles is null || TrainingExerciseStimulus.GetEffectiveMuscles(
+                        candidate.ExerciseId, candidate.PrimaryMuscleGroups, candidate.SecondaryMuscleGroups)
+                        .Any(allowedMuscles.Contains))
                     // By default, one direct hamstring accessory is enough because this group has
                     // lower allocation priority. An explicit professional target/priority can repeat it.
                     && !(hasDirectHamstringAccessory && !hamstringsExplicitlyPrioritized &&
@@ -487,7 +491,9 @@ public static class TrainingProgramGenerator
                     // Avoid spending multiple accessory slots on the same primary muscle in one
                     // session while another direct target group still has no accessory exposure.
                     && candidate.PrimaryMuscleGroups.Any(muscle =>
-                        targets.ContainsKey(muscle) && !selectedAccessoryPrimaryMuscles.Contains(muscle)))
+                        targets.ContainsKey(muscle) &&
+                        (allowedMuscles is null || allowedMuscles.Contains(muscle)) &&
+                        !selectedAccessoryPrimaryMuscles.Contains(muscle)))
                 .Select(candidate => new
                 {
                     Candidate = candidate,
