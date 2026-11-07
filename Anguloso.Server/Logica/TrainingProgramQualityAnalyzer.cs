@@ -16,6 +16,16 @@ public static class TrainingProgramQualityAnalyzer
         ArgumentNullException.ThrowIfNull(sessions);
         if (sessions.Count > 7)
             throw new ArgumentOutOfRangeException(nameof(sessions), "Una vista semanal admite como máximo siete días.");
+        if (sessions.Any(session => session is null || !Enum.IsDefined(session.Day)))
+            throw new ArgumentException("Todas las sesiones deben indicar un día válido.", nameof(sessions));
+        if (sessions.Any(session => !string.IsNullOrWhiteSpace(session.Title) && session.Title!.Length > 160))
+            throw new ArgumentException("El título de cada sesión admite hasta 160 caracteres.", nameof(sessions));
+        if (sessions.Any(session => session.Exercises is null || session.Exercises.Count > 20))
+            throw new ArgumentException("Cada sesión admite hasta 20 ejercicios.", nameof(sessions));
+        if (sessions.SelectMany(session => session.Exercises).Any(input =>
+            input is null || input.Sets is < 1 or > 10 ||
+            (input.ExerciseId?.Length ?? 0) > 100 || (input.ExerciseName?.Length ?? 0) > 160))
+            throw new ArgumentException("Cada ejercicio debe tener entre 1 y 10 series, un ID de hasta 100 caracteres y un nombre de hasta 160.", nameof(sessions));
 
         var byId = catalog.ToDictionary(candidate => candidate.ExerciseId, StringComparer.OrdinalIgnoreCase);
         var byName = catalog
