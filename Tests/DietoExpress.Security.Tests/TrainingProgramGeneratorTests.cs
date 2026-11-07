@@ -923,6 +923,53 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Contains(deload.Prescription.QualityReport!.Warnings, warning => warning.Contains("descarga activa", StringComparison.OrdinalIgnoreCase));
     }
 
+
+    [Fact]
+    public void ManualVolumeUsesTheSameEffectiveStimulusAuditAsGeneratedPrograms()
+    {
+        var candidate = new TrainingExerciseCandidate(
+            "bench-press", "test", "Press banca", TrainingMovementPattern.HorizontalPush,
+            [], [TrainingGoal.Hypertrophy], TrainingExperience.Beginner, 50, true,
+            [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps]);
+        var manual = TrainingProgramQualityAnalyzer.AnalyzeManual(
+            [candidate],
+            [new TrainingManualVolumeSessionInput(
+                DayOfWeek.Monday, "Torso",
+                [new TrainingManualVolumeExerciseInput("bench-press", "Press banca", 3)])]);
+        var generated = TrainingProgramQualityAnalyzer.Analyze(
+            new TrainingProgramPrescription(
+                "test", "Hypertrophy", new DateOnly(2026, 11, 2), 1,
+                [new TrainingSessionPrescription(
+                    1, DayOfWeek.Monday, "Torso", 60,
+                    [new TrainingExercisePrescription(
+                        "bench-press", "test", "Press banca", 1, 3, 8, 12, 2m, 120,
+                        TrainingProgressionRule.DoubleProgression, "Test",
+                        [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps])])]));
+
+        var manualMuscles = manual.QualityReport.WeeklyMuscleVolumes.Single().Muscles;
+        var generatedMuscles = generated.WeeklyMuscleVolumes.Single().Muscles;
+        Assert.Equal(
+            generatedMuscles.Select(muscle => (muscle.MuscleGroup, muscle.EstimatedEffectiveSets)),
+            manualMuscles.Select(muscle => (muscle.MuscleGroup, muscle.EstimatedEffectiveSets)));
+        Assert.Equal(3, manualMuscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Chest).EstimatedEffectiveSets);
+        Assert.Equal(3, manualMuscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Triceps).EstimatedEffectiveSets);
+        Assert.Empty(manual.UnclassifiedExerciseNames);
+    }
+
+    [Fact]
+    public void ManualVolumeReportsExercisesWithoutReviewedCatalogMetadataInsteadOfGuessing()
+    {
+        var result = TrainingProgramQualityAnalyzer.AnalyzeManual(
+            Catalog(),
+            [new TrainingManualVolumeSessionInput(
+                DayOfWeek.Wednesday, "Sesión manual",
+                [new TrainingManualVolumeExerciseInput("not-reviewed", "Ejercicio sin revisar", 4)])]);
+
+        Assert.Contains("Ejercicio sin revisar", result.UnclassifiedExerciseNames);
+        Assert.All(result.QualityReport.WeeklyMuscleVolumes.Single().Muscles,
+            muscle => Assert.Equal(0, muscle.EstimatedEffectiveSets));
+    }
+
     private static string SessionSignature(TrainingSessionPrescription session) =>
         $"{session.WeekNumber}|{session.Day}|{session.Title}|" +
         string.Join(",", session.Exercises.Select(exercise =>
