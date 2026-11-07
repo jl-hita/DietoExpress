@@ -246,6 +246,8 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("manualVolumeExercisesFromStructuredDrafts", ui);
         Assert.Contains("session.exercisePrescriptionData", ui);
         Assert.Contains("overrideExercises", ui);
+        Assert.Contains("findUniqueCatalogExerciseByName", ui);
+        Assert.Contains("matches.length === 1 ? matches[0] : undefined", ui);
         Assert.Contains("Revisa y confirma expresamente los déficits de volumen antes de guardar el mesociclo.", ui);
         Assert.Contains("el profesional ha revisado y aceptado los déficits de volumen/cobertura", ui);
         Assert.Contains("const warnings: string[] = [...(generated.qualityReport?.warnings ?? [])]", ui);
