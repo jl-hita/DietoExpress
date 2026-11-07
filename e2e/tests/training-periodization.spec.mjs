@@ -235,6 +235,7 @@ test.describe('MVP de periodización deportiva', () => {
     expect(customExercise).toBeTruthy();
     expect(customExercise.exerciseId ?? null).toBeNull();
     expect(customExercise.notes).toBe('Recorrido controlado');
+    expect(customExercise.progressionRule).toBe('DoubleProgression');
 
     await page.getByRole('button', { name: 'Reorganizar split' }).click();
     await expect(page.getByRole('heading', { name: 'Reorganizar distribución semanal' })).toBeVisible();
