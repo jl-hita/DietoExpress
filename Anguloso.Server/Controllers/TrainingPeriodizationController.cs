@@ -417,7 +417,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
 
         try
         {
-            var candidates = await _exerciseCatalog.LoadGeneratorCandidatesAsync(userId.Value, cancellationToken);
+            var candidates = await _exerciseCatalog.LoadManualVolumeCandidatesAsync(userId.Value, cancellationToken);
             var result = TrainingProgramQualityAnalyzer.AnalyzeManual(candidates, request.Sessions);
             return Ok(result);
         }
