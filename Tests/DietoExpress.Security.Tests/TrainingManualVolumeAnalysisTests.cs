@@ -78,6 +78,31 @@ public sealed class TrainingManualVolumeAnalysisTests
     }
 
     [Fact]
+    public void ManualVolumeKeepsExercisesWithoutReviewedMuscleMetadataUnclassified()
+    {
+        var incompleteExercise = new TrainingExerciseCandidate(
+            "unknown-muscles", "catalog-v1", "Ejercicio sin músculos revisados",
+            TrainingMovementPattern.Accessory,
+            Array.Empty<string>(),
+            [TrainingGoal.Hypertrophy],
+            TrainingExperience.Beginner,
+            50,
+            false,
+            [],
+            []);
+
+        var result = TrainingProgramQualityAnalyzer.AnalyzeManual(
+            [incompleteExercise],
+            [
+                new TrainingManualVolumeSessionInput(DayOfWeek.Monday, "Sesión manual",
+                    [new TrainingManualVolumeExerciseInput("unknown-muscles", "Ejercicio sin músculos revisados", 3)])
+            ]);
+
+        Assert.Contains("Ejercicio sin músculos revisados", result.UnclassifiedExerciseNames);
+        Assert.Equal(0m, result.QualityReport.WeeklyMuscleVolumes[0].Muscles.Sum(muscle => muscle.EstimatedEffectiveSets));
+    }
+
+    [Fact]
     public void ManualVolumeReportKeepsSessionsSeparateEvenWhenTheyShareTheSameWeekday()
     {
         var benchPress = new TrainingExerciseCandidate(
