@@ -972,4 +972,58 @@ public sealed class TrainingProgramGeneratorTests
             TrainingMovementPattern.Accessory => ([TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.Triceps]),
             _ => throw new ArgumentOutOfRangeException(nameof(pattern))
         };
+
+    [Theory]
+    [InlineData(TrainingProgramSplit.FullBody, 2, "Cuerpo completo")]
+    [InlineData(TrainingProgramSplit.FullBody, 3, "Cuerpo completo")]
+    [InlineData(TrainingProgramSplit.UpperLower, 2, "Tren superior")]
+    [InlineData(TrainingProgramSplit.UpperLower, 4, "Tren superior")]
+    [InlineData(TrainingProgramSplit.PushPullLegs, 3, "Empuje")]
+    [InlineData(TrainingProgramSplit.PushPullLegs, 6, "Empuje")]
+    public void GeneratorHonorsSelectedWeeklySplit(TrainingProgramSplit split, int dayCount, string expectedTitlePrefix)
+    {
+        var days = new[]
+        {
+            DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
+            DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday
+        }.Take(dayCount).ToArray();
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with { TrainingDays = days, Split = split, DurationWeeks = 1, MaximumSessionDurationMinutes = 90 },
+            Catalog());
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        var sessions = generated.Prescription!.Sessions.Where(session => session.WeekNumber == 1).ToArray();
+        Assert.Equal(dayCount, sessions.Length);
+        Assert.StartsWith(expectedTitlePrefix, sessions[0].Title, StringComparison.Ordinal);
+        if (split == TrainingProgramSplit.PushPullLegs)
+        {
+            Assert.Contains(sessions, session => session.Title.StartsWith("Tracción", StringComparison.Ordinal));
+            Assert.Contains(sessions, session => session.Title.StartsWith("Pierna", StringComparison.Ordinal));
+        }
+        if (split == TrainingProgramSplit.UpperLower)
+        {
+            Assert.Equal(dayCount / 2, sessions.Count(session => session.Title.StartsWith("Tren superior", StringComparison.Ordinal)));
+            Assert.Equal(dayCount / 2, sessions.Count(session => session.Title.StartsWith("Tren inferior", StringComparison.Ordinal)));
+        }
+    }
+
+    [Theory]
+    [InlineData(TrainingProgramSplit.FullBody, 4)]
+    [InlineData(TrainingProgramSplit.UpperLower, 3)]
+    [InlineData(TrainingProgramSplit.PushPullLegs, 4)]
+    [InlineData(TrainingProgramSplit.Automatic, 5)]
+    public void GeneratorRejectsUnsupportedSplitAndDayCombinations(TrainingProgramSplit split, int dayCount)
+    {
+        var days = new[]
+        {
+            DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
+            DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday
+        }.Take(dayCount).ToArray();
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with { TrainingDays = days, Split = split },
+            Catalog());
+
+        Assert.False(generated.Succeeded);
+        Assert.Contains(generated.Errors, error => error.Contains("distribución", StringComparison.OrdinalIgnoreCase));
+    }
 }
