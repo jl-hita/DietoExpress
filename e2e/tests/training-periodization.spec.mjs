@@ -98,6 +98,13 @@ test.describe('MVP de periodización deportiva', () => {
         intensityTarget: 'Moderada', instructions: 'Sesión reutilizable', exercisePrescription: 'Sentadilla · 3 × 8' }
     });
     expect(sessionResponse.ok(), 'Debe crearse una sesión que pueda guardarse en una plantilla').toBeTruthy();
+    const firstSession = await sessionResponse.json();
+    expect(Number(firstSession.id)).toBeGreaterThan(0);
+    const comparisonSessionResponse = await api.post(apiUrl(`/api/training/plans/${plan.id}/sessions`), {
+      data: { scheduledDate: shiftDate(start, 2), title: 'Sesión comparativa E2E', sessionType: 'strength', durationMinutes: 50,
+        intensityTarget: 'RPE 7', instructions: 'Segunda sesión de la semana', exercisePrescription: 'Press de banca · 3 × 8' }
+    });
+    expect(comparisonSessionResponse.ok(), 'Debe crearse una segunda sesión para comparar el volumen semanal').toBeTruthy();
 
     const saveSessionTemplateResponse = await api.post(apiUrl('/api/training/session-templates'), {
       data: { name: 'Plantilla sesión gimnasio E2E', sessionType: 'strength', durationMinutes: 45,
@@ -157,6 +164,18 @@ test.describe('MVP de periodización deportiva', () => {
     await page.getByRole('button', { name: /Rutinas/ }).click();
     await expect(page.locator('.week-grid')).toBeVisible();
     await expect(page.locator('.week-summary')).toContainText('sesiones esta semana');
+    await page.getByRole('button', { name: 'Editor semanal' }).click();
+    const weeklyEditor = page.locator('.weekly-structured-editor');
+    await expect(weeklyEditor).toBeVisible();
+    await expect(weeklyEditor.locator('input[name^="weeklyDate"]')).toHaveCount(2);
+    await weeklyEditor.locator('input[name^="weeklyExerciseSets"]').first().fill('4');
+    const weeklyVolumeDashboard = weeklyEditor.locator('.manual-volume-dashboard');
+    await expect(weeklyVolumeDashboard).toContainText('Volumen efectivo de la semana editada', { timeout: 20_000 });
+    await expect(weeklyVolumeDashboard).toContainText('Comparación por sesión');
+    await expect(weeklyVolumeDashboard.locator('section').last().locator('article')).toHaveCount(2);
+    await weeklyEditor.getByRole('button', { name: 'Guardar esta sesión' }).first().click();
+    await expect(page.getByRole('status').filter({ hasText: 'Sesión actualizada' })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'Cerrar editor semanal' }).click();
     await expect(page.getByRole('heading', { name: 'Construye la sesión' })).toBeVisible();
     const savedTemplateSelect = page.locator(`select[name="savedSessionTemplate${plan.id}"]`);
     await expect(savedTemplateSelect.locator('option')).toContainText('Plantilla sesión gimnasio E2E');
