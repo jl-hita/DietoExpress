@@ -131,7 +131,7 @@ public static class TrainingExerciseProgressionEngine
     {
         if (exposures.Count < 3) return false;
         var recent = exposures.TakeLast(3).ToArray();
-        if (recent.Any(x => !x.SessionCompleted || x.RecoveryInsufficient || x.PainReported))
+        if (recent.Any(x => !x.SessionCompleted || !x.ProgressionEligible || x.RecoveryInsufficient || x.PainReported))
             return false;
 
         var analyses = recent.Select(x => AnalyzeExposure(prescription, x)).ToArray();
