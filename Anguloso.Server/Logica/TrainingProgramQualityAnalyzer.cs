@@ -71,9 +71,10 @@ public static class TrainingProgramQualityAnalyzer
                 var sessionPrescription = new TrainingSessionPrescription(
                     inputSession.WeekNumber, inputSession.Day, title, 60, exercises);
                 prescriptions.Add(sessionPrescription);
+                var isolatedSession = sessionPrescription with { WeekNumber = 1 };
                 var sessionPlan = new TrainingProgramPrescription(
-                    "manual-volume-preview-v1", "Manual", new DateOnly(2026, 1, 5), inputSession.WeekNumber,
-                    [sessionPrescription]);
+                    "manual-volume-preview-v1", "Manual", new DateOnly(2026, 1, 5), 1,
+                    [isolatedSession]);
                 sessionReports.Add(new TrainingManualVolumeSessionResult(
                     inputSession.WeekNumber, inputSession.Day, title, Analyze(sessionPlan), unclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray()));
             }
@@ -83,7 +84,7 @@ public static class TrainingProgramQualityAnalyzer
                     inputSession.WeekNumber, inputSession.Day, title,
                     new TrainingProgramQualityReport(
                         "No hay ejercicios con metadatos revisados suficientes para calcular el volumen de esta sesión.",
-                        [new TrainingWeeklyMuscleVolume(1, Enum.GetValues<TrainingMuscleGroup>()
+                        [new TrainingWeeklyMuscleVolume(inputSession.WeekNumber, Enum.GetValues<TrainingMuscleGroup>()
                             .Select(muscle => new TrainingMuscleVolume(muscle, 0, 0, 0, 0, 0)).ToArray())],
                         []),
                     unclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray()));
