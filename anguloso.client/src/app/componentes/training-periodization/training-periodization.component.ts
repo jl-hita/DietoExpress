@@ -622,7 +622,7 @@ interface RepDbExercise {
                   <label>Experiencia<select [name]="'reorgExperience' + plan.id" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
                   <label>Duración máxima (min)<input type="number" [name]="'reorgMinutes' + plan.id" [(ngModel)]="autoMaximumMinutes" min="35" max="180" /></label>
                 </div>
-                <p class="muted">«Preparar propuesta conservando sesiones» solo cambia los días y exige el mismo número de sesiones por semana. «Generar propuesta con este split» permite cambiar también la frecuencia: crea nuevas sesiones, conserva ajustes manuales de ejercicios que coinciden y mantiene los ejercicios personalizados no coincidentes para que puedas revisarlos. Las semanas de descarga deben reorganizarse por separado.</p>
+                <p class="muted">«Preparar propuesta conservando sesiones» solo recoloca los días del mismo split y exige la misma frecuencia semanal. «Generar propuesta con este split» permite cambiar también la frecuencia: crea nuevas sesiones, conserva ajustes manuales de ejercicios que coinciden y mantiene los ejercicios personalizados no coincidentes para que puedas revisarlos. Las semanas de descarga deben reorganizarse por separado.</p>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" (click)="prepareSplitReorganization(plan)" [disabled]="saving">Preparar propuesta conservando sesiones</button><button type="button" class="secondary" (click)="generateSplitReplacementPreview(plan)" [disabled]="saving || splitReplacementLoading[plan.id]">{{ splitReplacementLoading[plan.id] ? 'Generando propuesta…' : 'Generar propuesta con este split' }}</button><button type="button" class="secondary" (click)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''; splitReplacementPreviews[plan.id] = null">Limpiar propuesta</button></div>
                 <p *ngIf="splitReorganizationDrafts[plan.id].error" class="error" role="alert">{{ splitReorganizationDrafts[plan.id].error }}</p>
                 <div *ngIf="splitReorganizationDrafts[plan.id].moves as moves" style="margin-top:12px">
@@ -2578,6 +2578,14 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const futureSessions = allSessions.filter(session =>
       !session.completedAt && session.status !== 'completed' && session.scheduledDate.slice(0, 10) >= nextMonday
     );
+    if (futureSessions.length) {
+      const current = this.splitPreferences[plan.id] || { splitType: 0, trainingDays: [1, 3, 5] };
+      if (draft.splitType !== current.splitType || days.length !== current.trainingDays.length) {
+        draft.error = 'Esta acción solo recoloca los días y conserva el split y su frecuencia actuales. Para cambiar el tipo de split o el número de días, utiliza «Generar propuesta con este split».';
+        draft.moves = null;
+        return;
+      }
+    }
     const byWeek = new Map<string, TrainingSession[]>();
     for (const session of futureSessions) {
       const week = this.weekStartDate(session.scheduledDate);
