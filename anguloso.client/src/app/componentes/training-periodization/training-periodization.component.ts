@@ -698,6 +698,7 @@ interface RepDbExercise {
                         <label>RIR<input type="number" [name]="'weeklyExerciseRir' + session.id + exerciseIndex" [(ngModel)]="exercise.rir" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="10" step="0.5" /></label>
                         <label>Descanso (s)<input type="number" [name]="'weeklyExerciseRest' + session.id + exerciseIndex" [(ngModel)]="exercise.restSeconds" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="3600" /></label>
                         <div style="display:flex;gap:3px"><button type="button" class="secondary" (click)="moveWeeklyExercise(plan, session, exerciseIndex, -1)" [disabled]="exerciseIndex === 0" aria-label="Subir ejercicio">↑</button><button type="button" class="secondary" (click)="moveWeeklyExercise(plan, session, exerciseIndex, 1)" [disabled]="exerciseIndex === weekly.exercises.length - 1" aria-label="Bajar ejercicio">↓</button><button type="button" class="secondary" (click)="removeWeeklyExercise(plan, session, exerciseIndex)" aria-label="Eliminar ejercicio">×</button></div>
+                        <label style="grid-column:1/-1">Notas del ejercicio<input [name]="'weeklyExerciseNotes' + session.id + exerciseIndex" [(ngModel)]="exercise.notes" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="500" placeholder="Notas complementarias (opcional)" /></label>
                       </div>
                       <button type="button" class="secondary" style="margin-top:10px" (click)="addWeeklyExercise(plan, session)">＋ Añadir ejercicio</button>
                     </div>
@@ -3032,7 +3033,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
           rir: typeof targetRir === 'number' && Number.isFinite(targetRir)
             ? Math.max(0, Math.min(10, targetRir)) : null,
           restSeconds,
-          notes: '',
+          notes: typeof item['notes'] === 'string' ? item['notes'] : '',
           exerciseId: typeof item['exerciseId'] === 'string' ? item['exerciseId'] : undefined,
           catalogVersion: typeof item['catalogVersion'] === 'string' ? item['catalogVersion'] : undefined,
           progressionRule: typeof item['progressionRule'] === 'string' || typeof item['progressionRule'] === 'number'
@@ -3104,7 +3105,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
           secondaryMuscleGroups: item.secondaryMuscleGroups,
           smallestLoadIncrementKg: item.smallestLoadIncrementKg,
           maximumLoadIncreasePercent: item.maximumLoadIncreasePercent,
-          selectionRationale: item.selectionRationale
+          selectionRationale: item.selectionRationale,
+          notes: item.notes.trim() || undefined
         };
       })
     };
@@ -3116,7 +3118,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       return item.exerciseName.trim() + ' · ' + Math.max(1, Math.min(10, Math.round(Number(item.sets) || 1))) +
         ' × ' + item.repetitions.trim() + ' · descanso ' +
         Math.max(0, Math.min(3600, Math.round(Number(item.restSeconds) || 0))) + ' s' +
-        (item.rir === null || !Number.isFinite(item.rir) ? '' : ' · RIR ' + Math.max(0, Math.min(10, item.rir)));
+        (item.rir === null || !Number.isFinite(item.rir) ? '' : ' · RIR ' + Math.max(0, Math.min(10, item.rir))) +
+        (item.notes.trim() ? ' · Nota: ' + item.notes.trim() : '');
     }).join('\n');
   }
 
