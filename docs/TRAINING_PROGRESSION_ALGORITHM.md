@@ -17,6 +17,7 @@ Referencia principal:
 ## Reglas implementadas
 
 1. **Identidad:** solo se combina el historial del mismo `plan_id` y `exercise_id`. No se mezclan ejercicios con nombres parecidos, otros planes ni versiones de prescripción ajenas.
+1a. **Prescripción histórica:** cada exposición conserva sus series planificadas, rango de repeticiones y RIR objetivo originales. Si cualquiera de esos valores cambia respecto a la prescripción actual, la exposición antigua no cuenta para confirmar el máximo ni para detectar estancamiento; se espera a registrar evidencia con la prescripción nueva. Las exposiciones de descarga o con una regla no progresable tampoco cuentan para la detección de estancamiento.
 2. **Series válidas:** solo cuentan series `working` completadas. Las series de calentamiento no cuentan. Cada serie efectiva debe tener carga positiva, repeticiones y estado de finalización válidos.
 3. **Rango:** si las series quedan dentro del rango pero aún no alcanzan el máximo, se mantiene la carga y se propone como máximo una repetición adicional por serie, sin superar el límite prescrito.
 4. **RIR:** si existe un RIR objetivo, todas las series efectivas deben tener RIR registrado y no quedar por debajo de ese objetivo. RIR desconocido no equivale a RIR suficiente.
