@@ -993,13 +993,14 @@ public sealed class TrainingProgramGeneratorTests
         var result = TrainingProgramGenerator.Generate(request, catalog);
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
-        Assert.Contains(result.Sessions.SelectMany(session => session.Exercises),
+        var generatedSessions = result.Prescription!.Sessions;
+        Assert.Contains(generatedSessions.SelectMany(session => session.Exercises),
             exercise => exercise.ExerciseId == "straight-arm-pulldown");
 
         var accessoryIds = catalog
             .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory)
             .ToDictionary(candidate => candidate.ExerciseId, candidate => candidate);
-        foreach (var session in result.Sessions)
+        foreach (var session in generatedSessions)
         {
             var accessoryPrimaryMuscles = session.Exercises
                 .Where(exercise => accessoryIds.ContainsKey(exercise.ExerciseId))
