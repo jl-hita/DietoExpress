@@ -2290,7 +2290,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       if (level === 'beginner' && item.goal === 'strength') return item.name + ' · 2 × 8–10 · descanso 90 s';
       if (level === 'advanced' && item.goal === 'strength') return item.name + ' · 4 × 6–10 · descanso 90–150 s';
       return item.prescription;
-    }).join('\\n');
+    }).join('\n');
     draft.instructions = 'Borrador para nivel ' + (level === 'beginner' ? 'principiante' : level === 'intermediate' ? 'intermedio' : 'avanzado') +
       '. Incluye calentamiento progresivo y vuelta a la calma. Ajusta ejercicios, volumen y esfuerzo al historial, disponibilidad y tolerancia del cliente.';
     if (!draft.duration) draft.duration = this.generatorGoal === 'endurance' ? 30 : 45;
