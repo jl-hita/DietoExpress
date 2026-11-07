@@ -798,7 +798,7 @@ interface RepDbExercise {
                           <small style="grid-column:1 / -1;color:#64748b">Primarias {{ muscle.primarySets }} · secundarias {{ muscle.secondarySets }} · frecuencia P {{ muscle.primaryFrequencySessions }} / S {{ muscle.secondaryFrequencySessions }}</small>
                         </div>
                       </div>
-                      <section *ngIf="volume.sessionReports?.length" style="margin-top:14px">
+                      <section *ngIf="volume.sessionReports.length" style="margin-top:14px">
                         <strong>Comparación por sesión</strong>
                         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px;margin-top:8px">
                           <article *ngFor="let comparison of volume.sessionReports" style="padding:10px;border:1px solid #e7edf4;border-radius:10px">
@@ -858,7 +858,7 @@ interface RepDbExercise {
                                 <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
                               </div>
                             </div>
-                            <section *ngIf="volume.sessionReports?.length" style="margin-top:14px">
+                            <section *ngIf="volume.sessionReports.length" style="margin-top:14px">
                               <strong>Comparación por sesión</strong>
                               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px;margin-top:8px">
                                 <article *ngFor="let comparison of volume.sessionReports" style="padding:10px;border:1px solid #e7edf4;border-radius:10px">
