@@ -650,6 +650,14 @@ interface RepDbExercise {
                 <section *ngIf="splitReplacementPreviews[plan.id] as replacement" style="margin-top:14px;padding:14px;border:1px solid #cbd5e1;border-radius:12px;background:#fff">
                   <div class="section-heading"><div><h6>Propuesta regenerada · {{ replacement.sessions.length }} sesiones</h6><p>{{ replacement.replaceFromDate | date:'dd/MM/yyyy' }} — {{ replacement.replaceThroughDate | date:'dd/MM/yyyy' }} · {{ replacement.preservedManualEdits }} ajustes manuales coincidentes conservados</p></div></div>
                   <p *ngIf="replacement.retainedCustomExercises" class="muted">{{ replacement.retainedCustomExercises }} ejercicios manuales que no estaban en la nueva selección se han conservado en sus sesiones ordinales. Revisa su distribución antes de confirmar.</p>
+                  <div *ngIf="hasVolumeDoseDeficit(replacement.warnings)" role="status" style="margin:12px 0;padding:12px 14px;border:1px solid #d97706;border-radius:10px;background:#fffbeb;color:#78350f">
+                    <strong>Revisión profesional: déficit de volumen o cobertura</strong>
+                    <p style="margin:6px 0">La nueva distribución no alcanza todos los rangos orientativos. Puede ser una limitación aceptable por tiempo o material; revisa la propuesta y valida expresamente la dosis antes de sustituir sesiones futuras.</p>
+                    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px">
+                      <input type="checkbox" [checked]="splitVolumeDeficitAcknowledged[plan.id] === true" (change)="splitVolumeDeficitAcknowledged[plan.id] = $any($event.target).checked" />
+                      <span>He revisado los déficits y acepto expresamente esta dosis para el tiempo y material disponibles.</span>
+                    </label>
+                  </div>
                   <ul *ngIf="replacement.warnings.length"><li *ngFor="let warning of replacement.warnings">{{ warning }}</li></ul>
                   <div style="overflow-x:auto;margin-top:10px"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:7px">Fecha</th><th style="text-align:left;padding:7px">Sesión</th><th style="text-align:right;padding:7px">Minutos</th><th style="text-align:right;padding:7px">Ejercicios</th></tr></thead><tbody><tr *ngFor="let session of replacement.sessions"><td style="padding:7px">{{ session.scheduledDate | date:'dd/MM/yyyy' }}</td><td style="padding:7px">{{ session.title }}</td><td style="padding:7px;text-align:right">{{ session.durationMinutes }}</td><td style="padding:7px;text-align:right">{{ prescriptionExerciseCount(session.exercisePrescription) }}</td></tr></tbody></table></div>
                   <div *ngFor="let week of replacement.volumePreview.qualityReport.weeklyMuscleVolumes" style="margin-top:12px;padding:12px;border:1px solid #e7edf4;border-radius:10px">
@@ -665,7 +673,7 @@ interface RepDbExercise {
                     </div>
                   </div>
                   <p *ngIf="replacement.volumePreview.unclassifiedExerciseNames.length" class="muted">No clasificados: {{ replacement.volumePreview.unclassifiedExerciseNames.join(', ') }}</p>
-                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" (click)="applySplitReplacement(plan)" [disabled]="saving || splitReplacementLoading[plan.id]">Sustituir sesiones futuras con esta propuesta</button><button type="button" class="secondary" (click)="splitReplacementPreviews[plan.id] = null">Descartar</button></div>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" (click)="applySplitReplacement(plan)" [disabled]="saving || splitReplacementLoading[plan.id] || (hasVolumeDoseDeficit(replacement.warnings) && !splitVolumeDeficitAcknowledged[plan.id])">Sustituir sesiones futuras con esta propuesta</button><button type="button" class="secondary" (click)="splitReplacementPreviews[plan.id] = null">Descartar</button></div>
                   <p class="muted">La sustitución solo afecta al periodo futuro mostrado. Las sesiones completadas y sus registros no se borran ni se modifican. Los ajustes manuales coincidentes se incorporan a la propuesta.</p>
                 </section>
               </section>
@@ -971,6 +979,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   autoTargetMesocycleIds: Record<number, number | null> = {};
   generatedPreviews: Record<number, GeneratedProgram | null> = {};
   volumeDeficitAcknowledged: Record<number, boolean> = {};
+  splitVolumeDeficitAcknowledged: Record<number, boolean> = {};
   generationRequests: Record<number, GenerationRequest | null> = {};
   generationErrors: Record<number, string> = {};
   generatingPlan = false;
@@ -2585,6 +2594,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   invalidateSplitReplacement(plan: TrainingPlan): void {
     this.splitReplacementPreviews[plan.id] = null;
     this.splitReplacementErrors[plan.id] = '';
+    this.splitVolumeDeficitAcknowledged[plan.id] = false;
   }
 
   toggleReorganizationDay(plan: TrainingPlan, day: number, checked: boolean): void {
@@ -2763,6 +2773,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.splitReplacementLoading[plan.id] = true;
     this.splitReplacementErrors[plan.id] = '';
     this.splitReplacementPreviews[plan.id] = null;
+    this.splitVolumeDeficitAcknowledged[plan.id] = false;
     this.http.post<GeneratedProgram>('/api/training/generate-preview', request).pipe(
       timeout({ first: 30000 }),
       catchError(error => {
@@ -2806,7 +2817,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const replacementSessions: SplitReplacementSession[] = [];
     let preservedManualEdits = 0;
     let retainedCustomExercises = 0;
-    const warnings: string[] = [];
+    const warnings: string[] = [...(generated.qualityReport?.warnings ?? [])];
 
     for (const [weekNumber, generatedWeek] of [...generatedByWeek.entries()].sort(([a], [b]) => a - b)) {
       generatedWeek.sort((a, b) => ((a.day + 6) % 7) - ((b.day + 6) % 7));
@@ -2934,6 +2945,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const draft = this.splitReorganizationDrafts[plan.id];
     const preview = this.splitReplacementPreviews[plan.id];
     if (!draft || !preview || !preview.sessions.length) return;
+    if (this.hasVolumeDoseDeficit(preview.warnings) && !this.splitVolumeDeficitAcknowledged[plan.id]) {
+      this.splitReplacementErrors[plan.id] = 'Revisa y confirma expresamente los déficits de volumen antes de sustituir las sesiones futuras.';
+      return;
+    }
     const replacedSessions = (this.sessions[plan.id] || []).filter(session =>
       session.scheduledDate.slice(0, 10) >= preview.replaceFromDate &&
       session.scheduledDate.slice(0, 10) <= preview.replaceThroughDate);
@@ -2959,6 +2974,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
           this.sessionEditDraft = null;
         }
         this.splitReplacementPreviews[plan.id] = null;
+        this.splitVolumeDeficitAcknowledged[plan.id] = false;
         this.notice = 'Nueva distribución aplicada: ' + result.sessionsCreated + ' sesiones. Se han conservado las sesiones completadas y los ajustes manuales coincidentes.';
         this.refreshSessions(plan.id);
         this.changeDetector.detectChanges();
