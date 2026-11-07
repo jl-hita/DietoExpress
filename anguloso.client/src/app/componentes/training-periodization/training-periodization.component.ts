@@ -617,7 +617,12 @@ interface RepDbExercise {
                   <label>Split<select [name]="'reorgSplit' + plan.id" [(ngModel)]="splitReorganizationDrafts[plan.id].splitType" (ngModelChange)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''"><option [ngValue]="0">Automático</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select></label>
                   <fieldset class="auto-day-picker"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'reorgDay' + plan.id + day.value" [checked]="splitReorganizationDrafts[plan.id].trainingDays.includes(day.value)" (change)="toggleReorganizationDay(plan, day.value, $any($event.target).checked)" /><span>{{ day.label }}</span></label></div></fieldset>
                 </div>
-                <p class="muted">Distribuciones válidas: cuerpo completo 2–3 días, torso/pierna 2 o 4, PPL 3 o 6. Para conservar íntegra cada sesión, el número de sesiones por semana debe coincidir con los días seleccionados. Si cambia la frecuencia, genera un nuevo bloque y revísalo antes de sustituir el actual.</p>
+                <div class="session-editor-grid" style="margin-top:10px">
+                  <label>Objetivo de la nueva propuesta<select [name]="'reorgGoal' + plan.id" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
+                  <label>Experiencia<select [name]="'reorgExperience' + plan.id" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+                  <label>Duración máxima (min)<input type="number" [name]="'reorgMinutes' + plan.id" [(ngModel)]="autoMaximumMinutes" min="35" max="180" /></label>
+                </div>
+                <p class="muted">«Preparar propuesta conservando sesiones» solo cambia los días y exige el mismo número de sesiones por semana. «Generar propuesta con este split» permite cambiar también la frecuencia: crea nuevas sesiones, conserva ajustes manuales de ejercicios que coinciden y mantiene los ejercicios personalizados no coincidentes para que puedas revisarlos. Las semanas de descarga deben reorganizarse por separado.</p>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" (click)="prepareSplitReorganization(plan)" [disabled]="saving">Preparar propuesta conservando sesiones</button><button type="button" class="secondary" (click)="generateSplitReplacementPreview(plan)" [disabled]="saving || splitReplacementLoading[plan.id]">{{ splitReplacementLoading[plan.id] ? 'Generando propuesta…' : 'Generar propuesta con este split' }}</button><button type="button" class="secondary" (click)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''; splitReplacementPreviews[plan.id] = null">Limpiar propuesta</button></div>
                 <p *ngIf="splitReorganizationDrafts[plan.id].error" class="error" role="alert">{{ splitReorganizationDrafts[plan.id].error }}</p>
                 <div *ngIf="splitReorganizationDrafts[plan.id].moves as moves" style="margin-top:12px">
@@ -2630,6 +2635,237 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       error: error => {
         this.splitReorganizationSaving[plan.id] = false;
         draft.error = error?.error?.message || 'No se pudo reorganizar la semana. No se ha aplicado ningún cambio.';
+        this.changeDetector.detectChanges();
+      }
+    });
+  }
+
+  generateSplitReplacementPreview(plan: TrainingPlan): void {
+    const draft = this.splitReorganizationDrafts[plan.id];
+    const days = [...draft.trainingDays].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+    if (!this.isSplitDayCountValidFor(draft.splitType, days.length)) {
+      this.splitReplacementErrors[plan.id] = 'Selecciona días compatibles con el split elegido.';
+      return;
+    }
+    if (!Number.isInteger(this.autoMaximumMinutes) || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
+      this.splitReplacementErrors[plan.id] = 'La duración máxima debe estar entre 35 y 180 minutos.';
+      return;
+    }
+    const nextMonday = this.addUtcDays(this.weekStartDate(this.localDateInputValue()), 7);
+    const futureSessions = (this.sessions[plan.id] || []).filter(session =>
+      session.scheduledDate.slice(0, 10) >= nextMonday && !session.completedAt && session.status !== 'completed');
+    if (!futureSessions.length) {
+      this.splitReplacementErrors[plan.id] = 'No hay sesiones futuras pendientes que permitan determinar el periodo que se va a reorganizar.';
+      return;
+    }
+    const lastDate = futureSessions.reduce((latest, session) =>
+      session.scheduledDate.slice(0, 10) > latest ? session.scheduledDate.slice(0, 10) : latest, nextMonday);
+    const lastWeek = this.weekStartDate(lastDate);
+    const durationWeeks = Math.floor((Date.parse(lastWeek + 'T00:00:00Z') - Date.parse(nextMonday + 'T00:00:00Z')) / 604800000) + 1;
+    if (durationWeeks < 1 || durationWeeks > 52) {
+      this.splitReplacementErrors[plan.id] = 'El periodo futuro debe tener entre una y 52 semanas.';
+      return;
+    }
+    const replaceThroughDate = this.addUtcDays(nextMonday, durationWeeks * 7 - 1);
+    if (plan.endDate && replaceThroughDate > plan.endDate.slice(0, 10)) {
+      this.splitReplacementErrors[plan.id] = 'El nuevo bloque acabaría después de la fecha final del plan. Amplía primero el periodo.';
+      return;
+    }
+    const completedInRange = (this.sessions[plan.id] || []).some(session =>
+      (session.completedAt || session.status === 'completed') &&
+      session.scheduledDate.slice(0, 10) >= nextMonday &&
+      session.scheduledDate.slice(0, 10) <= replaceThroughDate);
+    if (completedInRange) {
+      this.splitReplacementErrors[plan.id] = 'El periodo contiene una sesión completada. Acota el bloque para dejarla fuera; su historial no se sustituye.';
+      return;
+    }
+    const deloadOverlap = this.macrocyclePhases(plan).some(phase =>
+      phase.phaseType === 'deload' && phase.startDate.slice(0, 10) <= replaceThroughDate && phase.endDate.slice(0, 10) >= nextMonday);
+    if (deloadOverlap) {
+      this.splitReplacementErrors[plan.id] = 'El periodo incluye una fase de descarga. Reorganízala por separado para no convertirla accidentalmente en una semana de carga.';
+      return;
+    }
+
+    const request: GenerationRequest = {
+      goal: this.autoGoal, experience: this.autoExperience, startDate: nextMonday,
+      durationWeeks, trainingDays: days, split: draft.splitType,
+      maximumSessionDurationMinutes: this.autoMaximumMinutes,
+      availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
+      excludedExerciseIds: [], muscleVolumeTargets: this.buildMuscleVolumeTargets(), isDeload: false
+    };
+    this.splitReplacementLoading[plan.id] = true;
+    this.splitReplacementErrors[plan.id] = '';
+    this.splitReplacementPreviews[plan.id] = null;
+    this.http.post<GeneratedProgram>('/api/training/generate-preview', request).pipe(
+      timeout({ first: 30000 }),
+      catchError(error => {
+        this.splitReplacementErrors[plan.id] = error?.error?.errors?.join?.(' ') ||
+          error?.error?.message || 'No se pudo generar la nueva distribución con el catálogo revisado.';
+        return of(null);
+      })
+    ).subscribe(generated => {
+      if (!generated) {
+        this.splitReplacementLoading[plan.id] = false;
+        this.changeDetector.detectChanges();
+        return;
+      }
+      this.buildSplitReplacementPreview(plan, generated, futureSessions, nextMonday, replaceThroughDate, draft.splitType, days);
+    });
+  }
+
+  private buildSplitReplacementPreview(
+    plan: TrainingPlan,
+    generated: GeneratedProgram,
+    existingSessions: TrainingSession[],
+    replaceFromDate: string,
+    replaceThroughDate: string,
+    splitType: number,
+    trainingDays: number[]
+  ): void {
+    const oldByWeek = new Map<string, TrainingSession[]>();
+    for (const session of existingSessions) {
+      const week = this.weekStartDate(session.scheduledDate);
+      const rows = oldByWeek.get(week) || [];
+      rows.push(session);
+      oldByWeek.set(week, rows);
+    }
+    const generatedByWeek = new Map<number, GeneratedSession[]>();
+    for (const session of generated.sessions) {
+      const rows = generatedByWeek.get(session.weekNumber) || [];
+      rows.push(session);
+      generatedByWeek.set(session.weekNumber, rows);
+    }
+
+    const replacementSessions: SplitReplacementSession[] = [];
+    let preservedManualEdits = 0;
+    let retainedCustomExercises = 0;
+    const warnings: string[] = [];
+
+    for (const [weekNumber, generatedWeek] of [...generatedByWeek.entries()].sort(([a], [b]) => a - b)) {
+      generatedWeek.sort((a, b) => ((a.day + 6) % 7) - ((b.day + 6) % 7));
+      const weekStart = this.addUtcDays(replaceFromDate, (weekNumber - 1) * 7);
+      const oldWeek = (oldByWeek.get(weekStart) || []).slice().sort((a, b) =>
+        a.scheduledDate.localeCompare(b.scheduledDate) || a.id - b.id);
+      const manualRows = oldWeek.flatMap((session, sourceIndex) =>
+        this.parseStructuredExerciseDrafts(session.exercisePrescription).map(row => ({ row, sourceIndex, consumed: false })));
+      const rowsByGeneratedSession: StructuredExerciseDraft[][] = generatedWeek.map(() => []);
+
+      generatedWeek.forEach((session, sessionIndex) => {
+        for (const exercise of session.exercises) {
+          const generatedName = exercise.exerciseNameSnapshot.trim();
+          const generatedId = exercise.exerciseId.replace(/^repdb-/, '').toLocaleLowerCase('es');
+          const manualIndex = manualRows.findIndex(item => {
+            if (item.consumed) return false;
+            const catalogItem = this.exerciseCatalog.find(candidate =>
+              candidate.name.trim().toLocaleLowerCase('es') === item.row.exerciseName.trim().toLocaleLowerCase('es'));
+            const manualId = catalogItem?.id.replace(/^repdb-/, '').toLocaleLowerCase('es');
+            return item.row.exerciseName.trim().toLocaleLowerCase('es') === generatedName.toLocaleLowerCase('es') ||
+              (!!manualId && manualId === generatedId);
+          });
+          if (manualIndex >= 0) {
+            const manual = manualRows[manualIndex];
+            manual.consumed = true;
+            const generatedReps = exercise.minRepetitions === exercise.maxRepetitions
+              ? String(exercise.minRepetitions)
+              : exercise.minRepetitions + '–' + exercise.maxRepetitions;
+            const differs = manual.row.sets !== exercise.sets ||
+              manual.row.repetitions !== generatedReps ||
+              manual.row.rir !== exercise.targetRepetitionsInReserve ||
+              manual.row.restSeconds !== exercise.restSeconds;
+            if (differs) preservedManualEdits++;
+            rowsByGeneratedSession[sessionIndex].push({ ...manual.row, exerciseName: generatedName });
+          } else {
+            rowsByGeneratedSession[sessionIndex].push({
+              exerciseName: generatedName, sets: exercise.sets,
+              repetitions: exercise.minRepetitions === exercise.maxRepetitions
+                ? String(exercise.minRepetitions)
+                : exercise.minRepetitions + '–' + exercise.maxRepetitions,
+              rir: exercise.targetRepetitionsInReserve ?? null,
+              restSeconds: exercise.restSeconds, notes: ''
+            });
+          }
+        }
+      });
+
+      manualRows.forEach(item => {
+        if (item.consumed) return;
+        const targetIndex = item.sourceIndex % generatedWeek.length;
+        rowsByGeneratedSession[targetIndex].push(item.row);
+        retainedCustomExercises++;
+      });
+
+      generatedWeek.forEach((session, sessionIndex) => {
+        const dayOffset = session.day === 0 ? 6 : session.day - 1;
+        const scheduledDate = this.addUtcDays(weekStart, dayOffset);
+        const sourceSession = oldWeek[sessionIndex] || oldWeek[0];
+        const exerciseRows = rowsByGeneratedSession[sessionIndex];
+        const prescription = this.serializeStructuredExerciseDrafts(exerciseRows);
+        const duration = session.estimatedDurationMinutes;
+        replacementSessions.push({
+          scheduledDate,
+          title: session.title,
+          sessionType: 'strength',
+          durationMinutes: duration,
+          intensityTarget: sourceSession?.intensityTarget ?? null,
+          instructions: sourceSession?.instructions ?? 'Nueva distribución generada. Revisión profesional pendiente.',
+          exercisePrescription: prescription,
+          exercisePrescriptionData: this.buildStructuredPrescriptionData(scheduledDate, duration, exerciseRows)
+        });
+      });
+    }
+
+    if (retainedCustomExercises > 0)
+      warnings.push(retainedCustomExercises + ' ejercicios manuales no coincidentes se han conservado en la sesión equivalente por orden; comprueba que su ubicación y carga sigan teniendo sentido.');
+    if (preservedManualEdits > 0)
+      warnings.push('Se han conservado ' + preservedManualEdits + ' ajustes de series, repeticiones, RIR o descanso en ejercicios que aparecen también en la nueva propuesta.');
+    const volumeSessions = replacementSessions.map(session => ({
+      weekNumber: Math.floor((Date.parse(this.weekStartDate(session.scheduledDate) + 'T00:00:00Z') -
+        Date.parse(replaceFromDate + 'T00:00:00Z')) / 604800000) + 1,
+      day: new Date(session.scheduledDate + 'T00:00:00Z').getUTCDay(),
+      title: session.title,
+      exercises: this.parseManualVolumeExercises(session.exercisePrescription)
+    }));
+
+    this.http.post<ManualVolumePreview>('/api/training/volume-preview', { sessions: volumeSessions }).subscribe({
+      next: volumePreview => {
+        this.splitReplacementPreviews[plan.id] = {
+          replaceFromDate, replaceThroughDate, sessions: replacementSessions, volumePreview,
+          preservedManualEdits, retainedCustomExercises, warnings
+        };
+        this.splitReplacementLoading[plan.id] = false;
+        this.changeDetector.detectChanges();
+      },
+      error: error => {
+        this.splitReplacementErrors[plan.id] = error?.error?.message || 'La propuesta se generó, pero no se pudo calcular su volumen efectivo. No se puede aplicar sin esa comprobación.';
+        this.splitReplacementLoading[plan.id] = false;
+        this.changeDetector.detectChanges();
+      }
+    });
+  }
+
+  applySplitReplacement(plan: TrainingPlan): void {
+    const draft = this.splitReorganizationDrafts[plan.id];
+    const preview = this.splitReplacementPreviews[plan.id];
+    if (!draft || !preview || !preview.sessions.length) return;
+    this.splitReplacementLoading[plan.id] = true;
+    this.http.post<{ sessionsCreated: number }>('/api/training/plans/' + plan.id + '/replace-future-split', {
+      replaceFromDate: preview.replaceFromDate,
+      replaceThroughDate: preview.replaceThroughDate,
+      splitType: draft.splitType,
+      trainingDays: draft.trainingDays,
+      sessions: preview.sessions
+    }).subscribe({
+      next: result => {
+        this.splitPreferences[plan.id] = { splitType: draft.splitType, trainingDays: [...draft.trainingDays] };
+        this.splitReplacementLoading[plan.id] = false;
+        this.splitReplacementPreviews[plan.id] = null;
+        this.notice = 'Nueva distribución aplicada: ' + result.sessionsCreated + ' sesiones. Se han conservado las sesiones completadas y los ajustes manuales coincidentes.';
+        this.refreshSessions(plan.id);
+        this.changeDetector.detectChanges();
+      },
+      error: error => {
+        this.splitReplacementLoading[plan.id] = false;
+        this.splitReplacementErrors[plan.id] = error?.error?.message || 'No se pudo aplicar la nueva distribución. La versión anterior se conserva íntegra.';
         this.changeDetector.detectChanges();
       }
     });
