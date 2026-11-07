@@ -2894,7 +2894,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         repetitions: (match?.[3] ?? '').trim(),
         rir: rirMatch ? Number(rirMatch[1].replace(',', '.')) : (match ? 2 : null),
         restSeconds: restMatch ? Number(restMatch[1]) * (/min/i.test(restMatch[2] ?? '') ? 60 : 1) : (match ? 90 : 0),
-        notes: ''
+        notes: match ? '' : line
       };
     }).filter(item => item.exerciseName.length > 0);
   }
@@ -2936,12 +2936,13 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   }
 
   private serializeStructuredExerciseDrafts(exercises: StructuredExerciseDraft[]): string {
-    return exercises.filter(item => item.exerciseName.trim()).map(item =>
-      item.exerciseName.trim() + ' · ' + Math.max(1, Math.min(10, Math.round(Number(item.sets) || 1))) +
-      ' × ' + (item.repetitions.trim() || '8–12') + ' · descanso ' +
-      Math.max(0, Math.min(3600, Math.round(Number(item.restSeconds) || 0))) + ' s' +
-      (item.rir === null || !Number.isFinite(item.rir) ? '' : ' · RIR ' + Math.max(0, Math.min(10, item.rir)))
-    ).join('\n');
+    return exercises.filter(item => item.exerciseName.trim()).map(item => {
+      if (item.sets < 1 || !item.repetitions.trim()) return item.notes || item.exerciseName.trim();
+      return item.exerciseName.trim() + ' · ' + Math.max(1, Math.min(10, Math.round(Number(item.sets) || 1))) +
+        ' × ' + item.repetitions.trim() + ' · descanso ' +
+        Math.max(0, Math.min(3600, Math.round(Number(item.restSeconds) || 0))) + ' s' +
+        (item.rir === null || !Number.isFinite(item.rir) ? '' : ' · RIR ' + Math.max(0, Math.min(10, item.rir)));
+    }).join('\n');
   }
 
   onWeeklyDraftChanged(plan: TrainingPlan, session: TrainingSession): void {
