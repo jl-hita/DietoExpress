@@ -394,7 +394,7 @@ public static class TrainingProgramGenerator
             : request.MaximumSessionDurationMinutes <= 65
                 ? 2
                 : (isFullBody ? 4 : 3);
-        var allowedMuscles = title.Contains("superior", StringComparison.OrdinalIgnoreCase)
+        IReadOnlyCollection<TrainingMuscleGroup>? allowedMuscles = title.Contains("superior", StringComparison.OrdinalIgnoreCase)
             ? UpperBodyAccessoryMuscles
             : title.Contains("inferior", StringComparison.OrdinalIgnoreCase) || title.Contains("pierna", StringComparison.OrdinalIgnoreCase)
                 ? LowerBodyAccessoryMuscles
