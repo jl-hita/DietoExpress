@@ -433,6 +433,11 @@ public sealed class ExerciseCatalogService
     /// are preserved. Training plans keep their historical exercise-name/ID snapshots and need
     /// not be deleted because they do not own catalog rows.
     /// </summary>
+    public Task<IReadOnlyList<TrainingExerciseCandidate>> LoadManualVolumeCandidatesAsync(
+        int ownerUserId,
+        CancellationToken cancellationToken = default) =>
+        LoadGeneratorCandidatesAsync(ownerUserId, cancellationToken, includeNonCuratedRepDb: true);
+
     private async Task EnsureRepDbIdealCatalogV1Async(CancellationToken cancellationToken)
     {
         var completed = await _db.Database.SqlQueryRaw<bool>(
@@ -1966,7 +1971,10 @@ public sealed class ExerciseCatalogService
         finally { if (shouldClose) await connection.CloseAsync(); }
     }
 
-    public async Task<IReadOnlyList<TrainingExerciseCandidate>> LoadGeneratorCandidatesAsync(int ownerUserId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<TrainingExerciseCandidate>> LoadGeneratorCandidatesAsync(
+        int ownerUserId,
+        CancellationToken cancellationToken = default,
+        bool includeNonCuratedRepDb = false)
     {
         await EnsureSchemaAsync(cancellationToken);
         const string sql = """
@@ -1982,7 +1990,7 @@ public sealed class ExerciseCatalogService
             FROM exercise_catalog
             WHERE (review_status = 'approved'
                OR (review_status = 'pending' AND owner_user_id = @owner_user_id))
-              AND (source <> 'repdb-free' OR exercise_id = ANY(@curated_ids))
+              AND (@include_non_curated_repdb OR source <> 'repdb-free' OR exercise_id = ANY(@curated_ids))
             ORDER BY exercise_id
             """;
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
@@ -1993,6 +2001,7 @@ public sealed class ExerciseCatalogService
             await using var command = new NpgsqlCommand(sql, connection);
             Add(command, "owner_user_id", ownerUserId);
             Add(command, "curated_ids", RepDbExerciseCuration.CuratedCatalogIds);
+            Add(command, "include_non_curated_repdb", includeNonCuratedRepDb);
             var result = new List<TrainingExerciseCandidate>();
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
