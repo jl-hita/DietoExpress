@@ -113,6 +113,28 @@ public sealed class TrainingPeriodizationController : ControllerBase
 
             if (request.Moves.Count > 0)
             {
+                await using var currentSplit = connection.CreateCommand();
+                currentSplit.Transaction = transaction;
+                currentSplit.CommandText = "SELECT split_type, cardinality(training_days) FROM training_plan_split_preferences WHERE plan_id = @planId";
+                currentSplit.Parameters.AddWithValue("planId", planId);
+                await using var splitReader = await currentSplit.ExecuteReaderAsync(cancellationToken);
+                var currentSplitType = 0;
+                var currentDayCount = 3;
+                if (await splitReader.ReadAsync(cancellationToken))
+                {
+                    currentSplitType = splitReader.GetInt16(0);
+                    currentDayCount = splitReader.GetInt32(1);
+                }
+                await splitReader.DisposeAsync();
+                if (request.SplitType != currentSplitType || request.TrainingDays.Length != currentDayCount)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Conflict(new { message = "Esta operación solo recoloca días y conserva el tipo y la frecuencia del split actual. Para cambiar a otro split o cambiar el número de días, genera una nueva propuesta y revísala antes de sustituir las sesiones futuras." });
+                }
+            }
+
+            if (request.Moves.Count > 0)
+            {
                 var ids = request.Moves.Select(move => move.SessionId).ToArray();
                 await using var verify = connection.CreateCommand();
                 verify.Transaction = transaction;
