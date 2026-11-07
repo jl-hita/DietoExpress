@@ -3334,13 +3334,20 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   prepareWeeklySessionCreation(plan: TrainingPlan): void {
     const draft = this.sessionDrafts[plan.id];
     if (!draft) return;
-    const hasUnsavedContent = !!(draft.title.trim() || draft.exercisePrescription.trim() || draft.instructions.trim());
+    const hasUnsavedContent = !!(
+      draft.title.trim() || draft.exercisePrescription.trim() || draft.instructions.trim() ||
+      draft.intensity.trim() || draft.duration !== 60 || draft.type !== 'strength' ||
+      draft.date !== this.defaultSessionDate(plan)
+    );
     if (hasUnsavedContent) {
       this.notice = 'Ya hay un borrador de sesión sin guardar. Guárdalo o vacíalo antes de preparar otra sesión.';
     } else {
       const weekDates = this.weekDays(plan).map(day => day.date);
       const occupiedDates = new Set(this.weekSessions(plan.id, plan).map(session => session.scheduledDate));
-      draft.date = weekDates.find(date => !occupiedDates.has(date)) || weekDates[0] || plan.startDate;
+      const currentDateIsFree = weekDates.includes(draft.date) && !occupiedDates.has(draft.date);
+      draft.date = currentDateIsFree
+        ? draft.date
+        : weekDates.find(date => !occupiedDates.has(date)) || weekDates[0] || plan.startDate;
       draft.title = '';
       draft.type = 'strength';
       draft.duration = 60;
