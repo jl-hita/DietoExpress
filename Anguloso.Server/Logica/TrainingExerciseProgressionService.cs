@@ -28,7 +28,7 @@ public sealed class TrainingExerciseProgressionService
         // recent sessions per plan for the engine's three-exposure rules and future extensions.
         await using (var historyCommand = Command("""
             WITH ranked_history AS (
-                SELECT s.plan_id, s.exercise_prescription_data::text AS prescription_json,
+                SELECT s.plan_id, s.session_type, s.exercise_prescription_data::text AS prescription_json,
                        r.exercise_feedback::text AS feedback_json, r.outcome,
                        r.recovery_rating, r.pain_signal, s.scheduled_date, s.id,
                        ROW_NUMBER() OVER (
@@ -40,7 +40,7 @@ public sealed class TrainingExerciseProgressionService
                 JOIN training_plans p ON p.id = s.plan_id
                 JOIN training_profiles f ON f.id = p.profile_id
                 WHERE f.client_id = @clientId AND f.enabled = TRUE AND p.status = 'active'
-                  AND r.outcome IS NOT NULL AND s.exercise_prescription_data IS NOT NULL
+                  AND r.outcome IS NOT NULL
             )
             SELECT plan_id, prescription_json, feedback_json, outcome, recovery_rating, pain_signal
             FROM ranked_history
@@ -49,50 +49,72 @@ public sealed class TrainingExerciseProgressionService
             """, ("clientId", clientId)))
         await using (var reader = await historyCommand.ExecuteReaderAsync(cancellationToken))
         {
+            var blockedPlans = new HashSet<int>();
             while (await reader.ReadAsync(cancellationToken))
             {
                 var planId = reader.GetInt32(0);
-                var completed = reader.GetString(3) == "completed";
-                var recoveryInsufficient = !reader.IsDBNull(4) && reader.GetString(4) == "insufficient";
-                var sessionPain = !reader.IsDBNull(5) && reader.GetString(5) == "new_or_worsening";
+                // Cardio, mobility and recovery sessions are not exercise-progression exposures.
+                if (!string.Equals(reader.GetString(1), "strength", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                // The query is newest-first. Once a strength session lacks a usable structured
+                // prescription, older records for that plan cannot safely stand in for it.
+                if (blockedPlans.Contains(planId)) continue;
+                if (reader.IsDBNull(2))
+                {
+                    blockedPlans.Add(planId);
+                    continue;
+                }
+
+                var completed = reader.GetString(4) == "completed";
+                var recoveryInsufficient = !reader.IsDBNull(5) && reader.GetString(5) == "insufficient";
+                var sessionPain = !reader.IsDBNull(6) && reader.GetString(6) == "new_or_worsening";
                 var recordedExerciseIds = new HashSet<string>(StringComparer.Ordinal);
                 var progressionEligibility = new Dictionary<string, bool>(StringComparer.Ordinal);
                 var historicalPrescriptions = new Dictionary<string, Anguloso.Server.Logica.TrainingExerciseProgressionPrescriptionSnapshot>(StringComparer.Ordinal);
                 try
                 {
-                    // The historical prescription identifies deload/non-progressable exposures.
-                    // Do not let them count toward the next normal block's top-of-range streak.
-                    if (!reader.IsDBNull(1))
+                    // The historical prescription identifies deload/non-progressable exposures
+                    // and the exact range/RIR/sets that applied to this session.
+                    using var prescriptionDocument = JsonDocument.Parse(reader.GetString(2));
+                    if (prescriptionDocument.RootElement.ValueKind != JsonValueKind.Object ||
+                        !prescriptionDocument.RootElement.TryGetProperty("exercises", out var prescribed) ||
+                        prescribed.ValueKind != JsonValueKind.Array)
                     {
-                        using var prescriptionDocument = JsonDocument.Parse(reader.GetString(1));
-                        if (prescriptionDocument.RootElement.ValueKind == JsonValueKind.Object &&
-                            prescriptionDocument.RootElement.TryGetProperty("exercises", out var prescribed) &&
-                            prescribed.ValueKind == JsonValueKind.Array)
-                        {
-                            foreach (var item in prescribed.EnumerateArray())
-                            {
-                                if (item.ValueKind != JsonValueKind.Object) continue;
-                                var exerciseId = JsonString(item, "exerciseId");
-                                if (string.IsNullOrWhiteSpace(exerciseId)) continue;
-                                progressionEligibility[exerciseId] =
-                                    ParseProgressionRule(item) == TrainingProgressionRule.DoubleProgression;
-                                historicalPrescriptions[exerciseId] = new(
-                                    JsonInt(item, "sets"),
-                                    JsonInt(item, "minRepetitions"),
-                                    JsonInt(item, "maxRepetitions"),
-                                    JsonDecimal(item, "targetRepetitionsInReserve"));
-                            }
-                        }
+                        blockedPlans.Add(planId);
+                        continue;
+                    }
+
+                    var prescribedItems = prescribed.EnumerateArray().ToArray();
+                    if (prescribedItems.Length == 0 ||
+                        prescribedItems.Any(item => item.ValueKind != JsonValueKind.Object ||
+                            string.IsNullOrWhiteSpace(JsonString(item, "exerciseId"))))
+                    {
+                        blockedPlans.Add(planId);
+                        continue;
+                    }
+
+                    foreach (var item in prescribedItems)
+                    {
+                        var exerciseId = JsonString(item, "exerciseId")!;
+                        progressionEligibility[exerciseId] =
+                            ParseProgressionRule(item) == TrainingProgressionRule.DoubleProgression;
+                        historicalPrescriptions[exerciseId] = new(
+                            JsonInt(item, "sets"),
+                            JsonInt(item, "minRepetitions"),
+                            JsonInt(item, "maxRepetitions"),
+                            JsonDecimal(item, "targetRepetitionsInReserve"));
                     }
                 }
                 catch (JsonException)
                 {
                     // Unknown historical prescription metadata must not become progression evidence.
+                    blockedPlans.Add(planId);
+                    continue;
                 }
 
                 try
                 {
-                    if (!reader.IsDBNull(2))
+                    if (!reader.IsDBNull(3))
                     {
                         using var document = JsonDocument.Parse(reader.GetString(2));
                         if (document.RootElement.ValueKind == JsonValueKind.Array)
@@ -126,6 +148,7 @@ public sealed class TrainingExerciseProgressionService
                                 if (!history.TryGetValue(key, out var exposures))
                                     history[key] = exposures = [];
                                 historicalPrescriptions.TryGetValue(exerciseId, out var historicalPrescription);
+                                historicalPrescriptions.TryGetValue(exerciseId, out var historicalPrescription);
                                 exposures.Add(new(
                                     sets, completed, recoveryInsufficient, pain,
                                     ProgressionEligible: progressionEligibility.GetValueOrDefault(exerciseId),
@@ -148,6 +171,7 @@ public sealed class TrainingExerciseProgressionService
                     var key = (planId, exerciseId);
                     if (!history.TryGetValue(key, out var exposures))
                         history[key] = exposures = [];
+                    historicalPrescriptions.TryGetValue(exerciseId, out var historicalPrescription);
                     historicalPrescriptions.TryGetValue(exerciseId, out var historicalPrescription);
                     exposures.Add(new(Array.Empty<Anguloso.Server.Logica.TrainingExecutedSet>(),
                         completed, recoveryInsufficient, sessionPain, ProgressionEligible: progressionEligible,
