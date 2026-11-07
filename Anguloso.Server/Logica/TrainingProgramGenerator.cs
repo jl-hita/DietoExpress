@@ -394,14 +394,14 @@ public static class TrainingProgramGenerator
             : request.MaximumSessionDurationMinutes <= 65
                 ? 2
                 : (isFullBody ? 4 : 3);
-        IReadOnlyCollection<TrainingMuscleGroup>? allowedMuscles = title.Contains("superior", StringComparison.OrdinalIgnoreCase)
+        IReadOnlySet<TrainingMuscleGroup>? allowedMuscles = title.Contains("superior", StringComparison.OrdinalIgnoreCase)
             ? UpperBodyAccessoryMuscles
             : title.Contains("inferior", StringComparison.OrdinalIgnoreCase) || title.Contains("pierna", StringComparison.OrdinalIgnoreCase)
                 ? LowerBodyAccessoryMuscles
                 : title.Contains("empuje", StringComparison.OrdinalIgnoreCase)
-                    ? new[] { TrainingMuscleGroup.Chest, TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Triceps }
+                    ? new HashSet<TrainingMuscleGroup> { TrainingMuscleGroup.Chest, TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Triceps }
                     : title.Contains("tracción", StringComparison.OrdinalIgnoreCase) || title.Contains("traccion", StringComparison.OrdinalIgnoreCase)
-                        ? new[] { TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack, TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Forearms }
+                        ? new HashSet<TrainingMuscleGroup> { TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack, TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Forearms }
                         : null;
 
         for (var slot = 0; slot < slots; slot++)
