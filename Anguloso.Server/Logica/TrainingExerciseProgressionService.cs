@@ -42,7 +42,7 @@ public sealed class TrainingExerciseProgressionService
                 WHERE f.client_id = @clientId AND f.enabled = TRUE AND p.status = 'active'
                   AND r.outcome IS NOT NULL
             )
-            SELECT plan_id, prescription_json, feedback_json, outcome, recovery_rating, pain_signal
+            SELECT plan_id, session_type, prescription_json, feedback_json, outcome, recovery_rating, pain_signal
             FROM ranked_history
             WHERE plan_record_rank <= 60
             ORDER BY scheduled_date DESC, id DESC
@@ -116,7 +116,7 @@ public sealed class TrainingExerciseProgressionService
                 {
                     if (!reader.IsDBNull(3))
                     {
-                        using var document = JsonDocument.Parse(reader.GetString(2));
+                        using var document = JsonDocument.Parse(reader.GetString(3));
                         if (document.RootElement.ValueKind == JsonValueKind.Array)
                         {
                             foreach (var exercise in document.RootElement.EnumerateArray())
@@ -148,7 +148,6 @@ public sealed class TrainingExerciseProgressionService
                                 if (!history.TryGetValue(key, out var exposures))
                                     history[key] = exposures = [];
                                 historicalPrescriptions.TryGetValue(exerciseId, out var historicalPrescription);
-                                historicalPrescriptions.TryGetValue(exerciseId, out var historicalPrescription);
                                 exposures.Add(new(
                                     sets, completed, recoveryInsufficient, pain,
                                     ProgressionEligible: progressionEligibility.GetValueOrDefault(exerciseId),
@@ -171,7 +170,6 @@ public sealed class TrainingExerciseProgressionService
                     var key = (planId, exerciseId);
                     if (!history.TryGetValue(key, out var exposures))
                         history[key] = exposures = [];
-                    historicalPrescriptions.TryGetValue(exerciseId, out var historicalPrescription);
                     historicalPrescriptions.TryGetValue(exerciseId, out var historicalPrescription);
                     exposures.Add(new(Array.Empty<Anguloso.Server.Logica.TrainingExecutedSet>(),
                         completed, recoveryInsufficient, sessionPain, ProgressionEligible: progressionEligible,
