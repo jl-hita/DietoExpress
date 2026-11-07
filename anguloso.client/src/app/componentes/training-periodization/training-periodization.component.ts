@@ -3005,40 +3005,69 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const structuredItems = Array.isArray(prescriptionData?.['exercises'])
       ? prescriptionData['exercises'] as Array<Record<string, unknown>>
       : [];
-    const usedMetadataIndices = new Set<number>();
+    const hasCompleteSnapshots = structuredItems.length > 0 &&
+      structuredItems.every(item => typeof item['exerciseNameSnapshot'] === 'string' &&
+        String(item['exerciseNameSnapshot']).trim().length > 0);
+
+    if (hasCompleteSnapshots) {
+      return structuredItems.map(item => {
+        const exerciseName = String(item['exerciseNameSnapshot']).trim();
+        const minRepetitions = typeof item['minRepetitions'] === 'number' ? item['minRepetitions'] : null;
+        const maxRepetitions = typeof item['maxRepetitions'] === 'number' ? item['maxRepetitions'] : minRepetitions;
+        const repetitions = minRepetitions !== null && minRepetitions >= 1
+          ? (maxRepetitions !== null && maxRepetitions > minRepetitions
+            ? \`\${minRepetitions}-\${maxRepetitions}\` : String(minRepetitions))
+          : '';
+        const sets = typeof item['sets'] === 'number' && Number.isFinite(item['sets'])
+          ? Math.max(0, Math.min(10, Math.round(item['sets']))) : 0;
+        const restSeconds = typeof item['restSeconds'] === 'number' && Number.isFinite(item['restSeconds'])
+          ? Math.max(0, Math.min(3600, Math.round(item['restSeconds']))) : 0;
+        const targetRir = item['targetRepetitionsInReserve'];
+        return {
+          exerciseName,
+          originalExerciseName: exerciseName,
+          sets,
+          repetitions,
+          rir: typeof targetRir === 'number' && Number.isFinite(targetRir)
+            ? Math.max(0, Math.min(10, targetRir)) : null,
+          restSeconds,
+          notes: '',
+          exerciseId: typeof item['exerciseId'] === 'string' ? item['exerciseId'] : undefined,
+          catalogVersion: typeof item['catalogVersion'] === 'string' ? item['catalogVersion'] : undefined,
+          progressionRule: typeof item['progressionRule'] === 'string' || typeof item['progressionRule'] === 'number'
+            ? item['progressionRule'] as string | number : undefined,
+          primaryMuscleGroups: Array.isArray(item['primaryMuscleGroups'])
+            ? item['primaryMuscleGroups'] as Array<string | number> : undefined,
+          secondaryMuscleGroups: Array.isArray(item['secondaryMuscleGroups'])
+            ? item['secondaryMuscleGroups'] as Array<string | number> : undefined,
+          smallestLoadIncrementKg: typeof item['smallestLoadIncrementKg'] === 'number'
+            ? item['smallestLoadIncrementKg'] : undefined,
+          maximumLoadIncreasePercent: typeof item['maximumLoadIncreasePercent'] === 'number'
+            ? item['maximumLoadIncreasePercent'] : undefined,
+          selectionRationale: typeof item['selectionRationale'] === 'string'
+            ? item['selectionRationale'] : undefined
+        };
+      });
+    }
+
+    // Legacy text is only a fallback when no usable structured snapshot exists.
     return this.prescriptionLines(prescription).map(line => {
       const match = line.match(/^(.*?)\s*[·|—-]\s*(\d+)\s*[×x]\s*([^·|—]+?)(?=\s*[·|—]|$)(.*)$/i);
       const tail = match?.[4] ?? line;
       const restMatch = tail.match(/descanso\s*(\d+)\s*(s|seg(?:undos?)?|min(?:utos?)?)?/i);
       const rirMatch = tail.match(/RIR\s*(\d+(?:[.,]\d+)?)/i);
       const exerciseName = (match?.[1] ?? line).trim().replace(/^\d+\.\s*/, '');
-      const normalizedExerciseName = exerciseName.replace(/\s+/g, ' ').toLocaleLowerCase('es');
-      const metadataIndex = structuredItems.findIndex((item, itemIndex) =>
-        !usedMetadataIndices.has(itemIndex) &&
-        String(item['exerciseNameSnapshot'] ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es') === normalizedExerciseName
-      );
-      const metadata = metadataIndex >= 0 ? structuredItems[metadataIndex] : undefined;
-      if (metadataIndex >= 0) usedMetadataIndices.add(metadataIndex);
       return {
         exerciseName,
-        originalExerciseName: String(metadata?.['exerciseNameSnapshot'] ?? exerciseName).trim(),
+        originalExerciseName: exerciseName,
         sets: match ? Math.max(1, Math.min(10, Number(match[2]))) : 0,
         repetitions: (match?.[3] ?? '').trim(),
         rir: rirMatch ? Number(rirMatch[1].replace(',', '.')) : (match ? 2 : null),
         restSeconds: restMatch ? Number(restMatch[1]) * (/min/i.test(restMatch[2] ?? '') ? 60 : 1) : (match ? 90 : 0),
-        notes: match ? '' : line,
-        exerciseId: typeof metadata?.['exerciseId'] === 'string' ? metadata['exerciseId'] : undefined,
-        catalogVersion: typeof metadata?.['catalogVersion'] === 'string' ? metadata['catalogVersion'] : undefined,
-        progressionRule: typeof metadata?.['progressionRule'] === 'string' || typeof metadata?.['progressionRule'] === 'number' ? metadata['progressionRule'] as string | number : undefined,
-        primaryMuscleGroups: Array.isArray(metadata?.['primaryMuscleGroups']) ? metadata['primaryMuscleGroups'] as Array<string | number> : undefined,
-        secondaryMuscleGroups: Array.isArray(metadata?.['secondaryMuscleGroups']) ? metadata['secondaryMuscleGroups'] as Array<string | number> : undefined,
-        smallestLoadIncrementKg: typeof metadata?.['smallestLoadIncrementKg'] === 'number' ? metadata['smallestLoadIncrementKg'] : undefined,
-        maximumLoadIncreasePercent: typeof metadata?.['maximumLoadIncreasePercent'] === 'number' ? metadata['maximumLoadIncreasePercent'] : undefined,
-        selectionRationale: typeof metadata?.['selectionRationale'] === 'string' ? metadata['selectionRationale'] : undefined
+        notes: match ? '' : line
       };
     }).filter(item => item.exerciseName.length > 0);
   }
-
   private buildStructuredPrescriptionData(
     date: string,
     duration: number | null,
