@@ -30,7 +30,7 @@ public static class TrainingProgramGenerator
             .Distinct()
             .OrderBy(day => ((int)day + 6) % 7)
             .ToArray();
-        var split = BuildSplit(days.Length);
+        var split = BuildSplit(days.Length, request.Split);
         var excluded = new HashSet<string>(request.ExcludedExerciseIds, StringComparer.OrdinalIgnoreCase);
         var equipment = new HashSet<string>(
             request.AvailableEquipment
@@ -264,8 +264,8 @@ public static class TrainingProgramGenerator
         if (request.DurationWeeks is < 1 or > 52) errors.Add("La duración debe estar entre 1 y 52 semanas.");
         if (request.IsDeload && request.DurationWeeks != 1)
             errors.Add("Una descarga activa debe durar exactamente una semana; divide la fase antes de generar.");
-        if (request.TrainingDays is null || request.TrainingDays.Count is < 2 or > 4)
-            errors.Add("Esta primera versión admite de 2 a 4 días de entrenamiento por semana.");
+        if (request.TrainingDays is null || request.TrainingDays.Count is < 2 or > 6)
+            errors.Add("Selecciona entre 2 y 6 días de entrenamiento por semana.");
         else
         {
             if (request.TrainingDays.Any(day => !Enum.IsDefined(day)))
@@ -273,6 +273,7 @@ public static class TrainingProgramGenerator
             if (request.TrainingDays.Distinct().Count() != request.TrainingDays.Count)
                 errors.Add("No se puede repetir un día de entrenamiento.");
         }
+        if (!Enum.IsDefined(request.Split)) errors.Add("La distribución semanal seleccionada no es válida.");
         if (request.MaximumSessionDurationMinutes is < 35 or > 180)
             errors.Add("La duración máxima de sesión debe estar entre 35 y 180 minutos.");
         if (request.AvailableEquipment is null)
@@ -549,24 +550,42 @@ public static class TrainingProgramGenerator
         });
     }
 
-    private static IReadOnlyList<SessionTemplate> BuildSplit(int daysPerWeek)
+    private static IReadOnlyList<SessionTemplate> BuildSplit(int daysPerWeek, TrainingProgramSplit requestedSplit)
     {
         var fullBodyA = new SessionTemplate("Cuerpo completo A",
             [TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.Hinge, TrainingMovementPattern.Core]);
         var fullBodyB = new SessionTemplate("Cuerpo completo B",
             [TrainingMovementPattern.Squat, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
+        var upperA = new SessionTemplate("Tren superior A",
+            [TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]);
+        var lowerA = new SessionTemplate("Tren inferior A",
+            [TrainingMovementPattern.Squat, TrainingMovementPattern.Hinge, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
+        var upperB = new SessionTemplate("Tren superior B",
+            [TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]);
+        var lowerB = new SessionTemplate("Tren inferior B",
+            [TrainingMovementPattern.Squat, TrainingMovementPattern.Hinge, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
+        var push = new SessionTemplate("Empuje",
+            [TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.Core]);
+        var pull = new SessionTemplate("Tracción",
+            [TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]);
+        var legs = new SessionTemplate("Pierna",
+            [TrainingMovementPattern.Squat, TrainingMovementPattern.Hinge, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
 
-        return daysPerWeek switch
+        return requestedSplit switch
         {
-            2 => [fullBodyA, fullBodyB],
-            3 => [fullBodyA, fullBodyB, fullBodyA with { Title = "Cuerpo completo C" }],
-            4 =>
-            [
-                new SessionTemplate("Tren superior A", [TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]),
-                new SessionTemplate("Tren inferior A", [TrainingMovementPattern.Squat, TrainingMovementPattern.Hinge, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]),
-                new SessionTemplate("Tren superior B", [TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]),
-                new SessionTemplate("Tren inferior B", [TrainingMovementPattern.Squat, TrainingMovementPattern.Hinge, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core])
-            ],
+            TrainingProgramSplit.FullBody when daysPerWeek == 2 => [fullBodyA, fullBodyB],
+            TrainingProgramSplit.FullBody when daysPerWeek == 3 => [fullBodyA, fullBodyB, fullBodyA with { Title = "Cuerpo completo C" }],
+            TrainingProgramSplit.UpperLower when daysPerWeek == 2 => [upperA, lowerA],
+            TrainingProgramSplit.UpperLower when daysPerWeek == 4 => [upperA, lowerA, upperB, lowerB],
+            TrainingProgramSplit.PushPullLegs when daysPerWeek == 3 => [push, pull, legs],
+            TrainingProgramSplit.PushPullLegs when daysPerWeek == 6 => [push, pull, legs, push with { Title = "Empuje B" }, pull with { Title = "Tracción B" }, legs with { Title = "Pierna B" }],
+            TrainingProgramSplit.Automatic => daysPerWeek switch
+            {
+                2 => [fullBodyA, fullBodyB],
+                3 => [fullBodyA, fullBodyB, fullBodyA with { Title = "Cuerpo completo C" }],
+                4 => [upperA, lowerA, upperB, lowerB],
+                _ => []
+            },
             _ => []
         };
     }
@@ -599,6 +618,14 @@ public static class TrainingProgramGenerator
     private sealed record SessionTemplate(string Title, IReadOnlyList<TrainingMovementPattern> Patterns);
 }
 
+public enum TrainingProgramSplit
+{
+    Automatic,
+    FullBody,
+    UpperLower,
+    PushPullLegs
+}
+
 public sealed record TrainingProgramGenerationRequest(
     TrainingGoal Goal,
     TrainingExperience Experience,
@@ -609,7 +636,8 @@ public sealed record TrainingProgramGenerationRequest(
     IReadOnlyList<string> AvailableEquipment,
     IReadOnlyList<string> ExcludedExerciseIds,
     IReadOnlyList<TrainingMuscleVolumeTarget>? MuscleVolumeTargets = null,
-    bool IsDeload = false);
+    bool IsDeload = false,
+    TrainingProgramSplit Split = TrainingProgramSplit.Automatic);
 
 public sealed record TrainingExerciseCandidate(
     string ExerciseId,
