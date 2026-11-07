@@ -563,7 +563,7 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
-    public void IdealCatalogBootstrapReplacesOnlyRepDbRowsAndPreservesProfessionalContributions()
+    public void IdealCatalogBootstrapPreservesHumanReviewsAndProfessionalContributions()
     {
         var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ExerciseCatalogService.cs"));
         Assert.Contains("exercise-catalog-ideal-strength-hypertrophy-v1", service);
