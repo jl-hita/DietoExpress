@@ -26,6 +26,7 @@ interface GeneratedProgram {
     methodology: string;
     weeklyMuscleVolumes: Array<{ weekNumber: number; muscles: Array<{ muscleGroup: string; primarySets: number; secondarySets: number; primaryFrequencySessions: number; secondaryFrequencySessions: number; estimatedEffectiveSets: number }> }>;
     warnings: string[];
+    sessionVolumes?: Array<{ weekNumber: number; day: number; title: string; muscles: Array<{ muscleGroup: string; estimatedEffectiveSets: number }> }>;
   } | null;
 }
 interface GenerationRequest {
@@ -487,6 +488,12 @@ interface RepDbExercise {
                   <strong>Semana {{ session.weekNumber }} · {{ dayName(session.day) }} · {{ session.title }}</strong>
                   <small>{{ session.estimatedDurationMinutes }} min</small>
                   <ul><li *ngFor="let exercise of session.exercises">{{ exercise.order }}. {{ exercise.exerciseNameSnapshot }} — {{ exercise.sets }} × {{ exercise.minRepetitions }}–{{ exercise.maxRepetitions }} · descanso {{ exercise.restSeconds }} s</li></ul>
+                  <div *ngIf="sessionVolume(generated, session) as volume" style="margin-top:8px;padding:10px;border:1px solid #e7edf4;border-radius:9px;background:#fff">
+                    <strong style="font-size:12px">Volumen efectivo de esta sesión</strong>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:4px;margin-top:6px">
+                      <span *ngFor="let muscle of volume.muscles" [hidden]="muscle.estimatedEffectiveSets === 0" style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></span>
+                    </div>
+                  </div>
                 </article>
                 <div class="generated-preview-actions"><button type="button" (click)="saveGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan">Guardar mesociclo y sus sesiones</button><button type="button" class="secondary" aria-label="Descartar vista previa" (click)="discardGeneratedPreview(plan.id)" [disabled]="saving">Descartar propuesta</button></div><p class="muted">Se guardará como borrador para que puedas ajustar las semanas y las rutinas.</p>
               </div>
@@ -2193,6 +2200,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.generatedPreviews[planId] = null;
     this.generationRequests[planId] = null;
     this.generationErrors[planId] = '';
+  }
+
+  sessionVolume(generated: GeneratedProgram, session: GeneratedSession): { muscles: Array<{ muscleGroup: string; estimatedEffectiveSets: number }> } | null {
+    return generated.qualityReport?.sessionVolumes?.find(item =>
+      item.weekNumber === session.weekNumber && item.day === session.day && item.title === session.title) ?? null;
   }
 
   dayName(day: number): string {
