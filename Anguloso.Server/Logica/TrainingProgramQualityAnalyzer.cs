@@ -32,7 +32,8 @@ public static class TrainingProgramQualityAnalyzer
         var byId = catalog.ToDictionary(candidate => candidate.ExerciseId, StringComparer.OrdinalIgnoreCase);
         var byName = catalog
             .GroupBy(candidate => NormalizeExerciseName(candidate.Name), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+            .Where(group => group.Count() == 1)
+            .ToDictionary(group => group.Key, group => group.Single(), StringComparer.OrdinalIgnoreCase);
         var allUnclassified = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var prescriptions = new List<TrainingSessionPrescription>();
         var sessionReports = new List<TrainingManualVolumeSessionResult>();
@@ -61,7 +62,7 @@ public static class TrainingProgramQualityAnalyzer
                 exercises.Add(new TrainingExercisePrescription(
                     candidate.ExerciseId, candidate.CatalogVersion, candidate.Name, exercises.Count + 1,
                     input.Sets, 8, 12, null, 90, TrainingProgressionRule.None,
-                    "Prescripción manual; metadatos revisados del catálogo.",
+                    "Prescripción manual; metadatos declarados del catálogo.",
                     candidate.PrimaryMuscleGroups, candidate.SecondaryMuscleGroups));
             }
 
