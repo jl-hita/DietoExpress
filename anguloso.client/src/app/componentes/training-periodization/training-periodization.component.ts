@@ -626,6 +626,7 @@ interface RepDbExercise {
                   <label>Objetivo de la nueva propuesta<select [name]="'reorgGoal' + plan.id" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
                   <label>Experiencia<select [name]="'reorgExperience' + plan.id" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
                   <label>Duración máxima (min)<input type="number" [name]="'reorgMinutes' + plan.id" [(ngModel)]="autoMaximumMinutes" min="35" max="180" /></label>
+                  <label class="session-editor-wide">Material disponible<input [name]="'reorgEquipment' + plan.id" [(ngModel)]="autoEquipmentCsv" placeholder="barbell, dumbbell, cable, machine…" /></label>
                 </div>
                 <p class="muted">«Preparar propuesta conservando sesiones» solo recoloca los días del mismo split y exige la misma frecuencia semanal. «Generar propuesta con este split» permite cambiar también la frecuencia: crea nuevas sesiones, conserva ajustes manuales de ejercicios que coinciden y mantiene los ejercicios personalizados no coincidentes para que puedas revisarlos. Las semanas de descarga deben reorganizarse por separado.</p>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" (click)="prepareSplitReorganization(plan)" [disabled]="saving">Preparar propuesta conservando sesiones</button><button type="button" class="secondary" (click)="generateSplitReplacementPreview(plan)" [disabled]="saving || splitReplacementLoading[plan.id]">{{ splitReplacementLoading[plan.id] ? 'Generando propuesta…' : 'Generar propuesta con este split' }}</button><button type="button" class="secondary" (click)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''; splitReplacementPreviews[plan.id] = null">Limpiar propuesta</button></div>
@@ -640,8 +641,9 @@ interface RepDbExercise {
                 <p *ngIf="splitReplacementErrors[plan.id]" class="error" role="alert">{{ splitReplacementErrors[plan.id] }}</p>
                 <section *ngIf="splitReplacementPreviews[plan.id] as replacement" style="margin-top:14px;padding:14px;border:1px solid #cbd5e1;border-radius:12px;background:#fff">
                   <div class="section-heading"><div><h6>Propuesta regenerada · {{ replacement.sessions.length }} sesiones</h6><p>{{ replacement.replaceFromDate | date:'dd/MM/yyyy' }} — {{ replacement.replaceThroughDate | date:'dd/MM/yyyy' }} · {{ replacement.preservedManualEdits }} ajustes manuales coincidentes conservados</p></div></div>
-                  <p *ngIf="replacement.retainedCustomExercises" class="muted">{{ replacement.retainedCustomExercises }} ejercicios personalizados que no estaban en la nueva selección se han conservado en sus sesiones ordinales. Revisa su distribución antes de confirmar.</p>
+                  <p *ngIf="replacement.retainedCustomExercises" class="muted">{{ replacement.retainedCustomExercises }} ejercicios manuales que no estaban en la nueva selección se han conservado en sus sesiones ordinales. Revisa su distribución antes de confirmar.</p>
                   <ul *ngIf="replacement.warnings.length"><li *ngFor="let warning of replacement.warnings">{{ warning }}</li></ul>
+                  <div style="overflow-x:auto;margin-top:10px"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:7px">Fecha</th><th style="text-align:left;padding:7px">Sesión</th><th style="text-align:right;padding:7px">Minutos</th><th style="text-align:right;padding:7px">Ejercicios</th></tr></thead><tbody><tr *ngFor="let session of replacement.sessions"><td style="padding:7px">{{ session.scheduledDate | date:'dd/MM/yyyy' }}</td><td style="padding:7px">{{ session.title }}</td><td style="padding:7px;text-align:right">{{ session.durationMinutes }}</td><td style="padding:7px;text-align:right">{{ prescriptionExerciseCount(session.exercisePrescription) }}</td></tr></tbody></table></div>
                   <div *ngFor="let week of replacement.volumePreview.qualityReport.weeklyMuscleVolumes" style="margin-top:12px;padding:12px;border:1px solid #e7edf4;border-radius:10px">
                     <strong>Volumen efectivo · semana {{ week.weekNumber }}</strong>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;margin-top:8px">
@@ -2246,6 +2248,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.generatedPreviews[planId] = null;
     this.generationRequests[planId] = null;
     this.generationErrors[planId] = '';
+  }
+
+  prescriptionExerciseCount(prescription: string | null | undefined): number {
+    return this.prescriptionLines(prescription).length;
   }
 
   sessionVolume(generated: GeneratedProgram, session: GeneratedSession): { muscles: Array<{ muscleGroup: string; estimatedEffectiveSets: number }> } | null {
