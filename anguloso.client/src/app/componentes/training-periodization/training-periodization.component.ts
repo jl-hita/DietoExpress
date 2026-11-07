@@ -29,7 +29,7 @@ interface GeneratedProgram {
   } | null;
 }
 interface GenerationRequest {
-  goal: number; experience: number; startDate: string; durationWeeks: number; trainingDays: number[];
+  goal: number; experience: number; startDate: string; durationWeeks: number; trainingDays: number[]; split: number;
   maximumSessionDurationMinutes: number; availableEquipment: string[]; excludedExerciseIds: string[];
   muscleVolumeTargets?: Array<{ muscleGroup: string; priority: number; targetWeeklyPrimarySets?: number | null }>;
   isDeload?: boolean;
@@ -415,7 +415,8 @@ interface RepDbExercise {
                 <label>Inicio del mesociclo<input type="date" name="autoStartDate{{plan.id}}" [ngModel]="autoStartDates[plan.id] || nextMesocycleStart(plan)" (ngModelChange)="autoStartDates[plan.id] = $event" required /></label>
                 <label>Duración (semanas)<input type="number" name="autoWeeks{{plan.id}}" [(ngModel)]="autoDurationWeeks" min="1" max="52" required /></label>
                 <label class="auto-deload-option"><span><input type="checkbox" name="autoIsDeload{{plan.id}}" [(ngModel)]="autoIsDeload" /> Generar este bloque como descarga activa</span><small>Úsalo para un bloque/fase de descarga, preferentemente de una semana. Reduce las series aproximadamente un 40–50 % y deja más RIR.</small></label>
-                <fieldset class="auto-day-picker full"><legend>¿Qué días entrenará?</legend><p>Elige entre 2 y 4 días. Puedes cambiar la selección cuando quieras.</p><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'autoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
+                <label>Distribución semanal<select name="autoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>La distribución se elige independientemente del calendario, con combinaciones equilibradas: cuerpo completo 2–3 días, torso/pierna 2 o 4 y PPL 3 o 6.</small></label>
+                <fieldset class="auto-day-picker full"><legend>¿Qué días entrenará?</legend><p>Elige entre 2 y 6 días. La combinación debe ser compatible con la distribución elegida.</p><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'autoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
                 <details class="auto-advanced-settings full"><summary>Opciones avanzadas de la sesión</summary><div class="auto-advanced-grid"><label>Duración máxima por sesión<input type="number" name="autoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" min="35" max="180" required /><small>Entre 35 y 180 minutos.</small></label><label>Material disponible (opcional)<input name="autoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Guiones y guiones bajos son equivalentes. «machine» incluye máquinas específicas; puedes usar «leg-press-machine» o «smith-machine» para restringir. Vacío = todo el material.</small></label></div></details>
                 <section class="muscle-preference-editor full">
                   <h5>Prioridades musculares (opcional)</h5>
@@ -452,16 +453,16 @@ interface RepDbExercise {
                     <li *ngFor="let warning of generated.qualityReport.warnings">{{ warning }}</li>
                   </ul>
                   <ng-template #noQualityWarnings><p>No se han detectado alertas automáticas. La revisión profesional sigue siendo obligatoria.</p></ng-template>
-                  <details *ngFor="let week of generated.qualityReport.weeklyMuscleVolumes">
-                    <summary>Semana {{ week.weekNumber }} · ver series y frecuencia por grupo muscular</summary>
-                    <ul>
-                      <li *ngFor="let muscle of week.muscles">
-                        {{ muscle.muscleGroup }}: {{ muscle.estimatedEffectiveSets }} series efectivas estimadas;
-                        etiquetas del catálogo: {{ muscle.primarySets }} primarias / {{ muscle.secondarySets }} secundarias;
-                        frecuencia {{ muscle.primaryFrequencySessions }} sesión(es) primaria(s) / {{ muscle.secondaryFrequencySessions }} secundaria(s).
-                      </li>
-                    </ul>
-                  </details>
+                  <div *ngFor="let week of generated.qualityReport.weeklyMuscleVolumes" class="volume-week-card" style="margin-top:12px;padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+                    <h6 style="margin:0 0 10px;font-size:14px">Volumen semanal · semana {{ week.weekNumber }}</h6>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">
+                      <div *ngFor="let muscle of week.muscles" style="display:flex;justify-content:space-between;gap:10px;padding:9px 10px;border:1px solid #e7edf4;border-radius:9px">
+                        <span>{{ muscle.muscleGroup }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
+                        <small style="color:#64748b">P {{ muscle.primarySets }} · S {{ muscle.secondarySets }} · {{ muscle.primaryFrequencySessions + muscle.secondaryFrequencySessions }} exp.</small>
+                      </div>
+                    </div>
+                    <p style="margin:10px 0 0;color:#64748b;font-size:11px">El total usa la auditoría de estímulo efectivo. P/S son las etiquetas originales del catálogo; una exposición puede aparecer en ambas frecuencias.</p>
+                  </div>
                 </section>
                 <article *ngFor="let session of generated.sessions" class="generated-session">
                   <strong>Semana {{ session.weekNumber }} · {{ dayName(session.day) }} · {{ session.title }}</strong>
@@ -743,6 +744,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   autoGoal = 1;
   autoExperience = 0;
   autoDurationWeeks = 4;
+  autoSplit = 0;
   autoIsDeload = false;
   autoMaximumMinutes = 60;
   autoTrainingDayOptions = [{ value: 1, label: 'Lunes' }, { value: 2, label: 'Martes' }, { value: 3, label: 'Miércoles' }, { value: 4, label: 'Jueves' }, { value: 5, label: 'Viernes' }, { value: 6, label: 'Sábado' }, { value: 0, label: 'Domingo' }];
@@ -1723,8 +1725,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   previewGeneratedMesocycle(plan: TrainingPlan): void {
     const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
-    if (days.length < 2 || days.length > 4) {
-      this.generationErrors[plan.id] = 'Selecciona entre 2 y 4 días de entrenamiento.';
+    if (days.length < 2 || days.length > 6) {
+      this.generationErrors[plan.id] = 'Selecciona entre 2 y 6 días de entrenamiento.';
       return;
     }
     if (!Number.isInteger(this.autoDurationWeeks) || this.autoDurationWeeks < 1 || this.autoDurationWeeks > 52 ||
@@ -1756,7 +1758,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       }
     }
     const request: GenerationRequest = {
-      goal: this.autoGoal, experience: this.autoExperience, startDate: requestedStart,
+      goal: this.autoGoal,
+      split: this.autoSplit, experience: this.autoExperience, startDate: requestedStart,
       durationWeeks: this.autoDurationWeeks, trainingDays: days,
       maximumSessionDurationMinutes: this.autoMaximumMinutes,
       availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
