@@ -2626,8 +2626,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     duration: number | null,
     exercises: StructuredExerciseDraft[]
   ): Record<string, unknown> | null {
-    const structured = exercises.filter(item => item.exerciseName.trim() && item.sets >= 1 && item.repetitions.trim());
-    if (!structured.length) return null;
+    const entered = exercises.filter(item => item.exerciseName.trim());
+    if (!entered.length || entered.some(item => item.sets < 1 || !item.repetitions.trim())) return null;
+    const structured = entered;
     return {
       engineVersion: 'manual-editor-v1',
       goal: 'Manual',
@@ -2637,7 +2638,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       exercises: structured.map((item, index) => {
         const catalogItem = this.exerciseCatalog.find(exercise =>
           exercise.name.trim().toLocaleLowerCase('es') === item.exerciseName.trim().toLocaleLowerCase('es'));
-        const repetitions = item.repetitions.match(/(\\d+)(?:\\s*[-–]\\s*(\\d+))?/);
+        const repetitions = item.repetitions.match(/(\d+)(?:\s*[-–]\s*(\d+))?/);
         const minRepetitions = repetitions ? Number(repetitions[1]) : undefined;
         const maxRepetitions = repetitions ? Number(repetitions[2] || repetitions[1]) : undefined;
         return {
