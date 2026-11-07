@@ -64,7 +64,7 @@ interface TrainingSession {
   actualDurationMinutes?: number | null; sessionRpe?: number | null; recordNotes?: string | null; exercisePrescription?: string | null; exercisePrescriptionData?: Record<string, unknown> | null;
 }
 interface StructuredExerciseDraft {
-  exerciseName: string; sets: number; repetitions: string; rir: number | null; restSeconds: number; notes: string;
+  exerciseName: string; originalExerciseName?: string; sets: number; repetitions: string; rir: number | null; restSeconds: number; notes: string;
   exerciseId?: string; catalogVersion?: string; progressionRule?: string | number;
   primaryMuscleGroups?: Array<string | number>; secondaryMuscleGroups?: Array<string | number>;
   smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null; selectionRationale?: string;
@@ -3013,9 +3013,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       const exerciseName = (match?.[1] ?? line).trim().replace(/^\d+\.\s*/, '');
       const metadata = structuredItems.find(item =>
         String(item['exerciseNameSnapshot'] ?? '').trim().toLocaleLowerCase('es') === exerciseName.toLocaleLowerCase('es')
-      ) ?? structuredItems[index];
+      );
       return {
         exerciseName,
+        originalExerciseName: String(metadata?.['exerciseNameSnapshot'] ?? exerciseName).trim(),
         sets: match ? Math.max(1, Math.min(10, Number(match[2]))) : 0,
         repetitions: (match?.[3] ?? '').trim(),
         rir: rirMatch ? Number(rirMatch[1].replace(',', '.')) : (match ? 2 : null),
@@ -3090,6 +3091,22 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   onWeeklyDraftChanged(plan: TrainingPlan, session: TrainingSession): void {
     const draft = this.weeklyDraft(session);
+    for (const exercise of draft.exercises) {
+      const normalizeName = (value: string) => value.trim().replace(/\\s+/g, ' ').toLocaleLowerCase('es');
+      const originalName = exercise.originalExerciseName ?? exercise.exerciseName;
+      if (normalizeName(originalName) !== normalizeName(exercise.exerciseName)) {
+        // A renamed exercise must never keep the previous exercise's stable ID or anatomy.
+        exercise.exerciseId = undefined;
+        exercise.catalogVersion = undefined;
+        exercise.progressionRule = undefined;
+        exercise.primaryMuscleGroups = undefined;
+        exercise.secondaryMuscleGroups = undefined;
+        exercise.smallestLoadIncrementKg = undefined;
+        exercise.maximumLoadIncreasePercent = undefined;
+        exercise.selectionRationale = undefined;
+        exercise.originalExerciseName = exercise.exerciseName;
+      }
+    }
     this.weeklyEditorDirty[session.id] = true;
     this.refreshManualVolumePreview(plan, draft.date, this.serializeStructuredExerciseDrafts(draft.exercises), session.id, draft.title);
   }
