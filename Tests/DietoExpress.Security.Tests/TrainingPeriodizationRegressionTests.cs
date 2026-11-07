@@ -134,7 +134,9 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("exercise_prescription_data)", controller);
         Assert.Contains("exercisePrescriptionData = reader.IsDBNull(19)", portalController);
         Assert.Contains("exercise_prescription_data::text", portalController);
-        Assert.Contains("exercise_prescription_data = CASE WHEN s.exercise_prescription IS DISTINCT FROM @exercisePrescription", controller);
+        Assert.Contains("exercise_prescription_data = CASE", controller);
+        Assert.Contains("WHEN s.exercise_prescription IS DISTINCT FROM @exercisePrescription THEN @prescriptionData::jsonb", controller);
+        Assert.Contains("ELSE COALESCE(@prescriptionData::jsonb, s.exercise_prescription_data)", controller);
         Assert.Contains("JsonElement? ExercisePrescriptionData = null", controller);
         // The legacy text field is still written and returned for existing web and Android clients.
         Assert.Contains("exercise_prescription, exercise_prescription_data", controller);
