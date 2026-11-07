@@ -53,6 +53,18 @@ internal static class RepDbExerciseAutoReviewer
             "advanced" or "expert" or "hard" or "avanzado" => "Advanced",
             _ => (string?)null
         };
+
+        // RepDB difficulty is not a direct minimum-experience requirement. These controlled,
+        // scalable variants are appropriate beginner options when load and range are adapted.
+        // Keep technically demanding barbell deadlifts and ab-wheel rollouts intermediate.
+        if (id is "dumbbell-romanian-deadlift" or "hip-thrust" or "barbell-glute-bridge"
+            or "dumbbell-shoulder-press" or "machine-shoulder-press"
+            or "cable-crunch" or "cable-pallof-press" or "side-plank"
+            or "dumbbell-farmers-walk" or "reverse-lunge" or "step-ups"
+            // Stable, supported rowing and assisted-pull-up variants scale well for novices.
+            or "chest-supported-db-row" or "single-arm-db-row" or "assisted-pull-ups")
+            exp = "Beginner";
+
         if (exp is null) return null;
 
         var goals = ReadStrings(goalsJson).Select(MapGoal).Where(x => x is not null).Cast<string>()
@@ -65,6 +77,11 @@ internal static class RepDbExerciseAutoReviewer
 
         var requiredEquipment = MapEquipment(equipment ?? "", isBodyweight);
         if (requiredEquipment is null) return null;
+        // Some RepDB exercises declare extra mandatory equipment in tags rather than equipment.
+        // A tibialis raise needs a bench to support the working leg as well as the kettlebell.
+        if (Has(tagsJson, "requires_bench", "requires bench"))
+            requiredEquipment = requiredEquipment.Append("bench")
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
         // Accessory work is selected only after the main patterns and only when it addresses
         // an unmet muscle target; priority breaks ties between compatible accessories.
@@ -81,8 +98,40 @@ internal static class RepDbExerciseAutoReviewer
         string? force, string? mechanic, string? bodyPart, string[] muscles)
     {
         var text = Normalize(string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))));
+        // Stable RepDB identifiers take precedence over translated display names. This prevents
+        // ambiguous substrings (for example "row" inside "crow") from deciding biomechanics.
+        var explicitPattern = id.ToLowerInvariant() switch
+        {
+            "ohp" or "dumbbell-shoulder-press" or "machine-shoulder-press" => "VerticalPush",
+            "cable-crunch" or "ab-wheel-rollout" or "cable-pallof-press" or "side-plank" or "dumbbell-farmers-walk"
+                or "machine-seated-crunch" or "dead-bug" or "hanging-knee-raise" or "captains-chair-knee-raise" => "Core",
+            "machine-back-extension" or "glute-bridge" => "Hinge",
+            "db-squat" or "horizontal-leg-press" => "Squat",
+            "chest-supported-kettlebell-row" or "kneeling-cable-row" or "one-arm-seated-cable-row" => "HorizontalPull",
+            "lat-pulldown" or "v-bar-lat-pulldown" or "pull-up" or "chin-ups" or "assisted-pull-ups" => "VerticalPull",
+            "bench-press" or "db-bench-press" or "incline-bench-press" or "incline-db-press"
+                or "smith-machine-bench-press" or "smith-machine-incline-bench-press"
+                or "chest-press-machine" or "push-up" or "knee-push-ups" or "incline-push-ups" => "HorizontalPush",
+            "barbell-row" or "single-arm-db-row" or "chest-supported-db-row"
+                or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" => "HorizontalPull",
+            "squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" => "Squat",
+            "deadlift" or "hex-bar-deadlift" or "romanian-deadlift"
+                or "dumbbell-romanian-deadlift" or "hip-thrust" or "plate-loaded-glute-drive" => "Hinge",
+            "bulgarian-split-squat" or "reverse-lunge" or "step-ups" => "SingleLeg",
+            // Knee-flexion hamstring work is isolation, not a hip hinge. Keep these exercises
+            // available to the accessory selector instead of letting deadlift variants displace them.
+            "leg-curl" or "seated-leg-curl" or "nordic-hamstring-curl"
+                or "ball-leg-curl" or "banded-standing-curl" or "trx-hamstring-curl"
+                or "reverse-nordic-curl" => "Accessory",
+            _ => (string?)null
+        };
+        if (explicitPattern is not null) return explicitPattern;
         // Isolations/accessories have their own optional generator slots; they must not
         // displace the primary compound movement chosen for a broad movement pattern.
+        if (id is "machine-reverse-fly" or "machine-chest-fly" or "machine-bicep-curl"
+            or "single-arm-plate-loaded-lateral-raise" or "machine-calf-raise"
+            or "side-lying-hip-abduction" or "side-lying-hip-adduction" or "bodyweight-calf-raise")
+            return "Accessory";
         if (IsAccessoryExercise(id, es, en)) return "Accessory";
         // Strong name/ID cues first; ambiguous exercises stay pending.
         if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press", "landmine press", "push press",
@@ -93,10 +142,10 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "hip bridge", "puente de cadera", "back extension", "extension lumbar",
             "kettlebell swing", "dumbbell swing", "one-arm swing", "swing con mancuerna", "pull-through", "pull through",
             "leg curl", "hamstring curl", "curl femoral", "nordic hamstring", "standing leg curl", "curl de pierna de pie")) return "Hinge";
-        if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion", "chest press", "floor press",
+        if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion de brazos", "flexiones de brazos", "chest press", "floor press",
             "svend press", "tricep kickback", "patada de triceps",
             "dip machine", "dips", "fondos")) return "HorizontalPush";
-        if (Has(text, "row", "remo", "seated cable row", "bent-over row")) return "HorizontalPull";
+        if (HasWholeWord(text, "row") || Has(text, "remo", "seated cable row", "bent-over row")) return "HorizontalPull";
         if (Has(text, "pull-up", "pull up", "chin-up", "chin up", "lat pulldown", "jalon al pecho")) return "VerticalPull";
         if (Has(text, "lunge", "zancada", "split squat", "step-up", "step up", "pistol squat", "single-leg")) return "SingleLeg";
         if (Has(text, "crunch", "sit-up", "sit up", "plank", "plancha", "dead bug", "hollow hold", "russian twist", "abdominal",
@@ -140,7 +189,9 @@ internal static class RepDbExerciseAutoReviewer
         var text = Normalize(string.Join(' ', id, nameEs, nameEn));
         return Has(text, "lateral raise", "elevacion lateral", "front raise", "elevacion frontal",
             "shoulder fly", "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho",
-            "face pull", "reverse fly", "rear delt fly", "bicep curl", "curl de biceps", "preacher curl",
+            "face pull", "reverse fly", "rear delt fly", "bicep curl", "curl de biceps", "hammer curl", "curl de martillo", "preacher curl",
+            "barbell curl", "cable curl", "dumbbell curl", "incline db curl",
+            "curl con barra", "curl con cable", "curl con mancuernas",
             "concentration curl", "forearm curl", "wrist curl", "tricep extension", "triceps extension",
             "tricep pushdown", "tricep kickback", "skull crusher", "extension de triceps", "leg extension",
             "quadriceps extension", "extension de cuadriceps", "single-leg-extension", "leg curl", "hamstring curl",
@@ -214,6 +265,7 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(v, "hack squat", "hack_squat")) return ["hack-squat-machine"];
         if (Has(v, "leg curl", "leg_curl")) return ["leg-curl-machine"];
         if (Has(v, "leg extension", "leg_extension")) return ["leg-extension-machine"];
+        if (Has(v, "smith")) return ["smith-machine"];
         if (Has(v, "hip abduction machine", "hip_abduction_machine", "hip adduction machine", "hip_adduction_machine")) return ["machine"];
         if (Has(v, "back extension machine", "back_extension_machine", "bicep curl machine", "bicep_curl_machine",
             "chest fly machine", "chest_fly_machine", "preacher curl machine", "preacher_curl_machine",
@@ -223,10 +275,9 @@ internal static class RepDbExerciseAutoReviewer
             "plate loaded lateral raise machine", "plate_loaded_lateral_raise_machine", "hip thrust machine", "hip_thrust_machine",
             "plate loaded dip machine", "plate_loaded_dip_machine", "shrug machine", "shrug_machine",
             "chest press machine", "chest_press_machine", "leg press", "leg_press", "hack squat", "hack_squat",
-            "leg curl", "leg_curl", "leg extension", "leg_extension", "pec deck", "pec_deck", "smith")) return ["machine"];
+            "leg curl", "leg_curl", "leg extension", "leg_extension", "pec deck", "pec_deck")) return ["machine"];
         if (Has(v, "machine", "máquina", "maquina")) return ["machine"];
         if (Has(v, "resistance band", "band", "banda elástica", "banda elastica")) return ["resistance-band"];
-        if (Has(v, "smith")) return ["smith-machine"];
         if (Has(v, "ez-bar", "ez_bar", "curl bar")) return ["ez-bar"];
         if (Has(v, "medicine ball", "medicine_ball", "balón medicinal", "balon medicinal")) return ["medicine-ball"];
         if (Has(v, "stability ball", "stability_ball")) return ["stability-ball"];
@@ -375,10 +426,195 @@ internal static class RepDbExerciseAutoReviewer
         return value?.Trim();
     }
 
-    private static bool HasUsefulInstructions(string json)
+    public static string GenerateInstructionsEs(string id, string? nameEs, string nameEn)
+    {
+        var key = id.ToLowerInvariant();
+        string[]? instructions = key switch
+        {
+            "push-up" or "knee-push-ups" =>
+                ["Coloca las manos algo más abiertas que los hombros y mantén el cuerpo alineado desde la cabeza hasta las rodillas o los pies.",
+                 "Flexiona los codos para acercar el pecho al suelo y empuja después hasta recuperar la posición inicial, sin perder la alineación."],
+            "incline-push-ups" =>
+                ["Apoya las manos sobre un banco o superficie firme y elevada, a la anchura de los hombros.",
+                 "Mantén el cuerpo alineado, baja el pecho hacia el apoyo y empuja hasta extender los brazos sin bloquear los codos."],
+            "bench-press" or "db-bench-press" or "incline-bench-press" or "incline-db-press"
+                or "smith-machine-bench-press" or "smith-machine-incline-bench-press"
+                or "chest-press-machine" =>
+                ["Apoya firmemente los pies y la espalda en el banco o respaldo; coloca las manos a una anchura cómoda y controla la posición de los hombros.",
+                 "Desciende la carga hacia el pecho de forma controlada y empuja hasta extender los brazos sin bloquear bruscamente los codos."],
+            "barbell-row" or "single-arm-db-row" or "chest-supported-db-row"
+                or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" =>
+                ["Adopta una posición estable, mantén la columna neutra y deja que los brazos se extiendan sin perder el control del tronco.",
+                 "Lleva los codos hacia atrás acercando la carga al torso y vuelve lentamente a la posición inicial."],
+            "ohp" or "dumbbell-shoulder-press" or "machine-shoulder-press" =>
+                ["Coloca la carga a la altura de los hombros, con el tronco firme y las muñecas alineadas con los antebrazos.",
+                 "Empuja verticalmente hasta extender los brazos de forma controlada y baja de nuevo hasta la posición inicial."],
+            "lat-pulldown" or "v-bar-lat-pulldown" or "assisted-pull-ups" or "pull-up" or "chin-ups" =>
+                ["Sujeta la barra con el agarre indicado y estabiliza el tronco, evitando impulsarte o balancearte.",
+                 "Lleva los codos hacia abajo hasta acercar la barra o el cuerpo al punto previsto y regresa lentamente con control."],
+            "squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" =>
+                ["Coloca los pies en una posición estable y ajusta la carga para poder mantener el recorrido con control.",
+                 "Flexiona caderas y rodillas siguiendo la dirección de los pies; empuja el suelo para volver a la posición inicial."],
+            "bulgarian-split-squat" or "reverse-lunge" or "step-ups" =>
+                ["Adopta una posición unilateral estable y reparte el apoyo sin perder el equilibrio ni la alineación de la rodilla.",
+                 "Desciende o sube de forma controlada, impulsándote con la pierna de trabajo y evitando rebotes."],
+            "deadlift" or "hex-bar-deadlift" or "romanian-deadlift" or "dumbbell-romanian-deadlift"
+                or "hip-thrust" or "barbell-glute-bridge" =>
+                ["Coloca los pies y la carga de forma estable; mantén el abdomen activo y la columna en posición neutra.",
+                 "Extiende la cadera de forma controlada sin hiperextender la zona lumbar y vuelve lentamente al inicio."],
+            "db-fly" =>
+                ["Túmbate en un banco plano con una mancuerna en cada mano, sobre el pecho y con las palmas enfrentadas.",
+                 "Mantén una ligera flexión de los codos y abre los brazos hacia los lados de forma controlada, sin bajar más allá de un estiramiento cómodo.",
+                 "Acerca de nuevo las mancuernas sobre el pecho contrayendo los pectorales, sin chocar las cargas."],
+            "cable-fly" or "pec-deck" =>
+                ["Ajusta la polea o máquina a una posición cómoda y mantén una ligera flexión de los codos.",
+                 "Acerca los brazos delante del pecho sin encoger los hombros y regresa lentamente hasta notar un estiramiento cómodo."],
+            "lateral-raise" or "cable-lateral-raise" or "seated-dumbbell-lateral-raise" =>
+                ["Mantén el tronco estable y los codos ligeramente flexionados, con la carga a los lados del cuerpo.",
+                 "Eleva los brazos hacia los lados hasta una altura cómoda y desciende lentamente sin balancear el cuerpo."],
+            "dumbbell-reverse-fly" or "face-pull" =>
+                ["Adopta una posición estable y dirige el movimiento con los codos, manteniendo el cuello relajado.",
+                 "Separa las manos llevando los codos hacia atrás y vuelve lentamente sin utilizar impulso."],
+            "barbell-curl" or "hammer-curl" or "incline-db-curl" or "preacher-curl" or "cable-curl" =>
+                ["Mantén los codos cerca del cuerpo o apoyados según la variante, evitando balancear el tronco.",
+                 "Flexiona los codos para elevar la carga y bájala lentamente hasta casi extender los brazos."],
+            "tricep-pushdown" or "cable-overhead-tricep-extension" or "overhead-tricep-extension" or "skull-crusher" =>
+                ["Estabiliza los hombros y mantén los codos en una posición fija durante el movimiento.",
+                 "Extiende los codos para mover la carga y regresa lentamente sin abrirlos ni utilizar impulso."],
+            "leg-extension" =>
+                ["Ajusta el respaldo y el rodillo para que la rodilla quede alineada con el eje de la máquina.",
+                 "Extiende las rodillas de forma controlada y baja la carga lentamente sin dejarla caer."],
+            "reverse-nordic-curl" =>
+                ["Arrodíllate sobre una almohadilla con las rodillas a la anchura de las caderas y el torso erguido.",
+                 "Mantén la cadera extendida y el abdomen activo durante todo el movimiento.",
+                 "Inclina el torso hacia atrás lentamente manteniendo hombros, caderas y rodillas alineados.",
+                 "Desciende solo hasta donde puedas controlar la tensión de los cuádriceps.",
+                 "Vuelve a la posición inicial sin doblar la cadera ni impulsarte."],
+            "leg-curl" or "seated-leg-curl" or "nordic-hamstring-curl" =>
+                ["Ajusta la máquina o la posición para mantener la cadera estable durante todo el recorrido.",
+                 "Flexiona las rodillas acercando los talones y regresa lentamente, controlando especialmente la fase de bajada."],
+            "ball-leg-curl" =>
+                ["Túmbate boca arriba con los talones y la parte inferior de las pantorrillas apoyados sobre una pelota de estabilidad.",
+                 "Eleva las caderas formando una línea recta desde los hombros hasta los tobillos.",
+                 "Mantén las caderas elevadas y flexiona las rodillas para rodar la pelota hacia los glúteos.",
+                 "Extiende las piernas lentamente sin dejar caer la pelvis.",
+                 "Baja las caderas al terminar."],
+            "banded-standing-curl" =>
+                ["Coloca una banda elástica alrededor de un tobillo y ancla el otro extremo bajo el pie de apoyo o en un punto fijo delante de ti.",
+                 "Mantente erguido y sujétate a un apoyo si necesitas equilibrio.",
+                 "Flexiona la rodilla llevando el talón hacia el glúteo y mantén el muslo quieto.",
+                 "Contrae el isquiotibial arriba y baja con control hasta extender la rodilla.",
+                 "Completa las repeticiones de un lado y cambia de pierna."],
+            "trx-hamstring-curl" =>
+                ["Túmbate boca arriba con los talones en los soportes del entrenador de suspensión y las rodillas flexionadas.",
+                 "Eleva las caderas manteniendo el tronco alineado.",
+                 "Extiende las piernas hacia delante sin dejar caer las caderas.",
+                 "Flexiona las rodillas y acerca los talones hacia los glúteos.",
+                 "Controla la extensión y evita que las caderas se hundan."],
+            "standing-calf-raise" or "seated-calf-raise" =>
+                ["Apoya el antepié sobre la plataforma y comienza desde una posición estable, sin rebotes.",
+                 "Eleva los talones todo lo posible de forma controlada y baja lentamente hasta un estiramiento cómodo."],
+            "cable-external-rotation" =>
+                ["Coloca el codo junto al costado y mantenlo flexionado aproximadamente a 90 grados.",
+                 "Gira el antebrazo hacia fuera sin separar el codo del cuerpo y vuelve lentamente al inicio."],
+            "hip-adduction" =>
+                ["Ajusta la máquina para que las almohadillas contacten con la cara interna de los muslos.",
+                 "Acerca las piernas de forma controlada y vuelve lentamente sin dejar que la carga golpee."],
+            "standing-hip-abduction" =>
+                ["Mantén el tronco erguido y sujétate para estabilizar la pelvis.",
+                 "Separa una pierna lateralmente sin inclinar el tronco y regresa lentamente a la posición inicial."],
+            "hip-abduction" =>
+                ["Siéntate en la máquina con los apoyos contra la parte externa de los muslos y la espalda apoyada.",
+                 "Separa las piernas contra la resistencia, mantén un instante y vuelve lentamente a la posición inicial."],
+            "plate-loaded-glute-drive" =>
+                ["Siéntate en la máquina con la parte alta de la espalda apoyada y los pies firmes en la plataforma.",
+                 "Coloca la almohadilla sobre el pliegue de la cadera y ajusta la posición antes de iniciar.",
+                 "Empuja las caderas hacia arriba contrayendo los glúteos y baja lentamente sin perder el control."],
+            "shrug" =>
+                ["De pie, sujeta la barra con los brazos extendidos y el tronco estable.",
+                 "Eleva los hombros hacia las orejas sin flexionar los codos y mantén brevemente.",
+                 "Desciende los hombros de forma controlada sin dejar caer la carga."],
+            "straight-arm-pulldown" =>
+                ["Colócate frente a la polea alta y sujeta la barra con los brazos casi extendidos.",
+                 "Lleva la barra hacia los muslos mediante los hombros, manteniendo el tronco estable.",
+                 "Regresa lentamente a la posición inicial sin balancearte."],
+            "cable-crunch" =>
+                ["Arrodíllate frente a la polea y sujeta la cuerda junto a la cabeza, manteniendo la cadera estable.",
+                 "Flexiona el tronco acercando las costillas a la pelvis y vuelve lentamente sin tirar con los brazos."],
+            "ab-wheel-rollout" =>
+                ["Comienza de rodillas con la rueda bajo los hombros y el abdomen activo para evitar arquear la zona lumbar.",
+                 "Desplaza la rueda hacia delante hasta donde puedas mantener el tronco estable y regresa controladamente."],
+            "cable-pallof-press" =>
+                ["Colócate de lado respecto a la polea y sujeta el agarre delante del pecho con los pies firmes.",
+                 "Extiende los brazos sin permitir que el tronco rote y vuelve lentamente al pecho."],
+            "side-plank" =>
+                ["Apoya el antebrazo bajo el hombro y eleva la pelvis hasta alinear hombros, cadera y tobillos.",
+                 "Mantén la posición respirando con normalidad y evita que la pelvis descienda o rote."],
+            "dumbbell-farmers-walk" =>
+                ["Sujeta una carga en cada mano y adopta una postura erguida con los hombros relajados.",
+                 "Camina con pasos cortos y controlados, manteniendo el tronco estable y evitando balancear las cargas."],
+            "machine-seated-crunch" =>
+                ["Ajusta el asiento y coloca el apoyo de forma cómoda, manteniendo la pelvis estable.",
+                 "Flexiona el tronco acercando las costillas a la pelvis y regresa lentamente sin tirar con los brazos."],
+            "dead-bug" =>
+                ["Túmbate boca arriba con caderas y rodillas flexionadas y la zona lumbar estable.",
+                 "Extiende lentamente el brazo y la pierna contrarios sin arquear la espalda y vuelve al centro antes de alternar."],
+            "machine-reverse-fly" =>
+                ["Ajusta el asiento para que los brazos queden a la altura de los hombros y sujeta los agarres con control.",
+                 "Abre los brazos llevando los codos hacia atrás y vuelve lentamente sin encoger los hombros."],
+            "machine-chest-fly" =>
+                ["Ajusta el respaldo y los brazos de la máquina para comenzar con un estiramiento cómodo del pecho.",
+                 "Junta los brazos delante del torso sin golpear los soportes y vuelve lentamente a la posición inicial."],
+            "machine-bicep-curl" =>
+                ["Ajusta el asiento para alinear los codos con el eje de giro y apoya los brazos en el soporte.",
+                 "Flexiona los codos para elevar el agarre y baja la carga lentamente sin despegar los brazos."],
+            "single-arm-plate-loaded-lateral-raise" =>
+                ["Colócate de lado respecto al apoyo y ajusta el brazo de la máquina a una posición cómoda.",
+                 "Eleva el brazo lateralmente sin inclinar el tronco y desciende lentamente manteniendo el control."],
+            "machine-calf-raise" =>
+                ["Apoya el antepié en la plataforma y coloca los hombros bajo los soportes acolchados.",
+                 "Eleva los talones de forma controlada y baja lentamente hasta un estiramiento cómodo."],
+            "kettlebell-tibialis-raise" =>
+                ["Siéntate en el extremo de un banco con una pierna extendida y el talón apoyado en el suelo.",
+                 "Cuelga una pesa rusa por el asa del antepié, sobre los dedos, manteniendo la pierna estable.",
+                 "Eleva los dedos hacia la espinilla sin mover la rodilla ni el muslo.",
+                 "Baja lentamente el pie y cambia de pierna al completar las repeticiones."],
+            "bodyweight-calf-raise" =>
+                ["Colócate de pie con apoyo estable y deja que los talones puedan descender libremente.",
+                 "Eleva los talones todo lo posible y baja lentamente sin rebotar."],
+            "side-lying-hip-abduction" =>
+                ["Túmbate de lado con la pierna inferior flexionada y la superior extendida, manteniendo la pelvis estable.",
+                 "Eleva la pierna superior sin girar la cadera y bájala lentamente."],
+            "side-lying-hip-adduction" =>
+                ["Túmbate de lado y cruza la pierna superior por delante para dejar libre la pierna inferior.",
+                 "Eleva la pierna inferior hacia la superior sin rotar la pelvis y desciende lentamente."],
+            "machine-back-extension" =>
+                ["Ajusta la máquina para que el eje de giro quede alineado con la cadera y mantén el tronco estable.",
+                 "Extiende la cadera hasta alinear el tronco con las piernas sin hiperextender la zona lumbar y vuelve controladamente."],
+            "glute-bridge" =>
+                ["Túmbate boca arriba con las rodillas flexionadas y los pies apoyados a una distancia cómoda.",
+                 "Eleva la pelvis contrayendo los glúteos sin arquear la zona lumbar y desciende lentamente."],
+            "db-squat" or "horizontal-leg-press" =>
+                ["Coloca los pies en una posición estable y ajusta la carga para mantener el recorrido con control.",
+                 "Flexiona caderas y rodillas siguiendo la dirección de los pies y empuja para volver al inicio."],
+            "chest-supported-kettlebell-row" or "kneeling-cable-row" or "one-arm-seated-cable-row" =>
+                ["Adopta una posición estable y mantén el tronco y la columna neutros durante el movimiento.",
+                 "Lleva el codo hacia atrás acercando la carga al torso y regresa lentamente sin girar el tronco."],
+            "hanging-knee-raise" or "captains-chair-knee-raise" =>
+                ["Estabiliza el tronco y sujeta los apoyos con los hombros controlados, evitando balancearte.",
+                 "Eleva las rodillas hacia el pecho mediante la flexión de cadera y vuelve lentamente al inicio."],
+            _ => null
+        };
+
+        return instructions is null ? "[]" : JsonSerializer.Serialize(instructions);
+    }
+
+    public static bool HasUsefulInstructions(string json)
     {
         var instructions = ReadStrings(json);
-        return instructions.Length >= 2 && instructions.All(x => x.Trim().Length >= 8);
+        // RepDB commonly ends a valid sequence with the short instruction "Repite.".
+        // Require at least two substantive steps instead of rejecting the whole sequence.
+        return instructions.Length >= 2 && instructions.Count(x => x.Trim().Length >= 8) >= 2;
     }
 
     private static string[] ReadStrings(string json)
@@ -401,4 +637,10 @@ internal static class RepDbExerciseAutoReviewer
 
     private static bool Has(string text, params string[] terms) =>
         terms.Any(term => text.Contains(Normalize(term), StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasWholeWord(string text, string term)
+    {
+        var normalized = " " + Normalize(text).Replace('-', ' ').Replace('_', ' ') + " ";
+        return normalized.Contains(" " + Normalize(term) + " ", StringComparison.OrdinalIgnoreCase);
+    }
 }

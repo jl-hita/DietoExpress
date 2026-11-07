@@ -189,6 +189,17 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void RepetitionsAbovePrescribedMaximum_AreInvalidAndNeverTriggerLoadIncrease()
+    {
+        var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(),
+            [Exposure(13), Exposure(13)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.InvalidData, result.Action);
+        Assert.Null(result.SuggestedLoadKg);
+        Assert.Null(result.LoadIncreaseKg);
+    }
+
+    [Fact]
     public void LowRepetitions_HoldRatherThanAutomaticallyReducingOrIncreasingLoad()
     {
         var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(),
@@ -217,12 +228,111 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void LatestDeloadExposureRequiresAProgressionEligibleSessionBeforeLoadIncrease()
+    {
+        var deload = Exposure(12) with { ProgressionEligible = false };
+        var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(), [Exposure(12), deload]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.HoldAndReview, result.Action);
+    }
+
+    [Fact]
+    public void DeloadExposureBreaksTheConsecutiveTopRangeStreak()
+    {
+        var deload = Exposure(12) with { ProgressionEligible = false };
+        var result = TrainingExerciseProgressionEngine.Evaluate(
+            Prescription(), [Exposure(12), deload, Exposure(12)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.ConfirmTopOfRange, result.Action);
+    }
+
+    [Fact]
+    public void ChangedHistoricalRepRangeBreaksTopOfRangeStreak()
+    {
+        var currentPrescription = Prescription(1.25m) with { MinRepetitions = 6, MaxRepetitions = 8 };
+        var previousBlock = Exposure(12) with
+        {
+            HistoricalPrescription = new(3, 8, 12, 2m)
+        };
+        var currentBlock = Exposure(8) with
+        {
+            HistoricalPrescription = new(3, 6, 8, 2m)
+        };
+
+        var result = TrainingExerciseProgressionEngine.Evaluate(
+            currentPrescription, [previousBlock, currentBlock]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.ConfirmTopOfRange, result.Action);
+        Assert.Null(result.SuggestedLoadKg);
+    }
+
+    [Fact]
+    public void LatestExposureWithDifferentHistoricalPrescriptionRequiresFreshEvidence()
+    {
+        var currentPrescription = Prescription() with { MinRepetitions = 6, MaxRepetitions = 8 };
+        var oldRangeExposure = Exposure(12) with
+        {
+            HistoricalPrescription = new(3, 8, 12, 2m)
+        };
+
+        var result = TrainingExerciseProgressionEngine.Evaluate(
+            currentPrescription, [oldRangeExposure, oldRangeExposure]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.HoldAndReview, result.Action);
+        Assert.Contains("prescripción de este ejercicio cambió", result.Explanation);
+        Assert.Null(result.SuggestedLoadKg);
+    }
+
+    [Fact]
+    public void ChangedHistoricalSetCountBreaksTopOfRangeStreak()
+    {
+        var previousBlock = Exposure(12) with
+        {
+            HistoricalPrescription = new(4, 8, 12, 2m)
+        };
+        var currentBlock = Exposure(12) with
+        {
+            HistoricalPrescription = new(3, 8, 12, 2m)
+        };
+
+        var result = TrainingExerciseProgressionEngine.Evaluate(
+            Prescription(1.25m), [previousBlock, currentBlock]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.ConfirmTopOfRange, result.Action);
+        Assert.Null(result.SuggestedLoadKg);
+    }
+
+    [Fact]
+    public void DeloadExposureDoesNotCountTowardStagnationDetection()
+    {
+        var deload = Exposure(10) with { ProgressionEligible = false };
+        var result = TrainingExerciseProgressionEngine.Evaluate(
+            Prescription(), [Exposure(10), deload, Exposure(10)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.AddRepetitions, result.Action);
+    }
+
+    [Fact]
     public void NoProgressionRule_ReturnsNotApplicable()
     {
         var p = Prescription() with { ProgressionRule = TrainingProgressionRule.None };
         var result = TrainingExerciseProgressionEngine.Evaluate(p, [Exposure(12)]);
 
         Assert.Equal(TrainingExerciseProgressionAction.NotApplicable, result.Action);
+    }
+
+    [Fact]
+    public void RecentPainStillRequiresReviewWhenProgressionIsDisabled()
+    {
+        var p = Prescription() with { ProgressionRule = TrainingProgressionRule.None };
+        var exposure = new TrainingExerciseExposure(
+            Enumerable.Range(0, 3)
+                .Select(_ => new TrainingExecutedSet("working", 60m, 12, 3m, true)).ToArray(),
+            PainReported: true);
+
+        var result = TrainingExerciseProgressionEngine.Evaluate(p, [exposure]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.HoldAndReview, result.Action);
     }
 
     [Fact]

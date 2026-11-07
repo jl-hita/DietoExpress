@@ -38,16 +38,16 @@ public static class TrainingAdaptationPolicy
             return Decision(TrainingAdaptationAction.ReviewAndReduceTrainingStress,
                 "La recuperación insuficiente se repite. Revisa con tu profesional el volumen, la intensidad y la separación entre sesiones futuras.");
 
-        if (latest.Outcome is TrainingSessionOutcome.NotCompleted &&
-            latest.NonCompletionReason is TrainingNonCompletionReason.Time)
-            return Decision(TrainingAdaptationAction.ReorganizeFutureSessions,
-                "La sesión se omitió por falta de tiempo; tu profesional puede reorganizar solo las sesiones futuras si el calendario y la recuperación lo permiten.");
-
         if (((latest.Outcome is TrainingSessionOutcome.Partial or TrainingSessionOutcome.NotCompleted) &&
              (latest.NonCompletionReason is TrainingNonCompletionReason.Fatigue or TrainingNonCompletionReason.Illness)) ||
             latest.Recovery is TrainingRecoveryRating.Insufficient)
             return Decision(TrainingAdaptationAction.HoldProgressionAndReview,
                 "No aumentes automáticamente la exigencia. Revisa el contexto y confirma la recuperación con tu profesional antes de progresar.");
+
+        if (latest.Outcome is TrainingSessionOutcome.Partial or TrainingSessionOutcome.NotCompleted &&
+            latest.NonCompletionReason is TrainingNonCompletionReason.Time)
+            return Decision(TrainingAdaptationAction.ReorganizeFutureSessions,
+                "La sesión se completó solo parcialmente o se omitió por falta de tiempo; tu profesional puede reorganizar solo las sesiones futuras si el calendario y la recuperación lo permiten.");
 
         // Progression is deliberately not inferred from session-level RPE or a client-supplied
         // boolean. Exercise progression requires per-set load/reps/RIR and is evaluated by

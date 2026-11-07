@@ -90,7 +90,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
                 new[]
                 {
                     "El catálogo de evaluación contiene ejercicios reales de RepDB seleccionados mediante una lista curada y revisión explícita de patrón, material y grupos musculares; no representa el catálogo completo.",
-                    "El informe conserva series primarias y exposiciones secundarias por separado; el QualityReport añade una estimación secundaria al 0,5 como heurística explícita de software, no como equivalencia fisiológica validada.",
+                    "El informe conserva series primarias y secundarias por separado; las series efectivas usan el mapeo revisado TrainingExerciseStimulus por ID de ejercicio, sin crédito universal de 0,5. Es una regla explícita de programación, no una equivalencia fisiológica validada por ACSM.",
                     "La biblioteca completa se conserva en PostgreSQL con su payload original; solo los ejercicios incluidos en la lista curada se consideran aptos para el generador.",
                     "La duración es la estimación heurística del motor; no está contrastada con sesiones reales.",
                     "La validación estructural no demuestra idoneidad fisiológica individual."
@@ -125,7 +125,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
             .ToHashSet(StringComparer.Ordinal);
         Assert.Contains("leg-curl", selectedExerciseIds);
         Assert.Contains("lateral-raise", selectedExerciseIds);
-        Assert.Contains(scenarios.SelectMany(scenario => scenario.Plan!.QualityReport!.Warnings),
+        Assert.DoesNotContain(scenarios.SelectMany(scenario => scenario.Plan!.QualityReport!.Warnings),
             warning => warning.Contains("estimación de volumen efectivo", StringComparison.OrdinalIgnoreCase));
         Assert.All(scenarios, scenario =>
         {

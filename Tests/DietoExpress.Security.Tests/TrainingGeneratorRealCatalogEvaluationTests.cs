@@ -21,7 +21,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
     public TrainingGeneratorRealCatalogEvaluationTests(ITestOutputHelper output) => _output = output;
 
     [Fact]
-    public async Task AutoCuratedRepDbCatalogGeneratesAcrossThe81ScenarioMatrix()
+    public async Task AutoCuratedRepDbCatalogGeneratesAcrossThe405ScenarioMatrix()
     {
         var baseConnectionString = Environment.GetEnvironmentVariable("DIETOEXPRESS_IDEMPOTENCY_TEST_CONNECTION");
         if (string.IsNullOrWhiteSpace(baseConnectionString))
@@ -40,7 +40,11 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var scenarioResults = new List<RealCatalogScenarioResult>();
+        var catalogReviewExceptions = new List<RealCatalogReviewException>();
+        var catalogImageMissingIds = new List<string>();
+        var catalogSingleImageOnlyIds = new List<string>();
         ExerciseCatalogService.ExerciseCatalogReviewStats? reviewStats = null;
+        IReadOnlyList<TrainingExerciseCandidate> candidates = Array.Empty<TrainingExerciseCandidate>();
         var candidateCount = 0;
         var generalFitnessCandidateCount = 0;
         try
@@ -85,7 +89,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 """, connection))
             {
                 var changed = await removeGoal.ExecuteNonQueryAsync();
-                Assert.True(changed >= 100, $"Expected at least 100 automatic RepDB approvals to migrate, found {changed}.");
+                Assert.True(changed >= 50, $"Expected at least 50 automatic RepDB approvals to migrate from the curated catalog, found {changed}.");
             }
             await using (var removeMarker = new NpgsqlCommand(
                 "DELETE FROM schema_migrations WHERE id = 'exercise-catalog-repdb-general-fitness-goal-v1'", connection))
@@ -95,15 +99,74 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
 
             await catalogService.EnsureSeededAsync();
             reviewStats = await catalogService.GetReviewStatsAsync();
-            var candidates = await catalogService.LoadGeneratorCandidatesAsync(ownerUserId: 0);
+            candidates = await catalogService.LoadGeneratorCandidatesAsync(ownerUserId: 0);
             candidateCount = candidates.Count;
+
+            // Knee-flexion hamstring curls must be available as isolation accessories, not
+            // misclassified as hip hinges where they lose to deadlift/RDL pattern selection.
+            foreach (var exerciseId in new[] { "leg-curl", "seated-leg-curl", "nordic-hamstring-curl", "ball-leg-curl", "banded-standing-curl", "trx-hamstring-curl" })
+            {
+                var candidate = candidates.Single(item => item.ExerciseId == exerciseId);
+                Assert.Equal(TrainingMovementPattern.Accessory, candidate.MovementPattern);
+            }
+            var reverseNordic = candidates.Single(candidate => candidate.ExerciseId == "reverse-nordic-curl");
+            Assert.Equal(TrainingMovementPattern.Accessory, reverseNordic.MovementPattern);
+            Assert.Contains(TrainingMuscleGroup.Quadriceps, reverseNordic.PrimaryMuscleGroups);
+            Assert.Empty(reverseNordic.RequiredEquipment);
+            await using (var reviewAudit = new NpgsqlCommand("""
+                SELECT exercise_id, review_status,
+                       COALESCE(review_notes, ''),
+                       COALESCE(metadata_enrichment_notes, ''),
+                       COALESCE(name_es, ''),
+                       COALESCE(difficulty, ''),
+                       COALESCE(equipment, '')
+                FROM exercise_catalog
+                WHERE source = 'repdb-free' AND review_status <> 'approved'
+                ORDER BY exercise_id
+                """, connection))
+            await using (var reader = await reviewAudit.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    catalogReviewExceptions.Add(new RealCatalogReviewException(
+                        reader.GetString(0), reader.GetString(1), reader.GetString(2),
+                        reader.GetString(3), reader.GetString(4), reader.GetString(5), reader.GetString(6)));
+                }
+            }
+            await using (var imageAudit = new NpgsqlCommand("""
+                SELECT exercise_id, COALESCE(images, '{}'::jsonb)::text
+                FROM exercise_catalog
+                WHERE source = 'repdb-free'
+                ORDER BY exercise_id
+                """, connection))
+            await using (var reader = await imageAudit.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    var exerciseId = reader.GetString(0);
+                    using var images = JsonDocument.Parse(reader.GetString(1));
+                    var root = images.RootElement;
+                    var flat = root.ValueKind == JsonValueKind.Object &&
+                               root.TryGetProperty("flat", out var flatImages)
+                        ? flatImages
+                        : root;
+                    var hasStart = HasImage(flat, "start");
+                    var hasPeak = HasImage(flat, "peak");
+                    var hasMain = HasImage(flat, "main");
+                    if (!hasStart && !hasPeak && !hasMain)
+                        catalogImageMissingIds.Add(exerciseId);
+                    else if (!hasStart || !hasPeak)
+                        catalogSingleImageOnlyIds.Add(exerciseId);
+                }
+            }
             generalFitnessCandidateCount = candidates.Count(candidate =>
                 candidate.SuitableGoals.Contains(TrainingGoal.GeneralFitness));
-            Assert.True(generalFitnessCandidateCount >= 100,
-                $"Only {generalFitnessCandidateCount} approved RepDB candidates are suitable for general fitness.");
-            Assert.True(candidateCount >= 100,
-                $"The RepDB curation pipeline returned only {candidateCount} approved generator candidates.");
+            Assert.True(generalFitnessCandidateCount >= 50,
+                $"Only {generalFitnessCandidateCount} approved curated RepDB candidates are suitable for general fitness.");
+            Assert.True(candidateCount >= 50,
+                $"The curated RepDB catalog returned only {candidateCount} approved generator candidates.");
 
+            foreach (var profile in ScenarioProfiles(candidates))
             foreach (var goal in Enum.GetValues<TrainingGoal>())
             foreach (var experience in Enum.GetValues<TrainingExperience>())
             foreach (var days in DaySets())
@@ -116,8 +179,8 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     4,
                     days,
                     durationMinutes,
-                    [],
-                    [],
+                    profile.AvailableEquipment,
+                    profile.ExcludedExerciseIds,
                     null,
                     false);
                 var generated = TrainingProgramGenerator.Generate(request, candidates);
@@ -164,7 +227,10 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     .ToArray();
 
                 scenarioResults.Add(new RealCatalogScenarioResult(
-                    $"goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}-minutes-{durationMinutes}",
+                    $"profile-{profile.Name.ToLowerInvariant()}-goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}-minutes-{durationMinutes}",
+                    profile.Name,
+                    profile.AvailableEquipment,
+                    profile.ExcludedExerciseIds,
                     goal.ToString(),
                     experience.ToString(),
                     days.Count,
@@ -188,11 +254,26 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var report = new RealCatalogEvaluationReport(
-            "training-generator-real-catalog-evaluation-v2",
+            "training-generator-real-catalog-evaluation-v7",
             DateTimeOffset.UtcNow,
             ExerciseCatalogService.SourceUrl,
             reviewStats?.repDbTotal ?? 0,
             reviewStats?.repDbApproved ?? 0,
+            reviewStats?.repDbPending ?? 0,
+            reviewStats?.repDbRejected ?? 0,
+            catalogReviewExceptions,
+            catalogImageMissingIds,
+            catalogSingleImageOnlyIds,
+            candidates.Select(candidate => candidate.ExerciseId).OrderBy(id => id, StringComparer.Ordinal).ToArray(),
+            candidates.OrderBy(candidate => candidate.ExerciseId, StringComparer.Ordinal)
+                .Select(candidate => new RealCatalogCandidateDiagnostic(
+                    candidate.ExerciseId, candidate.MovementPattern.ToString(),
+                    candidate.PrimaryMuscleGroups.Select(muscle => muscle.ToString()).ToArray(),
+                    candidate.SecondaryMuscleGroups.Select(muscle => muscle.ToString()).ToArray(),
+                    candidate.SuitableGoals.Select(goal => goal.ToString()).ToArray(),
+                    candidate.MinimumExperience.ToString(), candidate.RequiredEquipment,
+                    candidate.SelectionPriority))
+                .ToArray(),
             candidateCount,
             generalFitnessCandidateCount,
             scenarioResults.Count,
@@ -213,6 +294,11 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         {
             report.CatalogTotal,
             report.CatalogApproved,
+            report.CatalogPending,
+            report.CatalogRejected,
+            report.CatalogReviewExceptions,
+            report.CatalogImageMissingIds,
+            report.CatalogSingleImageOnlyIds,
             report.GeneratorCandidateCount,
             report.GeneralFitnessCandidateCount,
             report.ScenarioCount,
@@ -225,10 +311,34 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 .Max()
         }));
 
-        Assert.Equal("training-generator-real-catalog-evaluation-v2", report.SchemaVersion);
-        Assert.Equal(81, report.ScenarioCount);
+        Assert.Equal("training-generator-real-catalog-evaluation-v7", report.SchemaVersion);
+        Assert.Equal(405, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.GenerationErrorCount);
+        Assert.Equal(report.CatalogTotal, report.CatalogApproved);
+        Assert.Equal(0, report.CatalogPending);
+        Assert.Equal(0, report.CatalogRejected);
+        Assert.Equal(report.CatalogTotal, report.GeneratorCandidateCount);
+        Assert.Empty(report.CatalogImageMissingIds);
+        var beginnerHomeScenario = scenarioResults.Single(result =>
+            result.ScenarioId == "profile-homegymwithbandsandball-goal-hypertrophy-experience-beginner-days-2-minutes-90");
+        // The beginner home plan already reaches the reduced secondary hamstring target
+        // through its loaded hip hinge; a direct band curl must not displace quads/calves.
+        Assert.Contains("dumbbell-romanian-deadlift", beginnerHomeScenario.SelectedExerciseIds);
+        var intermediateHomeScenario = scenarioResults.Single(result =>
+            result.ScenarioId == "profile-homegymwithbandsandball-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
+        // Intermediate home plans retain a loaded hinge; direct knee-flexion accessories
+        // remain optional when the higher-priority muscle groups still need slots.
+        Assert.Contains("deadlift", intermediateHomeScenario.SelectedExerciseIds);
+        var noMachineQuadScenario = scenarioResults.Single(result =>
+            result.ScenarioId == "profile-nocableormachines-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
+        Assert.Contains("reverse-nordic-curl", noMachineQuadScenario.SelectedExerciseIds);
+        var dumbbellOnlyChestScenario = scenarioResults.Single(result =>
+            result.ScenarioId == "profile-dumbbellsbenchpullup-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
+        Assert.Contains("db-fly", dumbbellOnlyChestScenario.SelectedExerciseIds);
+        Assert.Contains(TrainingMuscleGroup.Chest, candidates.Single(candidate => candidate.ExerciseId == "db-fly").PrimaryMuscleGroups);
+        Assert.DoesNotContain("db-fly", catalogSingleImageOnlyIds);
+
         Assert.All(scenarioResults, result =>
         {
             Assert.NotNull(result.MaximumEstimatedMinutes);
@@ -236,6 +346,41 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 $"{result.ScenarioId} estimated {result.MaximumEstimatedMinutes} minutes for a {result.RequestedDurationMinutes}-minute limit.");
         });
     }
+
+    private static IReadOnlyList<RealCatalogScenarioProfile> ScenarioProfiles(
+        IReadOnlyList<TrainingExerciseCandidate> candidates)
+    {
+        var excludedFallbacks = candidates
+            .Where(candidate => candidate.MovementPattern != TrainingMovementPattern.Accessory)
+            .GroupBy(candidate => candidate.MovementPattern)
+            .Where(group => group.Count() > 1)
+            .Select(group => group
+                .OrderByDescending(candidate => candidate.SelectionPriority)
+                .ThenBy(candidate => candidate.ExerciseId, StringComparer.Ordinal)
+                .First().ExerciseId)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToArray();
+
+        return
+        [
+            new("FullGym", ["barbell", "dumbbell", "bench", "pull_up_bar", "cable", "kettlebell", "ez_bar", "shoulder_press_machine", "ab_wheel", "machine"], []),
+            new("NoCableOrMachines", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "ez_bar", "bodyweight"], []),
+            new("HomeGymWithBandsAndBall", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "ez_bar", "bodyweight", "resistance-band", "stability-ball", "suspension-trainer"], []),
+            new("DumbbellsBenchPullup", ["dumbbell", "bench", "pull_up_bar", "bodyweight"], []),
+            new("RestrictedWithExclusions", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "bodyweight"], excludedFallbacks)
+        ];
+    }
+
+    private sealed record RealCatalogScenarioProfile(
+        string Name,
+        IReadOnlyList<string> AvailableEquipment,
+        IReadOnlyList<string> ExcludedExerciseIds);
+
+    private static bool HasImage(JsonElement images, string key) =>
+        images.ValueKind == JsonValueKind.Object &&
+        images.TryGetProperty(key, out var image) &&
+        image.ValueKind == JsonValueKind.String &&
+        !string.IsNullOrWhiteSpace(image.GetString());
 
     private static IReadOnlyList<DayOfWeek>[] DaySets() =>
     [
@@ -251,6 +396,9 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
 
     private sealed record RealCatalogScenarioResult(
         string ScenarioId,
+        string EquipmentProfile,
+        IReadOnlyList<string> AvailableEquipment,
+        IReadOnlyList<string> ExcludedExerciseIds,
         string Goal,
         string Experience,
         int TrainingDaysPerWeek,
@@ -280,12 +428,38 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         IReadOnlyList<string> PrimaryMuscles,
         IReadOnlyList<string> SecondaryMuscles);
 
+    private sealed record RealCatalogCandidateDiagnostic(
+        string ExerciseId,
+        string MovementPattern,
+        IReadOnlyList<string> PrimaryMuscles,
+        IReadOnlyList<string> SecondaryMuscles,
+        IReadOnlyList<string> SuitableGoals,
+        string MinimumExperience,
+        IReadOnlyList<string> RequiredEquipment,
+        int SelectionPriority);
+
+    private sealed record RealCatalogReviewException(
+        string ExerciseId,
+        string ReviewStatus,
+        string ReviewNotes,
+        string MetadataEnrichmentNotes,
+        string NameEs,
+        string Difficulty,
+        string Equipment);
+
     private sealed record RealCatalogEvaluationReport(
         string SchemaVersion,
         DateTimeOffset GeneratedAt,
         string SourceUrl,
         long CatalogTotal,
         long CatalogApproved,
+        long CatalogPending,
+        long CatalogRejected,
+        IReadOnlyList<RealCatalogReviewException> CatalogReviewExceptions,
+        IReadOnlyList<string> CatalogImageMissingIds,
+        IReadOnlyList<string> CatalogSingleImageOnlyIds,
+        IReadOnlyList<string> CandidateIds,
+        IReadOnlyList<RealCatalogCandidateDiagnostic> CandidateDiagnostics,
         int GeneratorCandidateCount,
         int GeneralFitnessCandidateCount,
         int ScenarioCount,

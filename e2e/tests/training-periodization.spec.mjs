@@ -16,6 +16,18 @@ function datePlusDays(days) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+function mondayOfWeek(value) {
+  const date = new Date(value + 'T12:00:00Z');
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+  return date.toISOString().slice(0, 10);
+}
+
+function shiftDate(value, days) {
+  const date = new Date(value + 'T12:00:00Z');
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function apiUrl(path) {
   return new URL(path, baseURL).toString();
 }
@@ -73,7 +85,7 @@ test.describe('MVP de periodización deportiva', () => {
     });
     expect(profileResponse.ok(), 'Debe poder activarse el perfil deportivo').toBeTruthy();
 
-    const start = datePlusDays(30);
+    const start = mondayOfWeek(datePlusDays(30));
     const end = datePlusDays(90);
     const planResponse = await api.post(apiUrl(`/api/training/clients/${patientId}/plans`), {
       data: { name: 'Plan E2E ciclos', periodizationModel: 'linear', startDate: start, endDate: end, notes: 'Plan ficticio E2E' }
@@ -86,6 +98,13 @@ test.describe('MVP de periodización deportiva', () => {
         intensityTarget: 'Moderada', instructions: 'Sesión reutilizable', exercisePrescription: 'Sentadilla · 3 × 8' }
     });
     expect(sessionResponse.ok(), 'Debe crearse una sesión que pueda guardarse en una plantilla').toBeTruthy();
+    const firstSession = await sessionResponse.json();
+    expect(Number(firstSession.id)).toBeGreaterThan(0);
+    const comparisonSessionResponse = await api.post(apiUrl(`/api/training/plans/${plan.id}/sessions`), {
+      data: { scheduledDate: shiftDate(start, 2), title: 'Sesión comparativa E2E', sessionType: 'strength', durationMinutes: 50,
+        intensityTarget: 'RPE 7', instructions: 'Segunda sesión de la semana', exercisePrescription: 'Press de banca · 3 × 8' }
+    });
+    expect(comparisonSessionResponse.ok(), 'Debe crearse una segunda sesión para comparar el volumen semanal').toBeTruthy();
 
     const saveSessionTemplateResponse = await api.post(apiUrl('/api/training/session-templates'), {
       data: { name: 'Plantilla sesión gimnasio E2E', sessionType: 'strength', durationMinutes: 45,
@@ -145,6 +164,24 @@ test.describe('MVP de periodización deportiva', () => {
     await page.getByRole('button', { name: /Rutinas/ }).click();
     await expect(page.locator('.week-grid')).toBeVisible();
     await expect(page.locator('.week-summary')).toContainText('sesiones esta semana');
+    await page.getByRole('button', { name: 'Editor semanal' }).click();
+    const weeklyEditor = page.locator('.weekly-structured-editor');
+    await expect(weeklyEditor).toBeVisible();
+    await expect(weeklyEditor.locator('input[name^="weeklyDate"]')).toHaveCount(2);
+    await weeklyEditor.locator('input[name^="weeklyExerciseSets"]').first().fill('4');
+    const weeklyVolumeDashboard = weeklyEditor.locator('.manual-volume-dashboard');
+    await expect(weeklyVolumeDashboard).toContainText('Volumen efectivo de la semana editada', { timeout: 20_000 });
+    await expect(weeklyVolumeDashboard).toContainText('Comparación por sesión');
+    await expect(weeklyVolumeDashboard.locator('section').last().locator('article')).toHaveCount(2);
+    await weeklyEditor.getByRole('button', { name: 'Guardar esta sesión' }).first().click();
+    await expect(page.getByRole('status').filter({ hasText: 'Sesión actualizada' })).toBeVisible({ timeout: 20_000 });
+    const comparisonSessionCard = weeklyEditor.locator('article').filter({ hasText: 'Sesión comparativa E2E' }).first();
+    await comparisonSessionCard.getByRole('button', { name: 'Eliminar sesión' }).click();
+    await comparisonSessionCard.getByRole('button', { name: 'Confirmar eliminación' }).click();
+    await expect(weeklyEditor.locator('article').filter({ hasText: 'Sesión comparativa E2E' })).toHaveCount(0, { timeout: 20_000 });
+    await weeklyEditor.getByRole('button', { name: 'Añadir sesión a esta semana' }).click();
+    await expect(page.locator(`#session-editor-${plan.id}`)).toBeInViewport();
+    await page.getByRole('button', { name: 'Cerrar editor semanal' }).click();
     await expect(page.getByRole('heading', { name: 'Construye la sesión' })).toBeVisible();
     const savedTemplateSelect = page.locator(`select[name="savedSessionTemplate${plan.id}"]`);
     await expect(savedTemplateSelect.locator('option')).toContainText('Plantilla sesión gimnasio E2E');
@@ -174,6 +211,69 @@ test.describe('MVP de periodización deportiva', () => {
     await page.getByRole('button', { name: /Añadir sesión/ }).click();
     await expect(page.locator('.week-session').filter({ hasText: sessionTitle })).toBeVisible();
     await expect(page.locator('.week-summary')).toContainText('60 min');
+
+    const volumePreviewResponse = await api.post(apiUrl('/api/training/volume-preview'), {
+      data: { sessions: [{ weekNumber: 1, day: 1, title: 'Sesión E2E volumen', exercises: [{ exerciseId: null, exerciseName: 'Sentadilla', sets: 3 }] }] }
+    });
+    expect(volumePreviewResponse.ok(), 'Debe calcular el volumen y devolver comparación por sesión').toBeTruthy();
+    const manualVolume = await volumePreviewResponse.json();
+    expect(manualVolume.sessionReports).toHaveLength(1);
+    expect(manualVolume.sessionReports[0].title).toBe('Sesión E2E volumen');
+    expect(manualVolume.sessionReports.length).toBeGreaterThan(0);
+    expect(Array.isArray(manualVolume.sessionReports[0].qualityReport.weeklyMuscleVolumes)).toBeTruthy();
+
+    const splitSaveResponse = await api.post(apiUrl(`/api/training/plans/${plan.id}/reorganize-split`), {
+      data: { splitType: 2, trainingDays: [1, 4], moves: [] }
+    });
+    expect(splitSaveResponse.ok(), 'Debe guardar la preferencia Torso/Pierna aunque aún no haya sesiones futuras para mover').toBeTruthy();
+    const splitReadResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/split`));
+    expect(splitReadResponse.ok()).toBeTruthy();
+    expect(await splitReadResponse.json()).toMatchObject({ splitType: 2, trainingDays: [1, 4] });
+
+    for (let week = 0; week < 5; week++) await page.getByRole('button', { name: 'Semana siguiente' }).click();
+    await page.getByRole('button', { name: 'Editor semanal' }).click();
+    const weeklySessionEditor = page.locator('.weekly-structured-editor article').filter({ hasText: sessionTitle });
+    const weeklyExerciseNames = weeklySessionEditor.locator('input[name^="weeklyExerciseName"]');
+    await expect(weeklyExerciseNames).toHaveCount(2);
+    await weeklySessionEditor.getByRole('button', { name: 'Bajar ejercicio' }).first().click();
+    await expect(weeklyExerciseNames.first()).toHaveValue('Peso muerto rumano');
+    await weeklySessionEditor.getByRole('button', { name: /Añadir ejercicio/ }).click();
+    await expect(weeklyExerciseNames).toHaveCount(3);
+    await weeklySessionEditor.getByRole('button', { name: 'Eliminar ejercicio' }).last().click();
+    await expect(weeklyExerciseNames).toHaveCount(2);
+    await weeklySessionEditor.locator('input[name^="weeklyExerciseName"]').nth(1).fill('Sentadilla personalizada E2E');
+    const weeklySets = weeklySessionEditor.locator('input[name^="weeklyExerciseSets"]').nth(1);
+    const weeklyNotes = weeklySessionEditor.locator('input[name^="weeklyExerciseNotes"]').nth(1);
+    await expect(weeklySets).toBeVisible();
+    await weeklySets.fill('4');
+    await weeklyNotes.fill('Recorrido controlado');
+    await weeklySessionEditor.getByRole('button', { name: 'Guardar esta sesión' }).click();
+    const savedWeeklySessions = await api.get(apiUrl(`/api/training/plans/${plan.id}/sessions`));
+    expect(savedWeeklySessions.ok()).toBeTruthy();
+    const updatedWeeklySession = (await savedWeeklySessions.json()).find(item => item.title === sessionTitle);
+    expect(updatedWeeklySession.exercisePrescription).toContain('4 × 8');
+    expect(updatedWeeklySession.exercisePrescription).toContain('Nota: Recorrido controlado');
+    expect(updatedWeeklySession.exercisePrescription.indexOf('Peso muerto rumano'))
+      .toBeLessThan(updatedWeeklySession.exercisePrescription.indexOf('Sentadilla personalizada E2E'));
+    const customExercise = updatedWeeklySession.exercisePrescriptionData.exercises
+      .find(exercise => exercise.exerciseNameSnapshot === 'Sentadilla personalizada E2E');
+    expect(customExercise).toBeTruthy();
+    expect(customExercise.exerciseId ?? null).toBeNull();
+    expect(customExercise.notes).toBe('Recorrido controlado');
+    expect(customExercise.progressionRule).toBe('DoubleProgression');
+
+    await page.getByRole('button', { name: 'Reorganizar split' }).click();
+    await expect(page.getByRole('heading', { name: 'Reorganizar distribución semanal' })).toBeVisible();
+    await page.getByRole('button', { name: 'Preparar propuesta conservando sesiones' }).click();
+    await expect(page.getByText('Propuesta · 2 sesiones')).toBeVisible();
+    await page.getByRole('button', { name: 'Confirmar reorganización' }).click();
+    const reorganizedSessionsResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/sessions`));
+    expect(reorganizedSessionsResponse.ok()).toBeTruthy();
+    const reorganizedSessions = (await reorganizedSessionsResponse.json()).filter(session =>
+      session.scheduledDate.slice(0, 10) >= start && session.scheduledDate.slice(0, 10) <= shiftDate(start, 6));
+    expect(reorganizedSessions).toHaveLength(2);
+    expect(new Set(reorganizedSessions.map(session => session.scheduledDate.slice(0, 10))).size).toBe(2);
+    expect(reorganizedSessions.map(session => new Date(session.scheduledDate.slice(0, 10) + 'T12:00:00Z').getUTCDay()).sort()).toEqual([1, 4]);
     const csvDownload = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Exportar CSV' }).click();
     expect((await csvDownload).suggestedFilename()).toMatch(/dietoexpress-entrenamiento-.*\.csv/);
@@ -185,9 +285,10 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(sessionCard).toBeVisible();
     await expect(sessionCard).toContainText('RPE 7 - técnica controlada');
     await expect(sessionCard).toContainText('Calentamiento, tres bloques principales y vuelta a la calma.');
-    await expect(sessionCard).toContainText('Sentadilla · 3 × 8 · descanso 2 min · RPE 7');
+    await expect(sessionCard).toContainText('Sentadilla · 4 × 8 · descanso 120 s · RIR 2');
 
     await sessionCard.getByRole('button', { name: 'Editar' }).click();
+    await expect(sessionCard.locator('.manual-volume-dashboard')).toContainText('Comparación por sesión');
     await sessionCard.locator('input[name^="editSessionTitle"]').fill('Sesión E2E fuerza editada');
     await sessionCard.locator('input[name^="editSessionIntensity"]').fill('RPE 8 - progresión');
     await sessionCard.locator('textarea[name^="editSessionInstructions"]').fill('Versión actualizada de las instrucciones.');
@@ -242,13 +343,42 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(page.locator('.generated-preview')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('.quality-report')).toBeVisible();
     await expect(page.locator('.generated-session')).toHaveCount(4);
-    await page.getByRole('button', { name: 'Confirmar y guardar mesociclo' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Mesociclo guardado' })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('.generated-session').first()).toContainText('Volumen efectivo de esta sesión');
+    const volumeDeficitAcknowledgement = page.getByRole('checkbox', { name: /He revisado los déficits y acepto expresamente esta dosis/ });
+    if (await volumeDeficitAcknowledgement.count()) {
+      const saveGeneratedMesocycle = page.getByRole('button', { name: 'Guardar mesociclo y sus sesiones' });
+      await expect(saveGeneratedMesocycle).toBeDisabled();
+      await volumeDeficitAcknowledgement.check();
+      await expect(saveGeneratedMesocycle).toBeEnabled();
+    }
+    await page.getByRole('button', { name: 'Guardar mesociclo y sus sesiones' }).click();
+    await expect(page.getByRole('status').filter({ hasText: /Mesociclo y rutinas creados/ })).toBeVisible({ timeout: 20_000 });
     const generatedSessionsResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/sessions`));
     expect(generatedSessionsResponse.ok(), 'Debe poder consultarse el mesociclo guardado').toBeTruthy();
     const generatedSessions = await generatedSessionsResponse.json();
     const structuredSessions = generatedSessions.filter(session => session.exercisePrescriptionData?.exercises?.length > 0);
     expect(structuredSessions, 'Las sesiones generadas deben persistir su prescripción estructurada').toHaveLength(4);
+
+    // The replacement preview must respect a plan whose start date is in the future,
+    // preserve the old block until confirmation, and expose weekly/per-session volume.
+    await page.getByRole('button', { name: /Rutinas/ }).click();
+    await page.getByRole('button', { name: 'Reorganizar split' }).click();
+    const splitPanel = page.locator('.split-reorganization-panel');
+    await expect(splitPanel).toBeVisible();
+    await splitPanel.locator(`select[name="reorgSplit${plan.id}"]`).selectOption('1');
+    await splitPanel.locator(`input[name="reorgDay${plan.id}3"]`).uncheck();
+    await splitPanel.locator(`input[name="reorgDay${plan.id}5"]`).uncheck();
+    await splitPanel.locator(`input[name="reorgDay${plan.id}4"]`).check();
+    await splitPanel.locator(`select[name="reorgGoal${plan.id}"]`).selectOption('1');
+    await splitPanel.locator(`select[name="reorgExperience${plan.id}"]`).selectOption('0');
+    await splitPanel.locator(`input[name="reorgMinutes${plan.id}"]`).fill('90');
+    await splitPanel.locator(`input[name="reorgEquipment${plan.id}"]`).fill('barbell, dumbbell, bench, pull_up_bar, cable, kettlebell, ez_bar, shoulder_press_machine, ab_wheel, machine');
+    await splitPanel.getByRole('button', { name: 'Generar propuesta con este split' }).click();
+    await expect(splitPanel.getByRole('heading', { name: /Propuesta regenerada/ })).toBeVisible({ timeout: 45_000 });
+    const replacementPreview = splitPanel.locator('section').last();
+    await expect(replacementPreview.locator('table tbody tr')).toHaveCount(4);
+    await expect(replacementPreview).toContainText('Volumen efectivo');
+    await expect(replacementPreview.locator('strong').filter({ hasText: /^Semana [12] ·/ })).toHaveCount(4);
 
     const copiedPlanResponse = await api.post(apiUrl(`/api/training/clients/${patientId}/plans/from-template/${template.id}`), {
       data: { name: 'Plan creado desde plantilla E2E', startDate: datePlusDays(120) }

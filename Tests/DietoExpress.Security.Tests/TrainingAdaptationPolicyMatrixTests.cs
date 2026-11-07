@@ -4,7 +4,7 @@ using Xunit;
 namespace DietoExpress.Security.Tests;
 
 /// <summary>
-/// 27 deterministic scenarios covering the interaction of completion, recovery, pain,
+/// 28 deterministic scenarios covering the interaction of completion, recovery, pain,
 /// perceived effort, progression evidence and recent history. These are software safety
 /// regressions, not clinical validation.
 /// </summary>
@@ -22,7 +22,8 @@ public sealed class TrainingAdaptationPolicyMatrixTests
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Completed, Recovery: TrainingRecoveryRating.Good, SessionRpe: null, ProgressionTargetAchieved: true) }, TrainingAdaptationAction.NoChange],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Fatigue, TrainingRecoveryRating.Partial) }, TrainingAdaptationAction.HoldProgressionAndReview],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Illness, TrainingRecoveryRating.Partial) }, TrainingAdaptationAction.HoldProgressionAndReview],
-        [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Time) }, TrainingAdaptationAction.NoChange],
+        [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Time) }, TrainingAdaptationAction.ReorganizeFutureSessions],
+        [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Time, TrainingRecoveryRating.Insufficient) }, TrainingAdaptationAction.HoldProgressionAndReview],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Equipment) }, TrainingAdaptationAction.NoChange],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.NotCompleted, TrainingNonCompletionReason.Time) }, TrainingAdaptationAction.ReorganizeFutureSessions],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.NotCompleted, TrainingNonCompletionReason.Fatigue) }, TrainingAdaptationAction.HoldProgressionAndReview],

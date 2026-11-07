@@ -15,24 +15,40 @@ interface TrainingPlan {
 interface GeneratedExercise {
   exerciseId: string; catalogVersion: string; exerciseNameSnapshot: string; order: number;
   sets: number; minRepetitions: number; maxRepetitions: number; targetRepetitionsInReserve?: number | null;
-  restSeconds: number; progressionRule: string; selectionRationale: string;
+  restSeconds: number; progressionRule: string | number; selectionRationale: string;
+  primaryMuscleGroups?: Array<string | number>; secondaryMuscleGroups?: Array<string | number>;
+  smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null;
 }
 interface GeneratedSession {
   weekNumber: number; day: number; title: string; estimatedDurationMinutes: number; exercises: GeneratedExercise[];
+}
+interface TrainingExerciseCatalogItem {
+  id: string; name: string; muscles: string; goal: string; equipment: string; equipmentLabel: string;
+  instructions: string; prescription: string; imageUrl?: string; source?: string;
 }
 interface GeneratedProgram {
   engineVersion: string; goal: string; startDate: string; durationWeeks: number; sessions: GeneratedSession[];
   qualityReport?: {
     methodology: string;
-    weeklyMuscleVolumes: Array<{ weekNumber: number; muscles: Array<{ muscleGroup: string; primarySets: number; secondarySets: number; primaryFrequencySessions: number; secondaryFrequencySessions: number }> }>;
+    weeklyMuscleVolumes: Array<{ weekNumber: number; muscles: Array<{ muscleGroup: string; primarySets: number; secondarySets: number; primaryFrequencySessions: number; secondaryFrequencySessions: number; estimatedEffectiveSets: number }> }>;
     warnings: string[];
+    sessionVolumes?: Array<{ weekNumber: number; day: number; title: string; muscles: Array<{ muscleGroup: string; estimatedEffectiveSets: number }> }>;
   } | null;
 }
 interface GenerationRequest {
-  goal: number; experience: number; startDate: string; durationWeeks: number; trainingDays: number[];
+  goal: number; experience: number; startDate: string; durationWeeks: number; trainingDays: number[]; split: number;
   maximumSessionDurationMinutes: number; availableEquipment: string[]; excludedExerciseIds: string[];
   muscleVolumeTargets?: Array<{ muscleGroup: string; priority: number; targetWeeklyPrimarySets?: number | null }>;
   isDeload?: boolean;
+}
+interface ManualVolumePreview {
+  qualityReport: NonNullable<GeneratedProgram['qualityReport']>;
+  unclassifiedExerciseNames: string[];
+  sessionReports: Array<{
+    weekNumber: number; day: number; title: string;
+    qualityReport: NonNullable<GeneratedProgram['qualityReport']>;
+    unclassifiedExerciseNames: string[];
+  }>;
 }
 interface MuscleVolumePreferenceDraft {
   muscleGroup: string; label: string; enabled: boolean; priority: number; targetWeeklyPrimarySets: number | null;
@@ -50,6 +66,28 @@ interface TrainingSession {
   id: number; planId: number; scheduledDate: string; title: string; sessionType: string; durationMinutes?: number | null;
   intensityTarget?: string | null; instructions?: string | null; status: string; completedAt?: string | null;
   actualDurationMinutes?: number | null; sessionRpe?: number | null; recordNotes?: string | null; exercisePrescription?: string | null; exercisePrescriptionData?: Record<string, unknown> | null;
+}
+interface StructuredExerciseDraft {
+  exerciseName: string; originalExerciseName?: string; sets: number; repetitions: string; rir: number | null; restSeconds: number; notes: string;
+  exerciseId?: string; catalogVersion?: string; progressionRule?: string | number;
+  primaryMuscleGroups?: Array<string | number>; secondaryMuscleGroups?: Array<string | number>;
+  smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null; selectionRationale?: string;
+}
+interface WeeklySessionDraft {
+  date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string;
+  exercises: StructuredExerciseDraft[];
+}
+interface SplitReorganizationMove { sessionId: number; title: string; oldDate: string; scheduledDate: string; }
+interface SplitReorganizationDraft { splitType: number; trainingDays: number[]; moves: SplitReorganizationMove[] | null; error: string; }
+interface SplitReplacementSession {
+  scheduledDate: string; title: string; sessionType: string; durationMinutes: number;
+  intensityTarget: string | null; instructions: string | null; exercisePrescription: string;
+  exercisePrescriptionData: Record<string, unknown> | null;
+}
+interface SplitReplacementPreview {
+  replaceFromDate: string; replaceThroughDate: string; sessions: SplitReplacementSession[];
+  volumePreview: ManualVolumePreview;
+  preservedManualEdits: number; retainedCustomExercises: number; warnings: string[];
 }
 interface TrainingLoadWeek { weekStart: string; completedSessions: number; plannedMinutes: number; actualMinutes: number; loadScore: number; }
 interface TrainingMesocycle { id: number; planId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; objective?: string | null; notes?: string | null; }
@@ -372,10 +410,11 @@ interface RepDbExercise {
               <section *ngIf="current.canManage" style="margin-top:16px;padding:16px;border:1px solid var(--border-color,#dfe9e4);border-radius:14px">
                 <div class="macro-overview-heading"><div><span class="macro-kicker">PASO 2</span><h4>Generar mesociclos y rutinas</h4><p>Usa las fases guardadas como bloques. Puedes generar todo el macrociclo de una vez o trabajar fase por fase.</p></div></div>
                 <div class="form-grid">
-                  <label>Objetivo<select name="macroAutoGoal{{plan.id}}" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
-                  <label>Nivel<select name="macroAutoExperience{{plan.id}}" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
-                  <label>Duración máxima por sesión<input type="number" name="macroAutoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" min="35" max="180" /></label>
-                  <label>Material disponible (opcional)<input name="macroAutoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" placeholder="barbell, dumbbell, bodyweight" /></label>
+                  <label>Objetivo<select name="macroAutoGoal{{plan.id}}" [(ngModel)]="autoGoal" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
+                  <label>Nivel<select name="macroAutoExperience{{plan.id}}" [(ngModel)]="autoExperience" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+                  <label>Distribución semanal<select name="macroAutoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>Se aplicará a las rutinas de las fases que todavía no tengan planificación.</small></label>
+                  <label>Duración máxima por sesión<input type="number" name="macroAutoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" (ngModelChange)="invalidateSplitReplacement(plan)" min="35" max="180" /></label>
+                  <label>Material disponible (opcional)<input name="macroAutoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" (ngModelChange)="invalidateSplitReplacement(plan)" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Lista separada por comas. Guiones y guiones bajos son equivalentes; «machine» incluye máquinas específicas. Para restringir, usa «leg-press-machine», «hack-squat-machine» o «smith-machine». Vacío = todo el material.</small></label>
                   <fieldset class="auto-day-picker full"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'macroAutoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -410,24 +449,25 @@ interface RepDbExercise {
               <div class="form-grid">
                 <label>Destino de las rutinas<select name="autoRoutineTarget{{plan.id}}" [ngModel]="autoTargetMesocycleIds[plan.id] ?? null" (ngModelChange)="selectRoutineTarget(plan, $event)"><option [ngValue]="null">Crear un mesociclo nuevo</option><option *ngFor="let target of mesocycles[plan.id]" [ngValue]="target.id" [disabled]="(microcycles[target.id]?.length || 0) > 0">{{ target.sequenceNumber }}. {{ viewName(target, 'mesocycles.routineTarget') }} · {{ target.startDate | date:'dd/MM/yyyy' }} — {{ (target.endDate || target.startDate) | date:'dd/MM/yyyy' }}</option></select><small>Elige un bloque vacío para generar sus microciclos y sesiones sin crear otro mesociclo.</small></label>
                 <label>Nombre del bloque (opcional)<input name="autoMesoName{{plan.id}}" [(ngModel)]="autoMesoNames[plan.id]" maxlength="160" placeholder="Ej. Hipertrofia · bloque 1" [disabled]="autoTargetMesocycleIds[plan.id] != null" /><small *ngIf="autoTargetMesocycleIds[plan.id] == null">Si lo dejas vacío, se asignará un nombre automáticamente.</small><small *ngIf="autoTargetMesocycleIds[plan.id] != null">Se conservará el nombre del mesociclo seleccionado.</small></label>
-                <label>Objetivo<select name="autoGoal{{plan.id}}" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
-                <label>Nivel<select name="autoExperience{{plan.id}}" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+                <label>Objetivo<select name="autoGoal{{plan.id}}" [(ngModel)]="autoGoal" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
+                <label>Nivel<select name="autoExperience{{plan.id}}" [(ngModel)]="autoExperience" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
                 <label>Inicio del mesociclo<input type="date" name="autoStartDate{{plan.id}}" [ngModel]="autoStartDates[plan.id] || nextMesocycleStart(plan)" (ngModelChange)="autoStartDates[plan.id] = $event" required /></label>
                 <label>Duración (semanas)<input type="number" name="autoWeeks{{plan.id}}" [(ngModel)]="autoDurationWeeks" min="1" max="52" required /></label>
                 <label class="auto-deload-option"><span><input type="checkbox" name="autoIsDeload{{plan.id}}" [(ngModel)]="autoIsDeload" /> Generar este bloque como descarga activa</span><small>Úsalo para un bloque/fase de descarga, preferentemente de una semana. Reduce las series aproximadamente un 40–50 % y deja más RIR.</small></label>
-                <fieldset class="auto-day-picker full"><legend>¿Qué días entrenará?</legend><p>Elige entre 2 y 4 días. Puedes cambiar la selección cuando quieras.</p><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'autoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
-                <details class="auto-advanced-settings full"><summary>Opciones avanzadas de la sesión</summary><div class="auto-advanced-grid"><label>Duración máxima por sesión<input type="number" name="autoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" min="35" max="180" required /><small>Entre 35 y 180 minutos.</small></label><label>Material disponible (opcional)<input name="autoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" placeholder="barbell, dumbbell, bodyweight" /><small>Déjalo vacío para usar todos los ejercicios compatibles.</small></label></div></details>
+                <label>Distribución semanal<select name="autoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>La distribución se elige independientemente del calendario, con combinaciones equilibradas: cuerpo completo 2–3 días, torso/pierna 2 o 4 y PPL 3 o 6.</small></label>
+                <fieldset class="auto-day-picker full"><legend>¿Qué días entrenará?</legend><p>Elige entre 2 y 6 días. La combinación debe ser compatible con la distribución elegida.</p><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'autoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
+                <details class="auto-advanced-settings full"><summary>Opciones avanzadas de la sesión</summary><div class="auto-advanced-grid"><label>Duración máxima por sesión<input type="number" name="autoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" (ngModelChange)="invalidateSplitReplacement(plan)" min="35" max="180" required /><small>Entre 35 y 180 minutos.</small></label><label>Material disponible (opcional)<input name="autoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" (ngModelChange)="invalidateSplitReplacement(plan)" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Guiones y guiones bajos son equivalentes. «machine» incluye máquinas específicas; puedes usar «leg-press-machine» o «smith-machine» para restringir. Vacío = todo el material.</small></label></div></details>
                 <section class="muscle-preference-editor full">
                   <h5>Prioridades musculares (opcional)</h5>
-                  <p>Personaliza la dosis de series primarias semanales. Si indicas un objetivo explícito, este prevalece sobre la prioridad.</p>
+                  <p>Personaliza la dosis semanal de series efectivas estimadas. Se cuentan las contribuciones musculares relevantes de cada ejercicio, no solo la etiqueta primaria del catálogo. El objetivo explícito prevalece sobre la prioridad.</p>
                   <div class="muscle-preference-list">
                     <div *ngFor="let muscle of autoMusclePreferences" class="muscle-preference-row">
                       <label class="muscle-preference-enable"><input type="checkbox" [name]="'muscleEnabled' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.enabled" />{{ muscle.label }}</label>
                       <label>Prioridad<select [name]="'musclePriority' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.priority" [disabled]="!muscle.enabled"><option [ngValue]="0">Normal</option><option [ngValue]="1">+1</option><option [ngValue]="2">+2</option><option [ngValue]="3">+3</option></select></label>
-                      <label>Objetivo directo<input type="number" [name]="'muscleTarget' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.targetWeeklyPrimarySets" [disabled]="!muscle.enabled" min="1" max="20" placeholder="Automático" /></label>
+                      <label>Objetivo semanal<input type="number" [name]="'muscleTarget' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.targetWeeklyPrimarySets" [disabled]="!muscle.enabled" min="1" max="30" placeholder="Automático" /></label>
                     </div>
                   </div>
-                  <small>La prioridad añade dos series primarias al objetivo base por nivel. Los objetivos explícitos admiten 1–20 series; el motor puede informar de déficits si el catálogo o el tiempo no permiten alcanzarlos.</small>
+                  <small>La prioridad añade dos series al objetivo central por nivel (máximo predeterminado 20). Para hipertrofia (grupos principales): principiante 8–12, intermedio 10–16 y avanzado 12–20. Los isquiotibiales tienen una dosis predeterminada secundaria (mitad del objetivo base, mínimo dos series), que puedes elevar con prioridad u objetivo explícito. Los objetivos priorizados o explícitos usan ±2 y los explícitos admiten 1–30 series. Si el tiempo o el catálogo no permiten alcanzar el rango, el motor informa del déficit.</small>
                 </section>
                 <div class="full auto-generate-action"><button type="button" aria-label="Generar mesociclo automático" (click)="previewGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan">{{ generatingPlan ? 'Preparando propuesta…' : '✦ Generar propuesta de entrenamiento' }}</button><small>Se crearán {{ autoDurationWeeks }} semanas. Podrás revisar las sesiones y la cobertura muscular antes de guardar.</small></div>
               </div>
@@ -448,26 +488,41 @@ interface RepDbExercise {
                 <section *ngIf="generated.qualityReport" class="quality-report">
                   <strong>Chequeos orientativos de volumen y cobertura</strong>
                   <p class="muted">{{ generated.qualityReport.methodology }}</p>
+                  <div *ngIf="hasVolumeDoseDeficit(generated.qualityReport.warnings)" role="status" style="margin:12px 0;padding:12px 14px;border:1px solid #d97706;border-radius:10px;background:#fffbeb;color:#78350f">
+                    <strong>Revisión profesional: déficit de volumen o cobertura</strong>
+                    <p style="margin:6px 0">Algunos grupos no alcanzan el rango orientativo. Puede ser una limitación aceptable por el tiempo o el material disponibles; el generador no fuerza más series si comprometen la duración o el equilibrio de la rutina.</p>
+                    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px">
+                      <input type="checkbox" [checked]="volumeDeficitAcknowledged[plan.id] === true" (change)="volumeDeficitAcknowledged[plan.id] = $any($event.target).checked" />
+                      <span>He revisado los déficits y acepto expresamente esta dosis para el tiempo y material disponibles.</span>
+                    </label>
+                  </div>
                   <ul *ngIf="generated.qualityReport.warnings.length; else noQualityWarnings">
                     <li *ngFor="let warning of generated.qualityReport.warnings">{{ warning }}</li>
                   </ul>
                   <ng-template #noQualityWarnings><p>No se han detectado alertas automáticas. La revisión profesional sigue siendo obligatoria.</p></ng-template>
-                  <details *ngFor="let week of generated.qualityReport.weeklyMuscleVolumes">
-                    <summary>Semana {{ week.weekNumber }} · ver series y frecuencia por grupo muscular</summary>
-                    <ul>
-                      <li *ngFor="let muscle of week.muscles">
-                        {{ muscle.muscleGroup }}: {{ muscle.primarySets }} series primarias / {{ muscle.secondarySets }} secundarias;
-                        frecuencia {{ muscle.primaryFrequencySessions }} sesión(es) primaria(s) / {{ muscle.secondaryFrequencySessions }} secundaria(s).
-                      </li>
-                    </ul>
-                  </details>
+                  <div *ngFor="let week of generated.qualityReport.weeklyMuscleVolumes" class="volume-week-card" style="margin-top:12px;padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+                    <h6 style="margin:0 0 10px;font-size:14px">Volumen semanal · semana {{ week.weekNumber }}</h6>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">
+                      <div *ngFor="let muscle of week.muscles" style="display:flex;justify-content:space-between;gap:10px;padding:9px 10px;border:1px solid #e7edf4;border-radius:9px">
+                        <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
+                        <small style="color:#64748b">P {{ muscle.primarySets }} · S {{ muscle.secondarySets }} · frecuencia P {{ muscle.primaryFrequencySessions }} / S {{ muscle.secondaryFrequencySessions }}</small>
+                      </div>
+                    </div>
+                    <p style="margin:10px 0 0;color:#64748b;font-size:11px">El total usa la auditoría de estímulo efectivo. P/S son las etiquetas originales del catálogo; una exposición puede aparecer en ambas frecuencias.</p>
+                  </div>
                 </section>
                 <article *ngFor="let session of generated.sessions" class="generated-session">
                   <strong>Semana {{ session.weekNumber }} · {{ dayName(session.day) }} · {{ session.title }}</strong>
                   <small>{{ session.estimatedDurationMinutes }} min</small>
                   <ul><li *ngFor="let exercise of session.exercises">{{ exercise.order }}. {{ exercise.exerciseNameSnapshot }} — {{ exercise.sets }} × {{ exercise.minRepetitions }}–{{ exercise.maxRepetitions }} · descanso {{ exercise.restSeconds }} s</li></ul>
+                  <div *ngIf="sessionVolume(generated, session) as volume" style="margin-top:8px;padding:10px;border:1px solid #e7edf4;border-radius:9px;background:#fff">
+                    <strong style="font-size:12px">Volumen efectivo de esta sesión</strong>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:4px;margin-top:6px">
+                      <span *ngFor="let muscle of volume.muscles" [hidden]="muscle.estimatedEffectiveSets === 0" style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></span>
+                    </div>
+                  </div>
                 </article>
-                <div class="generated-preview-actions"><button type="button" (click)="saveGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan">Guardar mesociclo y sus sesiones</button><button type="button" class="secondary" aria-label="Descartar vista previa" (click)="discardGeneratedPreview(plan.id)" [disabled]="saving">Descartar propuesta</button></div><p class="muted">Se guardará como borrador para que puedas ajustar las semanas y las rutinas.</p>
+                <div class="generated-preview-actions"><button type="button" (click)="saveGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan || (hasVolumeDoseDeficit(generated.qualityReport?.warnings) && !volumeDeficitAcknowledged[plan.id])">Guardar mesociclo y sus sesiones</button><button type="button" class="secondary" aria-label="Descartar vista previa" (click)="discardGeneratedPreview(plan.id)" [disabled]="saving">Descartar propuesta</button></div><p class="muted">Se guardará como borrador para que puedas ajustar las semanas y las rutinas.</p>
               </div>
             </section>
             <form *ngIf="current.canManage" class="template-save-row" (ngSubmit)="savePlanAsTemplate(plan)">
@@ -543,7 +598,7 @@ interface RepDbExercise {
             <ng-container *ngIf="activePlanWorkspace[plan.id] === 'routines'"><section class="session-workspace">
               <div class="session-workspace-heading">
                 <div><p class="eyebrow">TRABAJO DIARIO</p><h4>Calendario de entrenamiento</h4><p>Planifica la semana de un vistazo y entra en cada sesión para ajustar sus detalles.</p></div>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span><button type="button" class="secondary" (click)="exportSessions(plan)" [disabled]="!sessions[plan.id]?.length">Exportar CSV</button></div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span><button type="button" class="secondary" (click)="weeklyEditorOpen[plan.id] = !weeklyEditorOpen[plan.id]">{{ weeklyEditorOpen[plan.id] ? 'Cerrar editor semanal' : 'Editor semanal' }}</button><button type="button" class="secondary" (click)="toggleSplitReorganization(plan)">{{ splitReorganizationOpen[plan.id] ? 'Cerrar reorganización' : 'Reorganizar split' }}</button><button type="button" class="secondary" (click)="exportSessions(plan)" [disabled]="!sessions[plan.id]?.length">Exportar CSV</button></div>
               </div>
               <section *ngIf="loadTrends[plan.id]?.length" class="load-trend" style="margin:16px 0;padding:14px;border:1px solid #e2e8f0;border-radius:12px">
                 <h5 style="margin:0 0 4px">Evolución de carga · últimas semanas</h5>
@@ -573,6 +628,119 @@ interface RepDbExercise {
                 <div><span class="summary-dot minutes-dot"></span><span><strong>{{ weekPlannedMinutes(plan.id, plan) }} min</strong><small>duración planificada</small></span></div>
                 <div><span class="summary-dot completed-dot"></span><span><strong>{{ weekCompletedCount(plan.id, plan) }} / {{ weekSessions(plan.id, plan).length }}</strong><small>sesiones realizadas</small></span></div>
               </div>
+              <section *ngIf="current.canManage && splitReorganizationOpen[plan.id]" class="split-reorganization-panel" style="margin:14px 0;padding:16px;border:1px solid var(--border-color,#dbe3ed);border-radius:14px;background:var(--surface-container,#f8fafc)">
+                <div class="section-heading"><div><h5>Reorganizar distribución semanal</h5><p>Solo se moverán sesiones futuras sin realización registrada. No se cambian ejercicios, series, cargas ni sesiones completadas. La semana en curso queda intacta.</p></div></div>
+                <div class="session-editor-grid">
+                  <label>Split<select [name]="'reorgSplit' + plan.id" [(ngModel)]="splitReorganizationDrafts[plan.id].splitType" (ngModelChange)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''; invalidateSplitReplacement(plan)"><option [ngValue]="0">Automático</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select></label>
+                  <fieldset class="auto-day-picker"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'reorgDay' + plan.id + day.value" [checked]="splitReorganizationDrafts[plan.id].trainingDays.includes(day.value)" (change)="toggleReorganizationDay(plan, day.value, $any($event.target).checked)" /><span>{{ day.label }}</span></label></div></fieldset>
+                </div>
+                <div class="session-editor-grid" style="margin-top:10px">
+                  <label>Objetivo de la nueva propuesta<select [name]="'reorgGoal' + plan.id" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
+                  <label>Experiencia<select [name]="'reorgExperience' + plan.id" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+                  <label>Duración máxima (min)<input type="number" [name]="'reorgMinutes' + plan.id" [(ngModel)]="autoMaximumMinutes" min="35" max="180" /></label>
+                  <label class="session-editor-wide">Material disponible<input [name]="'reorgEquipment' + plan.id" [(ngModel)]="autoEquipmentCsv" placeholder="barbell, dumbbell, cable, machine…" /></label>
+                </div>
+                <p class="muted">«Preparar propuesta conservando sesiones» solo recoloca los días del mismo split y exige la misma frecuencia semanal. «Generar propuesta con este split» permite cambiar también la frecuencia: crea nuevas sesiones, conserva ajustes manuales de ejercicios que coinciden y mantiene los ejercicios personalizados no coincidentes para que puedas revisarlos. Las semanas de descarga deben reorganizarse por separado.</p>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" (click)="prepareSplitReorganization(plan)" [disabled]="saving">Preparar propuesta conservando sesiones</button><button type="button" class="secondary" (click)="generateSplitReplacementPreview(plan)" [disabled]="saving || splitReplacementLoading[plan.id]">{{ splitReplacementLoading[plan.id] ? 'Generando propuesta…' : 'Generar propuesta con este split' }}</button><button type="button" class="secondary" (click)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''; splitReplacementPreviews[plan.id] = null">Limpiar propuesta</button></div>
+                <p *ngIf="splitReorganizationDrafts[plan.id].error" class="error" role="alert">{{ splitReorganizationDrafts[plan.id].error }}</p>
+                <div *ngIf="splitReorganizationDrafts[plan.id].moves as moves" style="margin-top:12px">
+                  <strong>Propuesta · {{ moves.length }} sesiones</strong>
+                  <p *ngIf="!moves.length" class="muted">No hay sesiones futuras pendientes desde la próxima semana. Se guardará esta distribución como preferencia para las próximas rutinas.</p>
+                  <div *ngIf="moves.length" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr><th style="text-align:left;padding:7px">Sesión</th><th style="text-align:left;padding:7px">Fecha actual</th><th style="text-align:left;padding:7px">Nueva fecha</th></tr></thead><tbody><tr *ngFor="let move of moves"><td style="padding:7px">{{ move.title }}</td><td style="padding:7px">{{ move.oldDate | date:'dd/MM/yyyy' }}</td><td style="padding:7px"><strong>{{ move.scheduledDate | date:'EEEE d MMMM' }}</strong></td></tr></tbody></table></div>
+                  <p *ngIf="moves.length" class="muted">Se conservarán todas las prescripciones y el historial. Las fechas se aplicarán en una única transacción.</p>
+                  <button type="button" (click)="applySplitReorganization(plan)" [disabled]="saving || splitReorganizationSaving[plan.id]">{{ splitReorganizationSaving[plan.id] ? 'Aplicando…' : 'Confirmar reorganización' }}</button>
+                </div>
+                <p *ngIf="splitReplacementErrors[plan.id]" class="error" role="alert">{{ splitReplacementErrors[plan.id] }}</p>
+                <section *ngIf="splitReplacementPreviews[plan.id] as replacement" style="margin-top:14px;padding:14px;border:1px solid #cbd5e1;border-radius:12px;background:#fff">
+                  <div class="section-heading"><div><h6>Propuesta regenerada · {{ replacement.sessions.length }} sesiones</h6><p>{{ replacement.replaceFromDate | date:'dd/MM/yyyy' }} — {{ replacement.replaceThroughDate | date:'dd/MM/yyyy' }} · {{ replacement.preservedManualEdits }} ajustes manuales coincidentes conservados</p></div></div>
+                  <p *ngIf="replacement.retainedCustomExercises" class="muted">{{ replacement.retainedCustomExercises }} ejercicios manuales que no estaban en la nueva selección se han conservado en sus sesiones ordinales. Revisa su distribución antes de confirmar.</p>
+                  <div *ngIf="hasVolumeDoseDeficit(replacement.warnings)" role="status" style="margin:12px 0;padding:12px 14px;border:1px solid #d97706;border-radius:10px;background:#fffbeb;color:#78350f">
+                    <strong>Revisión profesional: déficit de volumen o cobertura</strong>
+                    <p style="margin:6px 0">La nueva distribución no alcanza todos los rangos orientativos. Puede ser una limitación aceptable por tiempo o material; revisa la propuesta y valida expresamente la dosis antes de sustituir sesiones futuras.</p>
+                    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px">
+                      <input type="checkbox" [checked]="splitVolumeDeficitAcknowledged[plan.id] === true" (change)="splitVolumeDeficitAcknowledged[plan.id] = $any($event.target).checked" />
+                      <span>He revisado los déficits y acepto expresamente esta dosis para el tiempo y material disponibles.</span>
+                    </label>
+                  </div>
+                  <ul *ngIf="replacement.warnings.length"><li *ngFor="let warning of replacement.warnings">{{ warning }}</li></ul>
+                  <div style="overflow-x:auto;margin-top:10px"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:7px">Fecha</th><th style="text-align:left;padding:7px">Sesión</th><th style="text-align:right;padding:7px">Minutos</th><th style="text-align:right;padding:7px">Ejercicios</th></tr></thead><tbody><tr *ngFor="let session of replacement.sessions"><td style="padding:7px">{{ session.scheduledDate | date:'dd/MM/yyyy' }}</td><td style="padding:7px">{{ session.title }}</td><td style="padding:7px;text-align:right">{{ session.durationMinutes }}</td><td style="padding:7px;text-align:right">{{ prescriptionExerciseCount(session.exercisePrescription) }}</td></tr></tbody></table></div>
+                  <div *ngFor="let week of replacement.volumePreview.qualityReport.weeklyMuscleVolumes" style="margin-top:12px;padding:12px;border:1px solid #e7edf4;border-radius:10px">
+                    <strong>Volumen efectivo · semana {{ week.weekNumber }}</strong>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;margin-top:8px">
+                      <div *ngFor="let muscle of week.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:5px 7px;border:1px solid #edf1f5;border-radius:7px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></div>
+                    </div>
+                  </div>
+                  <div *ngFor="let comparison of replacement.volumePreview.sessionReports" style="margin-top:10px;padding:9px;background:#f8fafc;border-radius:8px">
+                    <strong>Semana {{ comparison.weekNumber }} · {{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px;margin-top:5px">
+                      <span *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" [hidden]="muscle.estimatedEffectiveSets === 0" style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></span>
+                    </div>
+                  </div>
+                  <p *ngIf="replacement.volumePreview.unclassifiedExerciseNames.length" class="muted">No clasificados: {{ replacement.volumePreview.unclassifiedExerciseNames.join(', ') }}</p>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" (click)="applySplitReplacement(plan)" [disabled]="saving || splitReplacementLoading[plan.id] || (hasVolumeDoseDeficit(replacement.warnings) && !splitVolumeDeficitAcknowledged[plan.id])">Sustituir sesiones futuras con esta propuesta</button><button type="button" class="secondary" (click)="splitReplacementPreviews[plan.id] = null">Descartar</button></div>
+                  <p class="muted">La sustitución solo afecta al periodo futuro mostrado. Las sesiones completadas y sus registros no se borran ni se modifican. Los ajustes manuales coincidentes se incorporan a la propuesta.</p>
+                </section>
+              </section>
+              <section *ngIf="current.canManage && weeklyEditorOpen[plan.id] && sessionViews[plan.id] !== 'list'" class="weekly-structured-editor" style="margin:14px 0;padding:16px;border:1px solid var(--border-color,#dbe3ed);border-radius:14px;background:var(--surface-container,#f8fafc)">
+                <div class="section-heading"><div><h5>Editor semanal estructurado</h5><p>Modifica cada sesión y sus ejercicios sin editar líneas de texto. Las sesiones completadas se muestran como solo lectura.</p></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ weekSessions(plan.id, plan).length }} sesiones</span><button type="button" class="secondary" (click)="prepareWeeklySessionCreation(plan)">Añadir sesión a esta semana</button></div></div>
+                <article *ngFor="let session of weekSessions(plan.id, plan)" style="padding:12px;margin-top:10px;border:1px solid #e2e8f0;border-radius:12px;background:#fff">
+                  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><strong>{{ session.title }}</strong><span class="week-session-status">{{ session.completedAt ? 'Realizada · protegida' : 'Pendiente de revisión' }}</span><button *ngIf="canDeleteWeeklySession(session)" type="button" class="secondary" (click)="confirmWeeklySessionDeletion(plan, session)" [disabled]="saving">Eliminar sesión</button></div>
+                  <div *ngIf="weeklyDeleteConfirmIds[plan.id] === session.id" role="group" aria-label="Confirmar eliminación de sesión" style="margin-top:8px;padding:10px;border:1px solid #f0c6c6;border-radius:9px;background:#fff8f8">
+                    <p>Se eliminará esta sesión futura únicamente si no tiene registros de realización. El historial registrado está protegido.</p>
+                    <button type="button" class="secondary" (click)="deleteWeeklySession(plan, session)" [disabled]="saving">Confirmar eliminación</button>
+                    <button type="button" class="secondary" (click)="weeklyDeleteConfirmIds[plan.id] = null" [disabled]="saving">Cancelar</button>
+                  </div>
+                  <p *ngIf="weeklyDeleteErrors[plan.id]" class="error" role="alert">{{ weeklyDeleteErrors[plan.id] }}</p>
+                  <ng-container *ngIf="!session.completedAt && weeklyDraft(session) as weekly">
+                    <div class="session-editor-grid" style="margin-top:10px">
+                      <label>Fecha<input type="date" [name]="'weeklyDate' + session.id" [(ngModel)]="weekly.date" (ngModelChange)="onWeeklyDraftChanged(plan, session)" [min]="plan.startDate" [max]="plan.endDate || null" /></label>
+                      <label>Nombre de sesión<input [name]="'weeklyTitle' + session.id" [(ngModel)]="weekly.title" maxlength="160" (ngModelChange)="onWeeklyDraftChanged(plan, session)" /></label>
+                      <label>Duración (min)<input type="number" [name]="'weeklyDuration' + session.id" [(ngModel)]="weekly.duration" (ngModelChange)="markWeeklyDraftDirty(session)" min="1" max="1440" /></label>
+                      <label>Tipo<select [name]="'weeklyType' + session.id" [(ngModel)]="weekly.type" (ngModelChange)="markWeeklyDraftDirty(session)"><option value="strength">Fuerza</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">General</option><option value="other">Otro</option></select></label>
+                      <label>Intensidad / RIR objetivo<input [name]="'weeklyIntensity' + session.id" [(ngModel)]="weekly.intensity" (ngModelChange)="markWeeklyDraftDirty(session)" maxlength="120" /></label>
+                      <label class="session-editor-wide">Instrucciones<textarea [name]="'weeklyInstructions' + session.id" [(ngModel)]="weekly.instructions" (ngModelChange)="markWeeklyDraftDirty(session)" rows="2" maxlength="4000"></textarea></label>
+                    </div>
+                    <div style="margin-top:12px"><strong>Ejercicios de la sesión</strong>
+                      <div *ngFor="let exercise of weekly.exercises; let exerciseIndex = index" style="display:grid;grid-template-columns:minmax(160px,2fr) repeat(4,minmax(75px,0.7fr)) auto;gap:7px;align-items:end;padding:9px 0;border-bottom:1px solid #edf1f5">
+                        <label>Ejercicio<input [name]="'weeklyExerciseName' + session.id + exerciseIndex" [(ngModel)]="exercise.exerciseName" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="160" placeholder="Nombre del ejercicio" /></label>
+                        <label>Series<input type="number" [name]="'weeklyExerciseSets' + session.id + exerciseIndex" [(ngModel)]="exercise.sets" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="1" max="10" /></label>
+                        <label>Reps<input [name]="'weeklyExerciseReps' + session.id + exerciseIndex" [(ngModel)]="exercise.repetitions" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="30" placeholder="8–12" /></label>
+                        <label>RIR<input type="number" [name]="'weeklyExerciseRir' + session.id + exerciseIndex" [(ngModel)]="exercise.rir" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="10" step="0.5" /></label>
+                        <label>Descanso (s)<input type="number" [name]="'weeklyExerciseRest' + session.id + exerciseIndex" [(ngModel)]="exercise.restSeconds" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="3600" /></label>
+                        <div style="display:flex;gap:3px"><button type="button" class="secondary" (click)="moveWeeklyExercise(plan, session, exerciseIndex, -1)" [disabled]="exerciseIndex === 0" aria-label="Subir ejercicio">↑</button><button type="button" class="secondary" (click)="moveWeeklyExercise(plan, session, exerciseIndex, 1)" [disabled]="exerciseIndex === weekly.exercises.length - 1" aria-label="Bajar ejercicio">↓</button><button type="button" class="secondary" (click)="removeWeeklyExercise(plan, session, exerciseIndex)" aria-label="Eliminar ejercicio">×</button></div>
+                        <label style="grid-column:span 2">Progresión<select [name]="'weeklyExerciseProgression' + session.id + exerciseIndex" [(ngModel)]="exercise.progressionRule" (ngModelChange)="onWeeklyDraftChanged(plan, session)"><option value="DoubleProgression">Doble progresión</option><option value="None">Sin progresión automática</option></select></label>
+                        <label style="grid-column:span 4">Notas del ejercicio<input [name]="'weeklyExerciseNotes' + session.id + exerciseIndex" [(ngModel)]="exercise.notes" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="500" placeholder="Notas complementarias (opcional)" /></label>
+                      </div>
+                      <button type="button" class="secondary" style="margin-top:10px" (click)="addWeeklyExercise(plan, session)">＋ Añadir ejercicio</button>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;margin-top:12px"><button type="button" (click)="saveWeeklySession(plan, session)" [disabled]="saving">Guardar esta sesión</button></div>
+                  </ng-container>
+                  <p *ngIf="session.completedAt" class="muted">La prescripción, fecha e historial de realización se mantienen intactos.</p>
+                </article>
+                <section *ngIf="manualVolumePreviews[plan.id] as volume" class="manual-volume-dashboard" style="margin-top:14px;padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+                  <div class="section-heading"><div><h6>Volumen efectivo de la semana editada</h6><p>El mismo analizador que utiliza el generador; se recalcula al modificar ejercicios, series o fechas.</p></div><span *ngIf="manualVolumePreviewLoading[plan.id]" role="status">Actualizando…</span></div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px">
+                    <div *ngFor="let muscle of volume.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid #e7edf4;border-radius:8px">
+                      <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }}</strong>
+                    </div>
+                  </div>
+                  <section *ngIf="volume.sessionReports.length" style="margin-top:12px">
+                    <strong>Comparación por sesión</strong>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:8px">
+                      <article *ngFor="let comparison of volume.sessionReports" style="padding:9px;border:1px solid #e7edf4;border-radius:9px">
+                        <strong>{{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                        <div *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0">
+                          <span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b>
+                        </div>
+                        <small *ngIf="comparison.unclassifiedExerciseNames.length" class="muted">Sin clasificar: {{ comparison.unclassifiedExerciseNames.join(', ') }}</small>
+                      </article>
+                    </div>
+                  </section>
+                  <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}.</p>
+                  <p *ngIf="manualVolumePreviewErrors[plan.id]" class="error" role="alert">{{ manualVolumePreviewErrors[plan.id] }}</p>
+                </section>
+                <p *ngIf="!weekSessions(plan.id, plan).length" class="muted">No hay sesiones en esta semana. Programa una sesión para comenzar.</p>
+              </section>
               <div *ngIf="sessions[plan.id]?.length && sessionViews[plan.id] !== 'list'" class="week-grid">
                 <article *ngFor="let day of weekDays(plan)" class="week-day" [class.today]="day.isToday" [class.day-has-sessions]="sessionsForDay(plan.id, day.date).length">
                   <header class="week-day-heading"><span>{{ day.date | date:'EEE' }}</span><strong>{{ day.date | date:'d' }}</strong></header>
@@ -590,7 +758,7 @@ interface RepDbExercise {
                 </article>
               </div>
               <p *ngIf="!sessions[plan.id]?.length && sessionViews[plan.id] !== 'list'" class="session-empty">Tu calendario está vacío. Programa una sesión para empezar; aparecerá automáticamente en su día.</p>
-              <form *ngIf="current.canManage" (ngSubmit)="createSession(plan)" class="session-editor">
+              <form *ngIf="current.canManage" (ngSubmit)="createSession(plan)" class="session-editor" [attr.id]="'session-editor-' + plan.id">
                 <div class="editor-title"><span class="editor-icon">＋</span><div><strong>Programar sesión</strong><p>Añade una sesión al calendario de este plan.</p></div></div>
                 <section class="saved-session-templates" aria-label="Plantillas de sesión">
                   <div class="saved-session-heading"><div><strong>Plantillas de sesiones</strong><p>Guarda una sesión de gimnasio y reutilízala en cualquier plan que gestiones.</p></div><span class="session-count">{{ sessionTemplates.length }}</span></div>
@@ -623,7 +791,7 @@ interface RepDbExercise {
                     <article *ngFor="let exercise of filteredExercises" class="exercise-result">
                       <img *ngIf="exercise.imageUrl" class="exercise-thumb" [src]="exercise.imageUrl" [alt]="'Ilustración de ' + viewName(exercise, 'exercise.imageAlt')" loading="lazy" />
                       <div><strong>{{ viewName(exercise, 'exercise.result') }}</strong><p>{{ exercise.muscles }} · {{ exercise.equipmentLabel }}</p><small>{{ exercise.instructions }}</small><small *ngIf="exercise.source === 'repdb'" class="exercise-source">Biblioteca RepDB</small></div>
-                      <button type="button" class="secondary" (click)="addExerciseToDraft(plan.id, exercise)" [disabled]="saving">＋ Añadir</button>
+                      <button type="button" class="secondary" (click)="addExerciseToDraft(plan, exercise)" [disabled]="saving">＋ Añadir</button>
                     </article>
                     <p class="exercise-attribution">Ilustraciones y datos ampliados: <a href="https://repdb.co" target="_blank" rel="noopener noreferrer">Exercise data by RepDB (repdb.co)</a>. Los ejercicios importados se cargan desde su catálogo público; si no está disponible, se mantiene la biblioteca básica.</p>
                     <p *ngIf="!filteredExercises.length" class="muted">No hay ejercicios con esos filtros. Prueba otra búsqueda.</p>
@@ -640,13 +808,48 @@ interface RepDbExercise {
                 </section>
                 <div class="session-editor-grid">
                   <label>Nombre de la sesión<input name="sessionTitle{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].title" maxlength="160" placeholder="Ej. Fuerza de tren inferior" required /></label>
-                  <label>Fecha<input type="text" appDateInput name="sessionDate{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].date" [min]="plan.startDate" [max]="plan.endDate || null" required /></label>
+                  <label>Fecha<input type="text" appDateInput name="sessionDate{{plan.id}}" [ngModel]="sessionDrafts[plan.id].date" (ngModelChange)="onManualSessionDateChanged(plan, $event)" [min]="plan.startDate" [max]="plan.endDate || null" required /></label>
                   <label>Tipo de entrenamiento<select name="sessionType{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].type"><option value="endurance">Resistencia</option><option value="strength">Fuerza</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">General</option><option value="other">Otro</option></select></label>
                   <label>Duración estimada (min)<input type="number" name="sessionDuration{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].duration" min="1" max="1440" placeholder="60" /></label>
                   <label>Intensidad / zona objetivo<input name="sessionIntensity{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].intensity" maxlength="120" placeholder="Ej. RPE 7 · Z2 · 250 W · 5:00/km" /></label>
                   <label class="session-editor-wide">Instrucciones<textarea name="sessionInstructions{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].instructions" rows="2" maxlength="4000" placeholder="Calentamiento, bloques principales, pausas y vuelta a la calma…"></textarea></label>
-                  <label class="session-editor-wide">Prescripción de ejercicios<textarea name="sessionExercises{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].exercisePrescription" (ngModelChange)="sessionDrafts[plan.id].exercisePrescriptionData = null" rows="3" maxlength="6000" placeholder="Sentadilla · 3 × 8 · descanso 2 min · RPE 7&#10;Peso muerto rumano · 3 × 10 · descanso 90 s"></textarea><small>Indica ejercicio, series, repeticiones, descanso y observaciones. Puedes anotar ritmo o potencia en la zona objetivo.</small></label>
-                  <div *ngIf="muscleSetSummary(sessionDrafts[plan.id].exercisePrescription).length" class="muscle-set-summary session-editor-wide"><strong>Resumen de series por grupo muscular</strong><span *ngFor="let item of muscleSetSummary(sessionDrafts[plan.id].exercisePrescription)">{{ item.muscle }}: {{ item.sets }} series</span><small>Cuenta las series prescritas de los ejercicios reconocidos en el catálogo; un ejercicio puede contribuir a varios grupos musculares.</small></div>
+                  <label class="session-editor-wide">Prescripción de ejercicios<textarea name="sessionExercises{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].exercisePrescription" (ngModelChange)="onManualPrescriptionChanged(plan)" rows="3" maxlength="6000" placeholder="Sentadilla · 3 × 8 · descanso 2 min · RPE 7&#10;Peso muerto rumano · 3 × 10 · descanso 90 s"></textarea><small>Indica ejercicio, series, repeticiones, descanso y observaciones. Puedes anotar ritmo o potencia en la zona objetivo.</small></label>
+                  <div *ngIf="prescriptionLines(sessionDrafts[plan.id].exercisePrescription).length" class="prescription-line-editor session-editor-wide" style="display:grid;gap:7px;margin:8px 0">
+                    <div *ngFor="let line of prescriptionLines(sessionDrafts[plan.id].exercisePrescription); let lineIndex = index" class="prescription-line-row" style="display:grid;grid-template-columns:minmax(0,1fr) repeat(3,auto);gap:6px;align-items:center">
+                      <input [name]="'draftExerciseLine' + plan.id + lineIndex" [ngModel]="line" (ngModelChange)="updatePrescriptionLine(sessionDrafts[plan.id], lineIndex, $event, plan)" aria-label="Prescripción del ejercicio" />
+                      <button type="button" class="secondary" (click)="movePrescriptionLine(sessionDrafts[plan.id], lineIndex, -1, plan)" [disabled]="lineIndex === 0" aria-label="Subir ejercicio">↑</button>
+                      <button type="button" class="secondary" (click)="movePrescriptionLine(sessionDrafts[plan.id], lineIndex, 1, plan)" [disabled]="lineIndex === prescriptionLines(sessionDrafts[plan.id].exercisePrescription).length - 1" aria-label="Bajar ejercicio">↓</button>
+                      <button type="button" class="secondary" (click)="removePrescriptionLine(sessionDrafts[plan.id], lineIndex, plan)" aria-label="Quitar ejercicio">×</button>
+                    </div>
+                  </div>
+                  <section class="manual-volume-dashboard session-editor-wide" style="padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><strong>Volumen muscular efectivo estimado · semana</strong><span *ngIf="manualVolumePreviewLoading[plan.id]" role="status">Calculando…</span></div>
+                    <p *ngIf="manualVolumePreviewErrors[plan.id]" class="muted" role="status">{{ manualVolumePreviewErrors[plan.id] }}</p>
+                    <div *ngIf="manualVolumePreviews[plan.id] as volume">
+                      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:7px;margin-top:10px">
+                        <div *ngFor="let muscle of volume.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e7edf4;border-radius:9px">
+                          <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
+                          <small style="grid-column:1 / -1;color:#64748b">Primarias {{ muscle.primarySets }} · secundarias {{ muscle.secondarySets }} · frecuencia P {{ muscle.primaryFrequencySessions }} / S {{ muscle.secondaryFrequencySessions }}</small>
+                        </div>
+                      </div>
+                      <section *ngIf="volume.sessionReports.length" style="margin-top:14px">
+                        <strong>Comparación por sesión</strong>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px;margin-top:8px">
+                          <article *ngFor="let comparison of volume.sessionReports" style="padding:10px;border:1px solid #e7edf4;border-radius:10px">
+                            <strong>{{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                            <div *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0">
+                              <span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b>
+                            </div>
+                            <small *ngIf="comparison.unclassifiedExerciseNames.length" class="muted">Sin clasificar: {{ comparison.unclassifiedExerciseNames.join(', ') }}</small>
+                          </article>
+                        </div>
+                      </section>
+                      <ul *ngIf="volume.qualityReport.warnings.length" style="margin:8px 0;padding-left:18px"><li *ngFor="let warning of volume.qualityReport.warnings">{{ warning }}</li></ul>
+                      <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted" style="margin:10px 0 0">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}. No se inventa su contribución.</p>
+                      <small>Se usa el mismo motor de estímulo auditado que en la generación automática. Incluye las sesiones programadas de esta semana y el borrador actual.</small>
+                    </div>
+                    <p *ngIf="!manualVolumePreviews[plan.id] && !manualVolumePreviewLoading[plan.id] && !manualVolumePreviewErrors[plan.id]" class="muted">Añade ejercicios reconocidos para calcular el volumen de la semana.</p>
+                  </section>
                 </div>
                 <div class="editor-footer"><span>La fecha debe estar dentro del periodo del plan.</span><button type="submit" [disabled]="saving || !sessionDrafts[plan.id].title.trim()">＋ Añadir sesión</button></div>
               </form>
@@ -666,14 +869,48 @@ interface RepDbExercise {
                     <form *ngIf="current.canManage && editingSessionId === session.id && sessionEditDraft as edit" class="session-edit-form" (ngSubmit)="saveSession(session)">
                       <div class="session-editor-grid">
                         <label>Nombre<input name="editSessionTitle{{session.id}}" [(ngModel)]="edit.title" maxlength="160" required /></label>
-                        <label>Fecha<input type="text" appDateInput name="editSessionDate{{session.id}}" [(ngModel)]="edit.date" [min]="plan.startDate" [max]="plan.endDate || null" required /></label>
+                        <label>Fecha<input type="text" appDateInput name="editSessionDate{{session.id}}" [ngModel]="edit.date" (ngModelChange)="onEditedSessionDateChanged(plan, session, $event)" [min]="plan.startDate" [max]="plan.endDate || null" required /></label>
                         <label>Tipo<select name="editSessionType{{session.id}}" [(ngModel)]="edit.type"><option value="endurance">Resistencia</option><option value="strength">Fuerza</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">General</option><option value="other">Otro</option></select></label>
                         <label>Duración (min)<input type="number" name="editSessionDuration{{session.id}}" [(ngModel)]="edit.duration" min="1" max="1440" required /></label>
                         <label>Intensidad / zona<input name="editSessionIntensity{{session.id}}" [(ngModel)]="edit.intensity" maxlength="120" /></label>
                         <label class="session-editor-wide">Instrucciones<textarea name="editSessionInstructions{{session.id}}" [(ngModel)]="edit.instructions" rows="3" maxlength="4000"></textarea></label>
-                        <label class="session-editor-wide">Prescripción de ejercicios<textarea name="editSessionExercises{{session.id}}" [(ngModel)]="edit.exercisePrescription" rows="4" maxlength="6000" placeholder="Ejercicio · series × repeticiones · descanso · notas"></textarea></label>
+                        <label class="session-editor-wide">Prescripción de ejercicios<textarea name="editSessionExercises{{session.id}}" [ngModel]="edit.exercisePrescription" (ngModelChange)="onEditedSessionPrescriptionChanged(plan, session, $event)" rows="4" maxlength="6000" placeholder="Ejercicio · series × repeticiones · descanso · notas"></textarea></label>
+                        <div *ngIf="prescriptionLines(edit.exercisePrescription).length" class="prescription-line-editor session-editor-wide" style="display:grid;gap:7px;margin:8px 0">
+                          <div *ngFor="let line of prescriptionLines(edit.exercisePrescription); let lineIndex = index" class="prescription-line-row" style="display:grid;grid-template-columns:minmax(0,1fr) repeat(3,auto);gap:6px;align-items:center">
+                            <input [name]="'editExerciseLine' + session.id + lineIndex" [ngModel]="line" (ngModelChange)="updatePrescriptionLine(edit, lineIndex, $event, plan)" aria-label="Prescripción del ejercicio" />
+                            <button type="button" class="secondary" (click)="movePrescriptionLine(edit, lineIndex, -1, plan)" [disabled]="lineIndex === 0" aria-label="Subir ejercicio">↑</button>
+                            <button type="button" class="secondary" (click)="movePrescriptionLine(edit, lineIndex, 1, plan)" [disabled]="lineIndex === prescriptionLines(edit.exercisePrescription).length - 1" aria-label="Bajar ejercicio">↓</button>
+                            <button type="button" class="secondary" (click)="removePrescriptionLine(edit, lineIndex, plan)" aria-label="Quitar ejercicio">×</button>
+                          </div>
+                        </div>
+                        <section class="manual-volume-dashboard session-editor-wide" style="padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+                          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><strong>Volumen muscular efectivo estimado · semana</strong><span *ngIf="manualVolumePreviewLoading[plan.id]" role="status">Calculando…</span></div>
+                          <p *ngIf="manualVolumePreviewErrors[plan.id]" class="muted" role="status">{{ manualVolumePreviewErrors[plan.id] }}</p>
+                          <div *ngIf="manualVolumePreviews[plan.id] as volume">
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:7px;margin-top:10px">
+                              <div *ngFor="let muscle of volume.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e7edf4;border-radius:9px">
+                                <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
+                              </div>
+                            </div>
+                            <section *ngIf="volume.sessionReports.length" style="margin-top:14px">
+                              <strong>Comparación por sesión</strong>
+                              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px;margin-top:8px">
+                                <article *ngFor="let comparison of volume.sessionReports" style="padding:10px;border:1px solid #e7edf4;border-radius:10px">
+                                  <strong>{{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                                  <div *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0">
+                                    <span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b>
+                                  </div>
+                                  <small *ngIf="comparison.unclassifiedExerciseNames.length" class="muted">Sin clasificar: {{ comparison.unclassifiedExerciseNames.join(', ') }}</small>
+                                </article>
+                              </div>
+                            </section>
+                            <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted" style="margin:10px 0 0">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}.</p>
+                            <small>El cálculo incluye el resto de sesiones de esta semana y esta edición, con el mismo motor que la generación automática.</small>
+                          </div>
+                          <p *ngIf="!manualVolumePreviews[plan.id] && !manualVolumePreviewLoading[plan.id] && !manualVolumePreviewErrors[plan.id]" class="muted">Añade ejercicios reconocidos para calcular el volumen de la semana.</p>
+                        </section>
                       </div>
-                      <div class="editor-footer"><span>Los registros de realización se conservan al editar.</span><div><button type="button" class="secondary" (click)="editingSessionId = null; sessionEditDraft = null">Cancelar</button> <button type="submit" [disabled]="saving">Guardar cambios</button></div></div>
+                      <div class="editor-footer"><span>Los registros de realización se conservan al editar.</span><div><button type="button" class="secondary" (click)="cancelEditSession(plan)">Cancelar</button> <button type="submit" [disabled]="saving">Guardar cambios</button></div></div>
                     </form>
                     <div class="session-card-actions">
                       <button *ngIf="current.canManage" type="button" class="secondary" (click)="openRecord(session)" [disabled]="saving">{{ recordingSessionId === session.id ? 'Cerrar registro' : (session.completedAt ? 'Editar realización' : 'Registrar realización') }}</button>
@@ -706,7 +943,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   notice = '';
   recordingSessionId: number | null = null;
   editingSessionId: number | null = null;
-  sessionEditDraft: { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string } | null = null;
+  sessionEditDraft: { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string; exercisePrescriptionData: Record<string, unknown> | null } | null = null;
   recordDrafts: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
   adaptationProposals: TrainingAdaptationProposal[] = [];
   adaptationReviewNotes: Record<number, string> = {};
@@ -742,6 +979,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   autoGoal = 1;
   autoExperience = 0;
   autoDurationWeeks = 4;
+  autoSplit = 0;
   autoIsDeload = false;
   autoMaximumMinutes = 60;
   autoTrainingDayOptions = [{ value: 1, label: 'Lunes' }, { value: 2, label: 'Martes' }, { value: 3, label: 'Miércoles' }, { value: 4, label: 'Jueves' }, { value: 5, label: 'Viernes' }, { value: 6, label: 'Sábado' }, { value: 0, label: 'Domingo' }];
@@ -774,6 +1012,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   autoMesoNames: Record<number, string> = {};
   autoTargetMesocycleIds: Record<number, number | null> = {};
   generatedPreviews: Record<number, GeneratedProgram | null> = {};
+  volumeDeficitAcknowledged: Record<number, boolean> = {};
+  splitVolumeDeficitAcknowledged: Record<number, boolean> = {};
   generationRequests: Record<number, GenerationRequest | null> = {};
   generationErrors: Record<number, string> = {};
   generatingPlan = false;
@@ -795,7 +1035,24 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   loadTrends: Record<number, TrainingLoadWeek[]> = {};
   sessionViews: Record<number, 'week' | 'list'> = {};
   weekOffsets: Record<number, number> = {};
+  weeklyEditorOpen: Record<number, boolean> = {};
+  weeklyEditorDrafts: Record<number, WeeklySessionDraft> = {};
+  weeklyEditorDirty: Record<number, boolean> = {};
+  weeklyDeleteConfirmIds: Record<number, number | null> = {};
+  weeklyDeleteErrors: Record<number, string> = {};
+  splitReorganizationOpen: Record<number, boolean> = {};
+  splitReorganizationDrafts: Record<number, SplitReorganizationDraft> = {};
+  splitPreferences: Record<number, { splitType: number; trainingDays: number[] }> = {};
+  splitReorganizationSaving: Record<number, boolean> = {};
+  splitReplacementPreviews: Record<number, SplitReplacementPreview | null> = {};
+  splitReplacementErrors: Record<number, string> = {};
+  splitReplacementLoading: Record<number, boolean> = {};
   sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string; exercisePrescriptionData: Record<string, unknown> | null }> = {};
+  manualVolumePreviews: Record<number, ManualVolumePreview | null> = {};
+  manualVolumePreviewErrors: Record<number, string> = {};
+  manualVolumePreviewLoading: Record<number, boolean> = {};
+  private manualVolumePreviewTimers: Record<number, ReturnType<typeof setTimeout>> = {};
+  private manualVolumePreviewSubscriptions: Record<number, Subscription> = {};
   exerciseSearch = '';
   private exerciseCatalogSearchTimer: ReturnType<typeof setTimeout> | null = null;
   private exerciseCatalogRequest: Subscription | null = null;
@@ -815,7 +1072,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   generatorGoal = 'strength';
   generatorLevel = 'beginner';
   generatorEquipment = 'mixed';
-  exerciseCatalog: Array<{ id: string; name: string; muscles: string; goal: string; equipment: string; equipmentLabel: string; instructions: string; prescription: string; imageUrl?: string; source?: string }> = [
+  exerciseCatalog: TrainingExerciseCatalogItem[] = [
     { id:'squat', name:'Sentadilla', muscles:'Cuádriceps y glúteos', goal:'strength', equipment:'bodyweight', equipmentLabel:'Peso corporal', instructions:'Mantén el tronco estable y las rodillas alineadas con los pies.', prescription:'Sentadilla · 3 × 8–12 · descanso 90 s' },
     { id:'goblet-squat', name:'Sentadilla goblet', muscles:'Cuádriceps y glúteos', goal:'strength', equipment:'dumbbell', equipmentLabel:'Mancuerna', instructions:'Sujeta la mancuerna cerca del pecho y controla la bajada.', prescription:'Sentadilla goblet · 3 × 8–12 · descanso 90 s' },
     { id:'deadlift', name:'Peso muerto', muscles:'Cadena posterior', goal:'strength', equipment:'barbell', equipmentLabel:'Barra', instructions:'Bisagra de cadera, carga próxima al cuerpo y espalda neutra.', prescription:'Peso muerto · 3 × 5–8 · descanso 2–3 min' },
@@ -959,6 +1216,234 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return exercise.name + ' · ' + safeSets + ' × ' + safeReps + ' · descanso ' + safeRest;
   }
 
+  prescriptionLines(prescription: string | null | undefined): string[] {
+    return typeof prescription === 'string'
+      ? prescription.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+      : [];
+  }
+
+  updatePrescriptionLine(
+    target: { exercisePrescription: string; exercisePrescriptionData?: Record<string, unknown> | null },
+    index: number,
+    value: string,
+    plan?: TrainingPlan
+  ): void {
+    const lines = this.prescriptionLines(target.exercisePrescription);
+    if (index < 0 || index >= lines.length) return;
+    lines[index] = value;
+    target.exercisePrescription = lines.join('\n');
+    if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
+    if (plan) this.refreshManualVolumeForTarget(target, plan);
+  }
+
+  movePrescriptionLine(
+    target: { exercisePrescription: string; exercisePrescriptionData?: Record<string, unknown> | null },
+    index: number,
+    offset: number,
+    plan?: TrainingPlan
+  ): void {
+    const lines = this.prescriptionLines(target.exercisePrescription);
+    const destination = index + offset;
+    if (index < 0 || index >= lines.length || destination < 0 || destination >= lines.length) return;
+    [lines[index], lines[destination]] = [lines[destination], lines[index]];
+    target.exercisePrescription = lines.join('\n');
+    if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
+    if (plan) this.refreshManualVolumeForTarget(target, plan);
+  }
+
+  removePrescriptionLine(
+    target: { exercisePrescription: string; exercisePrescriptionData?: Record<string, unknown> | null },
+    index: number,
+    plan?: TrainingPlan
+  ): void {
+    const lines = this.prescriptionLines(target.exercisePrescription);
+    if (index < 0 || index >= lines.length) return;
+    lines.splice(index, 1);
+    target.exercisePrescription = lines.join('\n');
+    if ('exercisePrescriptionData' in target) target.exercisePrescriptionData = null;
+    if (plan) this.refreshManualVolumeForTarget(target, plan);
+  }
+
+  onManualPrescriptionChanged(plan: TrainingPlan): void {
+    const draft = this.sessionDrafts[plan.id];
+    if (!draft) return;
+    draft.exercisePrescriptionData = null;
+    this.refreshManualVolumePreview(plan);
+  }
+
+  onManualSessionDateChanged(plan: TrainingPlan, date: string): void {
+    const draft = this.sessionDrafts[plan.id];
+    if (!draft) return;
+    draft.date = date;
+    this.refreshManualVolumePreview(plan);
+  }
+
+  onEditedSessionPrescriptionChanged(plan: TrainingPlan, session: TrainingSession, value: string): void {
+    if (!this.sessionEditDraft) return;
+    this.sessionEditDraft.exercisePrescription = value;
+    this.sessionEditDraft.exercisePrescriptionData = null;
+    this.refreshManualVolumePreview(plan, this.sessionEditDraft.date, value, session.id);
+  }
+
+  onEditedSessionDateChanged(plan: TrainingPlan, session: TrainingSession, date: string): void {
+    if (!this.sessionEditDraft) return;
+    this.sessionEditDraft.date = date;
+    const structuredExercises = this.sessionEditDraft.exercisePrescriptionData
+      ? this.parseStructuredExerciseDrafts(this.sessionEditDraft.exercisePrescription, this.sessionEditDraft.exercisePrescriptionData)
+      : undefined;
+    this.refreshManualVolumePreview(plan, date, this.sessionEditDraft.exercisePrescription, session.id, undefined, structuredExercises);
+  }
+
+  private refreshManualVolumeForTarget(
+    target: { exercisePrescription: string },
+    plan: TrainingPlan
+  ): void {
+    if (target === this.sessionEditDraft && this.sessionEditDraft && this.editingSessionId !== null) {
+      const structuredExercises = this.sessionEditDraft.exercisePrescriptionData
+        ? this.parseStructuredExerciseDrafts(this.sessionEditDraft.exercisePrescription, this.sessionEditDraft.exercisePrescriptionData)
+        : undefined;
+      this.refreshManualVolumePreview(plan, this.sessionEditDraft.date,
+        this.sessionEditDraft.exercisePrescription, this.editingSessionId, undefined, structuredExercises);
+    } else {
+      this.refreshManualVolumePreview(plan);
+    }
+  }
+
+  private findUniqueCatalogExerciseByName(name: string): TrainingExerciseCatalogItem | undefined {
+    const normalized = name.trim().split(/\s+/).join(' ').toLocaleLowerCase('es');
+    if (!normalized) return undefined;
+    const matches = this.exerciseCatalog.filter(exercise =>
+      exercise.name.trim().split(/\s+/).join(' ').toLocaleLowerCase('es') === normalized);
+    return matches.length === 1 ? matches[0] : undefined;
+  }
+
+  private parseManualVolumeExercises(prescription: string | null | undefined): Array<{ exerciseId: string | null; exerciseName: string; sets: number }> {
+    const parsed: Array<{ exerciseId: string | null; exerciseName: string; sets: number }> = [];
+    for (const line of this.prescriptionLines(prescription)) {
+      const match = line.match(/^(.*?)\s*[·|—-]\s*(\d+)\s*[×x]\s*\d+/i);
+      if (!match) continue;
+      const exerciseName = match[1].trim().replace(/^\d+\.\s*/, '');
+      const sets = Number(match[2]);
+      if (!exerciseName || !Number.isInteger(sets) || sets < 1 || sets > 10) continue;
+      const item = this.findUniqueCatalogExerciseByName(exerciseName);
+      const stableId = line.match(/\[ID:\s*([^;\]]+)/i)?.[1]?.trim();
+      parsed.push({
+        exerciseId: stableId || (item ? item.id.replace(/^repdb-/, '') : null),
+        exerciseName,
+        sets
+      });
+    }
+    return parsed;
+  }
+
+  private manualVolumeExercisesFromStructuredDrafts(
+    exercises: StructuredExerciseDraft[]
+  ): Array<{ exerciseId: string | null; exerciseName: string; sets: number }> {
+    return exercises
+      .filter(item => item.exerciseName.trim().length > 0 && Number.isFinite(item.sets) && item.sets >= 1)
+      .map(item => {
+        const catalogItem = this.findUniqueCatalogExerciseByName(item.exerciseName);
+        return {
+          exerciseId: item.exerciseId?.trim() || catalogItem?.id.replace(/^repdb-/, '') || null,
+          exerciseName: item.exerciseName.trim(),
+          sets: Math.max(1, Math.min(10, Math.round(item.sets)))
+        };
+      });
+  }
+
+  private weekStartDate(dateValue: string): string {
+    const date = new Date(dateValue.slice(0, 10) + 'T00:00:00Z');
+    if (Number.isNaN(date.getTime())) return '';
+    date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+    return date.toISOString().slice(0, 10);
+  }
+
+  private refreshManualVolumePreview(
+    plan: TrainingPlan,
+    overrideDate?: string,
+    overridePrescription?: string,
+    excludeSessionId?: number,
+    overrideTitle?: string,
+    overrideExercises?: StructuredExerciseDraft[]
+  ): void {
+    const planId = plan.id;
+    const existingTimer = this.manualVolumePreviewTimers[planId];
+    if (existingTimer) clearTimeout(existingTimer);
+    this.manualVolumePreviewSubscriptions[planId]?.unsubscribe();
+    this.manualVolumePreviewLoading[planId] = true;
+    this.manualVolumePreviewErrors[planId] = '';
+
+    this.manualVolumePreviewTimers[planId] = setTimeout(() => {
+      const draft = this.sessionDrafts[planId];
+      const targetDate = (overrideDate || draft?.date || this.defaultSessionDate(plan)).slice(0, 10);
+      const targetWeek = this.weekStartDate(targetDate);
+      const requestSessions: Array<{ weekNumber: number; day: number; title: string; exercises: Array<{ exerciseId: string | null; exerciseName: string; sets: number }> }> = [];
+      const addSession = (
+        dateValue: string,
+        title: string,
+        prescription: string | null | undefined,
+        prescriptionData?: Record<string, unknown> | null
+      ): void => {
+        const date = dateValue.slice(0, 10);
+        if (!date || this.weekStartDate(date) !== targetWeek) return;
+        const structuredDrafts = prescriptionData
+          ? this.parseStructuredExerciseDrafts(prescription, prescriptionData)
+          : [];
+        const exercises = structuredDrafts.length
+          ? this.manualVolumeExercisesFromStructuredDrafts(structuredDrafts)
+          : this.parseManualVolumeExercises(prescription);
+        if (!exercises.length) return;
+        requestSessions.push({ weekNumber: 1, day: new Date(date + 'T00:00:00Z').getUTCDay(), title, exercises });
+      };
+
+      for (const session of this.sessions[planId] || []) {
+        if (session.id === excludeSessionId) continue;
+        addSession(session.scheduledDate, session.title, session.exercisePrescription, session.exercisePrescriptionData);
+      }
+      const currentPrescription = overridePrescription ?? draft?.exercisePrescription ?? '';
+      const currentStructuredExercises = overrideExercises ??
+        (draft?.exercisePrescriptionData
+          ? this.parseStructuredExerciseDrafts(currentPrescription, draft.exercisePrescriptionData)
+          : []);
+      const currentExercises = currentStructuredExercises.length
+        ? this.manualVolumeExercisesFromStructuredDrafts(currentStructuredExercises)
+        : this.parseManualVolumeExercises(currentPrescription);
+      const currentDate = (overrideDate || draft?.date || targetDate).slice(0, 10);
+      if (currentDate && this.weekStartDate(currentDate) === targetWeek && currentExercises.length) {
+        requestSessions.push({
+          weekNumber: 1,
+          day: new Date(currentDate + 'T00:00:00Z').getUTCDay(),
+          title: overrideTitle || draft?.title || 'Sesión en edición',
+          exercises: currentExercises
+        });
+      }
+      if (!requestSessions.length) {
+        this.manualVolumePreviewSubscriptions[planId]?.unsubscribe();
+        this.manualVolumePreviews[planId] = null;
+        this.manualVolumePreviewLoading[planId] = false;
+        this.changeDetector.markForCheck();
+        return;
+      }
+
+      this.manualVolumePreviewSubscriptions[planId]?.unsubscribe();
+      this.manualVolumePreviewSubscriptions[planId] = this.http.post<ManualVolumePreview>(
+        '/api/training/volume-preview', { sessions: requestSessions }
+      ).subscribe({
+        next: result => {
+          this.manualVolumePreviews[planId] = result;
+          this.manualVolumePreviewLoading[planId] = false;
+          this.changeDetector.markForCheck();
+        },
+        error: error => {
+          this.manualVolumePreviews[planId] = null;
+          this.manualVolumePreviewErrors[planId] = error?.error?.message || 'No se pudo calcular el volumen semanal con el catálogo revisado.';
+          this.manualVolumePreviewLoading[planId] = false;
+          this.changeDetector.markForCheck();
+        }
+      });
+    }, 250);
+  }
+
   muscleSetSummary(prescription: string | null | undefined): Array<{ muscle: string; sets: number }> {
     if (!prescription?.trim()) return [];
     const totals = new Map<string, number>();
@@ -968,7 +1453,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       const exerciseName = match[1].trim().toLocaleLowerCase('es');
       const sets = Number(match[2]);
       if (!Number.isFinite(sets) || sets < 1) continue;
-      const exercise = this.exerciseCatalog.find(item => exerciseName === item.name.toLocaleLowerCase('es'));
+      const exercise = this.findUniqueCatalogExerciseByName(exerciseName);
       if (!exercise?.muscles) continue;
       const muscles = exercise.muscles.split(/,|\s+y\s+|\s+and\s+|\s*\/\s*/i).map(value => value.trim()).filter(Boolean);
       for (const muscle of muscles) totals.set(muscle, (totals.get(muscle) ?? 0) + sets);
@@ -1153,6 +1638,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.exerciseCatalogSearchTimer !== null) clearTimeout(this.exerciseCatalogSearchTimer);
     this.exerciseCatalogRequest?.unsubscribe();
+    for (const timer of Object.values(this.manualVolumePreviewTimers)) clearTimeout(timer);
+    for (const subscription of Object.values(this.manualVolumePreviewSubscriptions)) subscription.unsubscribe();
   }
 
   loadInvitations(): void {
@@ -1492,6 +1979,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         .map(item => ({ ...item, title: typeof item.title === 'string' && item.title.trim() ? item.title : 'Sesión sin título' })) : []);
       this.changeDetector.detectChanges();
       for (const plan of plans) {
+        this.loadPlanSplitPreference(plan);
         this.http.get<TrainingLoadWeek[]>(`/api/training/plans/${plan.id}/load-trend`)
           .pipe(catchError(() => of([] as TrainingLoadWeek[])))
           .subscribe(weeks => {
@@ -1647,6 +2135,17 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return date.toISOString().slice(0, 10);
   }
 
+  private isSplitDayCountValidFor(split: number, dayCount: number): boolean {
+    return split === 0 ? dayCount >= 2 && dayCount <= 4 :
+      split === 1 ? dayCount === 2 || dayCount === 3 :
+      split === 2 ? dayCount === 2 || dayCount === 4 :
+      split === 3 ? dayCount === 3 || dayCount === 6 : false;
+  }
+
+  private isSplitDayCountValid(dayCount: number): boolean {
+    return this.isSplitDayCountValidFor(this.autoSplit, dayCount);
+  }
+
   syncAutoTrainingDays(): void {
     this.autoTrainingDaysCsv = this.autoTrainingDayOptions
       .filter(day => this.autoTrainingDaySelection[day.value])
@@ -1722,8 +2221,18 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   previewGeneratedMesocycle(plan: TrainingPlan): void {
     const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
-    if (days.length < 2 || days.length > 4) {
-      this.generationErrors[plan.id] = 'Selecciona entre 2 y 4 días de entrenamiento.';
+    if (days.length < 2 || days.length > 6) {
+      this.generationErrors[plan.id] = 'Selecciona entre 2 y 6 días de entrenamiento.';
+      return;
+    }
+    if (!this.isSplitDayCountValid(days.length)) {
+      this.generationErrors[plan.id] = this.autoSplit === 1
+        ? 'Cuerpo completo admite 2 o 3 días por semana.'
+        : this.autoSplit === 2
+          ? 'Torso/Pierna admite 2 o 4 días por semana.'
+          : this.autoSplit === 3
+            ? 'Push/Pull/Legs admite 3 o 6 días por semana.'
+            : 'La distribución automática admite entre 2 y 4 días por semana.';
       return;
     }
     if (!Number.isInteger(this.autoDurationWeeks) || this.autoDurationWeeks < 1 || this.autoDurationWeeks > 52 ||
@@ -1755,7 +2264,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       }
     }
     const request: GenerationRequest = {
-      goal: this.autoGoal, experience: this.autoExperience, startDate: requestedStart,
+      goal: this.autoGoal,
+      split: this.autoSplit, experience: this.autoExperience, startDate: requestedStart,
       durationWeeks: this.autoDurationWeeks, trainingDays: days,
       maximumSessionDurationMinutes: this.autoMaximumMinutes,
       availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
@@ -1764,6 +2274,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       isDeload: this.autoIsDeload
     };
     this.generatingPlan = true;
+    this.volumeDeficitAcknowledged[plan.id] = false;
     this.generationErrors[plan.id] = '';
     this.generationRequests[plan.id] = request;
     this.http.post<GeneratedProgram>('/api/training/generate-preview', request).pipe(
@@ -1779,13 +2290,25 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     });
   }
 
+  muscleLabel(value: string): string {
+    const labels: Record<string, string> = {
+      Chest: 'Pecho', Lats: 'Dorsales', UpperBack: 'Espalda alta', Deltoids: 'Deltoides',
+      Biceps: 'Bíceps', Triceps: 'Tríceps', Forearms: 'Antebrazos', Abdominals: 'Abdominales',
+      Obliques: 'Oblicuos', ErectorSpinae: 'Erectores espinales', Glutes: 'Glúteos',
+      Quadriceps: 'Cuádriceps', Hamstrings: 'Isquiotibiales', Calves: 'Gemelos',
+      Adductors: 'Aductores', Abductors: 'Abductores', HipFlexors: 'Flexores de cadera',
+      Serratus: 'Serrato', TibialisAnterior: 'Tibial anterior', RotatorCuff: 'Manguito rotador'
+    };
+    return labels[value] || value;
+  }
+
   private validateMuscleVolumePreferences(): string {
     for (const item of this.autoMusclePreferences.filter(preference => preference.enabled)) {
       if (!Number.isInteger(item.priority) || item.priority < 0 || item.priority > 3)
         return 'La prioridad de ' + item.label + ' debe estar entre 0 y 3.';
       if (item.targetWeeklyPrimarySets !== null &&
-          (!Number.isInteger(item.targetWeeklyPrimarySets) || item.targetWeeklyPrimarySets < 1 || item.targetWeeklyPrimarySets > 20))
-        return 'El objetivo directo de ' + item.label + ' debe ser un número entero entre 1 y 20.';
+          (!Number.isInteger(item.targetWeeklyPrimarySets) || item.targetWeeklyPrimarySets < 1 || item.targetWeeklyPrimarySets > 30))
+        return 'El objetivo semanal de ' + item.label + ' debe ser un número entero entre 1 y 30.';
     }
     return '';
   }
@@ -1804,6 +2327,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const generation = this.generationRequests[plan.id];
     const preview = this.generatedPreviews[plan.id];
     if (!generation || !preview) return;
+    if (this.hasVolumeDoseDeficit(preview.qualityReport?.warnings) && !this.volumeDeficitAcknowledged[plan.id]) {
+      this.generationErrors[plan.id] = 'Revisa y confirma expresamente los déficits de volumen antes de guardar el mesociclo.';
+      return;
+    }
     const name = (this.autoMesoNames[plan.id] || ('Mesociclo ' + ((this.mesocycles[plan.id]?.length || 0) + 1))).trim();
     if (!name) { this.generationErrors[plan.id] = 'Indica un nombre para el mesociclo.'; return; }
     const sequenceNumber = Math.max(0, ...(this.mesocycles[plan.id] || []).map(item => item.sequenceNumber)) + 1;
@@ -1812,7 +2339,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const existingMesocycleId = this.autoTargetMesocycleIds[plan.id] ?? null;
     this.http.post<{ sessionsCreated: number; durationWeeks: number; requiresProfessionalReview: boolean; addedToExistingMesocycle?: boolean }>(
       `/api/training/plans/${plan.id}/generate-mesocycle`,
-      { name, sequenceNumber, generation, existingMesocycleId, notes: 'Generado automáticamente; requiere revisión profesional antes de asignarlo al paciente.' }
+      { name, sequenceNumber, generation, existingMesocycleId, notes: this.hasVolumeDoseDeficit(preview.qualityReport?.warnings) ? 'Generado automáticamente; el profesional ha revisado y aceptado los déficits de volumen/cobertura de la vista previa. Requiere revisión antes de asignarlo al paciente.' : 'Generado automáticamente; requiere revisión profesional antes de asignarlo al paciente.' }
     ).subscribe({
       next: result => {
         this.notice = result.addedToExistingMesocycle
@@ -1834,7 +2361,22 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   discardGeneratedPreview(planId: number): void {
     this.generatedPreviews[planId] = null;
     this.generationRequests[planId] = null;
+    this.volumeDeficitAcknowledged[planId] = false;
     this.generationErrors[planId] = '';
+  }
+
+  prescriptionExerciseCount(prescription: string | null | undefined): number {
+    return this.prescriptionLines(prescription).length;
+  }
+
+  sessionVolume(generated: GeneratedProgram, session: GeneratedSession): { muscles: Array<{ muscleGroup: string; estimatedEffectiveSets: number }> } | null {
+    return generated.qualityReport?.sessionVolumes?.find(item =>
+      item.weekNumber === session.weekNumber && item.day === session.day && item.title === session.title) ?? null;
+  }
+
+  hasVolumeDoseDeficit(warnings: string[] | null | undefined): boolean {
+    return (warnings ?? []).some(warning =>
+      /alcanza .* series con estímulo efectivo frente al rango|no hay ningún ejercicio disponible con estímulo suficiente/i.test(warning));
   }
 
   dayName(day: number): string {
@@ -1967,8 +2509,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     });
   }
 
-  addExerciseToDraft(planId: number, exercise: typeof this.exerciseCatalog[number]): void {
-    const draft = this.sessionDrafts[planId];
+  addExerciseToDraft(plan: TrainingPlan, exercise: typeof this.exerciseCatalog[number]): void {
+    const draft = this.sessionDrafts[plan.id];
     if (!draft) return;
     const lines = draft.exercisePrescription.trim() ? draft.exercisePrescription.split(/\r?\n/).map(line => line.trim()).filter(Boolean) : [];
     if (lines.some(line => line.toLocaleLowerCase('es').startsWith(exercise.name.toLocaleLowerCase('es')))) {
@@ -1978,6 +2520,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     draft.exercisePrescription = [...lines, this.buildExercisePrescription(exercise, this.sessionExerciseSets, this.sessionExerciseReps, this.sessionExerciseRest)].join('\n');
     draft.exercisePrescriptionData = null;
     this.notice = exercise.name + ' añadido a la sesión.';
+    this.refreshManualVolumePreview(plan);
   }
 
   applySessionTemplate(plan: TrainingPlan): void {
@@ -1991,6 +2534,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     draft.exercisePrescription = saved.exercisePrescription ?? '';
     draft.exercisePrescriptionData = saved.exercisePrescriptionData ?? null;
     this.notice = 'Se ha copiado la estructura de «' + saved.title + '». Ajusta fecha y nombre antes de guardarla.';
+    this.refreshManualVolumePreview(plan);
   }
 
   generateSessionDraft(plan: TrainingPlan): void {
@@ -2021,18 +2565,20 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       if (level === 'beginner' && item.goal === 'strength') return item.name + ' · 2 × 8–10 · descanso 90 s';
       if (level === 'advanced' && item.goal === 'strength') return item.name + ' · 4 × 6–10 · descanso 90–150 s';
       return item.prescription;
-    }).join('\\n');
+    }).join('\n');
     draft.instructions = 'Borrador para nivel ' + (level === 'beginner' ? 'principiante' : level === 'intermediate' ? 'intermedio' : 'avanzado') +
       '. Incluye calentamiento progresivo y vuelta a la calma. Ajusta ejercicios, volumen y esfuerzo al historial, disponibilidad y tolerancia del cliente.';
     if (!draft.duration) draft.duration = this.generatorGoal === 'endurance' ? 30 : 45;
     this.notice = 'Borrador de sesión preparado. Revísalo y personalízalo antes de guardarlo.';
+    this.refreshManualVolumePreview(plan);
   }
 
   createSession(plan: TrainingPlan): void {
     const draft = this.sessionDrafts[plan.id];
     if (!draft?.title.trim() || !draft.date) return;
     this.saving = true; this.error = '';
-    this.http.post(`/api/training/plans/${plan.id}/sessions`, { scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type, durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null, instructions: draft.instructions.trim() || null, exercisePrescription: draft.exercisePrescription.trim() || null, exercisePrescriptionData: draft.exercisePrescriptionData }).subscribe({
+    this.http.post(`/api/training/plans/${plan.id}/sessions`, { scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type, durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null, instructions: draft.instructions.trim() || null, exercisePrescription: draft.exercisePrescription.trim() || null,
+      exercisePrescriptionData: this.buildStructuredPrescriptionData(draft.date, draft.duration, this.parseStructuredExerciseDrafts(draft.exercisePrescription)) }).subscribe({
       next: () => { draft.title = ''; draft.intensity = ''; draft.instructions = ''; draft.exercisePrescription = ''; this.saving = false; this.refreshSessions(plan.id); },
       error: e => { this.error = e?.error?.message || 'No se pudo crear la sesión.'; this.saving = false; }
     });
@@ -2117,6 +2663,703 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     });
   }
 
+  private loadPlanSplitPreference(plan: TrainingPlan): void {
+    this.http.get<{ splitType: number; trainingDays: number[] }>(`/api/training/plans/${plan.id}/split`)
+      .pipe(catchError(() => of({ splitType: 0, trainingDays: [1, 3, 5] })))
+      .subscribe(value => {
+        const safeDays = Array.isArray(value.trainingDays) ? value.trainingDays.filter(day => Number.isInteger(day) && day >= 0 && day <= 6) : [1, 3, 5];
+        this.splitPreferences[plan.id] = { splitType: value.splitType, trainingDays: safeDays };
+        if (!this.splitReorganizationDrafts[plan.id]) this.splitReorganizationDrafts[plan.id] = { splitType: value.splitType, trainingDays: [...safeDays], moves: null, error: '' };
+        this.changeDetector.markForCheck();
+      });
+  }
+
+  toggleSplitReorganization(plan: TrainingPlan): void {
+    this.splitReorganizationOpen[plan.id] = !this.splitReorganizationOpen[plan.id];
+    if (!this.splitReorganizationDrafts[plan.id]) {
+      const saved = this.splitPreferences[plan.id] || { splitType: 0, trainingDays: [1, 3, 5] };
+      this.splitReorganizationDrafts[plan.id] = { splitType: saved.splitType, trainingDays: [...saved.trainingDays], moves: null, error: '' };
+    }
+  }
+
+  invalidateSplitReplacement(plan: TrainingPlan): void {
+    this.splitReplacementPreviews[plan.id] = null;
+    this.splitReplacementErrors[plan.id] = '';
+    this.splitVolumeDeficitAcknowledged[plan.id] = false;
+  }
+
+  toggleReorganizationDay(plan: TrainingPlan, day: number, checked: boolean): void {
+    const draft = this.splitReorganizationDrafts[plan.id];
+    draft.trainingDays = checked
+      ? [...new Set([...draft.trainingDays, day])]
+      : draft.trainingDays.filter(value => value !== day);
+    draft.moves = null;
+    draft.error = '';
+    this.invalidateSplitReplacement(plan);
+  }
+
+  prepareSplitReorganization(plan: TrainingPlan): void {
+    const draft = this.splitReorganizationDrafts[plan.id];
+    const days = [...draft.trainingDays].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+    if (!this.isSplitDayCountValidFor(draft.splitType, days.length)) {
+      draft.error = draft.splitType === 1 ? 'Cuerpo completo admite 2 o 3 días.' :
+        draft.splitType === 2 ? 'Torso/Pierna admite 2 o 4 días.' :
+        draft.splitType === 3 ? 'Push/Pull/Legs admite 3 o 6 días.' :
+        'La distribución automática admite entre 2 y 4 días.';
+      draft.moves = null;
+      return;
+    }
+    const today = this.localDateInputValue();
+    const nextMonday = this.addUtcDays(this.weekStartDate(today), 7);
+    const allSessions = this.sessions[plan.id] || [];
+    const completedDates = new Set(allSessions.filter(session => !!session.completedAt || session.status === 'completed')
+      .map(session => session.scheduledDate.slice(0, 10)));
+    const futureSessions = allSessions.filter(session =>
+      !session.completedAt && session.status !== 'completed' && session.scheduledDate.slice(0, 10) >= nextMonday
+    );
+    if (futureSessions.some(session => this.weeklyEditorDirty[session.id]) ||
+        (this.editingSessionId !== null && futureSessions.some(session => session.id === this.editingSessionId))) {
+      draft.error = 'Hay cambios de sesión sin guardar. Guarda o descarta esos cambios antes de reorganizar el split.';
+      draft.moves = null;
+      return;
+    }
+    if (futureSessions.length) {
+      const current = this.splitPreferences[plan.id] || { splitType: 0, trainingDays: [1, 3, 5] };
+      if (draft.splitType !== current.splitType || days.length !== current.trainingDays.length) {
+        draft.error = 'Esta acción solo recoloca los días y conserva el split y su frecuencia actuales. Para cambiar el tipo de split o el número de días, utiliza «Generar propuesta con este split».';
+        draft.moves = null;
+        return;
+      }
+    }
+    const byWeek = new Map<string, TrainingSession[]>();
+    for (const session of futureSessions) {
+      const week = this.weekStartDate(session.scheduledDate);
+      const rows = byWeek.get(week) || [];
+      rows.push(session);
+      byWeek.set(week, rows);
+    }
+    const moves: SplitReorganizationMove[] = [];
+    for (const [week, rows] of [...byWeek.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      if (rows.length !== days.length) {
+        draft.error = 'La semana que comienza el ' + week + ' tiene ' + rows.length + ' sesiones pendientes, pero el split seleccionado requiere ' + days.length + '. No se han movido sesiones. Para cambiar la frecuencia, genera y revisa un nuevo bloque.';
+        draft.moves = null;
+        return;
+      }
+      rows.sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate) || a.id - b.id);
+      rows.forEach((session, index) => {
+        const dayOffset = days[index] === 0 ? 6 : days[index] - 1;
+        const newDate = this.addUtcDays(week, dayOffset);
+        if (completedDates.has(newDate)) {
+          draft.error = 'La fecha ' + newDate + ' ya contiene una sesión completada. Se conserva esa sesión y no se aplicará una reorganización que la solape.';
+          draft.moves = null;
+          return;
+        }
+        if (newDate < nextMonday || newDate < plan.startDate.slice(0, 10) || (plan.endDate && newDate > plan.endDate.slice(0, 10))) {
+          draft.error = 'La fecha propuesta para «' + session.title + '» queda fuera del periodo permitido. Ajusta los días o las fechas del plan.';
+          draft.moves = null;
+          return;
+        }
+        moves.push({ sessionId: session.id, title: session.title, oldDate: session.scheduledDate.slice(0, 10), scheduledDate: newDate });
+      });
+      if (draft.error) return;
+    }
+    draft.moves = moves;
+    draft.error = '';
+  }
+
+  applySplitReorganization(plan: TrainingPlan): void {
+    const draft = this.splitReorganizationDrafts[plan.id];
+    if (!draft || draft.moves === null) return;
+    const movedIds = draft.moves.map(move => move.sessionId);
+    if (movedIds.some(id => this.weeklyEditorDirty[id]) || (this.editingSessionId !== null && movedIds.includes(this.editingSessionId))) {
+      draft.error = 'Hay cambios de sesión sin guardar. Guarda o descarta esos cambios antes de aplicar la reorganización.';
+      return;
+    }
+    this.splitReorganizationSaving[plan.id] = true;
+    this.http.post<{ updatedSessions: number }>('/api/training/plans/' + plan.id + '/reorganize-split', {
+      splitType: draft.splitType,
+      trainingDays: draft.trainingDays,
+      moves: draft.moves.map(move => ({ sessionId: move.sessionId, scheduledDate: move.scheduledDate }))
+    }).subscribe({
+      next: result => {
+        this.splitPreferences[plan.id] = { splitType: draft.splitType, trainingDays: [...draft.trainingDays] };
+        this.splitReorganizationSaving[plan.id] = false;
+        movedIds.forEach(id => { delete this.weeklyEditorDrafts[id]; delete this.weeklyEditorDirty[id]; });
+        if (this.editingSessionId !== null && movedIds.includes(this.editingSessionId)) {
+          this.editingSessionId = null;
+          this.sessionEditDraft = null;
+        }
+        draft.moves = null;
+        draft.error = '';
+        this.notice = 'Distribución guardada. Se han reorganizado ' + result.updatedSessions + ' sesiones futuras sin modificar sus prescripciones ni los registros completados.';
+        this.refreshSessions(plan.id);
+        this.changeDetector.detectChanges();
+      },
+      error: error => {
+        this.splitReorganizationSaving[plan.id] = false;
+        draft.error = error?.error?.message || 'No se pudo reorganizar la semana. No se ha aplicado ningún cambio.';
+        this.changeDetector.detectChanges();
+      }
+    });
+  }
+
+  generateSplitReplacementPreview(plan: TrainingPlan): void {
+    const draft = this.splitReorganizationDrafts[plan.id];
+    const days = [...draft.trainingDays].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+    if (!this.isSplitDayCountValidFor(draft.splitType, days.length)) {
+      this.splitReplacementErrors[plan.id] = 'Selecciona días compatibles con el split elegido.';
+      return;
+    }
+    if (!Number.isInteger(this.autoMaximumMinutes) || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
+      this.splitReplacementErrors[plan.id] = 'La duración máxima debe estar entre 35 y 180 minutos.';
+      return;
+    }
+    const firstAvailableMonday = this.addUtcDays(this.weekStartDate(this.localDateInputValue()), 7);
+    const planStart = plan.startDate.slice(0, 10);
+    const planStartWeek = this.weekStartDate(planStart);
+    // Do not propose sessions before the plan starts. If it starts mid-week, leave
+    // that partial week untouched and begin replacement on the next full Monday.
+    const firstFullPlanWeek = planStart === planStartWeek
+      ? planStartWeek
+      : this.addUtcDays(planStartWeek, 7);
+    const nextMonday = firstAvailableMonday > firstFullPlanWeek
+      ? firstAvailableMonday
+      : firstFullPlanWeek;
+    const futureSessions = (this.sessions[plan.id] || []).filter(session =>
+      session.scheduledDate.slice(0, 10) >= nextMonday && !session.completedAt && session.status !== 'completed');
+    if (!futureSessions.length) {
+      this.splitReplacementErrors[plan.id] = 'No hay sesiones futuras pendientes que permitan determinar el periodo que se va a reorganizar.';
+      return;
+    }
+    if (futureSessions.some(session => this.weeklyEditorDirty[session.id]) ||
+        (this.editingSessionId !== null && futureSessions.some(session => session.id === this.editingSessionId))) {
+      this.splitReplacementErrors[plan.id] = 'Hay cambios de sesión sin guardar. Guarda o descarta esos cambios antes de generar otra distribución.';
+      return;
+    }
+    const lastDate = futureSessions.reduce((latest, session) =>
+      session.scheduledDate.slice(0, 10) > latest ? session.scheduledDate.slice(0, 10) : latest, nextMonday);
+    const lastWeek = this.weekStartDate(lastDate);
+    const durationWeeks = Math.floor((Date.parse(lastWeek + 'T00:00:00Z') - Date.parse(nextMonday + 'T00:00:00Z')) / 604800000) + 1;
+    if (durationWeeks < 1 || durationWeeks > 52) {
+      this.splitReplacementErrors[plan.id] = 'El periodo futuro debe tener entre una y 52 semanas.';
+      return;
+    }
+    const replaceThroughDate = this.addUtcDays(nextMonday, durationWeeks * 7 - 1);
+    if (plan.endDate && replaceThroughDate > plan.endDate.slice(0, 10)) {
+      this.splitReplacementErrors[plan.id] = 'El nuevo bloque acabaría después de la fecha final del plan. Amplía primero el periodo.';
+      return;
+    }
+    const completedInRange = (this.sessions[plan.id] || []).some(session =>
+      (session.completedAt || session.status === 'completed') &&
+      session.scheduledDate.slice(0, 10) >= nextMonday &&
+      session.scheduledDate.slice(0, 10) <= replaceThroughDate);
+    if (completedInRange) {
+      this.splitReplacementErrors[plan.id] = 'El periodo contiene una sesión completada. Acota el bloque para dejarla fuera; su historial no se sustituye.';
+      return;
+    }
+    const deloadOverlap = this.macrocyclePhases(plan).some(phase =>
+      phase.phaseType === 'deload' && phase.startDate.slice(0, 10) <= replaceThroughDate && phase.endDate.slice(0, 10) >= nextMonday);
+    if (deloadOverlap) {
+      this.splitReplacementErrors[plan.id] = 'El periodo incluye una fase de descarga. Reorganízala por separado para no convertirla accidentalmente en una semana de carga.';
+      return;
+    }
+
+    const request: GenerationRequest = {
+      goal: this.autoGoal, experience: this.autoExperience, startDate: nextMonday,
+      durationWeeks, trainingDays: days, split: draft.splitType,
+      maximumSessionDurationMinutes: this.autoMaximumMinutes,
+      availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
+      excludedExerciseIds: [], muscleVolumeTargets: this.buildMuscleVolumeTargets(), isDeload: false
+    };
+    this.splitReplacementLoading[plan.id] = true;
+    this.splitReplacementErrors[plan.id] = '';
+    this.splitReplacementPreviews[plan.id] = null;
+    this.splitVolumeDeficitAcknowledged[plan.id] = false;
+    this.http.post<GeneratedProgram>('/api/training/generate-preview', request).pipe(
+      timeout({ first: 30000 }),
+      catchError(error => {
+        this.splitReplacementErrors[plan.id] = error?.error?.errors?.join?.(' ') ||
+          error?.error?.message || 'No se pudo generar la nueva distribución con el catálogo revisado.';
+        return of(null);
+      })
+    ).subscribe(generated => {
+      if (!generated) {
+        this.splitReplacementLoading[plan.id] = false;
+        this.changeDetector.detectChanges();
+        return;
+      }
+      this.buildSplitReplacementPreview(plan, generated, futureSessions, nextMonday, replaceThroughDate, draft.splitType, days);
+    });
+  }
+
+  private buildSplitReplacementPreview(
+    plan: TrainingPlan,
+    generated: GeneratedProgram,
+    existingSessions: TrainingSession[],
+    replaceFromDate: string,
+    replaceThroughDate: string,
+    splitType: number,
+    trainingDays: number[]
+  ): void {
+    const oldByWeek = new Map<string, TrainingSession[]>();
+    for (const session of existingSessions) {
+      const week = this.weekStartDate(session.scheduledDate);
+      const rows = oldByWeek.get(week) || [];
+      rows.push(session);
+      oldByWeek.set(week, rows);
+    }
+    const generatedByWeek = new Map<number, GeneratedSession[]>();
+    for (const session of generated.sessions) {
+      const rows = generatedByWeek.get(session.weekNumber) || [];
+      rows.push(session);
+      generatedByWeek.set(session.weekNumber, rows);
+    }
+
+    const replacementSessions: SplitReplacementSession[] = [];
+    let preservedManualEdits = 0;
+    let retainedCustomExercises = 0;
+    const warnings: string[] = [...(generated.qualityReport?.warnings ?? [])];
+
+    for (const [weekNumber, generatedWeek] of [...generatedByWeek.entries()].sort(([a], [b]) => a - b)) {
+      generatedWeek.sort((a, b) => ((a.day + 6) % 7) - ((b.day + 6) % 7));
+      const weekStart = this.addUtcDays(replaceFromDate, (weekNumber - 1) * 7);
+      const oldWeek = (oldByWeek.get(weekStart) || []).slice().sort((a, b) =>
+        a.scheduledDate.localeCompare(b.scheduledDate) || a.id - b.id);
+      const manualRows = oldWeek.flatMap((session, sourceIndex) =>
+        this.parseStructuredExerciseDrafts(session.exercisePrescription).map(row => ({ row, sourceIndex, consumed: false })));
+      const rowsByGeneratedSession: StructuredExerciseDraft[][] = generatedWeek.map(() => []);
+
+      generatedWeek.forEach((session, sessionIndex) => {
+        for (const exercise of session.exercises) {
+          const generatedName = exercise.exerciseNameSnapshot.trim();
+          const generatedId = exercise.exerciseId.replace(/^repdb-/, '').toLocaleLowerCase('es');
+          const manualIndex = manualRows.findIndex(item => {
+            if (item.consumed) return false;
+            const catalogItem = this.findUniqueCatalogExerciseByName(item.row.exerciseName);
+            const manualId = (item.row.exerciseId ?? catalogItem?.id)?.replace(/^repdb-/, '').toLocaleLowerCase('es');
+            return item.row.exerciseId
+              ? manualId === generatedId
+              : !!catalogItem && item.row.exerciseName.trim().toLocaleLowerCase('es') === generatedName.toLocaleLowerCase('es');
+          });
+          if (manualIndex >= 0) {
+            const manual = manualRows[manualIndex];
+            manual.consumed = true;
+            const generatedReps = exercise.minRepetitions === exercise.maxRepetitions
+              ? String(exercise.minRepetitions)
+              : exercise.minRepetitions + '–' + exercise.maxRepetitions;
+            const differs = manual.row.sets !== exercise.sets ||
+              manual.row.repetitions !== generatedReps ||
+              manual.row.rir !== exercise.targetRepetitionsInReserve ||
+              manual.row.restSeconds !== exercise.restSeconds;
+            if (differs) preservedManualEdits++;
+            rowsByGeneratedSession[sessionIndex].push({
+              ...manual.row,
+              exerciseName: generatedName,
+              exerciseId: exercise.exerciseId,
+              catalogVersion: exercise.catalogVersion,
+              progressionRule: exercise.progressionRule,
+              primaryMuscleGroups: exercise.primaryMuscleGroups,
+              secondaryMuscleGroups: exercise.secondaryMuscleGroups,
+              smallestLoadIncrementKg: exercise.smallestLoadIncrementKg,
+              maximumLoadIncreasePercent: exercise.maximumLoadIncreasePercent,
+              selectionRationale: exercise.selectionRationale
+            });
+          } else {
+            rowsByGeneratedSession[sessionIndex].push({
+              exerciseName: generatedName, sets: exercise.sets,
+              repetitions: exercise.minRepetitions === exercise.maxRepetitions
+                ? String(exercise.minRepetitions)
+                : exercise.minRepetitions + '–' + exercise.maxRepetitions,
+              rir: exercise.targetRepetitionsInReserve ?? null,
+              restSeconds: exercise.restSeconds, notes: '',
+              exerciseId: exercise.exerciseId, catalogVersion: exercise.catalogVersion,
+              progressionRule: exercise.progressionRule,
+              primaryMuscleGroups: exercise.primaryMuscleGroups,
+              secondaryMuscleGroups: exercise.secondaryMuscleGroups,
+              smallestLoadIncrementKg: exercise.smallestLoadIncrementKg,
+              maximumLoadIncreasePercent: exercise.maximumLoadIncreasePercent,
+              selectionRationale: exercise.selectionRationale
+            });
+          }
+        }
+      });
+
+      manualRows.forEach(item => {
+        if (item.consumed) return;
+        const targetIndex = item.sourceIndex % generatedWeek.length;
+        rowsByGeneratedSession[targetIndex].push(item.row);
+        retainedCustomExercises++;
+      });
+
+      generatedWeek.forEach((session, sessionIndex) => {
+        const dayOffset = session.day === 0 ? 6 : session.day - 1;
+        const scheduledDate = this.addUtcDays(weekStart, dayOffset);
+        const sourceSession = oldWeek[sessionIndex] || oldWeek[0];
+        const exerciseRows = rowsByGeneratedSession[sessionIndex];
+        const prescription = this.serializeStructuredExerciseDrafts(exerciseRows);
+        const duration = session.estimatedDurationMinutes;
+        replacementSessions.push({
+          scheduledDate,
+          title: session.title,
+          sessionType: 'strength',
+          durationMinutes: duration,
+          intensityTarget: sourceSession?.intensityTarget ?? null,
+          instructions: sourceSession?.instructions ?? 'Nueva distribución generada. Revisión profesional pendiente.',
+          exercisePrescription: prescription,
+          exercisePrescriptionData: this.buildStructuredPrescriptionData(scheduledDate, duration, exerciseRows)
+        });
+      });
+    }
+
+    if (retainedCustomExercises > 0)
+      warnings.push(retainedCustomExercises + ' ejercicios manuales no coincidentes se han conservado en la sesión equivalente por orden; comprueba que su ubicación y carga sigan teniendo sentido.');
+    if (preservedManualEdits > 0)
+      warnings.push('Se han conservado ' + preservedManualEdits + ' ajustes de series, repeticiones, RIR o descanso en ejercicios que aparecen también en la nueva propuesta. Comprueba la duración resultante.');
+    if (retainedCustomExercises > 0)
+      warnings.push('La duración estimada del generador no incluye el tiempo adicional de los ejercicios manuales conservados; revisa los límites de cada sesión.');
+    const volumeSessions = replacementSessions.map(session => ({
+      weekNumber: Math.floor((Date.parse(this.weekStartDate(session.scheduledDate) + 'T00:00:00Z') -
+        Date.parse(replaceFromDate + 'T00:00:00Z')) / 604800000) + 1,
+      day: new Date(session.scheduledDate + 'T00:00:00Z').getUTCDay(),
+      title: session.title,
+      exercises: this.parseManualVolumeExercises(session.exercisePrescription)
+    }));
+
+    this.http.post<ManualVolumePreview>('/api/training/volume-preview', { sessions: volumeSessions }).subscribe({
+      next: volumePreview => {
+        this.splitReplacementPreviews[plan.id] = {
+          replaceFromDate, replaceThroughDate, sessions: replacementSessions, volumePreview,
+          preservedManualEdits, retainedCustomExercises, warnings
+        };
+        this.splitReplacementLoading[plan.id] = false;
+        this.changeDetector.detectChanges();
+      },
+      error: error => {
+        this.splitReplacementErrors[plan.id] = error?.error?.message || 'La propuesta se generó, pero no se pudo calcular su volumen efectivo. No se puede aplicar sin esa comprobación.';
+        this.splitReplacementLoading[plan.id] = false;
+        this.changeDetector.detectChanges();
+      }
+    });
+  }
+
+  applySplitReplacement(plan: TrainingPlan): void {
+    const draft = this.splitReorganizationDrafts[plan.id];
+    const preview = this.splitReplacementPreviews[plan.id];
+    if (!draft || !preview || !preview.sessions.length) return;
+    if (this.hasVolumeDoseDeficit(preview.warnings) && !this.splitVolumeDeficitAcknowledged[plan.id]) {
+      this.splitReplacementErrors[plan.id] = 'Revisa y confirma expresamente los déficits de volumen antes de sustituir las sesiones futuras.';
+      return;
+    }
+    const replacedSessions = (this.sessions[plan.id] || []).filter(session =>
+      session.scheduledDate.slice(0, 10) >= preview.replaceFromDate &&
+      session.scheduledDate.slice(0, 10) <= preview.replaceThroughDate);
+    if (replacedSessions.some(session => this.weeklyEditorDirty[session.id]) ||
+        (this.editingSessionId !== null && replacedSessions.some(session => session.id === this.editingSessionId))) {
+      this.splitReplacementErrors[plan.id] = 'Hay cambios de sesión sin guardar. Guarda o descarta esos cambios antes de sustituir el bloque.';
+      return;
+    }
+    this.splitReplacementLoading[plan.id] = true;
+    this.http.post<{ sessionsCreated: number }>('/api/training/plans/' + plan.id + '/replace-future-split', {
+      replaceFromDate: preview.replaceFromDate,
+      replaceThroughDate: preview.replaceThroughDate,
+      splitType: draft.splitType,
+      trainingDays: draft.trainingDays,
+      sessions: preview.sessions
+    }).subscribe({
+      next: result => {
+        this.splitPreferences[plan.id] = { splitType: draft.splitType, trainingDays: [...draft.trainingDays] };
+        this.splitReplacementLoading[plan.id] = false;
+        replacedSessions.forEach(session => { delete this.weeklyEditorDrafts[session.id]; delete this.weeklyEditorDirty[session.id]; });
+        if (this.editingSessionId !== null && replacedSessions.some(session => session.id === this.editingSessionId)) {
+          this.editingSessionId = null;
+          this.sessionEditDraft = null;
+        }
+        this.splitReplacementPreviews[plan.id] = null;
+        this.splitVolumeDeficitAcknowledged[plan.id] = false;
+        this.notice = 'Nueva distribución aplicada: ' + result.sessionsCreated + ' sesiones. Se han conservado las sesiones completadas y los ajustes manuales coincidentes.';
+        this.refreshSessions(plan.id);
+        this.changeDetector.detectChanges();
+      },
+      error: error => {
+        this.splitReplacementLoading[plan.id] = false;
+        this.splitReplacementErrors[plan.id] = error?.error?.message || 'No se pudo aplicar la nueva distribución. La versión anterior se conserva íntegra.';
+        this.changeDetector.detectChanges();
+      }
+    });
+  }
+
+  weeklyDraft(session: TrainingSession): WeeklySessionDraft {
+    if (!this.weeklyEditorDrafts[session.id]) {
+      this.weeklyEditorDrafts[session.id] = {
+        date: session.scheduledDate.slice(0, 10), title: session.title, type: session.sessionType,
+        duration: session.durationMinutes ?? 60, intensity: session.intensityTarget ?? '',
+        instructions: session.instructions ?? '', exercises: this.parseStructuredExerciseDrafts(session.exercisePrescription, session.exercisePrescriptionData)
+      };
+    }
+    return this.weeklyEditorDrafts[session.id];
+  }
+
+  private parseStructuredExerciseDrafts(
+    prescription: string | null | undefined,
+    prescriptionData?: Record<string, unknown> | null
+  ): StructuredExerciseDraft[] {
+    const structuredItems = Array.isArray(prescriptionData?.['exercises'])
+      ? prescriptionData['exercises'] as Array<Record<string, unknown>>
+      : [];
+    const hasCompleteSnapshots = structuredItems.length > 0 &&
+      structuredItems.every(item => item !== null && typeof item === 'object' &&
+        typeof item['exerciseNameSnapshot'] === 'string' &&
+        String(item['exerciseNameSnapshot']).trim().length > 0);
+
+    if (hasCompleteSnapshots) {
+      return structuredItems.map(item => {
+        const exerciseName = String(item['exerciseNameSnapshot']).trim();
+        const minRepetitions = typeof item['minRepetitions'] === 'number' ? item['minRepetitions'] : null;
+        const maxRepetitions = typeof item['maxRepetitions'] === 'number' ? item['maxRepetitions'] : minRepetitions;
+        const repetitions = minRepetitions !== null && minRepetitions >= 1
+          ? (maxRepetitions !== null && maxRepetitions > minRepetitions
+            ? `${minRepetitions}-${maxRepetitions}` : String(minRepetitions))
+          : '';
+        const sets = typeof item['sets'] === 'number' && Number.isFinite(item['sets'])
+          ? Math.max(0, Math.min(10, Math.round(item['sets']))) : 0;
+        const restSeconds = typeof item['restSeconds'] === 'number' && Number.isFinite(item['restSeconds'])
+          ? Math.max(0, Math.min(3600, Math.round(item['restSeconds']))) : 0;
+        const targetRir = item['targetRepetitionsInReserve'];
+        const rawProgressionRule = item['progressionRule'];
+        const progressionRule = rawProgressionRule === null || rawProgressionRule === undefined ||
+          rawProgressionRule === 1 || rawProgressionRule === '1' || rawProgressionRule === 'DoubleProgression'
+          ? 'DoubleProgression' : 'None';
+        return {
+          exerciseName,
+          originalExerciseName: exerciseName,
+          sets,
+          repetitions,
+          rir: typeof targetRir === 'number' && Number.isFinite(targetRir)
+            ? Math.max(0, Math.min(10, targetRir)) : null,
+          restSeconds,
+          notes: typeof item['notes'] === 'string' ? item['notes'] : '',
+          exerciseId: typeof item['exerciseId'] === 'string' ? item['exerciseId'] : undefined,
+          catalogVersion: typeof item['catalogVersion'] === 'string' ? item['catalogVersion'] : undefined,
+          progressionRule,
+          primaryMuscleGroups: Array.isArray(item['primaryMuscleGroups'])
+            ? item['primaryMuscleGroups'] as Array<string | number> : undefined,
+          secondaryMuscleGroups: Array.isArray(item['secondaryMuscleGroups'])
+            ? item['secondaryMuscleGroups'] as Array<string | number> : undefined,
+          smallestLoadIncrementKg: typeof item['smallestLoadIncrementKg'] === 'number'
+            ? item['smallestLoadIncrementKg'] : undefined,
+          maximumLoadIncreasePercent: typeof item['maximumLoadIncreasePercent'] === 'number'
+            ? item['maximumLoadIncreasePercent'] : undefined,
+          selectionRationale: typeof item['selectionRationale'] === 'string'
+            ? item['selectionRationale'] : undefined
+        };
+      });
+    }
+
+    // Legacy text is only a fallback when no usable structured snapshot exists.
+    return this.prescriptionLines(prescription).map(line => {
+      const match = line.match(/^(.*?)\s*[·|—-]\s*(\d+)\s*[×x]\s*([^·|—]+?)(?=\s*[·|—]|$)(.*)$/i);
+      const tail = match?.[4] ?? line;
+      const restMatch = tail.match(/descanso\s*(\d+)\s*(s|seg(?:undos?)?|min(?:utos?)?)?/i);
+      const rirMatch = tail.match(/RIR\s*(\d+(?:[.,]\d+)?)/i);
+      const exerciseName = (match?.[1] ?? line).trim().replace(/^\d+\.\s*/, '');
+      return {
+        exerciseName,
+        originalExerciseName: exerciseName,
+        sets: match ? Math.max(1, Math.min(10, Number(match[2]))) : 0,
+        repetitions: (match?.[3] ?? '').trim(),
+        rir: rirMatch ? Number(rirMatch[1].replace(',', '.')) : (match ? 2 : null),
+        restSeconds: restMatch ? Number(restMatch[1]) * (/min/i.test(restMatch[2] ?? '') ? 60 : 1) : (match ? 90 : 0),
+        progressionRule: 'DoubleProgression',
+        notes: match ? '' : line
+      };
+    }).filter(item => item.exerciseName.length > 0);
+  }
+  private buildStructuredPrescriptionData(
+    date: string,
+    duration: number | null,
+    exercises: StructuredExerciseDraft[]
+  ): Record<string, unknown> | null {
+    const entered = exercises.filter(item => item.exerciseName.trim());
+    if (!entered.length || entered.some(item => item.sets < 1 || !item.repetitions.trim())) return null;
+    const structured = entered;
+    return {
+      engineVersion: 'manual-editor-v1',
+      goal: 'Manual',
+      weekNumber: 1,
+      day: this.dayName(new Date(date.slice(0, 10) + 'T00:00:00Z').getUTCDay()),
+      estimatedDurationMinutes: duration ?? 60,
+      exercises: structured.map((item, index) => {
+        const catalogItem = this.findUniqueCatalogExerciseByName(item.exerciseName);
+        const repetitions = item.repetitions.match(/(\d+)(?:\s*[-–]\s*(\d+))?/);
+        const minRepetitions = repetitions ? Number(repetitions[1]) : undefined;
+        const maxRepetitions = repetitions ? Number(repetitions[2] || repetitions[1]) : undefined;
+        return {
+          exerciseId: item.exerciseId?.trim() || catalogItem?.id.replace(/^repdb-/, ''),
+          catalogVersion: item.catalogVersion?.trim() ||
+            (catalogItem?.source === 'repdb' ? 'repdb' : item.exerciseId?.trim() ? 'unknown' : 'manual'),
+          exerciseNameSnapshot: item.exerciseName.trim(),
+          order: index + 1,
+          sets: item.sets,
+          minRepetitions,
+          maxRepetitions,
+          targetRepetitionsInReserve: item.rir,
+          restSeconds: item.restSeconds,
+          progressionRule: item.progressionRule ?? 'DoubleProgression',
+          primaryMuscleGroups: item.primaryMuscleGroups,
+          secondaryMuscleGroups: item.secondaryMuscleGroups,
+          smallestLoadIncrementKg: item.smallestLoadIncrementKg,
+          maximumLoadIncreasePercent: item.maximumLoadIncreasePercent,
+          selectionRationale: item.selectionRationale,
+          notes: item.notes.trim() || undefined
+        };
+      })
+    };
+  }
+
+  private serializeStructuredExerciseDrafts(exercises: StructuredExerciseDraft[]): string {
+    return exercises.filter(item => item.exerciseName.trim()).map(item => {
+      if (item.sets < 1 || !item.repetitions.trim()) return item.notes || item.exerciseName.trim();
+      return item.exerciseName.trim() + ' · ' + Math.max(1, Math.min(10, Math.round(Number(item.sets) || 1))) +
+        ' × ' + item.repetitions.trim() + ' · descanso ' +
+        Math.max(0, Math.min(3600, Math.round(Number(item.restSeconds) || 0))) + ' s' +
+        (item.rir === null || !Number.isFinite(item.rir) ? '' : ' · RIR ' + Math.max(0, Math.min(10, item.rir))) +
+        (item.notes.trim() ? ' · Nota: ' + item.notes.trim() : '');
+    }).join('\n');
+  }
+
+  markWeeklyDraftDirty(session: TrainingSession): void {
+    this.weeklyEditorDirty[session.id] = true;
+  }
+
+  onWeeklyDraftChanged(plan: TrainingPlan, session: TrainingSession): void {
+    const draft = this.weeklyDraft(session);
+    for (const exercise of draft.exercises) {
+      const normalizeName = (value: string) => value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
+      const originalName = exercise.originalExerciseName ?? exercise.exerciseName;
+      if (normalizeName(originalName) !== normalizeName(exercise.exerciseName)) {
+        // A renamed exercise must never keep the previous exercise's stable ID or anatomy.
+        exercise.exerciseId = undefined;
+        exercise.catalogVersion = undefined;
+        exercise.primaryMuscleGroups = undefined;
+        exercise.secondaryMuscleGroups = undefined;
+        exercise.smallestLoadIncrementKg = undefined;
+        exercise.maximumLoadIncreasePercent = undefined;
+        exercise.selectionRationale = undefined;
+        exercise.originalExerciseName = exercise.exerciseName;
+      }
+    }
+    this.weeklyEditorDirty[session.id] = true;
+    this.refreshManualVolumePreview(plan, draft.date, this.serializeStructuredExerciseDrafts(draft.exercises), session.id, draft.title, draft.exercises);
+  }
+
+  addWeeklyExercise(plan: TrainingPlan, session: TrainingSession): void {
+    this.weeklyDraft(session).exercises.push({ exerciseName: '', sets: 3, repetitions: '8–12', rir: 2, restSeconds: 90, progressionRule: 'DoubleProgression', notes: '' });
+    this.onWeeklyDraftChanged(plan, session);
+  }
+
+  removeWeeklyExercise(plan: TrainingPlan, session: TrainingSession, index: number): void {
+    this.weeklyDraft(session).exercises.splice(index, 1);
+    this.onWeeklyDraftChanged(plan, session);
+  }
+
+  moveWeeklyExercise(plan: TrainingPlan, session: TrainingSession, index: number, offset: number): void {
+    const rows = this.weeklyDraft(session).exercises;
+    const destination = index + offset;
+    if (index < 0 || destination < 0 || destination >= rows.length) return;
+    [rows[index], rows[destination]] = [rows[destination], rows[index]];
+    this.onWeeklyDraftChanged(plan, session);
+  }
+
+  saveWeeklySession(plan: TrainingPlan, session: TrainingSession): void {
+    const draft = this.weeklyDraft(session);
+    const prescription = this.serializeStructuredExerciseDrafts(draft.exercises);
+    if (!draft.title.trim() || !draft.date || draft.duration === null || !Number.isInteger(draft.duration) || draft.duration < 1 || draft.duration > 1440) {
+      this.error = 'Revisa el nombre, la fecha y la duración de la sesión.';
+      return;
+    }
+    if (draft.exercises.some(item => item.exerciseName.trim() && (!Number.isInteger(item.sets) || item.sets < 1 || item.sets > 10 || !item.repetitions.trim() || !Number.isInteger(item.restSeconds) || item.restSeconds < 0 || item.restSeconds > 3600 || (item.rir !== null && (item.rir < 0 || item.rir > 10))))) {
+      this.error = 'Revisa series (1–10), repeticiones, descanso (0–3600 s) y RIR (0–10).';
+      return;
+    }
+    this.saving = true;
+    this.http.put('/api/training/sessions/' + session.id, {
+      scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type,
+      durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null,
+      instructions: draft.instructions.trim() || null, exercisePrescription: prescription || null,
+      exercisePrescriptionData: this.buildStructuredPrescriptionData(draft.date, draft.duration, draft.exercises)
+    }).subscribe({
+      next: () => {
+        this.saving = false;
+        delete this.weeklyEditorDrafts[session.id];
+        delete this.weeklyEditorDirty[session.id];
+        this.notice = 'Sesión actualizada. El registro de realización se ha conservado.';
+        this.refreshSessions(plan.id);
+      },
+      error: error => { this.saving = false; this.error = error?.error?.message || 'No se pudo guardar la sesión.'; }
+    });
+  }
+
+  canDeleteWeeklySession(session: TrainingSession): boolean {
+    return !session.completedAt && session.scheduledDate >= this.localDateInputValue();
+  }
+
+  confirmWeeklySessionDeletion(plan: TrainingPlan, session: TrainingSession): void {
+    if (!this.canDeleteWeeklySession(session)) return;
+    this.weeklyDeleteConfirmIds[plan.id] = session.id;
+    delete this.weeklyDeleteErrors[plan.id];
+  }
+
+  deleteWeeklySession(plan: TrainingPlan, session: TrainingSession): void {
+    if (this.weeklyDeleteConfirmIds[plan.id] !== session.id || !this.canDeleteWeeklySession(session)) return;
+    this.saving = true;
+    this.http.delete('/api/training/sessions/' + session.id).subscribe({
+      next: () => {
+        this.saving = false;
+        this.weeklyDeleteConfirmIds[plan.id] = null;
+        delete this.weeklyEditorDrafts[session.id];
+        delete this.weeklyEditorDirty[session.id];
+        this.sessions[plan.id] = (this.sessions[plan.id] || []).filter(item => item.id !== session.id);
+        delete this.weeklyDeleteErrors[plan.id];
+        this.notice = 'Sesión eliminada. El historial de realización permanece protegido.';
+        this.refreshManualVolumePreview(plan);
+        this.refreshSessions(plan.id);
+      },
+      error: error => {
+        this.saving = false;
+        this.weeklyDeleteErrors[plan.id] = error?.error?.message || 'No se pudo eliminar la sesión.';
+      }
+    });
+  }
+
+  prepareWeeklySessionCreation(plan: TrainingPlan): void {
+    const draft = this.sessionDrafts[plan.id];
+    if (!draft) return;
+    const hasUnsavedContent = !!(
+      draft.title.trim() || draft.exercisePrescription.trim() || draft.instructions.trim() ||
+      draft.intensity.trim() || draft.duration !== 60 || draft.type !== 'strength' ||
+      draft.date !== this.defaultSessionDate(plan)
+    );
+    if (hasUnsavedContent) {
+      this.notice = 'Ya hay un borrador de sesión sin guardar. Guárdalo o vacíalo antes de preparar otra sesión.';
+    } else {
+      const weekDates = this.weekDays(plan).map(day => day.date);
+      const occupiedDates = new Set(this.weekSessions(plan.id, plan).map(session => session.scheduledDate));
+      const currentDateIsFree = weekDates.includes(draft.date) && !occupiedDates.has(draft.date);
+      draft.date = currentDateIsFree
+        ? draft.date
+        : weekDates.find(date => !occupiedDates.has(date)) || weekDates[0] || plan.startDate;
+      draft.title = '';
+      draft.type = 'strength';
+      draft.duration = 60;
+      draft.intensity = '';
+      draft.instructions = '';
+      draft.exercisePrescription = '';
+      draft.exercisePrescriptionData = null;
+      this.notice = 'Formulario preparado para añadir una sesión en esta semana.';
+    }
+    document.getElementById('session-editor-' + plan.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   weekPlannedMinutes(planId: number, plan: TrainingPlan): number {
     return this.weekSessions(planId, plan).reduce((total, session) => total + (session.durationMinutes ?? 0), 0);
   }
@@ -2135,12 +3378,31 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.openRecord(session);
   }
 
+  cancelEditSession(plan: TrainingPlan): void {
+    this.editingSessionId = null;
+    this.sessionEditDraft = null;
+    this.refreshManualVolumePreview(plan);
+  }
+
   beginEditSession(session: TrainingSession): void {
-    if (this.editingSessionId === session.id) { this.editingSessionId = null; this.sessionEditDraft = null; return; }
+    if (this.editingSessionId === session.id) {
+      this.editingSessionId = null;
+      this.sessionEditDraft = null;
+      const plan = this.plans.find(item => item.id === session.planId);
+      if (plan) this.refreshManualVolumePreview(plan);
+      return;
+    }
     this.editingSessionId = session.id;
     this.recordingSessionId = null;
     this.sessionEditDraft = { date: session.scheduledDate, title: session.title, type: session.sessionType,
-      duration: session.durationMinutes ?? 60, intensity: session.intensityTarget ?? '', instructions: session.instructions ?? '', exercisePrescription: session.exercisePrescription ?? '' };
+      duration: session.durationMinutes ?? 60, intensity: session.intensityTarget ?? '', instructions: session.instructions ?? '',
+      exercisePrescription: session.exercisePrescription ?? '', exercisePrescriptionData: session.exercisePrescriptionData ?? null };
+    const structuredExercises = session.exercisePrescriptionData
+      ? this.parseStructuredExerciseDrafts(session.exercisePrescription, session.exercisePrescriptionData)
+      : undefined;
+    this.refreshManualVolumePreview(
+      (this.plans || []).find(plan => plan.id === session.planId) ?? { id: session.planId } as TrainingPlan,
+      session.scheduledDate, session.exercisePrescription ?? '', session.id, undefined, structuredExercises);
   }
 
   saveSession(session: TrainingSession): void {
@@ -2151,7 +3413,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     }
     this.saving = true; this.error = '';
     this.http.put(`/api/training/sessions/${session.id}`, { scheduledDate: d.date, title: d.title.trim(), sessionType: d.type,
-      durationMinutes: d.duration, intensityTarget: d.intensity.trim() || null, instructions: d.instructions.trim() || null, exercisePrescription: d.exercisePrescription.trim() || null }).subscribe({
+      durationMinutes: d.duration, intensityTarget: d.intensity.trim() || null, instructions: d.instructions.trim() || null,
+      exercisePrescription: d.exercisePrescription.trim() || null,
+      exercisePrescriptionData: this.buildStructuredPrescriptionData(d.date, d.duration,
+        this.parseStructuredExerciseDrafts(d.exercisePrescription, d.exercisePrescriptionData)) }).subscribe({
       next: () => { this.editingSessionId = null; this.sessionEditDraft = null; this.saving = false; this.refreshSessions(session.planId); },
       error: e => { this.error = e?.error?.message || 'No se pudo actualizar la sesión.'; this.saving = false; }
     });
@@ -2159,7 +3424,12 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   private refreshSessions(planId: number): void {
     this.http.get<TrainingSession[]>(`/api/training/plans/${planId}/sessions`).subscribe({
-      next: rows => { this.sessions[planId] = rows; this.changeDetector.detectChanges(); },
+      next: rows => {
+        this.sessions[planId] = rows;
+        const plan = this.plans.find(item => item.id === planId);
+        if (plan) this.refreshManualVolumePreview(plan);
+        this.changeDetector.detectChanges();
+      },
       error: () => { this.error = 'La operación se guardó, pero no se pudo actualizar la lista. Recarga la página.'; this.changeDetector.detectChanges(); }
     });
   }
@@ -2385,8 +3655,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const phases = this.macrocyclePhases(plan).slice().sort((a, b) => a.sequenceNumber - b.sequenceNumber);
     if (!phases.length || this.saving || this.generatingPlan || this.bulkGenerationProgress[plan.id]) return;
     const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
-    if (days.length < 2 || days.length > 4 || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
-      this.generationErrors[plan.id] = 'Selecciona entre 2 y 4 días de entrenamiento y una duración máxima de 35 a 180 minutos.';
+    if (days.length < 2 || days.length > 6 || !this.isSplitDayCountValid(days.length) || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
+      this.generationErrors[plan.id] = 'Revisa los días compatibles con la distribución elegida (2–6 días) y la duración máxima de 35 a 180 minutos.';
       return;
     }
     if (!confirm('Se generarán mesociclos, microciclos y sesiones para todas las fases del macrociclo que todavía no tengan planificación. Los bloques existentes con contenido se conservarán. ¿Continuar?')) return;
@@ -2423,8 +3693,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   async generateMacrocyclePhaseMesocycle(plan: TrainingPlan, phase: MacrocyclePhase): Promise<void> {
     if (this.saving || this.generatingPlan || this.bulkGenerationProgress[plan.id]) return;
     const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
-    if (days.length < 2 || days.length > 4 || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
-      this.generationErrors[plan.id] = 'Selecciona entre 2 y 4 días de entrenamiento y una duración máxima de 35 a 180 minutos.';
+    if (days.length < 2 || days.length > 6 || !this.isSplitDayCountValid(days.length) || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
+      this.generationErrors[plan.id] = 'Revisa los días compatibles con la distribución elegida (2–6 días) y la duración máxima de 35 a 180 minutos.';
       return;
     }
     this.generatingPlan = true;
@@ -2470,7 +3740,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
       excludedExerciseIds: [],
       muscleVolumeTargets: this.buildMuscleVolumeTargets(),
-      isDeload: phase.phaseType === 'deload'
+      isDeload: phase.phaseType === 'deload',
+      split: this.autoSplit
     };
     const sequenceNumber = existing?.sequenceNumber ??
       Math.max(0, ...(this.mesocycles[plan.id] || []).map(meso => meso.sequenceNumber)) + 1;

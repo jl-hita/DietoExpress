@@ -134,11 +134,30 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("exercise_prescription_data)", controller);
         Assert.Contains("exercisePrescriptionData = reader.IsDBNull(19)", portalController);
         Assert.Contains("exercise_prescription_data::text", portalController);
-        Assert.Contains("exercise_prescription_data = CASE WHEN s.exercise_prescription IS DISTINCT FROM @exercisePrescription", controller);
+        Assert.Contains("exercise_prescription_data = CASE", controller);
+        Assert.Contains("WHEN s.exercise_prescription IS DISTINCT FROM @exercisePrescription THEN @prescriptionData::jsonb", controller);
+        Assert.Contains("ELSE COALESCE(@prescriptionData::jsonb, s.exercise_prescription_data)", controller);
         Assert.Contains("JsonElement? ExercisePrescriptionData = null", controller);
         // The legacy text field is still written and returned for existing web and Android clients.
         Assert.Contains("exercise_prescription, exercise_prescription_data", controller);
         Assert.Contains("exercisePrescription = reader.IsDBNull(13)", portalController);
+    }
+
+    [Fact]
+    public void ExerciseProgressionUsesHistoricalPrescriptionAndFailsClosedOnUnstructuredStrengthSessions()
+    {
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingExerciseProgressionService.cs"));
+        var engine = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingExerciseProgressionEngine.cs"));
+
+        Assert.Contains("s.session_type = 'strength'", service);
+        Assert.Contains("blockedPlans.Contains(planId)", service);
+        Assert.Contains("blockedPlans.Add(planId)", service);
+        Assert.Contains("HistoricalPrescription: historicalPrescription", service);
+        Assert.Contains("historical.PlannedWorkingSets != prescription.PlannedWorkingSets", engine);
+        Assert.Contains("historical.MinRepetitions != prescription.MinRepetitions", engine);
+        Assert.Contains("historical.MaxRepetitions != prescription.MaxRepetitions", engine);
+        Assert.Contains("historical.TargetRir != prescription.TargetRir", engine);
+        Assert.Contains("!x.ProgressionEligible", engine);
     }
 
     [Fact]
@@ -200,8 +219,75 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("generated.qualityReport.weeklyMuscleVolumes", ui);
         Assert.Contains("muscle.primarySets", ui);
         Assert.Contains("muscle.secondarySets", ui);
+        Assert.Contains("muscle.estimatedEffectiveSets", ui);
+        Assert.Contains("Personaliza la dosis semanal de series efectivas estimadas", ui);
+        Assert.Contains("max=\"30\"", ui);
+        Assert.Contains("los explícitos admiten 1–30 series", ui);
+        Assert.Contains("isquiotibiales tienen una dosis predeterminada secundaria", ui);
+        Assert.DoesNotContain("series primarias semanales", ui);
         Assert.Contains("muscle.primaryFrequencySessions", ui);
-        Assert.Contains("HighPrimarySetWarningThreshold = 20", analyzer);
+        Assert.Contains("HighEffectiveSetReviewThreshold = 20", analyzer);
+        Assert.Contains("hasVolumeDoseDeficit(generated.qualityReport.warnings)", ui);
+        Assert.Contains("Revisión profesional: déficit de volumen o cobertura", ui);
+        Assert.Contains("volumeDeficitAcknowledged[plan.id]", ui);
+        Assert.Contains("hasVolumeDoseDeficit(generated.qualityReport?.warnings) && !volumeDeficitAcknowledged[plan.id]", ui);
+        Assert.Contains("hasVolumeDoseDeficit(replacement.warnings) && !splitVolumeDeficitAcknowledged[plan.id]", ui);
+        Assert.Contains("originalExerciseName", ui);
+        Assert.Contains("exercise.exerciseId = undefined", ui);
+        Assert.DoesNotContain("?? structuredItems[index]", ui);
+        Assert.Contains("const hasCompleteSnapshots = structuredItems.length > 0", ui);
+        Assert.Contains("if (hasCompleteSnapshots)", ui);
+        Assert.Contains("Legacy text is only a fallback when no usable structured snapshot exists.", ui);
+        Assert.Contains("Notas del ejercicio", ui);
+        Assert.Contains("notes: item.notes.trim() || undefined", ui);
+        Assert.Contains("Doble progresión", ui);
+        Assert.Contains("Sin progresión automática", ui);
+        Assert.Contains("progressionRule: 'DoubleProgression'", ui);
+        Assert.Contains("manualVolumeExercisesFromStructuredDrafts", ui);
+        Assert.Contains("session.exercisePrescriptionData", ui);
+        Assert.Contains("overrideExercises", ui);
+        Assert.Contains("findUniqueCatalogExerciseByName", ui);
+        Assert.Contains("matches.length === 1 ? matches[0] : undefined", ui);
+        Assert.Contains("Revisa y confirma expresamente los déficits de volumen antes de guardar el mesociclo.", ui);
+        Assert.Contains("el profesional ha revisado y aceptado los déficits de volumen/cobertura", ui);
+        Assert.Contains("const warnings: string[] = [...(generated.qualityReport?.warnings ?? [])]", ui);
+        Assert.Contains("hasVolumeDoseDeficit(replacement.warnings)", ui);
+        Assert.Contains("splitVolumeDeficitAcknowledged[plan.id]", ui);
+        Assert.Contains("Revisa y confirma expresamente los déficits de volumen antes de sustituir las sesiones futuras.", ui);
+    }
+
+    [Fact]
+    public void WeeklyEditorAndSplitReorganizationAreStructuredAndProtectCompletedSessions()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var splitSchema = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingPlanSplitSchema.cs"));
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+        var analyzer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingProgramQualityAnalyzer.cs"));
+
+        Assert.Contains("TrainingPlanSplitSchema.Initialize(context)", bootstrap);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS training_plan_split_preferences", splitSchema);
+        Assert.Contains("[HttpGet(\"plans/{planId:int}/split\")]", controller);
+        Assert.Contains("[HttpPost(\"plans/{planId:int}/reorganize-split\")]", controller);
+        Assert.Contains("[HttpPost(\"plans/{planId:int}/replace-future-split\")]", controller);
+        Assert.Contains("ReplaceFutureTrainingSplitRequest", controller);
+        Assert.Contains("NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)", controller);
+        Assert.Contains("exercise_prescription_data)", controller);
+        Assert.Contains("await transaction.CommitAsync(cancellationToken)", controller);
+        Assert.Contains("await transaction.RollbackAsync(cancellationToken)", controller);
+        Assert.Contains("Editor semanal estructurado", ui);
+        Assert.Contains("saveWeeklySession(plan, session)", ui);
+        Assert.Contains("moveWeeklyExercise(plan, session", ui);
+        Assert.Contains("Reorganizar distribución semanal", ui);
+        Assert.Contains("Preparar propuesta", ui);
+        Assert.Contains("Confirmar reorganización", ui);
+        Assert.Contains("Generar propuesta con este split", ui);
+        Assert.Contains("applySplitReplacement(plan)", ui);
+        Assert.Contains("parseStructuredExerciseDrafts(session.exercisePrescription, session.exercisePrescriptionData)", ui);
+        Assert.Contains("progressionRule: item.progressionRule", ui);
+        Assert.Contains("TrainingSessionMuscleVolume", analyzer);
+        Assert.Contains("sessionVolumes", analyzer);
+        Assert.Contains("Comparación por sesión", ui);
     }
 
     [Fact]
@@ -337,6 +423,23 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("selectRoutineTarget(plan, $event)", ui);
         Assert.Contains("existingMesocycleId, notes:", ui);
         Assert.Contains("NOT EXISTS (SELECT 1 FROM training_microcycles mc WHERE mc.mesocycle_id = m.id)", controller);
+    }
+
+    [Fact]
+    public void WeeklyEditorCanAddAndSafelyDeleteOnlyUnrecordedFutureSessions()
+    {
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var trainingUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+
+        Assert.Contains("[HttpDelete(\"sessions/{sessionId:int}\")]", controller);
+        Assert.Contains("IsolationLevel.Serializable", controller);
+        Assert.Contains("FOR UPDATE", controller);
+        Assert.Contains("FROM training_session_records WHERE session_id = @sessionId", controller);
+        Assert.Contains("scheduledDate < DateOnly.FromDateTime(DateTime.UtcNow)", controller);
+        Assert.Contains("prepareWeeklySessionCreation", trainingUi);
+        Assert.Contains("deleteWeeklySession", trainingUi);
+        Assert.Contains("Añadir sesión a esta semana", trainingUi);
+        Assert.Contains("Confirmar eliminación de sesión", trainingUi);
     }
 
 }

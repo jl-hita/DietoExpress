@@ -47,6 +47,23 @@ public sealed class TrainingExecutionContractTests
         Assert.Contains("stable exercise ID", progressionService);
         Assert.Contains("smallestLoadIncrementKg", progressionService);
         Assert.Contains("existing.outcome IS NOT NULL", progressionService);
+        Assert.Contains("progressionEligibility", progressionService);
+        Assert.Contains("ProgressionEligible", progressionService);
+        Assert.Contains("ParseProgressionRule(item) == TrainingProgressionRule.DoubleProgression", progressionService);
+    }
+
+    [Fact]
+    public void UnknownProgressionActionsNeverMapToAnIncreaseLoadRecommendation()
+    {
+        var mapper = typeof(Anguloso.Server.Logica.TrainingExerciseProgressionService)
+            .GetMethod("ToApiProgressionAction", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(mapper);
+
+        var increaseLoad = mapper!.Invoke(null, [Anguloso.Server.Logica.TrainingExerciseProgressionAction.IncreaseLoad]);
+        var unknown = mapper.Invoke(null, [(Anguloso.Server.Logica.TrainingExerciseProgressionAction)999]);
+
+        Assert.Equal("increase_load", increaseLoad);
+        Assert.Equal("invalid_data", unknown);
     }
 
     [Fact]

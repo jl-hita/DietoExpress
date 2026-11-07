@@ -150,16 +150,21 @@ public sealed class ExerciseCatalogService
         await EnsureRepDbExerciseMetadataCurationV4Async(cancellationToken);
         await EnsureRepDbMetadataEnrichmentAsync(cancellationToken);
         await EnsureRepDbInitialReviewAsync(cancellationToken);
+        await EnsureRepDbAutomaticMetadataRefreshV1Async(cancellationToken);
+        await EnsureRepDbLegCurlPatternCurationV1Async(cancellationToken);
         await EnsureRepDbGeneralFitnessGoalCurationV1Async(cancellationToken);
         await EnsureRepDbAccessoryPatternCurationV1Async(cancellationToken);
         await EnsureRepDbSelectionPriorityCurationV1Async(cancellationToken);
+        await EnsureRepDbIdealCatalogV1Async(cancellationToken);
         return result;
     }
 
     public async Task<ExerciseCatalogSyncResult> SyncFromSourceAsync(
         CancellationToken cancellationToken = default,
         bool replaceExisting = false,
-        bool markBootstrapComplete = false)
+        bool markBootstrapComplete = false,
+        bool replaceRepDbOnly = false,
+        bool markIdealCatalogComplete = false)
     {
         await EnsureSchemaAsync(cancellationToken);
         using var response = await _httpClientFactory.CreateClient(nameof(ExerciseCatalogService))
@@ -183,6 +188,19 @@ public sealed class ExerciseCatalogService
             if (replaceExisting)
             {
                 await using var deleteCommand = new NpgsqlCommand("DELETE FROM exercise_catalog", connection, transaction);
+                await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+            else if (replaceRepDbOnly)
+            {
+                // Replace only unreviewed/automatically reviewed public-source rows.
+                // Human-reviewed RepDB decisions and professional contributions must survive.
+                await using var deleteCommand = new NpgsqlCommand(
+                    """
+                    DELETE FROM exercise_catalog
+                    WHERE source = 'repdb-free' AND owner_user_id IS NULL
+                      AND (reviewed_by IS NULL OR reviewed_by LIKE 'RepDB automatic metadata%')
+                    """,
+                    connection, transaction);
                 await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
             }
 
@@ -211,17 +229,21 @@ public sealed class ExerciseCatalogService
                 var tagsJson = JsonText(exercise, "tags");
                 var generatedDescription = string.IsNullOrWhiteSpace(descriptionEs);
                 var generatedDifficulty = string.IsNullOrWhiteSpace(difficulty);
+                var generatedInstructions = !RepDbExerciseAutoReviewer.HasUsefulInstructions(instructionsEsJson);
+                if (generatedInstructions)
+                    instructionsEsJson = RepDbExerciseAutoReviewer.GenerateInstructionsEs(id, nameEs, name);
                 if (generatedDescription)
                     descriptionEs = RepDbExerciseAutoReviewer.GenerateDescriptionEs(nameEs, name, equipment, bodyPart, primaryMusclesJson);
                 if (generatedDifficulty)
                     difficulty = RepDbExerciseAutoReviewer.InferDifficulty(null, nameEs, name, equipment,
                         ReadString(exercise, "mechanic"), ReadString(exercise, "force_type"), bodyPart,
                         tagsJson, instructionsEsJson);
-                var enrichmentNotes = generatedDescription || generatedDifficulty
+                var enrichmentNotes = generatedDescription || generatedDifficulty || generatedInstructions
                     ? string.Join("; ", new[]
                     {
                         generatedDescription && !string.IsNullOrWhiteSpace(descriptionEs) ? "Descripción en español generada automáticamente" : null,
-                        generatedDifficulty && !string.IsNullOrWhiteSpace(difficulty) ? "Dificultad estimada automáticamente" : null
+                        generatedDifficulty && !string.IsNullOrWhiteSpace(difficulty) ? "Dificultad estimada automáticamente" : null,
+                        generatedInstructions && instructionsEsJson != "[]" ? "Instrucciones en español generadas y revisables automáticamente" : null
                     }.Where(x => x is not null))
                     : null;
 
@@ -275,7 +297,56 @@ public sealed class ExerciseCatalogService
                         primary_muscles = EXCLUDED.primary_muscles, secondary_muscles = EXCLUDED.secondary_muscles,
                         goals = EXCLUDED.goals, tags = EXCLUDED.tags, met = EXCLUDED.met,
                         is_unilateral = EXCLUDED.is_unilateral, is_bodyweight = EXCLUDED.is_bodyweight,
-                        images = EXCLUDED.images, source_updated_at = NOW(), updated_at = NOW()
+                                                images = EXCLUDED.images,
+                        reviewed = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed ELSE exercise_catalog.reviewed END,
+                        review_status = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.review_status ELSE exercise_catalog.review_status END,
+                        review_notes = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.review_notes ELSE exercise_catalog.review_notes END,
+                        reviewed_movement_pattern = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_movement_pattern ELSE exercise_catalog.reviewed_movement_pattern END,
+                        reviewed_primary_muscles = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_primary_muscles ELSE exercise_catalog.reviewed_primary_muscles END,
+                        reviewed_secondary_muscles = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_secondary_muscles ELSE exercise_catalog.reviewed_secondary_muscles END,
+                        reviewed_minimum_experience = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_minimum_experience ELSE exercise_catalog.reviewed_minimum_experience END,
+                        reviewed_suitable_goals = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_suitable_goals ELSE exercise_catalog.reviewed_suitable_goals END,
+                        reviewed_required_equipment = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_required_equipment ELSE exercise_catalog.reviewed_required_equipment END,
+                        reviewed_selection_priority = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_selection_priority ELSE exercise_catalog.reviewed_selection_priority END,
+                        reviewed_at = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_at ELSE exercise_catalog.reviewed_at END,
+                        reviewed_by = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_by ELSE exercise_catalog.reviewed_by END,
+                        source_updated_at = NOW(), updated_at = NOW()
                     """;
 
                 await using var command = new NpgsqlCommand(upsert, connection, transaction);
@@ -292,7 +363,7 @@ public sealed class ExerciseCatalogService
                 Add(command, "metadata_enrichment_notes", enrichmentNotes);
                 AddJson(command, "instructions_en", exercise, "instructions_en");
                 AddJson(command, "instructions_de", exercise, "instructions_de");
-                AddJson(command, "instructions_es", exercise, "instructions_es");
+                Add(command, "instructions_es", instructionsEsJson);
                 AddJson(command, "tips_en", exercise, "tips_en");
                 AddJson(command, "tips_de", exercise, "tips_de");
                 AddJson(command, "tips_es", exercise, "tips_es");
@@ -322,11 +393,21 @@ public sealed class ExerciseCatalogService
                 await command.ExecuteNonQueryAsync(cancellationToken);
                 imported++;
             }
+            if (replaceRepDbOnly && imported != RepDbExerciseCuration.CuratedCatalogIds.Length)
+                throw new InvalidDataException(
+                    $"The source returned {imported} curated exercises; expected {RepDbExerciseCuration.CuratedCatalogIds.Length}. The existing catalog was left unchanged.");
             await ResetLegacyAutoReviewsAsync(connection, transaction, cancellationToken);
             if (markBootstrapComplete)
             {
                 await using var markerCommand = new NpgsqlCommand(
                     "INSERT INTO schema_migrations(id) VALUES ('exercise-catalog-repdb-spanish-reset-v2') ON CONFLICT (id) DO NOTHING",
+                    connection, transaction);
+                await markerCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+            if (markIdealCatalogComplete)
+            {
+                await using var markerCommand = new NpgsqlCommand(
+                    "INSERT INTO schema_migrations(id) VALUES ('exercise-catalog-ideal-strength-hypertrophy-v1') ON CONFLICT (id) DO NOTHING",
                     connection, transaction);
                 await markerCommand.ExecuteNonQueryAsync(cancellationToken);
             }
@@ -345,6 +426,44 @@ public sealed class ExerciseCatalogService
     }
 
 
+
+    /// <summary>
+    /// Loads manual-volume candidates from the complete approved catalog, including human-reviewed
+    /// RepDB rows outside the generator's curated subset. Owner-supplied exercises remain available.
+    /// </summary>
+    public Task<IReadOnlyList<TrainingExerciseCandidate>> LoadManualVolumeCandidatesAsync(
+        int ownerUserId,
+        CancellationToken cancellationToken = default) =>
+        LoadGeneratorCandidatesAsync(ownerUserId, cancellationToken, includeNonCuratedRepDb: true);
+
+    /// <summary>
+    /// Replaces the RepDB import with the explicitly curated general strength/hypertrophy catalog.
+    /// The source rows are deleted and reimported in one transaction; professional contributions
+    /// and human-reviewed decisions are preserved. Training plans keep their historical
+    /// exercise-name/ID snapshots and need not be deleted because they do not own catalog rows.
+    /// </summary>
+    private async Task EnsureRepDbIdealCatalogV1Async(CancellationToken cancellationToken)
+    {
+        var completed = await _db.Database.SqlQueryRaw<bool>(
+            "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-ideal-strength-hypertrophy-v1') AS \"Value\"")
+            .SingleAsync(cancellationToken);
+        if (completed) return;
+
+        try
+        {
+            var result = await SyncFromSourceAsync(
+                cancellationToken, replaceRepDbOnly: true, markIdealCatalogComplete: true);
+            _logger.LogInformation(
+                "Ideal RepDB exercise catalog v1 bootstrapped: {Count} curated exercises imported; non-curated automatic/unreviewed rows removed and human reviews preserved.",
+                result.ImportedCount);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A transient upstream outage must not prevent application startup. The transaction
+            // rolls back, the migration marker stays absent and the next startup retries it.
+            _logger.LogWarning(ex, "Ideal RepDB catalog bootstrap failed; the migration will retry on the next startup.");
+        }
+    }
 
     /// <summary>
     /// Applies explicit quality curation to catalogs that were imported before the curation rules existed.
@@ -374,6 +493,7 @@ public sealed class ExerciseCatalogService
                 DELETE FROM exercise_catalog
                 WHERE source = 'repdb-free'
                   AND owner_user_id IS NULL
+                  AND (reviewed_by IS NULL OR reviewed_by LIKE 'RepDB automatic metadata%')
                   AND (
                     exercise_id = ANY(@excluded_ids)
                     OR source_payload->>'category' IN ('olympic', 'plyometrics')
@@ -958,6 +1078,196 @@ public sealed class ExerciseCatalogService
         catch
         {
             throw;
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
+    /// <summary>
+    /// Corrects the historical misclassification of knee-flexion hamstring curls. This migration
+    /// is restricted to untouched automatic RepDB approvals and never rewrites a professional's decision.
+    /// </summary>
+    private async Task EnsureRepDbLegCurlPatternCurationV1Async(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-leg-curl-accessory-pattern-v1";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            await using (var update = new NpgsqlCommand("""
+                UPDATE exercise_catalog
+                SET reviewed_movement_pattern = 'Accessory',
+                    review_notes = CONCAT(COALESCE(review_notes, ''),
+                        ' Corrección anatómica v1: el curl femoral es flexión de rodilla y aislamiento de isquiotibiales, no bisagra de cadera.'),
+                    reviewed_at = NOW(),
+                    reviewed_by = 'RepDB automatic metadata v6',
+                    updated_at = NOW()
+                WHERE exercise_id = ANY(@exercise_ids)
+                  AND source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                """, connection, transaction))
+            {
+                update.Parameters.AddWithValue("exercise_ids",
+                    new[] { "leg-curl", "seated-leg-curl", "nordic-hamstring-curl" });
+                var corrected = await update.ExecuteNonQueryAsync(cancellationToken);
+                _logger.LogInformation(
+                    "RepDB knee-flexion accessory curation corrected {Count} automatic approvals.", corrected);
+            }
+
+            await using (var mark = new NpgsqlCommand(
+                "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING",
+                connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
+    /// <summary>
+    /// Enriches the already-imported RepDB catalog once. Only untouched pending RepDB rows are eligible;
+    /// the marker and updates commit atomically and subsequent starts never overwrite human reviews.
+    /// </summary>
+    private async Task EnsureRepDbAutomaticMetadataRefreshV1Async(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-automatic-metadata-refresh-v1";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            var rows = new List<(string Id, RepDbExerciseAutoReviewer.ReviewMetadata? Metadata)>();
+            const string selectSql = """
+                SELECT exercise_id, name_es, name_en, description_es, instructions_es::text, difficulty,
+                       equipment, force_type, mechanic, body_part, primary_muscles::text,
+                       secondary_muscles::text, goals::text, tags::text, is_bodyweight
+                FROM exercise_catalog
+                WHERE source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                FOR UPDATE
+                """;
+            await using (var select = new NpgsqlCommand(selectSql, connection, transaction))
+            await using (var reader = await select.ExecuteReaderAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var id = reader.GetString(0);
+                    var metadata = RepDbExerciseAutoReviewer.TryBuild(
+                        id, NullableString(reader, 1), reader.GetString(2), NullableString(reader, 3),
+                        reader.GetString(4), NullableString(reader, 5), NullableString(reader, 6), NullableString(reader, 7),
+                        NullableString(reader, 8), NullableString(reader, 9), reader.GetString(10), reader.GetString(11),
+                        reader.GetString(12), reader.GetString(13), reader.IsDBNull(14) ? null : reader.GetBoolean(14));
+                    rows.Add((id, metadata));
+                }
+            }
+
+            const string updateApprovedSql = """
+                UPDATE exercise_catalog SET
+                    reviewed_movement_pattern = @pattern,
+                    reviewed_primary_muscles = @primary::jsonb,
+                    reviewed_secondary_muscles = @secondary::jsonb,
+                    reviewed_minimum_experience = @experience,
+                    reviewed_suitable_goals = @goals::jsonb,
+                    reviewed_required_equipment = @equipment::jsonb,
+                    reviewed_selection_priority = @priority,
+                    review_notes = @notes,
+                    reviewed_at = NOW(),
+                    reviewed_by = 'RepDB automatic metadata v5',
+                    updated_at = NOW()
+                WHERE exercise_id = @id AND source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                """;
+            const string returnToPendingSql = """
+                UPDATE exercise_catalog SET
+                    review_status = 'pending', reviewed = FALSE,
+                    reviewed_movement_pattern = NULL,
+                    reviewed_primary_muscles = NULL,
+                    reviewed_secondary_muscles = NULL,
+                    reviewed_minimum_experience = NULL,
+                    reviewed_suitable_goals = NULL,
+                    reviewed_required_equipment = NULL,
+                    reviewed_selection_priority = 50,
+                    review_notes = @notes,
+                    reviewed_at = NULL, reviewed_by = NULL, updated_at = NOW()
+                WHERE exercise_id = @id AND source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                """;
+
+            var refreshed = 0;
+            var reopened = 0;
+            foreach (var row in rows)
+            {
+                if (row.Metadata is null)
+                {
+                    await using var update = new NpgsqlCommand(returnToPendingSql, connection, transaction);
+                    Add(update, "id", row.Id);
+                    Add(update, "notes", "Pendiente de revisión manual: las reglas actuales no permiten validar con seguridad sus metadatos para el generador.");
+                    reopened += await update.ExecuteNonQueryAsync(cancellationToken);
+                    continue;
+                }
+
+                await using (var update = new NpgsqlCommand(updateApprovedSql, connection, transaction))
+                {
+                    Add(update, "id", row.Id);
+                    Add(update, "pattern", row.Metadata.MovementPattern);
+                    Add(update, "primary", JsonSerializer.Serialize(row.Metadata.PrimaryMuscles));
+                    Add(update, "secondary", JsonSerializer.Serialize(row.Metadata.SecondaryMuscles));
+                    Add(update, "experience", row.Metadata.MinimumExperience);
+                    Add(update, "goals", JsonSerializer.Serialize(row.Metadata.SuitableGoals));
+                    Add(update, "equipment", JsonSerializer.Serialize(row.Metadata.RequiredEquipment));
+                    Add(update, "priority", row.Metadata.SelectionPriority);
+                    Add(update, "notes", row.Metadata.Notes + " Actualización de reglas de curación v5.");
+                    refreshed += await update.ExecuteNonQueryAsync(cancellationToken);
+                }
+            }
+
+            await using (var mark = new NpgsqlCommand(
+                "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING", connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+            _logger.LogInformation(
+                "RepDB automatic metadata refresh v5 updated {RefreshedCount} approvals and returned {PendingCount} uncertain records to manual review.",
+                refreshed, reopened);
         }
         finally
         {
@@ -1665,7 +1975,10 @@ public sealed class ExerciseCatalogService
         finally { if (shouldClose) await connection.CloseAsync(); }
     }
 
-    public async Task<IReadOnlyList<TrainingExerciseCandidate>> LoadGeneratorCandidatesAsync(int ownerUserId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<TrainingExerciseCandidate>> LoadGeneratorCandidatesAsync(
+        int ownerUserId,
+        CancellationToken cancellationToken = default,
+        bool includeNonCuratedRepDb = false)
     {
         await EnsureSchemaAsync(cancellationToken);
         const string sql = """
@@ -1679,8 +1992,9 @@ public sealed class ExerciseCatalogService
                    CASE WHEN review_status = 'approved' THEN reviewed_selection_priority ELSE COALESCE(owner_selection_priority, 50) END,
                    source, owner_user_id
             FROM exercise_catalog
-            WHERE review_status = 'approved'
-               OR (review_status = 'pending' AND owner_user_id = @owner_user_id)
+            WHERE (review_status = 'approved'
+               OR (review_status = 'pending' AND owner_user_id = @owner_user_id))
+              AND (@include_non_curated_repdb OR source <> 'repdb-free' OR exercise_id = ANY(@curated_ids))
             ORDER BY exercise_id
             """;
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
@@ -1690,6 +2004,8 @@ public sealed class ExerciseCatalogService
         {
             await using var command = new NpgsqlCommand(sql, connection);
             Add(command, "owner_user_id", ownerUserId);
+            Add(command, "curated_ids", RepDbExerciseCuration.CuratedCatalogIds);
+            Add(command, "include_non_curated_repdb", includeNonCuratedRepDb);
             var result = new List<TrainingExerciseCandidate>();
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))

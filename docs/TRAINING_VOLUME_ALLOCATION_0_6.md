@@ -6,28 +6,22 @@
 
 ## Cómo distribuye las series
 
-1. Cada ejercicio empieza con una serie primaria prescrita. El motor añade series una a una hasta aproximarse a los objetivos semanales de series primarias, o hasta alcanzar el límite de series por ejercicio (5) o la duración máxima de la sesión.
-2. Los objetivos de asignación se expresan en series primarias directas. Una serie de un músculo primario suma 1 al cómputo estimado; una participación secundaria suma 0,5 solo para el informe de volumen efectivo estimado y nunca sustituye una serie primaria para alcanzar el objetivo. Se conservan también los contadores brutos de series y frecuencia primaria/secundaria.
-3. Cada nueva serie se asigna al ejercicio que más reduce el déficit relativo de los músculos que declara en sus metadatos revisados. El desempate es estable por orden de sesión y ejercicio.
-4. La UI del generador permite seleccionar cualquiera de los grupos musculares soportados y establecer prioridad (0–3; añade 2 series primarias al objetivo por nivel) o un objetivo explícito de series primarias (1–20). El objetivo explícito prevalece sobre la prioridad. Se validan enteros y rangos antes de enviar la solicitud; el backend rechaza preferencias duplicadas o fuera de rango.
-5. La asignación se recalcula por semana y respeta la duración máxima de cada sesión. Si no puede alcanzar un objetivo sin superar los límites, informa de la dosis primaria y de la razón; no añade volumen ilimitado. Si no existe un ejercicio aprobado con ese músculo como primario, informa de la falta de cobertura en vez de contabilizar trabajo secundario como si fuera directo.
-6. Las semanas mantienen la distribución salvo que cambien los parámetros. No hay una descarga obligatoria por calendario: una descarga debe justificarse con evolución, fatiga, recuperación y decisión profesional, no con el mero número de semana.
+1. Cada ejercicio empieza con una serie prescrita. El motor añade series hasta el objetivo central de cada grupo o hasta alcanzar el límite de cinco series por ejercicio o la duración máxima de la sesión.
+2. Los objetivos de hipertrofia son rangos semanales, no mínimos rígidos: principiante 8–12 (objetivo central 10), intermedio 10–16 (central 13) y avanzado 12–20 (central 16). La tolerancia predeterminada es, respectivamente, ±2, ±3 y ±4 series. Un objetivo explícito del profesional usa ±2; por ejemplo, 20 significa un rango aceptable de 18–22. La prioridad muscular desplaza el objetivo central en dos series por nivel, con un máximo predeterminado de 20; los objetivos priorizados también usan ±2. El extremo superior no se convierte en obligación. Los isquiotibiales conservan la excepción de prioridad acordada: objetivo central igual a la mitad del objetivo base (mínimo dos series), con la tolerancia por experiencia correspondiente; además reciben peso de asignación 0,5 cuando compiten por tiempo con cuádriceps, glúteos y gemelos. El profesional puede fijar un objetivo explícito mayor o elevar la prioridad; en ambos casos los isquiotibiales recuperan el peso completo de asignación y pueden recibir más de un accesorio semanal.
+3. Los objetivos se expresan en series con estímulo hipertrófico efectivo estimado. Una serie cuenta completa para cada músculo que recibe una contribución dinámica relevante; no se aplica un crédito universal de 0,5 a todo músculo secundario. La categoría anatómica primaria/secundaria se conserva para trazabilidad, pero no determina por sí sola el cómputo.
+4. TrainingExerciseStimulus contiene una auditoría conservadora por ID de ejercicio para las contribuciones secundarias relevantes del catálogo curado. Por defecto solo cuentan los músculos primarios. Se incluyen como contribuciones efectivas secundarias, cuando están declaradas en el catálogo, los tríceps en presses, los bíceps en remos/jalones/dominadas y dorsales en remos cuando aparecen como secundarios, cuádriceps y glúteos en variantes de sentadilla/prensa/zancada, glúteos e isquiotibiales en bisagras, y espalda alta en reverse fly/face pull. No se cuentan como series hipertróficas la estabilización, la participación incidental ni el agarre estático.
+5. Cada nueva serie se asigna al ejercicio que más reduce el déficit relativo de los músculos que reciben estímulo efectivo según la auditoría. Un compuesto puede contribuir a varios grupos a la vez; no se duplican series dentro del mismo músculo por aparecer en las dos listas anatómicas.
+6. El generador permite preferencias por grupo muscular. El campo histórico TargetWeeklyPrimarySets se conserva por compatibilidad de API, pero su valor se interpreta ahora como objetivo central de series efectivas estimadas, no como cuota exclusiva de músculos primarios. Los objetivos explícitos prevalecen sobre la prioridad.
+7. La asignación se recalcula por semana y respeta la duración máxima de cada sesión. En hipertrofia no se reducen silenciosamente los objetivos por tener poco tiempo: se informa de la dosis alcanzada y de si queda por debajo del rango. Para fuerza y condición general se mantienen los objetivos anteriores: bíceps/tríceps/abdominales reciben la mitad del objetivo base e isquiotibiales la mitad (mínimo dos series); los nuevos rangos no se aplican a esos objetivos.
+8. Los grupos menores o especializados (p. ej. tibial anterior, manguito rotador, aductores, abductores, flexores de cadera y oblicuos) no reciben automáticamente una cuota general de hipertrofia. Se entrenan directamente cuando el objetivo, la prioridad profesional y el contexto lo justifican.
 
-## Qué es evidencia y qué es una heurística
+## Fundamento y límites de la evidencia
 
-Referencia central: Currier BS et al. (2026), ACSM Position Stand, *Resistance Training Prescription for Muscle Function, Hypertrophy, and Physical Performance in Healthy Adults: An Overview of Reviews*, DOI [10.1249/MSS.0000000000003897](https://doi.org/10.1249/MSS.0000000000003897).
+Referencia principal: Currier BS et al. (2026), ACSM Position Stand, *Resistance Training Prescription for Muscle Function, Hypertrophy, and Physical Performance in Healthy Adults: An Overview of Reviews*, DOI [10.1249/MSS.0000000000003897](https://doi.org/10.1249/MSS.0000000000003897).
 
-ACSM 2026 sintetiza 137 revisiones sistemáticas y más de 30.000 participantes. Para hipertrofia, un mayor volumen (incluyendo la categoría de ≥10 series semanales) se asocia con mayores resultados en los análisis; el documento también prioriza individualización, consistencia y adherencia. No convierte 10 series en mínimo universal ni prescribe los números concretos de este motor.
+El Position Stand sintetiza 137 revisiones sistemáticas y más de 30.000 participantes. Para hipertrofia, identifica una relación dosis-respuesta y una mejora con volúmenes de al menos 10 series semanales; el análisis discute rendimientos decrecientes aproximadamente a partir de 18–20 series semanales. No define un mínimo universal obligatorio, no prescribe rangos diferentes por experiencia y no afirma que cada músculo deba recibir 20 series. Los rangos de DietoExpress son una política inicial de producto informada por esa evidencia, no una tabla oficial de ACSM.
 
-Por tanto, las siguientes decisiones son **heurísticas de ingeniería iniciales**, no prescripciones fisiológicas demostradas ni reglas atribuidas a ACSM:
-
-- Objetivo orientativo de series primarias directas: hipertrofia 6/8/10 según experiencia principiante/intermedia/avanzada; fuerza 6/8; condición general 4/6.
-- Crédito secundario de 0,5. La literatura no establece una equivalencia universal entre una serie primaria y una secundaria; el factor sirve para no ignorar solapamientos y debe calibrarse.
-- Prioridad muscular: +2 series primarias por nivel.
-- Máximo de 5 series por ejercicio dentro de este asignador y presupuesto de duración como límites operativos.
-- Estimación temporal: duración de la serie, descanso entre series, transiciones y cinco minutos de preparación. Es aproximada, no una promesa de duración real.
-
-Estos valores son puntos de partida conservadores que deben quedar editables/revisables por el profesional. Un músculo puede quedar por debajo del objetivo si el catálogo aprobado, el reparto de patrones o el tiempo disponible no permiten cubrirlo; se informa en vez de inventar ejercicios o incumplir la disponibilidad.
+La distinción de estímulo por ejercicio también es una decisión de programación, no una equivalencia fisiológica cuantificada por el Position Stand. Se evita atribuir un porcentaje fijo a toda participación secundaria. El mapeo es deliberadamente conservador y debe revisarse si se añaden ejercicios o cambian sus metadatos.
 
 ## Limitaciones explícitas
 
@@ -69,7 +63,7 @@ La evaluación automática incluye ahora extensiones de cuádriceps, curl femora
 
 ## Pruebas
 
-`TrainingProgramVolumeAllocatorTests` cubre crédito secundario, objetivos/prioridades, determinismo, límites de series, duración y preferencias inválidas. `TrainingProgramGeneratorTests` cubre estabilidad de dosis entre semanas, cobertura y matriz de objetivo/experiencia/días/duración. `TrainingAdaptationReviewWorkflowTests` comprueba que no se aplican recortes globales y que los ejercicios compuestos no se alteran si alguno de sus grupos no está seleccionado.
+`TrainingProgramVolumeAllocatorTests` cubre el estímulo efectivo auditado por ejercicio, exclusión de co-contracción incidental, rangos de hipertrofia, objetivos/prioridades, determinismo, límites de series, duración y preferencias inválidas. `TrainingProgramGeneratorTests` cubre estabilidad de dosis entre semanas, cobertura y matriz de objetivo/experiencia/días/duración. `TrainingAdaptationReviewWorkflowTests` comprueba que no se aplican recortes globales y que los ejercicios compuestos no se alteran si alguno de sus grupos no está seleccionado.
 
 
 ## Auditoría con catálogo RepDB real — ejecución 06/11/2026 (artefacto detallado v2)
@@ -114,7 +108,7 @@ Esto no demuestra que todas las variantes deban tener exactamente la misma lista
 Criterio de auditoría pendiente:
 1. Revisar individualmente los 214 candidatos aprobados que puede utilizar el generador; empezar por los 55 IDs observados en las evaluaciones y continuar con el resto.
 2. Asignar prioridad de selección por utilidad para fuerza/hipertrofia general, capacidad de sobrecarga y progresión, estabilidad, facilidad de aprendizaje y redundancia; no por popularidad ni por coincidencia de palabras.
-3. Revisar músculos principales/secundarios por ejecución concreta. Un secundario solo debe incluirse si recibe una contribución dinámica/isométrica relevante; no añadir estabilizadores menores por defecto ni tratar el crédito secundario como una serie completa.
+3. Revisar músculos principales/secundarios por ejecución concreta. Un secundario solo debe incluirse si recibe una contribución dinámica relevante y suficiente; si la recibe, cuenta como serie completa. No añadir estabilizadores menores por defecto.
 4. Separar metadatos anatómicos del rol del ejercicio (básico, variante, aislamiento, accesorio, regresión/técnica). No excluir automáticamente aislamientos útiles ni variantes con peso corporal cuando tengan una función clara.
 5. Añadir correcciones explícitas y versionadas por ID, con pruebas de regresión que impidan que una actualización de RepDB sobrescriba la curación local.
 6. Repetir la evaluación de los 81 escenarios y comparar selección, cobertura y volumen antes/después.

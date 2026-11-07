@@ -6,13 +6,114 @@ namespace Anguloso.Server.Logica;
 /// </summary>
 public static class TrainingProgramQualityAnalyzer
 {
-    private const int HighPrimarySetWarningThreshold = 20;
-    private const decimal HighEstimatedEffectiveSetWarningThreshold = 20m;
+    private const int HighEffectiveSetReviewThreshold = 20;
+
+    public static TrainingManualVolumeAnalysisResult AnalyzeManual(
+        IReadOnlyCollection<TrainingExerciseCandidate> catalog,
+        IReadOnlyList<TrainingManualVolumeSessionInput> sessions)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(sessions);
+        if (sessions.Count > 312)
+            throw new ArgumentOutOfRangeException(nameof(sessions), "La vista admite hasta 42 sesiones.");
+        if (sessions.Any(session => session is null || !Enum.IsDefined(session.Day)))
+            throw new ArgumentException("Todas las sesiones deben indicar un día válido.", nameof(sessions));
+        if (sessions.Any(session => session.WeekNumber is < 1 or > 52))
+            throw new ArgumentException("La semana de cada sesión debe estar entre 1 y 52.", nameof(sessions));
+        if (sessions.Any(session => !string.IsNullOrWhiteSpace(session.Title) && session.Title!.Length > 160))
+            throw new ArgumentException("El título de cada sesión admite hasta 160 caracteres.", nameof(sessions));
+        if (sessions.Any(session => session.Exercises is null || session.Exercises.Count > 20))
+            throw new ArgumentException("Cada sesión admite hasta 20 ejercicios.", nameof(sessions));
+        if (sessions.SelectMany(session => session.Exercises).Any(input =>
+            input is null || input.Sets is < 1 or > 10 ||
+            (input.ExerciseId?.Length ?? 0) > 100 || (input.ExerciseName?.Length ?? 0) > 160))
+            throw new ArgumentException("Cada ejercicio debe tener entre 1 y 10 series, un ID de hasta 100 caracteres y un nombre de hasta 160.", nameof(sessions));
+
+        var byId = catalog.ToDictionary(candidate => candidate.ExerciseId, StringComparer.OrdinalIgnoreCase);
+        var byName = catalog
+            .GroupBy(candidate => NormalizeExerciseName(candidate.Name), StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() == 1)
+            .ToDictionary(group => group.Key, group => group.Single(), StringComparer.OrdinalIgnoreCase);
+        var allUnclassified = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var prescriptions = new List<TrainingSessionPrescription>();
+        var sessionReports = new List<TrainingManualVolumeSessionResult>();
+
+        foreach (var inputSession in sessions)
+        {
+            var unclassified = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var exercises = new List<TrainingExercisePrescription>();
+            foreach (var input in inputSession.Exercises)
+            {
+                TrainingExerciseCandidate? candidate = null;
+                if (!string.IsNullOrWhiteSpace(input.ExerciseId))
+                    byId.TryGetValue(input.ExerciseId.Trim(), out candidate);
+                if (candidate is null && !string.IsNullOrWhiteSpace(input.ExerciseName))
+                    byName.TryGetValue(NormalizeExerciseName(input.ExerciseName), out candidate);
+                if (candidate is null ||
+                    candidate.PrimaryMuscleGroups is null || candidate.PrimaryMuscleGroups.Count == 0 ||
+                    candidate.SecondaryMuscleGroups is null ||
+                    candidate.PrimaryMuscleGroups.Any(muscle => !Enum.IsDefined(muscle)) ||
+                    candidate.SecondaryMuscleGroups.Any(muscle => !Enum.IsDefined(muscle)) ||
+                    candidate.PrimaryMuscleGroups.Intersect(candidate.SecondaryMuscleGroups).Any())
+                {
+                    if (!string.IsNullOrWhiteSpace(input.ExerciseName))
+                    {
+                        unclassified.Add(input.ExerciseName.Trim());
+                        allUnclassified.Add(input.ExerciseName.Trim());
+                    }
+                    continue;
+                }
+
+                exercises.Add(new TrainingExercisePrescription(
+                    candidate.ExerciseId, candidate.CatalogVersion, candidate.Name, exercises.Count + 1,
+                    input.Sets, 8, 12, null, 90, TrainingProgressionRule.None,
+                    "Prescripción manual; metadatos declarados del catálogo.",
+                    candidate.PrimaryMuscleGroups, candidate.SecondaryMuscleGroups));
+            }
+
+            var title = string.IsNullOrWhiteSpace(inputSession.Title) ? "Sesión manual" : inputSession.Title.Trim();
+            if (exercises.Count > 0)
+            {
+                var sessionPrescription = new TrainingSessionPrescription(
+                    inputSession.WeekNumber, inputSession.Day, title, 60, exercises);
+                prescriptions.Add(sessionPrescription);
+                var isolatedSession = sessionPrescription with { WeekNumber = 1 };
+                var sessionPlan = new TrainingProgramPrescription(
+                    "manual-volume-preview-v1", "Manual", new DateOnly(2026, 1, 5), 1,
+                    [isolatedSession]);
+                sessionReports.Add(new TrainingManualVolumeSessionResult(
+                    inputSession.WeekNumber, inputSession.Day, title, Analyze(sessionPlan), unclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray()));
+            }
+            else
+            {
+                sessionReports.Add(new TrainingManualVolumeSessionResult(
+                    inputSession.WeekNumber, inputSession.Day, title,
+                    new TrainingProgramQualityReport(
+                        "No hay ejercicios con metadatos revisados suficientes para calcular el volumen de esta sesión.",
+                        [new TrainingWeeklyMuscleVolume(inputSession.WeekNumber, Enum.GetValues<TrainingMuscleGroup>()
+                            .Select(muscle => new TrainingMuscleVolume(muscle, 0, 0, 0, 0, 0)).ToArray())],
+                        []),
+                    unclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray()));
+            }
+        }
+
+        var plan = new TrainingProgramPrescription(
+            "manual-volume-preview-v1", "Manual", new DateOnly(2026, 1, 5),
+            sessions.Count == 0 ? 1 : sessions.Max(session => session.WeekNumber), prescriptions);
+        return new TrainingManualVolumeAnalysisResult(
+            Analyze(plan),
+            allUnclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray(),
+            sessionReports);
+    }
+
+    private static string NormalizeExerciseName(string value) =>
+        string.Join(' ', (value ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     public static TrainingProgramQualityReport Analyze(TrainingProgramPrescription plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
         var weeklyVolumes = new List<TrainingWeeklyMuscleVolume>();
+        var sessionVolumes = new List<TrainingSessionMuscleVolume>();
         var warnings = new List<string>();
 
         for (var week = 1; week <= plan.DurationWeeks; week++)
@@ -50,37 +151,63 @@ public static class TrainingProgramQualityAnalyzer
                     if (secondaryInSession) secondaryFrequency++;
                 }
 
-                // Secondary-set credit is a transparent 0.5 bookkeeping heuristic, not an
-                // evidence-established equivalence. Keep raw primary/secondary counts as well.
-                var estimatedEffectiveSets = primarySets + secondarySets * TrainingProgramVolumeAllocator.SecondarySetCredit;
+                // Preserve raw primary/secondary counts for traceability; effective volume
+                // is calculated separately from the exercise-specific stimulus audit.
+                var estimatedEffectiveSets = sessions.SelectMany(session => session.Exercises)
+                    .Where(exercise => TrainingExerciseStimulus.GetEffectiveMuscles(
+                        exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups).Contains(muscle))
+                    .Sum(exercise => exercise.Sets);
                 muscles.Add(new TrainingMuscleVolume(muscle, primarySets, secondarySets,
                     primaryFrequency, secondaryFrequency, estimatedEffectiveSets));
-                if (primarySets > HighPrimarySetWarningThreshold)
-                    warnings.Add($"Semana {week}: {muscle} acumula {primarySets} series primarias; revisa el volumen y la recuperación.");
-                if (estimatedEffectiveSets > HighEstimatedEffectiveSetWarningThreshold)
-                    warnings.Add($"Semana {week}: {muscle} alcanza una estimación de volumen efectivo de {estimatedEffectiveSets:0.#} series (primarias {primarySets}, secundarias {secondarySets}); revisa la carga total. El crédito secundario es una heurística, no una equivalencia fisiológica.");
+                if (estimatedEffectiveSets > HighEffectiveSetReviewThreshold)
+                    warnings.Add($"Semana {week}: {muscle} acumula {estimatedEffectiveSets:0.##} series con estímulo efectivo estimado; revisa volumen, rendimiento y recuperación.");
             }
 
-            var uncovered = muscles.Where(muscle => muscle.PrimarySets == 0 && muscle.SecondarySets == 0)
-                .Select(muscle => muscle.MuscleGroup.ToString())
-                .ToArray();
-            if (uncovered.Length > 0)
-                warnings.Add($"Semana {week}: no hay cobertura muscular identificada en los metadatos para: {string.Join(", ", uncovered)}.");
+            foreach (var session in sessions)
+            {
+                var sessionMuscles = Enum.GetValues<TrainingMuscleGroup>().Select(muscle =>
+                {
+                    var primary = session.Exercises.Where(exercise => exercise.PrimaryMuscleGroups.Contains(muscle)).Sum(exercise => exercise.Sets);
+                    var secondary = session.Exercises.Where(exercise => exercise.SecondaryMuscleGroups.Contains(muscle)).Sum(exercise => exercise.Sets);
+                    var effective = session.Exercises
+                        .Where(exercise => TrainingExerciseStimulus.GetEffectiveMuscles(
+                            exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups).Contains(muscle))
+                        .Sum(exercise => exercise.Sets);
+                    return new TrainingMuscleVolume(muscle, primary, secondary,
+                        primary > 0 ? 1 : 0, secondary > 0 ? 1 : 0, effective);
+                }).ToArray();
+                sessionVolumes.Add(new TrainingSessionMuscleVolume(
+                    session.WeekNumber, session.Day, session.Title, sessionMuscles));
+            }
+
+            // Zero exposure for an accessory or stabilizing muscle is not automatically a
+            // programming defect. Whether adductors, tibialis anterior, serratus, rotator cuff,
+            // etc. need direct work depends on the goal, exercise selection, user priorities and
+            // available time. Keep all raw zero values in the report, but do not turn every
+            // untrained anatomical group into a quality warning.
 
             weeklyVolumes.Add(new TrainingWeeklyMuscleVolume(week, muscles));
         }
 
         return new TrainingProgramQualityReport(
-            "Estimación basada en series prescritas y metadatos revisados. Las series primarias cuentan 1 y las secundarias 0,5 para una estimación orientativa; ese crédito secundario es una heurística de software, no una equivalencia fisiológica validada.",
+            "Estimación basada en series prescritas y una auditoría explícita por ejercicio: cuentan las series de músculos primarios y las contribuciones secundarias con estímulo dinámico relevante. No se contabilizan estabilizadores ni participaciones incidentales. Las contribuciones secundarias no tienen un crédito fraccionario universal.",
             weeklyVolumes,
-            warnings.Distinct(StringComparer.Ordinal).ToArray());
+            warnings.Distinct(StringComparer.Ordinal).ToArray(),
+            sessionVolumes);
     }
 }
 
 public sealed record TrainingProgramQualityReport(
     string Methodology,
     IReadOnlyList<TrainingWeeklyMuscleVolume> WeeklyMuscleVolumes,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    IReadOnlyList<TrainingSessionMuscleVolume>? SessionVolumes = null);
+
+public sealed record TrainingSessionMuscleVolume(
+    int WeekNumber,
+    DayOfWeek Day,
+    string Title,
+    IReadOnlyList<TrainingMuscleVolume> Muscles);
 
 public sealed record TrainingWeeklyMuscleVolume(
     int WeekNumber,
@@ -93,3 +220,29 @@ public sealed record TrainingMuscleVolume(
     int PrimaryFrequencySessions,
     int SecondaryFrequencySessions,
     decimal EstimatedEffectiveSets = 0m);
+
+public sealed record TrainingManualVolumeSessionInput(
+    DayOfWeek Day,
+    string? Title,
+    IReadOnlyList<TrainingManualVolumeExerciseInput> Exercises,
+    int WeekNumber = 1);
+
+public sealed record TrainingManualVolumeExerciseInput(
+    string? ExerciseId,
+    string ExerciseName,
+    int Sets);
+
+public sealed record TrainingManualVolumeSessionResult(
+    int WeekNumber,
+    DayOfWeek Day,
+    string Title,
+    TrainingProgramQualityReport QualityReport,
+    IReadOnlyList<string> UnclassifiedExerciseNames);
+
+public sealed record TrainingManualVolumeAnalysisResult(
+    TrainingProgramQualityReport QualityReport,
+    IReadOnlyList<string> UnclassifiedExerciseNames,
+    IReadOnlyList<TrainingManualVolumeSessionResult> SessionReports);
+
+public sealed record TrainingManualVolumePreviewRequest(
+    IReadOnlyList<TrainingManualVolumeSessionInput> Sessions);

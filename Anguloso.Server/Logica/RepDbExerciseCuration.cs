@@ -14,11 +14,12 @@ internal static class RepDbExerciseCuration
     public static readonly string[] ExcludedIds =
     [
         // Specialist skills with little transfer to general strength/hypertrophy plans.
+        "crow-pose",
+        "dumbbell-side-bend",
         "back-lever",
         "ring-dead-hang",
         // Explicit low-value/redundant variants; this is not a blanket exclusion of isolation work.
         "cheat-curl",
-        "hammer-curl",
         "cable-hammer-curl",
         "band-assisted-pull-ups",
         "crunches",
@@ -108,6 +109,111 @@ internal static class RepDbExerciseCuration
         "rehabilitation", "rehab", "prehab", "cardio"
     };
 
+    // Deliberate first-generation strength/hypertrophy catalog. Keep the selection finite and auditable;
+    // future additions require an explicit review of usefulness, progression and source metadata.
+    public static readonly string[] CuratedCatalogIds =
+    [
+        "bench-press",
+        "db-bench-press",
+        "incline-bench-press",
+        "incline-db-press",
+        "smith-machine-bench-press",
+        "smith-machine-incline-bench-press",
+        "chest-press-machine",
+        "push-up",
+        "knee-push-ups",
+        "incline-push-ups",
+        "barbell-row",
+        "single-arm-db-row",
+        "chest-supported-db-row",
+        "seated-cable-row",
+        "chest-supported-machine-row",
+        "t-bar-row",
+        "ohp",
+        "dumbbell-shoulder-press",
+        "machine-shoulder-press",
+        "lat-pulldown",
+        "straight-arm-pulldown",
+        "v-bar-lat-pulldown",
+        "assisted-pull-ups",
+        "pull-up",
+        "chin-ups",
+        "squat",
+        "front-squat",
+        "goblet-squat",
+        "leg-press",
+        "hack-squat",
+        "bulgarian-split-squat",
+        "reverse-lunge",
+        "step-ups",
+        "deadlift",
+        "hex-bar-deadlift",
+        "romanian-deadlift",
+        "dumbbell-romanian-deadlift",
+        "hip-thrust",
+        "plate-loaded-glute-drive",
+        "barbell-glute-bridge",
+        "cable-fly",
+        "db-fly",
+        "pec-deck",
+        "lateral-raise",
+        "cable-lateral-raise",
+        "dumbbell-reverse-fly",
+        "face-pull",
+        "shrug",
+        "barbell-curl",
+        "hammer-curl",
+        "incline-db-curl",
+        "preacher-curl",
+        "cable-curl",
+        "tricep-pushdown",
+        "cable-overhead-tricep-extension",
+        "overhead-tricep-extension",
+        "skull-crusher",
+        "leg-extension",
+        "reverse-nordic-curl",
+        "leg-curl",
+        "seated-leg-curl",
+        "nordic-hamstring-curl",
+        "ball-leg-curl",
+        "banded-standing-curl",
+        "trx-hamstring-curl",
+        "standing-calf-raise",
+        "seated-calf-raise",
+        "kettlebell-tibialis-raise",
+        "cable-external-rotation",
+        "hip-adduction",
+        "standing-hip-abduction",
+        "hip-abduction",
+        "cable-crunch",
+        "ab-wheel-rollout",
+        "cable-pallof-press",
+        "side-plank",
+        "dumbbell-farmers-walk",
+        "seated-dumbbell-lateral-raise",
+        // Additional source-verified options to improve equipment access and muscle coverage.
+        "machine-seated-crunch",
+        "dead-bug",
+        "machine-reverse-fly",
+        "machine-chest-fly",
+        "machine-bicep-curl",
+        "single-arm-plate-loaded-lateral-raise",
+        "machine-calf-raise",
+        "side-lying-hip-abduction",
+        "side-lying-hip-adduction",
+        "machine-back-extension",
+        "glute-bridge",
+        "db-squat",
+        "horizontal-leg-press",
+        "chest-supported-kettlebell-row",
+        "kneeling-cable-row",
+        "one-arm-seated-cable-row",
+        "hanging-knee-raise",
+        "captains-chair-knee-raise",
+        "bodyweight-calf-raise"
+    ];
+    private static readonly HashSet<string> CuratedCatalog = new(CuratedCatalogIds, StringComparer.OrdinalIgnoreCase);
+
     // Approval is based on complete, interpretable source metadata and supported generator mappings,
     // not a hard-coded ID allowlist. This lets future high-quality RepDB exercises be enriched safely.
     public static bool IsAutoApprovalCandidate(string id) => !ShouldExclude(id) && !RequiresManualReview(id);
@@ -132,7 +238,7 @@ internal static class RepDbExerciseCuration
         ["calf-raise"] = ["bodyweight-calf-raise", "barbell-calf-raise", "donkey-calf-raise", "dumbbell-calf-raise", "hack-squat-calf-raise", "machine-calf-raise", "seated-calf-raise", "single-leg-calf-raise", "standing-calf-raise"],
         // Tibialis raises are dorsiflexion work, not a calf-plantarflexion variant.
         ["tibialis-raise"] = ["kettlebell-tibialis-raise"],
-        ["hip-adduction"] = ["hip-adduction"],
+        ["hip-adduction"] = ["hip-adduction", "side-lying-hip-adduction"],
         ["hip-abduction"] = ["banded-clamshell", "banded-fire-hydrant", "banded-standing-hip-abduction", "fire-hydrant", "hip-abduction", "side-lying-hip-abduction", "standing-hip-abduction"],
         ["dips"] = ["assisted-dips", "dips", "plate-loaded-seated-dip-machine", "ring-dips", "seated-dip-machine", "straight-bar-dips", "weighted-dips"],
         ["overhead-tricep-extension"] = ["cable-overhead-tricep-extension", "dumbbell-tricep-extension", "ez-bar-overhead-extension", "overhead-tricep-extension", "seated-dumbbell-tricep-extension", "single-arm-dumbbell-overhead-tricep-extension", "trx-tricep-extension"],
@@ -160,13 +266,14 @@ internal static class RepDbExerciseCuration
         "sit-ups"
     };
 
-    public static bool ShouldExclude(string id) => Excluded.Contains(id);
+    public static bool ShouldExclude(string id) => Excluded.Contains(id) || !CuratedCatalog.Contains(id);
 
     public static string? CurateVariationGroup(string id, string? sourceVariationGroup) => id switch
     {
         // RepDB groups tibialis raises with calf raises; keep the distinct ankle-dorsiflexor target.
         "kettlebell-tibialis-raise" => "tibialis-raise",
-        "banded-standing-curl" => "leg-curl",
+        "banded-standing-curl" or "ball-leg-curl" or "trx-hamstring-curl" => "leg-curl",
+        "reverse-nordic-curl" => "leg-extension",
         "dumbbell-farmers-walk" or "kettlebell-farmers-walk" => "farmer-carry",
         _ => sourceVariationGroup
     };
@@ -221,8 +328,26 @@ internal static class RepDbExerciseCuration
 
     public static string CurateMusclesJson(string id, bool primary, string sourceMusclesJson)
     {
+        // RepDB describes the external rotators as secondary support but incorrectly lists
+        // posterior deltoid as the sole primary target. Correct the anatomy for this movement.
+        if (id.Equals("cable-external-rotation", StringComparison.OrdinalIgnoreCase))
+            return primary ? """["infraspinatus","teres_minor"]""" : """["posterior_deltoid"]""";
+
         if (id.Equals("sit-ups", StringComparison.OrdinalIgnoreCase))
             return primary ? """["rectus_abdominis"]""" : """["hip_flexors"]""";
+
+        // Preserve the locally reviewed corrections found in the 466-record audit export.
+        // RepDB's upstream still places erector spinae as primary for the hex-bar deadlift and
+        // omits adductors from primary work for the Cossack squat.
+        if (id.Equals("hex-bar-deadlift", StringComparison.OrdinalIgnoreCase))
+            return primary
+                ? """["gluteus_maximus","quadriceps","hamstrings"]"""
+                : """["erector_spinae","forearm_flexors","trapezius"]""";
+
+        if (id.Equals("cossack-squat", StringComparison.OrdinalIgnoreCase))
+            return primary
+                ? """["gluteus_maximus","quadriceps","adductors"]"""
+                : """["hamstrings"]""";
 
         using var document = JsonDocument.Parse(string.IsNullOrWhiteSpace(sourceMusclesJson) ? "[]" : sourceMusclesJson);
         return document.RootElement.ValueKind == JsonValueKind.Array ? document.RootElement.GetRawText() : "[]";

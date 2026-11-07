@@ -20,15 +20,16 @@ public static class TrainingExerciseProgressionEngine
         if (validation is not null)
             return Recommendation(TrainingExerciseProgressionAction.InvalidPrescription, validation);
 
-        if (prescription.ProgressionRule != TrainingProgressionRule.DoubleProgression)
-            return Recommendation(TrainingExerciseProgressionAction.NotApplicable,
-                "Esta regla de progresión no tiene todavía una semántica validada para recomendaciones automáticas. Mantén la prescripción y solicita revisión profesional.");
-
         // A pain report is exercise/session safety context, not a performance score.
+        // It takes precedence even when progression is disabled (e.g. during a deload).
         // Never let a later pain-free record erase a recent unresolved pain signal.
         if (history.TakeLast(3).Any(x => x.PainReported))
             return Recommendation(TrainingExerciseProgressionAction.HoldAndReview,
                 "Hay una señal reciente de dolor. No progreses este ejercicio hasta revisar el problema y confirmar que es seguro retomarlo.");
+
+        if (prescription.ProgressionRule != TrainingProgressionRule.DoubleProgression)
+            return Recommendation(TrainingExerciseProgressionAction.NotApplicable,
+                "Esta regla de progresión no tiene todavía una semántica validada para recomendaciones automáticas. Mantén la prescripción y solicita revisión profesional.");
 
         var exposures = history.TakeLast(3).ToArray();
 
@@ -41,6 +42,10 @@ public static class TrainingExerciseProgressionEngine
         if (!exposures[^1].SessionCompleted)
             return Recommendation(TrainingExerciseProgressionAction.HoldAndReview,
                 "La última exposición no se completó. Mantén la carga y revisa el motivo antes de progresar.");
+
+        if (!exposures[^1].ProgressionEligible)
+            return Recommendation(TrainingExerciseProgressionAction.HoldAndReview,
+                "La última exposición pertenecía a una fase de descarga o no progresable. Mantén la carga y confirma el rendimiento en una sesión normal antes de progresar.");
 
         var latest = AnalyzeExposure(prescription, exposures[^1]);
         if (!latest.IsUsable)
@@ -83,7 +88,8 @@ public static class TrainingExerciseProgressionEngine
         for (var index = exposures.Length - 2; index >= 0; index--)
         {
             var previous = AnalyzeExposure(prescription, exposures[index]);
-            if (!exposures[index].SessionCompleted || !previous.IsUsable || previous.BelowTargetRir || previous.BelowMinimumRepetitions ||
+            if (!exposures[index].ProgressionEligible || !exposures[index].SessionCompleted ||
+                !previous.IsUsable || previous.BelowTargetRir || previous.BelowMinimumRepetitions ||
                 !previous.AtTopOfRange || previous.LoadKg != latest.LoadKg ||
                 exposures[index].RecoveryInsufficient || exposures[index].PainReported)
                 break;
@@ -125,7 +131,7 @@ public static class TrainingExerciseProgressionEngine
     {
         if (exposures.Count < 3) return false;
         var recent = exposures.TakeLast(3).ToArray();
-        if (recent.Any(x => !x.SessionCompleted || x.RecoveryInsufficient || x.PainReported))
+        if (recent.Any(x => !x.SessionCompleted || !x.ProgressionEligible || x.RecoveryInsufficient || x.PainReported))
             return false;
 
         var analyses = recent.Select(x => AnalyzeExposure(prescription, x)).ToArray();
@@ -154,6 +160,14 @@ public static class TrainingExerciseProgressionEngine
         TrainingExerciseProgressionPrescription prescription,
         TrainingExerciseExposure exposure)
     {
+        if (exposure.HistoricalPrescription is { } historical &&
+            (historical.PlannedWorkingSets != prescription.PlannedWorkingSets ||
+             historical.MinRepetitions != prescription.MinRepetitions ||
+             historical.MaxRepetitions != prescription.MaxRepetitions ||
+             historical.TargetRir != prescription.TargetRir))
+            return ExposureAnalysis.Failure(
+                "La prescripción de este ejercicio cambió entre exposiciones (series, rango o RIR). Espera a registrar una sesión con la prescripción actual antes de progresar.");
+
         if (exposure.WorkingSets is null || exposure.WorkingSets.Count != prescription.PlannedWorkingSets)
             return ExposureAnalysis.Failure("El número de series efectivas registradas no coincide con las prescritas.");
 
@@ -169,6 +183,11 @@ public static class TrainingExerciseProgressionEngine
         // back-off/drop sets are not silently averaged; they need an explicit future model.
         if (sets.Any(x => x.WeightKg != load))
             return ExposureAnalysis.Failure("Las series usan cargas distintas. No se calcula una progresión única hasta que la prescripción modele esas cargas.", invalid: true);
+
+        if (sets.Any(x => x.Repetitions!.Value > prescription.MaxRepetitions))
+            return ExposureAnalysis.Failure(
+                "Se han registrado repeticiones por encima del máximo prescrito. Revisa el registro antes de calcular una progresión.",
+                invalid: true);
 
         var belowMinimum = sets.Any(x => x.Repetitions!.Value < prescription.MinRepetitions);
         var belowRir = prescription.TargetRir is not null &&
@@ -222,7 +241,15 @@ public sealed record TrainingExerciseExposure(
     IReadOnlyList<TrainingExecutedSet> WorkingSets,
     bool SessionCompleted = true,
     bool RecoveryInsufficient = false,
-    bool PainReported = false);
+    bool PainReported = false,
+    bool ProgressionEligible = true,
+    TrainingExerciseProgressionPrescriptionSnapshot? HistoricalPrescription = null);
+
+public sealed record TrainingExerciseProgressionPrescriptionSnapshot(
+    int? PlannedWorkingSets,
+    int? MinRepetitions,
+    int? MaxRepetitions,
+    decimal? TargetRir);
 
 public sealed record TrainingExecutedSet(
     string Kind,
