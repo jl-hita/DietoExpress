@@ -149,9 +149,9 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p artifacts
-          curl --fail --silent --show-error --location \\
-            --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 180 \\
-            'https://jlhitap.duckdns.org/api/exercise-catalog/audit-export' \\
+          curl --fail --silent --show-error --location \
+            --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 180 \
+            'https://jlhitap.duckdns.org/api/exercise-catalog/audit-export' \
             --output artifacts/repdb-live-catalog-audit.json
           node <<'NODE'
           const fs = require('node:fs');
@@ -172,10 +172,10 @@ jobs:
           };
           console.log(JSON.stringify(summary, null, 2));
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-            '## Export real del catálogo RepDB desplegado\\n\\n' +
-            '- Registros: **' + summary.totalRecords + '**\\n' +
-            '- Estados: `' + JSON.stringify(summary.countsByStatus) + '`\\n' +
-            '- Fuentes: `' + JSON.stringify(summary.sourceCounts) + '`\\n');
+            '## Export real del catálogo RepDB desplegado\n\n' +
+            '- Registros: **' + summary.totalRecords + '**\n' +
+            '- Estados: `' + JSON.stringify(summary.countsByStatus) + '`\n' +
+            '- Fuentes: `' + JSON.stringify(summary.sourceCounts) + '`\n');
           NODE
 
       - name: Publicar export temporal del catálogo RepDB desplegado
