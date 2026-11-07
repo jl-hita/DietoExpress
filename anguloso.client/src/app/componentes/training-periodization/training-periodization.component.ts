@@ -2806,7 +2806,17 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.splitReplacementErrors[plan.id] = 'La duración máxima debe estar entre 35 y 180 minutos.';
       return;
     }
-    const nextMonday = this.addUtcDays(this.weekStartDate(this.localDateInputValue()), 7);
+    const firstAvailableMonday = this.addUtcDays(this.weekStartDate(this.localDateInputValue()), 7);
+    const planStart = plan.startDate.slice(0, 10);
+    const planStartWeek = this.weekStartDate(planStart);
+    // Do not propose sessions before the plan starts. If it starts mid-week, leave
+    // that partial week untouched and begin replacement on the next full Monday.
+    const firstFullPlanWeek = planStart === planStartWeek
+      ? planStartWeek
+      : this.addUtcDays(planStartWeek, 7);
+    const nextMonday = firstAvailableMonday > firstFullPlanWeek
+      ? firstAvailableMonday
+      : firstFullPlanWeek;
     const futureSessions = (this.sessions[plan.id] || []).filter(session =>
       session.scheduledDate.slice(0, 10) >= nextMonday && !session.completedAt && session.status !== 'completed');
     if (!futureSessions.length) {
