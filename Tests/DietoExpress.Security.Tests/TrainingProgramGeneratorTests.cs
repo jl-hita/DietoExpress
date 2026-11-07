@@ -1057,6 +1057,10 @@ public sealed class TrainingProgramGeneratorTests
         var lower = Assert.Single(generatedSessions.Where(session =>
             session.Title.StartsWith("Tren inferior", StringComparison.Ordinal)));
 
+        Assert.Contains(upper.Exercises, exercise =>
+            exercise.ExerciseId is "cable-fly" or "lateral-raise" or "straight-arm-pulldown");
+        Assert.Contains(lower.Exercises, exercise =>
+            exercise.ExerciseId is "leg-extension" or "machine-calf-raise");
         Assert.DoesNotContain(upper.Exercises, exercise =>
             exercise.ExerciseId is "leg-extension" or "machine-calf-raise");
         Assert.DoesNotContain(lower.Exercises, exercise =>
