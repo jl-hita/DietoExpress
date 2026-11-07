@@ -3096,8 +3096,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         const minRepetitions = repetitions ? Number(repetitions[1]) : undefined;
         const maxRepetitions = repetitions ? Number(repetitions[2] || repetitions[1]) : undefined;
         return {
-          exerciseId: item.exerciseId ?? catalogItem?.id.replace(/^repdb-/, ''),
-          catalogVersion: item.catalogVersion ?? (catalogItem?.source === 'repdb' ? 'repdb' : 'manual'),
+          exerciseId: item.exerciseId?.trim() || catalogItem?.id.replace(/^repdb-/, ''),
+          catalogVersion: item.catalogVersion?.trim() || (catalogItem?.source === 'repdb' ? 'repdb' : 'manual'),
           exerciseNameSnapshot: item.exerciseName.trim(),
           order: index + 1,
           sets: item.sets,
