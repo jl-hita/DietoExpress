@@ -430,6 +430,16 @@ public static class TrainingProgramGenerator
                 candidate.MovementPattern == TrainingMovementPattern.Accessory &&
                 candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Calves) &&
                 selectedThisWeek.Contains(candidate.ExerciseId));
+            var hasDirectLatAccessory = catalogCandidates.Any(candidate =>
+                candidate.MovementPattern == TrainingMovementPattern.Accessory &&
+                candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Lats) &&
+                selectedThisWeek.Contains(candidate.ExerciseId));
+            var selectedAccessoryPrimaryMuscles = currentExercises
+                .SelectMany(exercise => catalogCandidates
+                    .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory &&
+                        string.Equals(candidate.ExerciseId, exercise.ExerciseId, StringComparison.OrdinalIgnoreCase))
+                    .SelectMany(candidate => candidate.PrimaryMuscleGroups))
+                .ToHashSet();
 
             // Squat-pattern compounds commonly train both glutes and quadriceps. The volume
             // allocator may add several sets to those compounds later in the generation pass;
@@ -453,6 +463,11 @@ public static class TrainingProgramGenerator
                 currentEffectiveVolume.GetValueOrDefault(TrainingMuscleGroup.Calves) <
                     targets.GetValueOrDefault(TrainingMuscleGroup.Calves) &&
                 (allowedMuscles is null || allowedMuscles.Contains(TrainingMuscleGroup.Calves));
+            var prioritizeLatAccessory =
+                !hasDirectLatAccessory &&
+                currentEffectiveVolume.GetValueOrDefault(TrainingMuscleGroup.Lats) <
+                    targets.GetValueOrDefault(TrainingMuscleGroup.Lats) &&
+                (allowedMuscles is null || allowedMuscles.Contains(TrainingMuscleGroup.Lats));
 
             var candidates = catalogCandidates
                 .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory
@@ -468,7 +483,11 @@ public static class TrainingProgramGenerator
                     // Other accessory exercises may repeat on different training days. Only prevent
                     // duplicate prescription of the same accessory within this session.
                     && !currentExercises.Any(exercise =>
-                        string.Equals(exercise.ExerciseId, candidate.ExerciseId, StringComparison.OrdinalIgnoreCase)))
+                        string.Equals(exercise.ExerciseId, candidate.ExerciseId, StringComparison.OrdinalIgnoreCase))
+                    // Avoid spending multiple accessory slots on the same primary muscle in one
+                    // session while another direct target group still has no accessory exposure.
+                    && candidate.PrimaryMuscleGroups.Any(muscle =>
+                        targets.ContainsKey(muscle) && !selectedAccessoryPrimaryMuscles.Contains(muscle)))
                 .Select(candidate => new
                 {
                     Candidate = candidate,
@@ -484,6 +503,9 @@ public static class TrainingProgramGenerator
                 .ThenByDescending(item =>
                     prioritizeCalfAccessory &&
                     item.Candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Calves))
+                .ThenByDescending(item =>
+                    prioritizeLatAccessory &&
+                    item.Candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Lats))
                 .ThenByDescending(item => item.Score)
                 .ThenByDescending(item => item.Candidate.SelectionPriority)
                 .ThenBy(item => item.Candidate.ExerciseId, StringComparer.Ordinal)
