@@ -725,7 +725,7 @@ interface RepDbExercise {
                           <p *ngIf="!manualVolumePreviews[plan.id] && !manualVolumePreviewLoading[plan.id] && !manualVolumePreviewErrors[plan.id]" class="muted">Añade ejercicios reconocidos para calcular el volumen de la semana.</p>
                         </section>
                       </div>
-                      <div class="editor-footer"><span>Los registros de realización se conservan al editar.</span><div><button type="button" class="secondary" (click)="editingSessionId = null; sessionEditDraft = null">Cancelar</button> <button type="submit" [disabled]="saving">Guardar cambios</button></div></div>
+                      <div class="editor-footer"><span>Los registros de realización se conservan al editar.</span><div><button type="button" class="secondary" (click)="cancelEditSession(plan)">Cancelar</button> <button type="submit" [disabled]="saving">Guardar cambios</button></div></div>
                     </form>
                     <div class="session-card-actions">
                       <button *ngIf="current.canManage" type="button" class="secondary" (click)="openRecord(session)" [disabled]="saving">{{ recordingSessionId === session.id ? 'Cerrar registro' : (session.completedAt ? 'Editar realización' : 'Registrar realización') }}</button>
@@ -2405,8 +2405,20 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.openRecord(session);
   }
 
+  cancelEditSession(plan: TrainingPlan): void {
+    this.editingSessionId = null;
+    this.sessionEditDraft = null;
+    this.refreshManualVolumePreview(plan);
+  }
+
   beginEditSession(session: TrainingSession): void {
-    if (this.editingSessionId === session.id) { this.editingSessionId = null; this.sessionEditDraft = null; return; }
+    if (this.editingSessionId === session.id) {
+      this.editingSessionId = null;
+      this.sessionEditDraft = null;
+      const plan = this.plans.find(item => item.id === session.planId);
+      if (plan) this.refreshManualVolumePreview(plan);
+      return;
+    }
     this.editingSessionId = session.id;
     this.recordingSessionId = null;
     this.sessionEditDraft = { date: session.scheduledDate, title: session.title, type: session.sessionType,
@@ -2432,7 +2444,12 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   private refreshSessions(planId: number): void {
     this.http.get<TrainingSession[]>(`/api/training/plans/${planId}/sessions`).subscribe({
-      next: rows => { this.sessions[planId] = rows; this.changeDetector.detectChanges(); },
+      next: rows => {
+        this.sessions[planId] = rows;
+        const plan = this.plans.find(item => item.id === planId);
+        if (plan) this.refreshManualVolumePreview(plan);
+        this.changeDetector.detectChanges();
+      },
       error: () => { this.error = 'La operación se guardó, pero no se pudo actualizar la lista. Recarga la página.'; this.changeDetector.detectChanges(); }
     });
   }
