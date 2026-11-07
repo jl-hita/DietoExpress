@@ -6,7 +6,7 @@ namespace Anguloso.Server.Logica;
 /// </summary>
 public static class TrainingProgramQualityAnalyzer
 {
-    private const int HighEffectiveSetReviewThreshold = 22;
+    private const int HighEffectiveSetReviewThreshold = 20;
 
     public static TrainingManualVolumeAnalysisResult AnalyzeManual(
         IReadOnlyCollection<TrainingExerciseCandidate> catalog,
