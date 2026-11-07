@@ -49,7 +49,12 @@ public static class TrainingProgramQualityAnalyzer
                     byId.TryGetValue(input.ExerciseId.Trim(), out candidate);
                 if (candidate is null && !string.IsNullOrWhiteSpace(input.ExerciseName))
                     byName.TryGetValue(NormalizeExerciseName(input.ExerciseName), out candidate);
-                if (candidate is null)
+                if (candidate is null ||
+                    candidate.PrimaryMuscleGroups is null || candidate.PrimaryMuscleGroups.Count == 0 ||
+                    candidate.SecondaryMuscleGroups is null ||
+                    candidate.PrimaryMuscleGroups.Any(muscle => !Enum.IsDefined(muscle)) ||
+                    candidate.SecondaryMuscleGroups.Any(muscle => !Enum.IsDefined(muscle)) ||
+                    candidate.PrimaryMuscleGroups.Intersect(candidate.SecondaryMuscleGroups).Any())
                 {
                     if (!string.IsNullOrWhiteSpace(input.ExerciseName))
                     {
