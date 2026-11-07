@@ -231,7 +231,7 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("await transaction.RollbackAsync(cancellationToken)", controller);
         Assert.Contains("Editor semanal estructurado", ui);
         Assert.Contains("saveWeeklySession(plan, session)", ui);
-        Assert.Contains("moveWeeklyExercise(session", ui);
+        Assert.Contains("moveWeeklyExercise(plan, session", ui);
         Assert.Contains("Reorganizar distribución semanal", ui);
         Assert.Contains("Preparar propuesta", ui);
         Assert.Contains("Confirmar reorganización", ui);
