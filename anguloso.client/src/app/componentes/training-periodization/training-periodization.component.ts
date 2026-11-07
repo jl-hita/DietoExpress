@@ -630,7 +630,7 @@ interface RepDbExercise {
                     <article *ngFor="let exercise of filteredExercises" class="exercise-result">
                       <img *ngIf="exercise.imageUrl" class="exercise-thumb" [src]="exercise.imageUrl" [alt]="'Ilustración de ' + viewName(exercise, 'exercise.imageAlt')" loading="lazy" />
                       <div><strong>{{ viewName(exercise, 'exercise.result') }}</strong><p>{{ exercise.muscles }} · {{ exercise.equipmentLabel }}</p><small>{{ exercise.instructions }}</small><small *ngIf="exercise.source === 'repdb'" class="exercise-source">Biblioteca RepDB</small></div>
-                      <button type="button" class="secondary" (click)="addExerciseToDraft(plan.id, exercise)" [disabled]="saving">＋ Añadir</button>
+                      <button type="button" class="secondary" (click)="addExerciseToDraft(plan, exercise)" [disabled]="saving">＋ Añadir</button>
                     </article>
                     <p class="exercise-attribution">Ilustraciones y datos ampliados: <a href="https://repdb.co" target="_blank" rel="noopener noreferrer">Exercise data by RepDB (repdb.co)</a>. Los ejercicios importados se cargan desde su catálogo público; si no está disponible, se mantiene la biblioteca básica.</p>
                     <p *ngIf="!filteredExercises.length" class="muted">No hay ejercicios con esos filtros. Prueba otra búsqueda.</p>
@@ -655,7 +655,7 @@ interface RepDbExercise {
                   <label class="session-editor-wide">Prescripción de ejercicios<textarea name="sessionExercises{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].exercisePrescription" (ngModelChange)="onManualPrescriptionChanged(plan)" rows="3" maxlength="6000" placeholder="Sentadilla · 3 × 8 · descanso 2 min · RPE 7&#10;Peso muerto rumano · 3 × 10 · descanso 90 s"></textarea><small>Indica ejercicio, series, repeticiones, descanso y observaciones. Puedes anotar ritmo o potencia en la zona objetivo.</small></label>
                   <div *ngIf="prescriptionLines(sessionDrafts[plan.id].exercisePrescription).length" class="prescription-line-editor session-editor-wide" style="display:grid;gap:7px;margin:8px 0">
                     <div *ngFor="let line of prescriptionLines(sessionDrafts[plan.id].exercisePrescription); let lineIndex = index" class="prescription-line-row" style="display:grid;grid-template-columns:minmax(0,1fr) repeat(3,auto);gap:6px;align-items:center">
-                      <input [name]="'draftExerciseLine' + plan.id + lineIndex" [ngModel]="line" (ngModelChange)="updatePrescriptionLine(sessionDrafts[plan.id], lineIndex, $event)" aria-label="Prescripción del ejercicio" />
+                      <input [name]="'draftExerciseLine' + plan.id + lineIndex" [ngModel]="line" (ngModelChange)="updatePrescriptionLine(sessionDrafts[plan.id], lineIndex, $event, plan)" aria-label="Prescripción del ejercicio" />
                       <button type="button" class="secondary" (click)="movePrescriptionLine(sessionDrafts[plan.id], lineIndex, -1, plan)" [disabled]="lineIndex === 0" aria-label="Subir ejercicio">↑</button>
                       <button type="button" class="secondary" (click)="movePrescriptionLine(sessionDrafts[plan.id], lineIndex, 1, plan)" [disabled]="lineIndex === prescriptionLines(sessionDrafts[plan.id].exercisePrescription).length - 1" aria-label="Bajar ejercicio">↓</button>
                       <button type="button" class="secondary" (click)="removePrescriptionLine(sessionDrafts[plan.id], lineIndex, plan)" aria-label="Quitar ejercicio">×</button>
@@ -702,7 +702,7 @@ interface RepDbExercise {
                         <label class="session-editor-wide">Prescripción de ejercicios<textarea name="editSessionExercises{{session.id}}" [ngModel]="edit.exercisePrescription" (ngModelChange)="onEditedSessionPrescriptionChanged(plan, session, $event)" rows="4" maxlength="6000" placeholder="Ejercicio · series × repeticiones · descanso · notas"></textarea></label>
                         <div *ngIf="prescriptionLines(edit.exercisePrescription).length" class="prescription-line-editor session-editor-wide">
                           <div *ngFor="let line of prescriptionLines(edit.exercisePrescription); let lineIndex = index" class="prescription-line-row">
-                            <input [name]="'editExerciseLine' + session.id + lineIndex" [ngModel]="line" (ngModelChange)="updatePrescriptionLine(edit, lineIndex, $event)" aria-label="Prescripción del ejercicio" />
+                            <input [name]="'editExerciseLine' + session.id + lineIndex" [ngModel]="line" (ngModelChange)="updatePrescriptionLine(edit, lineIndex, $event, plan)" aria-label="Prescripción del ejercicio" />
                             <button type="button" class="secondary" (click)="movePrescriptionLine(edit, lineIndex, -1, plan)" [disabled]="lineIndex === 0" aria-label="Subir ejercicio">↑</button>
                             <button type="button" class="secondary" (click)="movePrescriptionLine(edit, lineIndex, 1, plan)" [disabled]="lineIndex === prescriptionLines(edit.exercisePrescription).length - 1" aria-label="Bajar ejercicio">↓</button>
                             <button type="button" class="secondary" (click)="removePrescriptionLine(edit, lineIndex, plan)" aria-label="Quitar ejercicio">×</button>
@@ -2219,8 +2219,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     });
   }
 
-  addExerciseToDraft(planId: number, exercise: typeof this.exerciseCatalog[number]): void {
-    const draft = this.sessionDrafts[planId];
+  addExerciseToDraft(plan: TrainingPlan, exercise: typeof this.exerciseCatalog[number]): void {
+    const draft = this.sessionDrafts[plan.id];
     if (!draft) return;
     const lines = draft.exercisePrescription.trim() ? draft.exercisePrescription.split(/\r?\n/).map(line => line.trim()).filter(Boolean) : [];
     if (lines.some(line => line.toLocaleLowerCase('es').startsWith(exercise.name.toLocaleLowerCase('es')))) {
@@ -2230,6 +2230,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     draft.exercisePrescription = [...lines, this.buildExercisePrescription(exercise, this.sessionExerciseSets, this.sessionExerciseReps, this.sessionExerciseRest)].join('\n');
     draft.exercisePrescriptionData = null;
     this.notice = exercise.name + ' añadido a la sesión.';
+    this.refreshManualVolumePreview(plan);
   }
 
   applySessionTemplate(plan: TrainingPlan): void {
@@ -2243,6 +2244,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     draft.exercisePrescription = saved.exercisePrescription ?? '';
     draft.exercisePrescriptionData = saved.exercisePrescriptionData ?? null;
     this.notice = 'Se ha copiado la estructura de «' + saved.title + '». Ajusta fecha y nombre antes de guardarla.';
+    this.refreshManualVolumePreview(plan);
   }
 
   generateSessionDraft(plan: TrainingPlan): void {
@@ -2278,6 +2280,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       '. Incluye calentamiento progresivo y vuelta a la calma. Ajusta ejercicios, volumen y esfuerzo al historial, disponibilidad y tolerancia del cliente.';
     if (!draft.duration) draft.duration = this.generatorGoal === 'endurance' ? 30 : 45;
     this.notice = 'Borrador de sesión preparado. Revísalo y personalízalo antes de guardarlo.';
+    this.refreshManualVolumePreview(plan);
   }
 
   createSession(plan: TrainingPlan): void {
@@ -2393,6 +2396,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.recordingSessionId = null;
     this.sessionEditDraft = { date: session.scheduledDate, title: session.title, type: session.sessionType,
       duration: session.durationMinutes ?? 60, intensity: session.intensityTarget ?? '', instructions: session.instructions ?? '', exercisePrescription: session.exercisePrescription ?? '' };
+    this.refreshManualVolumePreview(
+      (this.plans || []).find(plan => plan.id === session.planId) ?? { id: session.planId } as TrainingPlan,
+      session.scheduledDate, session.exercisePrescription ?? '', session.id);
   }
 
   saveSession(session: TrainingSession): void {
