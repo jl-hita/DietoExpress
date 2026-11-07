@@ -2876,7 +2876,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     if (retainedCustomExercises > 0)
       warnings.push(retainedCustomExercises + ' ejercicios manuales no coincidentes se han conservado en la sesión equivalente por orden; comprueba que su ubicación y carga sigan teniendo sentido.');
     if (preservedManualEdits > 0)
-      warnings.push('Se han conservado ' + preservedManualEdits + ' ajustes de series, repeticiones, RIR o descanso en ejercicios que aparecen también en la nueva propuesta.');
+      warnings.push('Se han conservado ' + preservedManualEdits + ' ajustes de series, repeticiones, RIR o descanso en ejercicios que aparecen también en la nueva propuesta. Comprueba la duración resultante.');
+    if (retainedCustomExercises > 0)
+      warnings.push('La duración estimada del generador no incluye el tiempo adicional de los ejercicios manuales conservados; revisa los límites de cada sesión.');
     const volumeSessions = replacementSessions.map(session => ({
       weekNumber: Math.floor((Date.parse(this.weekStartDate(session.scheduledDate) + 'T00:00:00Z') -
         Date.parse(replaceFromDate + 'T00:00:00Z')) / 604800000) + 1,
