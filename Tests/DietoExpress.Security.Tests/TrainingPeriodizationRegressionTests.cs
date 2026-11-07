@@ -226,7 +226,7 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("isquiotibiales tienen una dosis predeterminada secundaria", ui);
         Assert.DoesNotContain("series primarias semanales", ui);
         Assert.Contains("muscle.primaryFrequencySessions", ui);
-        Assert.Contains("HighEffectiveSetReviewThreshold = 22", analyzer);
+        Assert.Contains("HighEffectiveSetReviewThreshold = 20", analyzer);
         Assert.Contains("hasVolumeDoseDeficit(generated.qualityReport.warnings)", ui);
         Assert.Contains("Revisión profesional: déficit de volumen o cobertura", ui);
         Assert.Contains("volumeDeficitAcknowledged[plan.id]", ui);
