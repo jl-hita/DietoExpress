@@ -8,6 +8,81 @@ public static class TrainingProgramQualityAnalyzer
 {
     private const int HighEffectiveSetReviewThreshold = 22;
 
+    public static TrainingManualVolumeAnalysisResult AnalyzeManual(
+        IReadOnlyCollection<TrainingExerciseCandidate> catalog,
+        IReadOnlyList<TrainingManualVolumeSessionInput> sessions)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(sessions);
+        if (sessions.Count > 7)
+            throw new ArgumentOutOfRangeException(nameof(sessions), "Una vista semanal admite como máximo siete días.");
+
+        var byId = catalog.ToDictionary(candidate => candidate.ExerciseId, StringComparer.OrdinalIgnoreCase);
+        var byName = catalog
+            .GroupBy(candidate => NormalizeExerciseName(candidate.Name), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var unclassified = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var prescriptions = new List<TrainingSessionPrescription>();
+
+        foreach (var dayGroup in sessions.GroupBy(session => session.Day).OrderBy(group => (int)group.Key))
+        {
+            if (!Enum.IsDefined(dayGroup.Key))
+                throw new ArgumentOutOfRangeException(nameof(sessions), "La sesión contiene un día no válido.");
+
+            var exercises = new List<TrainingExercisePrescription>();
+            foreach (var input in dayGroup.SelectMany(session => session.Exercises ?? []))
+            {
+                if (input.Sets is < 1 or > 10)
+                    throw new ArgumentOutOfRangeException(nameof(sessions), "Las series de cada ejercicio deben estar entre 1 y 10.");
+
+                TrainingExerciseCandidate? candidate = null;
+                if (!string.IsNullOrWhiteSpace(input.ExerciseId))
+                    byId.TryGetValue(input.ExerciseId.Trim(), out candidate);
+                if (candidate is null && !string.IsNullOrWhiteSpace(input.ExerciseName))
+                    byName.TryGetValue(NormalizeExerciseName(input.ExerciseName), out candidate);
+                if (candidate is null)
+                {
+                    if (!string.IsNullOrWhiteSpace(input.ExerciseName))
+                        unclassified.Add(input.ExerciseName.Trim());
+                    continue;
+                }
+
+                exercises.Add(new TrainingExercisePrescription(
+                    candidate.ExerciseId,
+                    candidate.CatalogVersion,
+                    candidate.Name,
+                    exercises.Count + 1,
+                    input.Sets,
+                    8,
+                    12,
+                    null,
+                    90,
+                    TrainingProgressionRule.None,
+                    "Prescripción manual; metadatos revisados del catálogo.",
+                    candidate.PrimaryMuscleGroups,
+                    candidate.SecondaryMuscleGroups));
+            }
+
+            if (exercises.Count > 0)
+                prescriptions.Add(new TrainingSessionPrescription(
+                    1, dayGroup.Key, dayGroup.First().Title?.Trim() is { Length: > 0 } title ? title : "Sesión manual",
+                    60, exercises));
+        }
+
+        var plan = new TrainingProgramPrescription(
+            "manual-volume-preview-v1",
+            "Manual",
+            new DateOnly(2026, 1, 5),
+            1,
+            prescriptions);
+        return new TrainingManualVolumeAnalysisResult(
+            Analyze(plan),
+            unclassified.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray());
+    }
+
+    private static string NormalizeExerciseName(string value) =>
+        string.Join(' ', (value ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
     public static TrainingProgramQualityReport Analyze(TrainingProgramPrescription plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
@@ -93,3 +168,17 @@ public sealed record TrainingMuscleVolume(
     int PrimaryFrequencySessions,
     int SecondaryFrequencySessions,
     decimal EstimatedEffectiveSets = 0m);
+
+public sealed record TrainingManualVolumeSessionInput(
+    DayOfWeek Day,
+    string? Title,
+    IReadOnlyList<TrainingManualVolumeExerciseInput> Exercises);
+
+public sealed record TrainingManualVolumeExerciseInput(
+    string? ExerciseId,
+    string ExerciseName,
+    int Sets);
+
+public sealed record TrainingManualVolumeAnalysisResult(
+    TrainingProgramQualityReport QualityReport,
+    IReadOnlyList<string> UnclassifiedExerciseNames);
