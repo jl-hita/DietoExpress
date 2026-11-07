@@ -698,7 +698,8 @@ interface RepDbExercise {
                         <label>RIR<input type="number" [name]="'weeklyExerciseRir' + session.id + exerciseIndex" [(ngModel)]="exercise.rir" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="10" step="0.5" /></label>
                         <label>Descanso (s)<input type="number" [name]="'weeklyExerciseRest' + session.id + exerciseIndex" [(ngModel)]="exercise.restSeconds" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="3600" /></label>
                         <div style="display:flex;gap:3px"><button type="button" class="secondary" (click)="moveWeeklyExercise(plan, session, exerciseIndex, -1)" [disabled]="exerciseIndex === 0" aria-label="Subir ejercicio">↑</button><button type="button" class="secondary" (click)="moveWeeklyExercise(plan, session, exerciseIndex, 1)" [disabled]="exerciseIndex === weekly.exercises.length - 1" aria-label="Bajar ejercicio">↓</button><button type="button" class="secondary" (click)="removeWeeklyExercise(plan, session, exerciseIndex)" aria-label="Eliminar ejercicio">×</button></div>
-                        <label style="grid-column:1/-1">Notas del ejercicio<input [name]="'weeklyExerciseNotes' + session.id + exerciseIndex" [(ngModel)]="exercise.notes" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="500" placeholder="Notas complementarias (opcional)" /></label>
+                        <label style="grid-column:span 2">Progresión<select [name]="'weeklyExerciseProgression' + session.id + exerciseIndex" [(ngModel)]="exercise.progressionRule" (ngModelChange)="onWeeklyDraftChanged(plan, session)"><option value="DoubleProgression">Doble progresión</option><option value="None">Sin progresión automática</option></select></label>
+                        <label style="grid-column:span 4">Notas del ejercicio<input [name]="'weeklyExerciseNotes' + session.id + exerciseIndex" [(ngModel)]="exercise.notes" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="500" placeholder="Notas complementarias (opcional)" /></label>
                       </div>
                       <button type="button" class="secondary" style="margin-top:10px" (click)="addWeeklyExercise(plan, session)">＋ Añadir ejercicio</button>
                     </div>
@@ -3036,8 +3037,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
           notes: typeof item['notes'] === 'string' ? item['notes'] : '',
           exerciseId: typeof item['exerciseId'] === 'string' ? item['exerciseId'] : undefined,
           catalogVersion: typeof item['catalogVersion'] === 'string' ? item['catalogVersion'] : undefined,
-          progressionRule: typeof item['progressionRule'] === 'string' || typeof item['progressionRule'] === 'number'
-            ? item['progressionRule'] as string | number : undefined,
+          progressionRule: item['progressionRule'] === 1 || item['progressionRule'] === '1' ||
+            item['progressionRule'] === 'DoubleProgression' ? 'DoubleProgression' : 'None',
           primaryMuscleGroups: Array.isArray(item['primaryMuscleGroups'])
             ? item['primaryMuscleGroups'] as Array<string | number> : undefined,
           secondaryMuscleGroups: Array.isArray(item['secondaryMuscleGroups'])
@@ -3066,6 +3067,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         repetitions: (match?.[3] ?? '').trim(),
         rir: rirMatch ? Number(rirMatch[1].replace(',', '.')) : (match ? 2 : null),
         restSeconds: restMatch ? Number(restMatch[1]) * (/min/i.test(restMatch[2] ?? '') ? 60 : 1) : (match ? 90 : 0),
+        progressionRule: 'DoubleProgression',
         notes: match ? '' : line
       };
     }).filter(item => item.exerciseName.length > 0);
@@ -3100,7 +3102,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
           maxRepetitions,
           targetRepetitionsInReserve: item.rir,
           restSeconds: item.restSeconds,
-          progressionRule: item.progressionRule ?? 'None',
+          progressionRule: item.progressionRule ?? 'DoubleProgression',
           primaryMuscleGroups: item.primaryMuscleGroups,
           secondaryMuscleGroups: item.secondaryMuscleGroups,
           smallestLoadIncrementKg: item.smallestLoadIncrementKg,
@@ -3150,7 +3152,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   }
 
   addWeeklyExercise(plan: TrainingPlan, session: TrainingSession): void {
-    this.weeklyDraft(session).exercises.push({ exerciseName: '', sets: 3, repetitions: '8–12', rir: 2, restSeconds: 90, notes: '' });
+    this.weeklyDraft(session).exercises.push({ exerciseName: '', sets: 3, repetitions: '8–12', rir: 2, restSeconds: 90, progressionRule: 'DoubleProgression', notes: '' });
     this.onWeeklyDraftChanged(plan, session);
   }
 
