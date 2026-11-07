@@ -988,7 +988,10 @@ public sealed class TrainingProgramGeneratorTests
             .ToArray();
         var request = new TrainingProgramGenerationRequest(
             TrainingGoal.Strength, TrainingExperience.Advanced, new DateOnly(2026, 10, 26), 4,
-            [DayOfWeek.Monday, DayOfWeek.Thursday], 90, [], []);
+            [DayOfWeek.Monday, DayOfWeek.Thursday], 90, [], [])
+        {
+            Split = TrainingProgramSplit.FullBody
+        };
 
         var result = TrainingProgramGenerator.Generate(request, catalog);
 
