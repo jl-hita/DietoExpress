@@ -1180,19 +1180,26 @@ public sealed class TrainingPeriodizationController : ControllerBase
             return BadRequest(new { message = "El tipo de sesión no es válido." });
         if (request.IntensityTarget?.Length > 120 || request.Instructions?.Length > 4000 || request.ExercisePrescription?.Length > 6000)
             return BadRequest(new { message = "La intensidad admite 120 caracteres y las instrucciones 4000." });
+        if (request.ExercisePrescriptionData.HasValue &&
+            (request.ExercisePrescriptionData.Value.ValueKind != JsonValueKind.Object || request.ExercisePrescriptionData.Value.GetRawText().Length > 20000))
+            return BadRequest(new { message = "La prescripción estructurada debe ser un objeto JSON de hasta 20000 caracteres." });
 
         await using var command = Command("""
             UPDATE training_sessions s
             SET scheduled_date = @date, title = @title, session_type = @type, duration_minutes = @duration,
                 intensity_target = @intensity, instructions = @instructions, exercise_prescription = @exercisePrescription,
-                exercise_prescription_data = CASE WHEN s.exercise_prescription IS DISTINCT FROM @exercisePrescription THEN NULL ELSE s.exercise_prescription_data END, updated_at = NOW()
+                exercise_prescription_data = CASE
+                    WHEN s.exercise_prescription IS DISTINCT FROM @exercisePrescription THEN @prescriptionData::jsonb
+                    ELSE COALESCE(@prescriptionData::jsonb, s.exercise_prescription_data)
+                END, updated_at = NOW()
             FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id
             WHERE s.plan_id = p.id AND s.id = @sessionId AND f.enabled = TRUE
               AND @date >= p.start_date AND (p.end_date IS NULL OR @date <= p.end_date)
             RETURNING s.id
             """, ("sessionId", sessionId), ("date", request.ScheduledDate), ("title", request.Title.Trim()),
             ("type", request.SessionType), ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget?.Trim()),
-            ("instructions", request.Instructions?.Trim()), ("exercisePrescription", request.ExercisePrescription?.Trim()));
+            ("instructions", request.Instructions?.Trim()), ("exercisePrescription", request.ExercisePrescription?.Trim()),
+            ("prescriptionData", request.ExercisePrescriptionData.HasValue ? request.ExercisePrescriptionData.Value.GetRawText() : null));
         var id = await command.ExecuteScalarAsync(cancellationToken);
         return id is null
             ? Conflict(new { message = "La fecha de la sesión debe estar dentro del periodo del plan." })
