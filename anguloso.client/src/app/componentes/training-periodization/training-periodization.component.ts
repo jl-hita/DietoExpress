@@ -3006,7 +3006,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       ? prescriptionData['exercises'] as Array<Record<string, unknown>>
       : [];
     const hasCompleteSnapshots = structuredItems.length > 0 &&
-      structuredItems.every(item => typeof item['exerciseNameSnapshot'] === 'string' &&
+      structuredItems.every(item => item !== null && typeof item === 'object' &&
+        typeof item['exerciseNameSnapshot'] === 'string' &&
         String(item['exerciseNameSnapshot']).trim().length > 0);
 
     if (hasCompleteSnapshots) {
