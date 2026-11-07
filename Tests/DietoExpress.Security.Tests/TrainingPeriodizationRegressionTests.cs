@@ -236,6 +236,9 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("exercise.exerciseId = undefined", ui);
         Assert.Contains("usedMetadataIndices", ui);
         Assert.DoesNotContain("?? structuredItems[index]", ui);
+        Assert.Contains("const hasCompleteSnapshots = structuredItems.length > 0", ui);
+        Assert.Contains("if (hasCompleteSnapshots)", ui);
+        Assert.Contains("Legacy text is only a fallback when no usable structured snapshot exists.", ui);
         Assert.Contains("Revisa y confirma expresamente los déficits de volumen antes de guardar el mesociclo.", ui);
         Assert.Contains("el profesional ha revisado y aceptado los déficits de volumen/cobertura", ui);
         Assert.Contains("const warnings: string[] = [...(generated.qualityReport?.warnings ?? [])]", ui);
