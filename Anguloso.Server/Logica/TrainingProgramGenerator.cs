@@ -99,7 +99,7 @@ public static class TrainingProgramGenerator
 
                     selectedThisWeek.Add(candidate.ExerciseId);
 
-                    var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(request.Goal, request.Experience, week, days.Length, pattern);
+                    var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(request.Goal, request.Experience, week, days.Length, pattern, isPrimaryLift: patternIndex == 0);
                     prescriptions.Add(new TrainingExercisePrescription(
                         candidate.ExerciseId,
                         candidate.CatalogVersion,
@@ -680,13 +680,22 @@ public static class TrainingProgramGenerator
     /// mesocycle decision; this prescription method never imposes a fixed calendar deload.
     /// </summary>
     private static (int Sets, int MinReps, int MaxReps, decimal Rir, int RestSeconds, TrainingProgressionRule Progression)
-        PrescriptionFor(TrainingGoal goal, TrainingExperience experience, int week, int daysPerWeek, TrainingMovementPattern pattern)
+        PrescriptionFor(TrainingGoal goal, TrainingExperience experience, int week, int daysPerWeek, TrainingMovementPattern pattern, bool isPrimaryLift = false)
     {
         var beginner = experience == TrainingExperience.Beginner;
         if (pattern is TrainingMovementPattern.Accessory or TrainingMovementPattern.Core or TrainingMovementPattern.SingleLeg)
             return (1, goal == TrainingGoal.Strength ? 8 : 10, 15,
                 beginner ? 3m : 2m, pattern == TrainingMovementPattern.Core ? 60 : 90,
                 TrainingProgressionRule.DoubleProgression);
+        // Internal product heuristic (not an ACSM-prescribed figure): in strength plans for
+        // non-beginners, the first compound of each session is the session's primary lift and is
+        // trained with lower repetitions and longer rest. Beginners keep the 5–8 range to
+        // consolidate technique; the other compounds and accessories keep their ranges.
+        if (goal == TrainingGoal.Strength && isPrimaryLift && !beginner &&
+            pattern is TrainingMovementPattern.Squat or TrainingMovementPattern.Hinge
+                or TrainingMovementPattern.HorizontalPush or TrainingMovementPattern.VerticalPush
+                or TrainingMovementPattern.HorizontalPull or TrainingMovementPattern.VerticalPull)
+            return (2, 3, 6, 2m, 240, TrainingProgressionRule.DoubleProgression);
         // Give the main bilateral compound patterns a two-set starting dose. The allocator
         // preserves this baseline and adds volume only where the weekly targets and time allow.
         var baseline = goal switch
