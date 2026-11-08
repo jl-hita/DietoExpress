@@ -492,7 +492,7 @@ public sealed class ExerciseCatalogService
             throw new InvalidDataException(
                 $"Curated exercise catalog is incomplete: imported {result.ImportedCount}, expected {RepDbExerciseCuration.CuratedCatalogIds.Length}.");
 
-        await using var markerConnection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var markerConnection = (NpgsqlConnection)_db.Database.GetDbConnection();
         var closeMarkerConnection = markerConnection.State != ConnectionState.Open;
         if (closeMarkerConnection) await markerConnection.OpenAsync(cancellationToken);
         try
