@@ -391,16 +391,16 @@ public sealed class TrainingPeriodizationController : ControllerBase
         var valid = splitType switch
         {
             0 => count is >= 2 and <= 4,
-            1 => count is 2 or 3,
+            1 => count is >= 2 and <= 4,
             2 => count is 2 or 4,
-            3 => count is 3 or 6,
+            3 => count is 3 or 5 or 6,
             _ => false
         };
         return valid ? null : splitType switch
         {
-            1 => "Cuerpo completo admite 2 o 3 días.",
+            1 => "Cuerpo completo admite de 2 a 4 días.",
             2 => "Torso/Pierna admite 2 o 4 días.",
-            3 => "Push/Pull/Legs admite 3 o 6 días.",
+            3 => "Push/Pull/Legs admite 3, 5 o 6 días.",
             _ => "La distribución automática admite entre 2 y 4 días."
         };
     }

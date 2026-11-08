@@ -454,7 +454,7 @@ interface RepDbExercise {
                 <label>Inicio del mesociclo<input type="date" name="autoStartDate{{plan.id}}" [ngModel]="autoStartDates[plan.id] || nextMesocycleStart(plan)" (ngModelChange)="autoStartDates[plan.id] = $event" required /></label>
                 <label>Duración (semanas)<input type="number" name="autoWeeks{{plan.id}}" [(ngModel)]="autoDurationWeeks" min="1" max="52" required /></label>
                 <label class="auto-deload-option"><span><input type="checkbox" name="autoIsDeload{{plan.id}}" [(ngModel)]="autoIsDeload" /> Generar este bloque como descarga activa</span><small>Úsalo para un bloque/fase de descarga, preferentemente de una semana. Reduce las series aproximadamente un 40–50 % y deja más RIR.</small></label>
-                <label>Distribución semanal<select name="autoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>La distribución se elige independientemente del calendario, con combinaciones equilibradas: cuerpo completo 2–3 días, torso/pierna 2 o 4 y PPL 3 o 6.</small></label>
+                <label>Distribución semanal<select name="autoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>La distribución se elige independientemente del calendario, con combinaciones equilibradas: cuerpo completo 2–4 días, torso/pierna 2 o 4 y PPL 3, 5 o 6.</small></label>
                 <fieldset class="auto-day-picker full"><legend>¿Qué días entrenará?</legend><p>Elige entre 2 y 6 días. La combinación debe ser compatible con la distribución elegida.</p><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'autoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
                 <details class="auto-advanced-settings full"><summary>Opciones avanzadas de la sesión</summary><div class="auto-advanced-grid"><label>Duración máxima por sesión<input type="number" name="autoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" (ngModelChange)="invalidateSplitReplacement(plan)" min="35" max="180" required /><small>Entre 35 y 180 minutos.</small></label><label>Material disponible (opcional)<input name="autoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" (ngModelChange)="invalidateSplitReplacement(plan)" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Guiones y guiones bajos son equivalentes. «machine» incluye máquinas específicas; puedes usar «leg-press-machine» o «smith-machine» para restringir. Vacío = todo el material.</small></label></div></details>
                 <section class="muscle-preference-editor full">
@@ -2137,9 +2137,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   private isSplitDayCountValidFor(split: number, dayCount: number): boolean {
     return split === 0 ? dayCount >= 2 && dayCount <= 4 :
-      split === 1 ? dayCount === 2 || dayCount === 3 :
+      split === 1 ? dayCount >= 2 && dayCount <= 4 :
       split === 2 ? dayCount === 2 || dayCount === 4 :
-      split === 3 ? dayCount === 3 || dayCount === 6 : false;
+      split === 3 ? dayCount === 3 || dayCount === 5 || dayCount === 6 : false;
   }
 
   private isSplitDayCountValid(dayCount: number): boolean {
@@ -2227,11 +2227,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     }
     if (!this.isSplitDayCountValid(days.length)) {
       this.generationErrors[plan.id] = this.autoSplit === 1
-        ? 'Cuerpo completo admite 2 o 3 días por semana.'
+        ? 'Cuerpo completo admite de 2 a 4 días por semana.'
         : this.autoSplit === 2
           ? 'Torso/Pierna admite 2 o 4 días por semana.'
           : this.autoSplit === 3
-            ? 'Push/Pull/Legs admite 3 o 6 días por semana.'
+            ? 'Push/Pull/Legs admite 3, 5 o 6 días por semana.'
             : 'La distribución automática admite entre 2 y 4 días por semana.';
       return;
     }
@@ -2702,9 +2702,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const draft = this.splitReorganizationDrafts[plan.id];
     const days = [...draft.trainingDays].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
     if (!this.isSplitDayCountValidFor(draft.splitType, days.length)) {
-      draft.error = draft.splitType === 1 ? 'Cuerpo completo admite 2 o 3 días.' :
+      draft.error = draft.splitType === 1 ? 'Cuerpo completo admite de 2 a 4 días.' :
         draft.splitType === 2 ? 'Torso/Pierna admite 2 o 4 días.' :
-        draft.splitType === 3 ? 'Push/Pull/Legs admite 3 o 6 días.' :
+        draft.splitType === 3 ? 'Push/Pull/Legs admite 3, 5 o 6 días.' :
         'La distribución automática admite entre 2 y 4 días.';
       draft.moves = null;
       return;
