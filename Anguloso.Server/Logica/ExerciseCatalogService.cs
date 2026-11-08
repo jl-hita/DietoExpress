@@ -129,7 +129,7 @@ public sealed class ExerciseCatalogService
         ExerciseCatalogSyncResult? result;
         if (!bootstrapCompleted)
         {
-            result = await SyncFromSourceAsync(cancellationToken, replaceExisting: true, markBootstrapComplete: true);
+            result = await SyncFromSourceAsync(cancellationToken, replaceRepDbOnly: true, markBootstrapComplete: true, markIdealCatalogComplete: true);
         }
         else
         {
@@ -407,7 +407,7 @@ public sealed class ExerciseCatalogService
             if (markIdealCatalogComplete)
             {
                 await using var markerCommand = new NpgsqlCommand(
-                    "INSERT INTO schema_migrations(id) VALUES ('exercise-catalog-ideal-strength-hypertrophy-v1') ON CONFLICT (id) DO NOTHING",
+                    "INSERT INTO schema_migrations(id) VALUES ('exercise-catalog-ideal-strength-hypertrophy-v2') ON CONFLICT (id) DO NOTHING",
                     connection, transaction);
                 await markerCommand.ExecuteNonQueryAsync(cancellationToken);
             }
@@ -444,25 +444,73 @@ public sealed class ExerciseCatalogService
     /// </summary>
     private async Task EnsureRepDbIdealCatalogV1Async(CancellationToken cancellationToken)
     {
-        var completed = await _db.Database.SqlQueryRaw<bool>(
-            "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-ideal-strength-hypertrophy-v1') AS \"Value\"")
-            .SingleAsync(cancellationToken);
-        if (completed) return;
-
+        // The marker alone is not proof that a restored database still contains the catalog.
+        // Verify the complete curated ID set on every startup; v2 also forces databases seeded
+        // by older curation rules to receive the corrected source and metadata.
+        const string marker = "exercise-catalog-ideal-strength-hypertrophy-v2";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        bool completed;
+        long present;
         try
         {
-            var result = await SyncFromSourceAsync(
-                cancellationToken, replaceRepDbOnly: true, markIdealCatalogComplete: true);
-            _logger.LogInformation(
-                "Ideal RepDB exercise catalog v1 bootstrapped: {Count} curated exercises imported; non-curated automatic/unreviewed rows removed and human reviews preserved.",
-                result.ImportedCount);
+            await using (var markerCommand = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection))
+            {
+                Add(markerCommand, "marker", marker);
+                completed = Convert.ToBoolean(await markerCommand.ExecuteScalarAsync(cancellationToken));
+            }
+            await using (var countCommand = new NpgsqlCommand(
+                "SELECT COUNT(*) FROM exercise_catalog WHERE source = 'repdb-free' AND exercise_id = ANY(@ids)", connection))
+            {
+                Add(countCommand, "ids", RepDbExerciseCuration.CuratedCatalogIds);
+                present = Convert.ToInt64(await countCommand.ExecuteScalarAsync(cancellationToken));
+            }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        finally
         {
-            // A transient upstream outage must not prevent application startup. The transaction
-            // rolls back, the migration marker stays absent and the next startup retries it.
-            _logger.LogWarning(ex, "Ideal RepDB catalog bootstrap failed; the migration will retry on the next startup.");
+            if (shouldClose) await connection.CloseAsync();
         }
+
+        if (completed && present == RepDbExerciseCuration.CuratedCatalogIds.Length)
+        {
+            _logger.LogInformation("Verified complete curated strength/hypertrophy catalog: {Count} exercises.", present);
+            return;
+        }
+
+        _logger.LogInformation(
+            "Curated exercise catalog needs repair (marker={MarkerPresent}, found={Found}, expected={Expected}). Importing canonical records.",
+            completed, present, RepDbExerciseCuration.CuratedCatalogIds.Length);
+
+        // Atomic replacement of RepDB automatic/unreviewed rows. Human-reviewed decisions,
+        // professional contributions and historical training-plan snapshots are preserved.
+        var result = await SyncFromSourceAsync(
+            cancellationToken, replaceRepDbOnly: true, markIdealCatalogComplete: false);
+
+        if (result.ImportedCount != RepDbExerciseCuration.CuratedCatalogIds.Length)
+            throw new InvalidDataException(
+                $"Curated exercise catalog is incomplete: imported {result.ImportedCount}, expected {RepDbExerciseCuration.CuratedCatalogIds.Length}.");
+
+        var markerConnection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var closeMarkerConnection = markerConnection.State != ConnectionState.Open;
+        if (closeMarkerConnection) await markerConnection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var mark = new NpgsqlCommand(
+                "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING",
+                markerConnection);
+            Add(mark, "marker", marker);
+            await mark.ExecuteNonQueryAsync(cancellationToken);
+        }
+        finally
+        {
+            if (closeMarkerConnection) await markerConnection.CloseAsync();
+        }
+
+        _logger.LogInformation(
+            "Canonical strength/hypertrophy catalog ready: {Count} curated exercises imported; human reviews preserved.",
+            result.ImportedCount);
     }
 
     /// <summary>

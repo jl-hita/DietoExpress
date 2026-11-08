@@ -202,18 +202,12 @@ builder.Services.AddScoped<SupportEnhancementService>();
                 var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>();
                 // Todo el esquema se garantiza desde DatabaseBootstrap. Program.cs no contiene DDL ni migraciones puntuales.
                 DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
-                // Importamos el catálogo en la primera ejecución. Un fallo remoto no debe impedir que la aplicación arranque.
-                try
-                {
-                    var exerciseCatalog = scope.ServiceProvider.GetRequiredService<ExerciseCatalogService>();
-                    var syncResult = await exerciseCatalog.EnsureSeededAsync();
-                    if (syncResult is not null)
-                        logger.LogInformation("RepDB exercise catalog initialized with {Count} records.", syncResult.ImportedCount);
-                }
-                catch (Exception catalogException)
-                {
-                    logger.LogWarning(catalogException, "No se pudo inicializar el catálogo de ejercicios; se reintentará mediante la operación de sincronización de superadmin.");
-                }
+                // La app solo se considera lista cuando el catálogo curado de fuerza/hipertrofia
+                // está completo. EnsureSeededAsync verifica IDs y repara importaciones parciales/restauradas.
+                var exerciseCatalog = scope.ServiceProvider.GetRequiredService<ExerciseCatalogService>();
+                var syncResult = await exerciseCatalog.EnsureSeededAsync();
+                if (syncResult is not null)
+                    logger.LogInformation("RepDB exercise catalog initialized with {Count} records.", syncResult.ImportedCount);
                 var patientTemplateSeeder = scope.ServiceProvider.GetRequiredService<PatientDocumentTemplateSeeder>();
                 await patientTemplateSeeder.SeedAllTenantsAsync();
                 // Una vez disponible el esquema, recuperamos incidencias que pudieron producirse con PostgreSQL caído.
@@ -246,17 +240,35 @@ builder.Services.AddScoped<SupportEnhancementService>();
             using (var scope = app.Services.CreateScope())
             {
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-                try { var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>(); var bedcaCount = context.foods.Count(f => f.source == "bedca"); if (bedcaCount == 0) { logger.LogInformation("No se han encontrado alimentos BEDCA. Iniciando importación inicial..."); var logServ = scope.ServiceProvider.GetRequiredService<LogServ>(); var bedcaClient = new BEDCAClient(new HttpClient(), logServ, context); var resultado = await bedcaClient.Importador(); var importedCount = context.foods.Count(f => f.source == "bedca"); if (importedCount == 0) throw new InvalidOperationException("La importación BEDCA terminó sin insertar ningún alimento."); logger.LogInformation("Importación inicial BEDCA completada correctamente: {Resultado}", resultado); } else logger.LogInformation("Catálogo BEDCA ya inicializado ({Count} alimentos). Se omite la importación.", bedcaCount); }
-                catch (Exception ex)
+                var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>();
+                var bedcaCount = context.foods.Count(f => f.source == "bedca");
+                var bedcaMarker = context.Database.SqlQueryRaw<string>(
+                    "SELECT id AS \"Value\" FROM schema_migrations WHERE id LIKE 'bedca-import-complete:%' ORDER BY applied_at DESC LIMIT 1")
+                    .SingleOrDefault();
+                var expectedBedcaCount = 0;
+                var hasValidMarker = bedcaMarker is not null &&
+                    int.TryParse(bedcaMarker["bedca-import-complete:".Length..], out expectedBedcaCount) &&
+                    expectedBedcaCount > 0 && expectedBedcaCount == bedcaCount;
+
+                if (!hasValidMarker)
                 {
-                    logger.LogError(ex, "La importación inicial BEDCA no se pudo completar. Se reintentará en el siguiente arranque.");
-                    await ApplicationAlertService.RecordAsync(
-                        scope.ServiceProvider.GetRequiredService<angulosodbContext>(),
-                        "warning",
-                        "bedca-import",
-                        "La importación inicial de alimentos no se completó",
-                        "El catálogo de alimentos todavía no está completo. La aplicación reintentará la importación en el siguiente arranque.",
-                        ex);
+                    logger.LogInformation(
+                        "BEDCA necesita inicialización o reparación (marker={Marker}, actual={Actual}). Importando los alimentos que falten.",
+                        bedcaMarker, bedcaCount);
+                    var logServ = scope.ServiceProvider.GetRequiredService<LogServ>();
+                    var bedcaClient = new BEDCAClient(new HttpClient(), logServ, context);
+                    var resultado = await bedcaClient.Importador();
+                    bedcaCount = context.foods.Count(f => f.source == "bedca");
+                    if (bedcaCount == 0)
+                        throw new InvalidOperationException("La importación BEDCA terminó sin insertar ningún alimento.");
+
+                    context.Database.ExecuteSqlRaw(
+                        "INSERT INTO schema_migrations(id) VALUES ('bedca-import-complete:" + bedcaCount + "') ON CONFLICT (id) DO NOTHING");
+                    logger.LogInformation("Catálogo BEDCA listo: {Count} alimentos. {Resultado}", bedcaCount, resultado);
+                }
+                else
+                {
+                    logger.LogInformation("Catálogo BEDCA verificado: {Count} alimentos.", bedcaCount);
                 }
             }
         }
