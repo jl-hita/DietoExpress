@@ -421,7 +421,8 @@ public class DietValidationService
     {
         var violations = new List<DietValidationResultDto>();
         var type = (dietDto.DietType ?? string.Empty).ToLowerInvariant();
-        if (!type.Contains("vegan") && !type.Contains("vegetarian") || dietDto.Days == null) return violations;
+        var isKeto = DietSemanticValidationService.IsKetoDietType(dietDto.DietType);
+        if (!type.Contains("vegan") && !type.Contains("vegetarian") && !isKeto || dietDto.Days == null) return violations;
 
         var foodIds = new HashSet<int>();
         var recipeIds = new HashSet<int>();
@@ -442,6 +443,27 @@ public class DietValidationService
             .Where(i => recipeIds.Contains(i.recipe_id) && (!tenantId.HasValue || (i.recipe != null && i.recipe.tenant_id == tenantId.Value)))
             .Select(i => new { i.recipe_id, f = new { i.food.id, i.food.name, i.food.category, i.food.carbs, i.food.fat } })
             .ToListAsync();
+
+        if (isKeto)
+            foreach (var day in dietDto.Days)
+            {
+                double dayCarbs = 0;
+                foreach (var meal in day.Meals ?? new List<MealDto>())
+                foreach (var item in meal.Items ?? new List<MealItemDto>())
+                {
+                    // Si el alimento está en catálogo se recalcula desde sus datos, no desde el valor enviado por el cliente.
+                    dayCarbs += item.FoodId.HasValue && (item.Grams ?? 0) > 0 && foodsById.TryGetValue(item.FoodId.Value, out var f) && f.carbs.HasValue
+                        ? (double)item.Grams!.Value * f.carbs.Value / 100.0
+                        : (double)(item.Carbs ?? 0);
+                }
+                var error = DietSemanticValidationService.KetoCarbLimitError(day.DayIndex, dayCarbs);
+                if (error != null)
+                    violations.Add(new DietValidationResultDto
+                    {
+                        MealName = string.Empty, DayIndex = day.DayIndex, FoodName = string.Empty,
+                        AlertType = "KetoCarbLimit", Severity = "High", Message = error
+                    });
+            }
 
         foreach (var day in dietDto.Days)
         foreach (var meal in day.Meals ?? new List<MealDto>())

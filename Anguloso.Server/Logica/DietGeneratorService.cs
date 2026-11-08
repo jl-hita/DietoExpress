@@ -204,6 +204,18 @@ public class DietGeneratorService
                 ? await CalculateGramsFromKgAsync(client.id, sportsCarbs.Value, CalculateDefaultCarbs(targetKcal, targetProtein, targetFat), cancellationToken)
                 : CalculateDefaultCarbs(targetKcal, targetProtein, targetFat));
 
+        // Una pauta cetogénica no puede superar su tope de hidratos ni siquiera con un objetivo explícito mayor:
+        // se deja un 10 % de margen bajo el tope y la energía retirada se traslada a grasa.
+        if (DietSemanticValidationService.IsKetoDietType(request.DietType))
+        {
+            var ketoCarbCeiling = DietSemanticValidationService.KetoDailyCarbLimitGrams * 0.9;
+            if (targetCarbs > ketoCarbCeiling)
+            {
+                targetFat += (targetCarbs - ketoCarbCeiling) * 4.0 / 9.0;
+                targetCarbs = ketoCarbCeiling;
+            }
+        }
+
         // 3. Cargar un catálogo acotado de alimentos desde la BD.
         // No debemos traer toda la tabla a memoria: el catálogo puede crecer mucho
         // con las sincronizaciones de USDA/OpenFoodFacts y bloquear la generación.

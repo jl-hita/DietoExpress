@@ -249,6 +249,16 @@ public sealed class DietSemanticValidationService
         }
     }
 
+    /// <summary>Máximo diario de hidratos de una pauta cetogénica; es el valor que anuncia la interfaz («&lt;50 g de carbohidratos»).</summary>
+    public const double KetoDailyCarbLimitGrams = 50;
+
+    public static bool IsKetoDietType(string? dietType) => Normalize(dietType ?? string.Empty).Contains("cetogen");
+
+    public static string? KetoCarbLimitError(int dayIndex, double carbsGrams) =>
+        carbsGrams > KetoDailyCarbLimitGrams
+            ? $"Día {dayIndex + 1}: {carbsGrams:0.#} g de hidratos superan el máximo de {KetoDailyCarbLimitGrams:0} g de una pauta cetogénica."
+            : null;
+
     public static bool IsFoodCompatibleWithDietType(
         string? foodName,
         string? dietType,
@@ -294,6 +304,13 @@ public sealed class DietSemanticValidationService
         var vegetarian = type.Contains("vegetariana") && !vegan;
         var keto = type.Contains("cetogen");
         var lowCarb = type.Contains("baja") && type.Contains("carb");
+
+        if (keto)
+            foreach (var day in diet.Days)
+            {
+                var error = KetoCarbLimitError(day.DayIndex, day.Meals.SelectMany(m => m.Items).Sum(i => (double)(i.Carbs ?? 0)));
+                if (error != null) errors.Add(error);
+            }
 
         foreach (var day in diet.Days)
         foreach (var meal in day.Meals)
