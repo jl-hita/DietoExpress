@@ -151,7 +151,8 @@ public sealed class TrainingExerciseProgressionService
                                 exposures.Add(new(
                                     sets, completed, recoveryInsufficient, pain,
                                     ProgressionEligible: progressionEligibility.GetValueOrDefault(exerciseId),
-                                    HistoricalPrescription: historicalPrescription));
+                                    HistoricalPrescription: historicalPrescription,
+                                    SkippedSetReason: JsonString(exercise, "skippedSetReason")));
                             }
                         }
                     }
@@ -350,6 +351,7 @@ public sealed class TrainingExerciseProgressionService
         Anguloso.Server.Logica.TrainingExerciseProgressionAction.AddRepetitions => "add_repetitions",
         Anguloso.Server.Logica.TrainingExerciseProgressionAction.ConfirmTopOfRange => "confirm_top_of_range",
         Anguloso.Server.Logica.TrainingExerciseProgressionAction.StagnationReview => "stagnation_review",
+        Anguloso.Server.Logica.TrainingExerciseProgressionAction.ReduceLoad => "reduce_load",
         Anguloso.Server.Logica.TrainingExerciseProgressionAction.IncreaseLoad => "increase_load",
         // Unknown enum values must never become a positive load-progression recommendation.
         _ => "invalid_data"

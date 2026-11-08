@@ -171,7 +171,7 @@ public sealed class TrainingPortalController : ControllerBase
                 item.CompletedSets > item.PlannedSets ||
                 (item.CompletedSets < item.PlannedSets &&
                     (item.SkippedSetReason is null ||
-                     !IsAllowed(item.SkippedSetReason, "time", "fatigue", "equipment", "motivation", "illness", "pain", "other"))) ||
+                     !IsAllowed(item.SkippedSetReason, "time", "fatigue", "equipment", "motivation", "illness", "pain", "load_too_heavy", "other"))) ||
                 (item.CompletedSets == item.PlannedSets && item.SkippedSetReason is not null));
             if (invalidExerciseFeedback)
                 return BadRequest(new { message = "Revisa las series realizadas y el motivo de las series omitidas de cada ejercicio." });

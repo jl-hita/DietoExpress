@@ -37,6 +37,11 @@ public static class TrainingExerciseProgressionEngine
             return Recommendation(TrainingExerciseProgressionAction.InsufficientData,
                 "Todavía no hay una sesión con series registradas para este ejercicio.");
 
+        // Repeated failure at the same load is the signal that the prescribed weight was too high.
+        // It is checked before the generic "hold" rules because those exposures are usually incomplete.
+        var reduction = TryRecommendLoadReduction(prescription, exposures);
+        if (reduction is not null) return reduction;
+
         // An incomplete latest exposure is meaningful negative context. Do not skip it
         // and accidentally progress from an older, better session.
         if (!exposures[^1].SessionCompleted)
@@ -125,6 +130,60 @@ public static class TrainingExerciseProgressionEngine
             maximumIncreasePercent);
     }
 
+    // Internal product thresholds (not guideline figures): two consecutive failed exposures at the
+    // same load; if the estimate does not lower the load, fall back to a 5 % reduction.
+    private const int RequiredFailedExposuresForReduction = 2;
+    private const decimal FallbackReductionPercent = 5m;
+
+    /// <summary>
+    /// Detects "the prescribed weight was too high": the last two exposures used the same load and in
+    /// both the lifter either completed fewer sets than prescribed (for no external reason such as
+    /// time, equipment, illness, motivation or pain) or fell below the minimum of the rep range.
+    /// Session-level insufficient recovery and non-progressable (deload) exposures are excluded, since
+    /// they would confound the cause. The result is a suggestion; the professional or the lifter
+    /// decides. The new load comes from <see cref="TrainingLoadEstimator"/> (capped change).
+    /// </summary>
+    private static TrainingExerciseProgressionRecommendation? TryRecommendLoadReduction(
+        TrainingExerciseProgressionPrescription prescription,
+        IReadOnlyList<TrainingExerciseExposure> exposures)
+    {
+        if (exposures.Count < RequiredFailedExposuresForReduction) return null;
+        var recent = exposures.TakeLast(RequiredFailedExposuresForReduction).ToArray();
+        decimal? load = null;
+        foreach (var exposure in recent)
+        {
+            if (!exposure.ProgressionEligible || exposure.PainReported || exposure.RecoveryInsufficient ||
+                exposure.WorkingSets is null || exposure.WorkingSets.Count == 0)
+                return null;
+            var weights = exposure.WorkingSets.Select(set => set.WeightKg).Distinct().ToArray();
+            if (weights.Length != 1 || weights[0] is not > 0) return null;
+            if (load is not null && load != weights[0]) return null;
+            load = weights[0];
+
+            var completed = exposure.WorkingSets.Where(set => set.Completed).ToArray();
+            var belowMinimum = completed.Any(set => set.Repetitions is < 1 || set.Repetitions < prescription.MinRepetitions);
+            var incomplete = completed.Length < prescription.PlannedWorkingSets;
+            var reason = exposure.SkippedSetReason;
+            var reasonPointsToLoad = reason is null or "load_too_heavy" or "other";
+            if (!(belowMinimum || (incomplete && reasonPointsToLoad))) return null;
+        }
+
+        var current = load!.Value;
+        var increment = prescription.SmallestLoadIncrementKg ?? TrainingLoadEstimator.DefaultLoadIncrementKg;
+        var lastCompleted = recent[^1].WorkingSets.Where(set => set.Completed).ToArray();
+        var suggested = TrainingLoadEstimator.Suggest(
+            lastCompleted, prescription.MinRepetitions, prescription.MaxRepetitions, prescription.TargetRir, increment)?.LoadKg;
+        if (suggested is null || suggested >= current)
+            suggested = TrainingLoadEstimator.Round(current * (1 - FallbackReductionPercent / 100m), increment);
+        if (suggested >= current)
+            suggested = Math.Max(increment, current - increment);
+        return new(
+            TrainingExerciseProgressionAction.ReduceLoad,
+            $"En las dos últimas exposiciones con {current:0.##} kg no se completó el trabajo prescrito (series o mínimo de repeticiones). " +
+            $"Es probable que la carga fuera demasiado alta: reduce a unos {suggested:0.##} kg en la próxima sesión y vuelve a progresar desde ahí. Revísalo con tu profesional si hay dolor o fatiga.",
+            suggested, current - suggested, Enumerable.Repeat(prescription.MinRepetitions, prescription.PlannedWorkingSets).ToArray(), null);
+    }
+
     private static bool HasStagnated(
         TrainingExerciseProgressionPrescription prescription,
         IReadOnlyList<TrainingExerciseExposure> exposures)
@@ -169,7 +228,7 @@ public static class TrainingExerciseProgressionEngine
                 "La prescripción de este ejercicio cambió entre exposiciones (series, rango o RIR). Espera a registrar una sesión con la prescripción actual antes de progresar.");
 
         if (exposure.WorkingSets is null || exposure.WorkingSets.Count != prescription.PlannedWorkingSets)
-            return ExposureAnalysis.Failure("El número de series efectivas registradas no coincide con las prescritas.");
+            return ExposureAnalysis.Failure("El número de series efectivas registradas no coincide con las prescritas. Si no pudiste completarlas, indica el motivo (por ejemplo, «peso demasiado alto») para que el sistema pueda ajustar la carga.");
 
         var sets = exposure.WorkingSets;
         if (sets.Any(x => !string.Equals(x.Kind, "working", StringComparison.Ordinal) ||
@@ -243,7 +302,8 @@ public sealed record TrainingExerciseExposure(
     bool RecoveryInsufficient = false,
     bool PainReported = false,
     bool ProgressionEligible = true,
-    TrainingExerciseProgressionPrescriptionSnapshot? HistoricalPrescription = null);
+    TrainingExerciseProgressionPrescriptionSnapshot? HistoricalPrescription = null,
+    string? SkippedSetReason = null);
 
 public sealed record TrainingExerciseProgressionPrescriptionSnapshot(
     int? PlannedWorkingSets,
@@ -268,7 +328,8 @@ public enum TrainingExerciseProgressionAction
     AddRepetitions,
     ConfirmTopOfRange,
     IncreaseLoad,
-    StagnationReview
+    StagnationReview,
+    ReduceLoad
 }
 
 public sealed record TrainingExerciseProgressionRecommendation(
