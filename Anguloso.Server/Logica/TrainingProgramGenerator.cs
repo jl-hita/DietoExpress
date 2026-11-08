@@ -90,7 +90,7 @@ public static class TrainingProgramGenerator
                     // Prefer a different exercise elsewhere in this week's plan when possible.
                     // Never penalize an exercise for being selected in previous weeks: continuity
                     // across a mesocycle supports progression and performance tracking.
-                    var candidate = compatibleCandidates
+                    var candidate = RotateCuratedPool(compatibleCandidates, request.RotationIndex)
                         .FirstOrDefault(x => !selectedThisWeek.Contains(x.ExerciseId))
                         ?? compatibleCandidates.FirstOrDefault();
 
@@ -136,9 +136,10 @@ public static class TrainingProgramGenerator
         if (!allocation.Succeeded)
             return new(null, allocation.Errors);
 
+        var sessionsWithWarmups = AddWarmupGuidance(allocation.Sessions);
         var prescribedSessions = request.IsDeload
-            ? ApplyConservativeDeload(allocation.Sessions)
-            : ApplyIntraBlockProgression(allocation.Sessions, request.DurationWeeks);
+            ? ApplyConservativeDeload(sessionsWithWarmups)
+            : ApplyIntraBlockProgression(sessionsWithWarmups, request.DurationWeeks);
         var plan = new TrainingProgramPrescription(
             "0.9.0",
             request.Goal.ToString(),
@@ -203,6 +204,67 @@ public static class TrainingProgramGenerator
             };
         }).ToArray();
     }
+
+    // A pattern keeps at most this many "best fit" exercises in its rotation pool, and only those
+    // whose curated SelectionPriority is within PoolPriorityWindow points of the best one.
+    // Internal product criteria (not literature thresholds): rotation must never reach a clearly
+    // worse exercise just to add variety.
+    private const int RotationPoolSize = 3;
+    private const int PoolPriorityWindow = 20;
+
+    /// <summary>
+    /// Orders candidates so that rotation moves among the few best-suited exercises of a pattern.
+    /// Index 0 returns the original priority order (previous behaviour). Each higher index starts
+    /// one position later in the pool, so successive mesocycles use different but equally suitable
+    /// exercises while the exercises stay constant inside one block (progression needs continuity).
+    /// Candidates outside the pool keep their order after the pool, as a fallback only.
+    /// </summary>
+    private static IReadOnlyList<TrainingExerciseCandidate> RotateCuratedPool(
+        IReadOnlyList<TrainingExerciseCandidate> orderedByPriority, int rotationIndex)
+    {
+        if (orderedByPriority.Count < 2 || rotationIndex <= 0) return orderedByPriority;
+        var best = orderedByPriority[0].SelectionPriority;
+        var pool = orderedByPriority.Take(RotationPoolSize)
+            .Where(candidate => best - candidate.SelectionPriority <= PoolPriorityWindow).ToList();
+        var offset = rotationIndex % pool.Count;
+        return pool.Skip(offset).Concat(pool.Take(offset)).Concat(orderedByPriority.Skip(pool.Count)).ToArray();
+    }
+
+    /// <summary>
+    /// Adds warm-up guidance without touching working volume. An exercise gets one or two very easy
+    /// approach sets only when it trains a primary muscle that no earlier exercise of the session
+    /// already worked as a primary mover (e.g. bench press -> cable fly: the chest is already warm,
+    /// but lateral raises still need their own). The session's first exercise gets two sets, the rest
+    /// one. Core-only exercises are skipped. These sets are not counted in weekly volume and their
+    /// time is covered by the fixed warm-up/transition allowance of the session estimate.
+    /// This is an internal product convention, not a figure taken from a guideline.
+    /// </summary>
+    public static IReadOnlyList<TrainingSessionPrescription> AddWarmupGuidanceForTesting(
+        IReadOnlyList<TrainingSessionPrescription> sessions) => AddWarmupGuidance(sessions);
+
+    private static IReadOnlyList<TrainingSessionPrescription> AddWarmupGuidance(
+        IReadOnlyList<TrainingSessionPrescription> sessions) =>
+        sessions.Select(session =>
+        {
+            var warmed = new HashSet<TrainingMuscleGroup>();
+            var isFirst = true;
+            var exercises = session.Exercises.OrderBy(exercise => exercise.Order).Select(exercise =>
+            {
+                var coreOnly = exercise.PrimaryMuscleGroups.All(muscle =>
+                    muscle is TrainingMuscleGroup.Abdominals or TrainingMuscleGroup.Obliques);
+                var cold = exercise.PrimaryMuscleGroups.Where(muscle => !warmed.Contains(muscle)).ToArray();
+                warmed.UnionWith(exercise.PrimaryMuscleGroups);
+                if (coreOnly || cold.Length == 0) return exercise;
+                var sets = isFirst ? 2 : 1;
+                isFirst = false;
+                return exercise with
+                {
+                    WarmupSets = sets,
+                    WarmupNote = $"Haz {sets} serie(s) de aproximación muy fáciles y lejos del fallo antes de las series de trabajo, para preparar {string.Join(", ", cold)}. No cuentan como series de trabajo."
+                };
+            }).ToArray();
+            return session with { Exercises = exercises };
+        }).ToArray();
 
     private static IReadOnlyList<TrainingSessionPrescription> ApplyConservativeDeload(
         IReadOnlyList<TrainingSessionPrescription> sessions) =>
@@ -732,7 +794,8 @@ public sealed record TrainingProgramGenerationRequest(
     IReadOnlyList<string> ExcludedExerciseIds,
     IReadOnlyList<TrainingMuscleVolumeTarget>? MuscleVolumeTargets = null,
     bool IsDeload = false,
-    TrainingProgramSplit Split = TrainingProgramSplit.Automatic);
+    TrainingProgramSplit Split = TrainingProgramSplit.Automatic,
+    int RotationIndex = 0);
 
 public sealed record TrainingExerciseCandidate(
     string ExerciseId,
