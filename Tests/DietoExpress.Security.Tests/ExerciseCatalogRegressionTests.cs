@@ -188,7 +188,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("ON CONFLICT (exercise_id) DO UPDATE", service);
         Assert.Contains("exercise-catalog-repdb-spanish-reset-v2", service);
         Assert.Contains("DELETE FROM exercise_catalog", service);
-        Assert.Contains("replaceExisting: true, markBootstrapComplete: true", service);
+        Assert.Contains("replaceRepDbOnly: true, markBootstrapComplete: true, markIdealCatalogComplete: true", service);
         Assert.Contains("name_es", service);
         Assert.Contains("instructions_es", service);
         Assert.Contains("ResetLegacyAutoReviewsAsync", service);
@@ -568,7 +568,7 @@ public sealed class ExerciseCatalogRegressionTests
     public void IdealCatalogBootstrapPreservesHumanReviewsAndProfessionalContributions()
     {
         var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ExerciseCatalogService.cs"));
-        Assert.Contains("exercise-catalog-ideal-strength-hypertrophy-v1", service);
+        Assert.Contains("exercise-catalog-ideal-strength-hypertrophy-v2", service);
         Assert.Contains("replaceRepDbOnly: true", service);
         Assert.Contains("DELETE FROM exercise_catalog", service);
         Assert.Contains("reviewed_by IS NULL OR reviewed_by LIKE 'RepDB automatic metadata%'", service);
