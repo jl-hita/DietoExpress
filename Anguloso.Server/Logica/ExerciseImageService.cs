@@ -171,6 +171,146 @@ public sealed class ExerciseImageService
         return null;
     }
 
+    // ---- Deployment seed (a file OUTSIDE git that carries our stored pictures to any server) ----
+
+    public sealed record SeedRow(string ExerciseId, int Slot, string Source, string Sha256, string DataBase64);
+
+    /// <summary>Validates one JSON line of the seed: size, magic bytes and checksum must all match.</summary>
+    public static bool TryParseSeedLine(string line, out SeedRow? row, out byte[] data)
+    {
+        row = null;
+        data = [];
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<SeedRow>(line);
+            if (parsed is null || string.IsNullOrWhiteSpace(parsed.ExerciseId) || parsed.ExerciseId.Length > 100 ||
+                parsed.Slot is < 0 or > MaximumSlot || parsed.Source is not ("repdb-free" or "custom"))
+                return false;
+            var bytes = Convert.FromBase64String(parsed.DataBase64);
+            if (bytes.Length == 0 || bytes.Length > MaximumImageBytes || DetectImageContentType(bytes) is null) return false;
+            if (!string.Equals(Convert.ToHexString(SHA256.HashData(bytes)), parsed.Sha256, StringComparison.OrdinalIgnoreCase))
+                return false;
+            row = parsed;
+            data = bytes;
+            return true;
+        }
+        catch (Exception exception) when (exception is JsonException or FormatException) { return false; }
+    }
+
+    /// <summary>
+    /// Loads a gzip JSON-lines seed produced by <see cref="ExportSeedAsync"/>. Existing rows are never
+    /// overwritten (custom uploads win), invalid lines are skipped and counted. Missing file = no-op.
+    /// </summary>
+    public async Task<(int Imported, int Skipped)> ImportSeedAsync(string path, CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(path)) return (0, 0);
+        await EnsureSchemaAsync(cancellationToken);
+        int imported = 0, skipped = 0;
+        await using var file = File.OpenRead(path);
+        await using var gzip = new System.IO.Compression.GZipStream(file, System.IO.Compression.CompressionMode.Decompress);
+        using var reader = new StreamReader(gzip);
+        string? line;
+        while ((line = await reader.ReadLineAsync(cancellationToken)) is not null)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            if (!TryParseSeedLine(line, out var row, out var bytes) || row is null) { skipped++; continue; }
+            var type = DetectImageContentType(bytes)!;
+            var exists = false;
+            await WithConnectionAsync(async connection =>
+            {
+                await using var check = new NpgsqlCommand("SELECT 1 FROM exercise_images WHERE exercise_id = @id AND slot = @slot", connection);
+                check.Parameters.AddWithValue("id", row.ExerciseId);
+                check.Parameters.AddWithValue("slot", (short)row.Slot);
+                exists = await check.ExecuteScalarAsync(cancellationToken) is not null;
+            });
+            if (exists) continue;
+            await StoreAsync(row.ExerciseId, row.Slot, bytes, type, row.Source, null, overwrite: false, cancellationToken);
+            imported++;
+        }
+        return (imported, skipped);
+    }
+
+    /// <summary>Writes every stored picture as a gzip JSON-lines seed (for superadmins preparing a deployment).</summary>
+    public async Task<int> ExportSeedAsync(Stream output, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        var count = 0;
+        await using var gzip = new System.IO.Compression.GZipStream(output, System.IO.Compression.CompressionLevel.Optimal, leaveOpen: true);
+        await using var writer = new StreamWriter(gzip, new System.Text.UTF8Encoding(false));
+        await WithConnectionAsync(async connection =>
+        {
+            await using var command = new NpgsqlCommand(
+                "SELECT exercise_id, slot, source, sha256, data FROM exercise_images ORDER BY exercise_id, slot", connection);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var row = new SeedRow(reader.GetString(0), reader.GetInt16(1), reader.GetString(2), reader.GetString(3).Trim(),
+                    Convert.ToBase64String((byte[])reader[4]));
+                await writer.WriteLineAsync(JsonSerializer.Serialize(row));
+                count++;
+            }
+        });
+        await writer.FlushAsync(cancellationToken);
+        return count;
+    }
+
+    /// <summary>
+    /// Copies, one at a time and politely, every RepDB picture the catalog points to and we do not have
+    /// yet. Runs in the background after start-up; aborts after 10 consecutive failures (host down).
+    /// </summary>
+    public async Task<(int Copied, int Failed)> PrefetchMissingAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        var pending = new List<(string Id, int Slot)>();
+        await WithConnectionAsync(async connection =>
+        {
+            var stored = new HashSet<(string, int)>();
+            await using (var storedCommand = new NpgsqlCommand("SELECT exercise_id, slot FROM exercise_images", connection))
+            await using (var storedReader = await storedCommand.ExecuteReaderAsync(cancellationToken))
+                while (await storedReader.ReadAsync(cancellationToken)) stored.Add((storedReader.GetString(0), storedReader.GetInt16(1)));
+            await using var catalog = new NpgsqlCommand(
+                "SELECT exercise_id, images::text FROM exercise_catalog WHERE source = 'repdb-free' ORDER BY exercise_id", connection);
+            await using var reader = await catalog.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+                foreach (var slot in ResolveRepDbSlotPaths(reader.GetString(1)).Keys)
+                    if (!stored.Contains((reader.GetString(0), slot))) pending.Add((reader.GetString(0), slot));
+        });
+
+        int copied = 0, failed = 0, consecutiveFailures = 0;
+        foreach (var (id, slot) in pending)
+        {
+            if (cancellationToken.IsCancellationRequested || consecutiveFailures >= 10) break;
+            var image = await GetImageAsync(id, slot, cancellationToken);
+            if (image is null) { failed++; consecutiveFailures++; }
+            else { copied++; consecutiveFailures = 0; }
+            await Task.Delay(100, CancellationToken.None);
+        }
+        return (copied, failed);
+    }
+
+    /// <summary>Approved catalog exercises that have no picture at all (stored or derivable). For the superadmin to complete.</summary>
+    public async Task<IReadOnlyList<(string ExerciseId, string Name, string Source)>> GetExercisesWithoutImagesAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        var result = new List<(string, string, string)>();
+        await WithConnectionAsync(async connection =>
+        {
+            await using var command = new NpgsqlCommand("""
+                SELECT c.exercise_id, COALESCE(c.name_es, c.name_en), c.source,
+                       CASE WHEN c.source = 'repdb-free' THEN c.images::text END
+                FROM exercise_catalog c
+                WHERE c.review_status = 'approved'
+                  AND NOT EXISTS (SELECT 1 FROM exercise_images i WHERE i.exercise_id = c.exercise_id)
+                ORDER BY c.exercise_id
+                """, connection);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+                if (ResolveRepDbSlotPaths(reader.IsDBNull(3) ? null : reader.GetString(3)).Count == 0)
+                    result.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2)));
+        });
+        return result;
+    }
+
     /// <summary>A superadmin can manage any catalog exercise; others only the contributions they own.</summary>
     public async Task<bool> CanManageAsync(string exerciseId, int userId, bool isSuperAdmin, CancellationToken cancellationToken = default)
     {

@@ -161,6 +161,24 @@ public sealed class ExerciseCatalogController : ControllerBase
 
     // ---- Pictures stored in our backend (no third-party hosts) ----
 
+    /// <summary>Superadmin: gzip JSON-lines seed with every stored picture, to import in any other server (kept outside git).</summary>
+    [HttpGet("images/seed")]
+    [Authorize(Roles = "superadmin")]
+    public async Task<IActionResult> DownloadImageSeed(CancellationToken cancellationToken)
+    {
+        var buffer = new MemoryStream();
+        await _images.ExportSeedAsync(buffer, cancellationToken);
+        buffer.Position = 0;
+        return File(buffer, "application/gzip", "exercise-images-seed.jsonl.gz");
+    }
+
+    /// <summary>Superadmin: approved exercises that still have no picture (to upload one with PUT {id}/images/{slot}).</summary>
+    [HttpGet("images/missing")]
+    [Authorize(Roles = "superadmin")]
+    public async Task<IActionResult> ExercisesWithoutImages(CancellationToken cancellationToken) =>
+        Ok((await _images.GetExercisesWithoutImagesAsync(cancellationToken))
+            .Select(item => new { exerciseId = item.ExerciseId, name = item.Name, source = item.Source }));
+
     [HttpGet("{id}/images/{slot:int}")]
     public async Task<IActionResult> GetImage(string id, int slot, CancellationToken cancellationToken)
     {

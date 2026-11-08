@@ -248,6 +248,26 @@ builder.Services.AddScoped<SupportEnhancementService>();
                 // Correcciones versionadas de calidad (vocabulario, material, nombres). Un fallo aquí no debe impedir el arranque.
                 try { await ExerciseCatalogCorrectionsSeeder.EnsureAppliedAsync((Npgsql.NpgsqlConnection)context.Database.GetDbConnection(), logger); }
                 catch (Exception correctionsEx) { logger.LogError(correctionsEx, "No se pudieron aplicar las correcciones del catálogo de ejercicios; se reintentarán en el siguiente arranque."); }
+                // Pictures, after the catalog upsert: first the deployment seed file (outside git), then a background
+                // copy of any RepDB picture still missing. Never blocks or fails the start-up.
+                try
+                {
+                    var imageService = scope.ServiceProvider.GetRequiredService<ExerciseImageService>();
+                    var seedPath = builder.Configuration["ExerciseImages:SeedPath"] ?? Path.Combine(app.Environment.ContentRootPath, "seed", "exercise-images-seed.jsonl.gz");
+                    var (seeded, seedSkipped) = await imageService.ImportSeedAsync(seedPath);
+                    if (seeded + seedSkipped > 0) logger.LogInformation("Semilla de imágenes de ejercicios: {Imported} importadas, {Skipped} omitidas.", seeded, seedSkipped);
+                    app.Lifetime.ApplicationStarted.Register(() => _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            using var imageScope = app.Services.CreateScope();
+                            var (copied, failed) = await imageScope.ServiceProvider.GetRequiredService<ExerciseImageService>().PrefetchMissingAsync(app.Lifetime.ApplicationStopping);
+                            logger.LogInformation("Imágenes de ejercicios copiadas en segundo plano: {Copied} nuevas, {Failed} fallidas.", copied, failed);
+                        }
+                        catch (Exception prefetchEx) { logger.LogWarning(prefetchEx, "No se pudieron copiar en segundo plano las imágenes de ejercicios; se reintentará en el siguiente arranque."); }
+                    }));
+                }
+                catch (Exception imagesEx) { logger.LogWarning(imagesEx, "No se pudo importar la semilla de imágenes de ejercicios."); }
                 var patientTemplateSeeder = scope.ServiceProvider.GetRequiredService<PatientDocumentTemplateSeeder>();
                 await patientTemplateSeeder.SeedAllTenantsAsync();
                 // Una vez disponible el esquema, recuperamos incidencias que pudieron producirse con PostgreSQL caído.

@@ -51,3 +51,45 @@ public sealed class ExerciseImageServiceTests
         Assert.Contains("RepDbImageHost = \"https://exercise-dataset.com/\"", service);
     }
 }
+
+public sealed class ExerciseImageSeedTests
+{
+    private static string Line(byte[] data, string? sha = null, string source = "repdb-free", int slot = 0, string id = "db-fly") =>
+        System.Text.Json.JsonSerializer.Serialize(new ExerciseImageService.SeedRow(
+            id, slot, source, sha ?? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data)).ToLowerInvariant(),
+            Convert.ToBase64String(data)));
+
+    private static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3];
+
+    [Fact]
+    public void ValidLineIsAccepted()
+    {
+        Assert.True(ExerciseImageService.TryParseSeedLine(Line(Png), out var row, out var data));
+        Assert.Equal("db-fly", row!.ExerciseId);
+        Assert.Equal(Png, data);
+    }
+
+    [Fact]
+    public void ChecksumMismatchUnknownContentBadSourceSlotOrJsonAreRejected()
+    {
+        Assert.False(ExerciseImageService.TryParseSeedLine(Line(Png, sha: new string('0', 64)), out _, out _));
+        Assert.False(ExerciseImageService.TryParseSeedLine(Line("<svg/>"u8.ToArray()), out _, out _));
+        Assert.False(ExerciseImageService.TryParseSeedLine(Line(Png, source: "other"), out _, out _));
+        Assert.False(ExerciseImageService.TryParseSeedLine(Line(Png, slot: 9), out _, out _));
+        Assert.False(ExerciseImageService.TryParseSeedLine("not json", out _, out _));
+        Assert.False(ExerciseImageService.TryParseSeedLine("{}", out _, out _));
+    }
+
+    [Fact]
+    public void SeedFilesAreNeverCommittedAndStartupImportsThemAfterTheCatalogUpsert()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Anguloso.sln"))) dir = dir.Parent;
+        var gitignore = File.ReadAllText(Path.Combine(dir!.FullName, ".gitignore"));
+        Assert.Contains("*.jsonl.gz", gitignore);
+        var program = File.ReadAllText(Path.Combine(dir.FullName, "Anguloso.Server", "Program.cs"));
+        Assert.True(program.IndexOf("ExerciseCatalogAdditionsSeeder.UpsertAsync", StringComparison.Ordinal) <
+                    program.IndexOf("imageService.ImportSeedAsync", StringComparison.Ordinal));
+        Assert.Contains("ApplicationStarted.Register", program);
+    }
+}
