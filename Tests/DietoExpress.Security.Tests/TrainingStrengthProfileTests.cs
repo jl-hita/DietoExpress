@@ -51,4 +51,13 @@ public sealed class TrainingStrengthProfileTests
         var plan = TrainingBlockProgressionTests.Generate(2, TrainingGoal.Strength, 3, 60, TrainingExperience.Advanced);
         Assert.All(plan.Sessions, s => Assert.InRange(s.EstimatedDurationMinutes, 1, 60));
     }
+
+    [Fact]
+    public void FiveDayPushPullLegsWarnsThatLegsAreTrainedOnlyOncePerWeek()
+    {
+        var plan = TrainingBlockProgressionTests.Generate(
+            1, TrainingGoal.Hypertrophy, 5, 90, TrainingExperience.Intermediate, TrainingProgramSplit.PushPullLegs);
+        Assert.Contains(plan.QualityReport!.Warnings, warning =>
+            warning.Contains("Quadriceps", StringComparison.Ordinal) && warning.Contains("1 sesión", StringComparison.Ordinal));
+    }
 }

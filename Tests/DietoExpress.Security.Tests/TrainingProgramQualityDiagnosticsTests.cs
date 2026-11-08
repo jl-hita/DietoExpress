@@ -81,7 +81,7 @@ public sealed class TrainingProgramQualityDiagnosticsTests
     }
 
     [Fact]
-    public void HypertrophyDoesNotReceiveStrengthSpecificFrequencyWarnings()
+    public void HypertrophyAndGeneralFitnessAlsoWarnAboutSingleWeeklyExposure()
     {
         var plan = Plan("Hypertrophy",
             Session(1, DayOfWeek.Monday, "Torso",
@@ -89,8 +89,16 @@ public sealed class TrainingProgramQualityDiagnosticsTests
 
         var report = TrainingProgramQualityAnalyzer.Analyze(plan);
 
-        Assert.DoesNotContain(report.Warnings, warning =>
+        Assert.Contains(report.Warnings, warning =>
             warning.Contains("dos días por semana", StringComparison.Ordinal));
+
+        foreach (var goal in new[] { "GeneralFitness" })
+            Assert.Contains(TrainingProgramQualityAnalyzer.Analyze(Plan(goal, plan.Sessions.ToArray())).Warnings,
+                warning => warning.Contains("Chest", StringComparison.Ordinal) && warning.Contains("dos días por semana", StringComparison.Ordinal));
+
+        // Manual single-session previews must not be flagged: they only show one isolated session.
+        Assert.DoesNotContain(TrainingProgramQualityAnalyzer.Analyze(Plan("Manual", plan.Sessions.ToArray())).Warnings,
+            warning => warning.Contains("dos días por semana", StringComparison.Ordinal));
     }
 
     [Fact]

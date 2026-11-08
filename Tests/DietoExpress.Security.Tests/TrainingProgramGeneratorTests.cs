@@ -1135,10 +1135,12 @@ public sealed class TrainingProgramGeneratorTests
     [Theory]
     [InlineData(TrainingProgramSplit.FullBody, 2, "Cuerpo completo")]
     [InlineData(TrainingProgramSplit.FullBody, 3, "Cuerpo completo")]
+    [InlineData(TrainingProgramSplit.FullBody, 4, "Cuerpo completo")]
     [InlineData(TrainingProgramSplit.UpperLower, 2, "Tren superior")]
     [InlineData(TrainingProgramSplit.UpperLower, 4, "Tren superior")]
     [InlineData(TrainingProgramSplit.PushPullLegs, 3, "Empuje")]
     [InlineData(TrainingProgramSplit.PushPullLegs, 6, "Empuje")]
+    [InlineData(TrainingProgramSplit.PushPullLegs, 5, "Empuje")]
     public void GeneratorHonorsSelectedWeeklySplit(TrainingProgramSplit split, int dayCount, string expectedTitlePrefix)
     {
         var days = new[]
@@ -1167,7 +1169,7 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Theory]
-    [InlineData(TrainingProgramSplit.FullBody, 4)]
+    [InlineData(TrainingProgramSplit.FullBody, 5)]
     [InlineData(TrainingProgramSplit.UpperLower, 3)]
     [InlineData(TrainingProgramSplit.PushPullLegs, 4)]
     [InlineData(TrainingProgramSplit.Automatic, 5)]
