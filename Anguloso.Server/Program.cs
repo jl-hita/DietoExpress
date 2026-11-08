@@ -208,6 +208,29 @@ builder.Services.AddScoped<SupportEnhancementService>();
                 var syncResult = await exerciseCatalog.EnsureSeededAsync();
                 if (syncResult is not null)
                     logger.LogInformation("RepDB exercise catalog initialized with {Count} records.", syncResult.ImportedCount);
+                // Ejercicios básicos ausentes del catálogo RepDB: se importan si faltan y se actualizan si hay una versión nueva (upsert idempotente).
+                try
+                {
+                    var exerciseConnection = (Npgsql.NpgsqlConnection)context.Database.GetDbConnection();
+                    var curatedExerciseCount = await ExerciseCatalogAdditionsSeeder.CountExistingAsync(exerciseConnection);
+                    if (curatedExerciseCount == 0)
+                    {
+                        logger.LogInformation("No se han encontrado ejercicios curados de DietoExpress. Iniciando importación inicial...");
+                        var exerciseResult = await ExerciseCatalogAdditionsSeeder.UpsertAsync(exerciseConnection, logger);
+                        var importedExercises = await ExerciseCatalogAdditionsSeeder.CountExistingAsync(exerciseConnection);
+                        if (importedExercises == 0) throw new InvalidOperationException("La importación de ejercicios curados terminó sin insertar ningún ejercicio.");
+                        logger.LogInformation("Importación inicial de ejercicios curados completada correctamente: {Resultado}", exerciseResult);
+                    }
+                    else
+                    {
+                        var exerciseResult = await ExerciseCatalogAdditionsSeeder.UpsertAsync(exerciseConnection, logger);
+                        if (exerciseResult.Inserted + exerciseResult.Updated > 0)
+                            logger.LogInformation("Catálogo de ejercicios curados actualizado: {Resultado}", exerciseResult);
+                        else
+                            logger.LogInformation("Catálogo de ejercicios curados ya inicializado ({Count} ejercicios). Se omite la importación.", curatedExerciseCount);
+                    }
+                }
+                catch (Exception additionsEx) { logger.LogError(additionsEx, "La importación de ejercicios curados no se pudo completar. Se reintentará en el siguiente arranque."); }
                 // Correcciones versionadas de calidad (vocabulario, material, nombres). Un fallo aquí no debe impedir el arranque.
                 try { await ExerciseCatalogCorrectionsSeeder.EnsureAppliedAsync((Npgsql.NpgsqlConnection)context.Database.GetDbConnection(), logger); }
                 catch (Exception correctionsEx) { logger.LogError(correctionsEx, "No se pudieron aplicar las correcciones del catálogo de ejercicios; se reintentarán en el siguiente arranque."); }
