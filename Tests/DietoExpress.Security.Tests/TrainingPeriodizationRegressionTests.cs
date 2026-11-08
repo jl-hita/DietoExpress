@@ -102,7 +102,7 @@ public sealed class TrainingPeriodizationRegressionTests
         var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingProgramGenerator.cs"));
 
         Assert.Contains("[HttpPost(\"plans/{planId:int}/generate-mesocycle\")]", controller);
-        Assert.Contains("TrainingProgramGenerator.Generate(request.Generation, candidates)", controller);
+        Assert.Contains("TrainingProgramGenerator.Generate(generation, candidates)", controller);
         Assert.Contains("BeginTransactionAsync(cancellationToken)", controller);
         Assert.Contains("INSERT INTO training_mesocycles", controller);
         Assert.Contains("INSERT INTO training_microcycles", controller);
