@@ -1282,7 +1282,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
             }
 
             var applied = 0;
-            if (request.Decision == "approved" && action == "review_and_reduce_training_stress")
+            if (request.Decision == "approved" && action == "review_and_reduce_training_stress" &&
+                request.TargetExerciseIds is { Count: > 0 })
             {
                 var allowedExerciseIds = (await GetExerciseVolumeRecommendationsAsync(planId, cancellationToken, transaction))
                     .Where(item => item.Action == TrainingExerciseVolumeAction.ProposeReduceOneSet)
@@ -1296,6 +1297,37 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 }
                 applied = await ReduceFutureSessionVolumeAsync(planId, proposalId,
                     requestedExerciseIds, transaction, cancellationToken);
+            }
+            else if (request.Decision == "approved" && action == "restore_volume")
+            {
+                var restorable = (await GetExerciseVolumeRecommendationsAsync(planId, cancellationToken, transaction))
+                    .Where(item => item.Action == TrainingExerciseVolumeAction.ProposeRestoreOneSet)
+                    .Select(item => item.ExerciseId)
+                    .ToHashSet(StringComparer.Ordinal);
+                var requestedIds = (request.TargetExerciseIds ?? Array.Empty<string>()).Count == 0
+                    ? restorable
+                    : request.TargetExerciseIds!.ToHashSet(StringComparer.Ordinal);
+                if (requestedIds.Any(id => !restorable.Contains(id)))
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    return BadRequest(new { message = "Solo se pueden restaurar ejercicios con una recomendación vigente basada en sus registros recientes." });
+                }
+                applied = await RewriteFutureSessionsAsync(planId, 3,
+                    $"Adaptación aprobada por profesional (propuesta #{proposalId}): se recupera una serie previamente reducida (sin superar la dosis original).",
+                    transaction, cancellationToken,
+                    json => TrainingAdaptationPrescriptionAdjuster.TryRestoreSets(json, requestedIds, out var updated, out var legacy, out _)
+                        ? (true, updated, legacy) : (false, json, string.Empty));
+            }
+            else if (request.Decision == "approved" && action == "review_and_reduce_training_stress" &&
+                     (request.TargetExerciseIds is null || request.TargetExerciseIds.Count == 0))
+            {
+                // Repeated low recovery with no culprit exercise: lower intensity (one more rep in
+                // reserve) in the next three sessions instead of leaving the signal without effect.
+                applied = await RewriteFutureSessionsAsync(planId, 3,
+                    $"Adaptación aprobada por profesional (propuesta #{proposalId}): una repetición más en reserva (RIR +1, máximo 5) durante las próximas tres sesiones por recuperación insuficiente repetida.",
+                    transaction, cancellationToken,
+                    json => TrainingAdaptationPrescriptionAdjuster.TryRaiseReserve(json, out var updated, out var legacy)
+                        ? (true, updated, legacy) : (false, json, string.Empty));
             }
             else if (request.Decision == "approved" && action == "hold_progression_and_review")
                 applied = await HoldFutureSessionProgressionAsync(planId, proposalId, transaction, cancellationToken);
@@ -2218,6 +2250,50 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 foreach (var exerciseId in reducedExerciseIds)
                     remainingReductions[exerciseId] = Math.Max(0, remainingReductions[exerciseId] - 1);
             }
+        }
+        return changed;
+    }
+
+    /// <summary>
+    /// Rewrites up to <paramref name="maxSessions"/> future, still-unrecorded sessions of an active plan
+    /// with a pure JSON transformation (reserve raise, set restoration). Completed history is never
+    /// touched and only an approved proposal reaches this code.
+    /// </summary>
+    private async Task<int> RewriteFutureSessionsAsync(
+        int planId, int maxSessions, string note, NpgsqlTransaction transaction, CancellationToken cancellationToken,
+        Func<string, (bool Changed, string Json, string Legacy)> rewrite)
+    {
+        var rows = new List<(int Id, string Json, string? Instructions)>();
+        await using (var select = CreateCommand("""
+            SELECT s.id, s.exercise_prescription_data::text, s.instructions
+            FROM training_sessions s
+            JOIN training_plans p ON p.id = s.plan_id AND p.status = 'active'
+            WHERE s.plan_id = @planId AND s.scheduled_date > CURRENT_DATE AND s.status = 'planned'
+              AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
+              AND s.exercise_prescription_data IS NOT NULL
+            ORDER BY s.scheduled_date, s.id FOR UPDATE
+            """, transaction, ("planId", planId)))
+        await using (var reader = await select.ExecuteReaderAsync(cancellationToken))
+            while (await reader.ReadAsync(cancellationToken))
+                rows.Add((reader.GetInt32(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2)));
+
+        var changed = 0;
+        foreach (var row in rows)
+        {
+            if (changed >= maxSessions) break;
+            var (didChange, json, legacy) = rewrite(row.Json);
+            if (!didChange) continue;
+            var instructions = string.IsNullOrWhiteSpace(row.Instructions) ? note : $"{row.Instructions.Trim()}\n{note}";
+            await using var update = CreateCommand("""
+                UPDATE training_sessions
+                SET exercise_prescription_data = @json::jsonb, exercise_prescription = @prescription,
+                    instructions = @instructions, updated_at = NOW()
+                WHERE id = @sessionId AND scheduled_date > CURRENT_DATE AND status = 'planned'
+                  AND EXISTS (SELECT 1 FROM training_plans p WHERE p.id = training_sessions.plan_id AND p.status = 'active')
+                  AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = training_sessions.id)
+                """, transaction, ("json", json), ("prescription", legacy),
+                ("instructions", instructions), ("sessionId", row.Id));
+            changed += await update.ExecuteNonQueryAsync(cancellationToken);
         }
         return changed;
     }

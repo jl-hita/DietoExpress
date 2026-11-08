@@ -25,6 +25,21 @@ public static class TrainingAdaptationPolicy
             return Decision(TrainingAdaptationAction.PauseAffectedExerciseAndReview,
                 "Se ha registrado dolor nuevo o que empeora. No progreses el entrenamiento y solicita valoración profesional antes de reanudar el ejercicio implicado.");
 
+        // Reactive deload PROPOSAL (never applied automatically): only when the last three sessions each
+        // show a stress signal AND at least two different kinds of signal appear (low recovery, very
+        // high session RPE, many missed sets). A single repeated signal keeps its own, milder action.
+        // Window and thresholds are internal product rules; the professional decides.
+        var stressWindow = recentFeedback.TakeLast(3).ToArray();
+        if (stressWindow.Length == 3 && stressWindow.All(IsStressed))
+        {
+            var kinds = (stressWindow.Any(x => x.Recovery is TrainingRecoveryRating.Insufficient) ? 1 : 0)
+                + (stressWindow.Any(x => x.SessionRpe is >= 9) ? 1 : 0)
+                + (stressWindow.Any(x => x.SetCompletionRatio is < 0.8m) ? 1 : 0);
+            if (kinds >= 2)
+                return Decision(TrainingAdaptationAction.ProposeDeload,
+                    "Las tres últimas sesiones muestran señales de estrés combinadas (recuperación insuficiente, esfuerzo muy alto o series sin completar). Valora con tu profesional una semana de descarga; no se aplica automáticamente.");
+        }
+
         var latest = recentFeedback[^1];
         if (latest.SetCompletionRatio is < 0.8m)
             return Decision(TrainingAdaptationAction.HoldProgressionAndReview,
@@ -62,6 +77,9 @@ public static class TrainingAdaptationPolicy
         static TrainingAdaptationDecision Decision(TrainingAdaptationAction action, string explanation) =>
             new(action, explanation);
     }
+
+    private static bool IsStressed(TrainingSessionFeedback feedback) =>
+        feedback.Recovery is TrainingRecoveryRating.Insufficient || feedback.SessionRpe is >= 9 || feedback.SetCompletionRatio is < 0.8m;
 
     private static bool HasInvalidValues(TrainingSessionFeedback feedback) =>
         !Enum.IsDefined(feedback.Outcome) ||
@@ -115,7 +133,8 @@ public enum TrainingAdaptationAction
     // Retained for compatibility with previously persisted proposals; new decisions use
     // TrainingExerciseProgressionEngine and never emit this session-level action.
     ProgressAccordingToPrescription,
-    PauseAffectedExerciseAndReview
+    PauseAffectedExerciseAndReview,
+    ProposeDeload
 }
 
 /// <param name="Outcome">What happened in the session.</param>

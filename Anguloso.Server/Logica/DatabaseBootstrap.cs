@@ -919,6 +919,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UpgradeTrainingPeriodizationSchemaV6(context, logger);
             UpgradeTrainingPeriodizationSchemaV7(context, logger);
             UpgradeTrainingPeriodizationSchemaV8(context, logger);
+            UpgradeTrainingPeriodizationSchemaV9(context, logger);
             UpgradeFoodCulinaryProfileSchema(context, logger);
             UpgradeFoodDietaryProfileSchema(context, logger);
             TrainingMacrocycleSchema.Initialize(context);
@@ -3467,6 +3468,28 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             INSERT INTO schema_migrations(id) VALUES ('training-periodization-v8-adaptation-review') ON CONFLICT (id) DO NOTHING;
         ");
         logger.LogInformation("Flujo de revisión profesional de adaptaciones de entrenamiento inicializado.");
+    }
+
+    /// <summary>
+    /// Amplía (de forma idempotente) las acciones permitidas en las propuestas de adaptación:
+    /// restaurar una serie reducida y proponer una descarga. Ambas requieren aprobación profesional.
+    /// </summary>
+    public static void UpgradeTrainingPeriodizationSchemaV9(angulosodbContext context, ILogger logger)
+    {
+        if (!context.Database.SqlQueryRaw<bool>("SELECT to_regclass('training_adaptation_proposals') IS NOT NULL AS \"Value\"").Single())
+            return;
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v9-adaptation-actions') AS \"Value\"").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE training_adaptation_proposals DROP CONSTRAINT IF EXISTS ck_training_adaptation_action;
+            ALTER TABLE training_adaptation_proposals ADD CONSTRAINT ck_training_adaptation_action CHECK (action IN (
+                'reorganize_future_sessions','hold_progression_and_review',
+                'review_and_reduce_training_stress','progress_according_to_prescription',
+                'pause_affected_exercise_and_review','restore_volume','propose_deload'));
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v9-adaptation-actions') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Acciones de adaptación ampliadas (restaurar volumen, proponer descarga).");
     }
 
     /// <summary>Perfil dietético curado (vegano, vegetariano, alérgenos) de todos los alimentos; sin columnas nulas.</summary>

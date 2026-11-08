@@ -26,6 +26,7 @@ public static class TrainingExerciseVolumeFeedbackMapper
             }
 
             var feedbackById = ReadFeedback(record.ExerciseFeedbackJson);
+            var originalSets = ReadOriginalSets(record.PrescriptionJson);
             foreach (var (exerciseId, target) in prescription)
             {
                 if (!feedbackById.TryGetValue(exerciseId, out var exercise) ||
@@ -63,7 +64,8 @@ public static class TrainingExerciseVolumeFeedbackMapper
                     // Session-wide pain is intentionally not copied to every exercise.
                     PainReported: string.Equals(skippedReason, "pain", StringComparison.OrdinalIgnoreCase),
                     TargetRir: target.TargetRir,
-                    ActualAverageRir: averageRir));
+                    ActualAverageRir: averageRir,
+                    OriginalPlannedSets: originalSets.TryGetValue(exerciseId, out var originalDose) ? originalDose : null));
             }
         }
 
@@ -110,6 +112,31 @@ public static class TrainingExerciseVolumeFeedbackMapper
         {
             // A syntactically valid JSON value can still have an unexpected shape.
         }
+        return result;
+    }
+
+    // Doses recorded by an approved volume reduction (marker adaptationOriginalSets); absent otherwise.
+    private static Dictionary<string, int> ReadOriginalSets(string? json)
+    {
+        var result = new Dictionary<string, int>(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(json)) return result;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Object ||
+                !document.RootElement.TryGetProperty("exercises", out var exercises) ||
+                exercises.ValueKind != JsonValueKind.Array) return result;
+            foreach (var exercise in exercises.EnumerateArray())
+            {
+                var id = ReadString(exercise, "exerciseId");
+                if (!string.IsNullOrWhiteSpace(id) &&
+                    exercise.TryGetProperty("adaptationOriginalSets", out var value) &&
+                    value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var original))
+                    result[id] = original;
+            }
+        }
+        catch (JsonException) { }
+        catch (InvalidOperationException) { }
         return result;
     }
 

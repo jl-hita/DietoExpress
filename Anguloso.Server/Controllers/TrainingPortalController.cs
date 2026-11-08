@@ -301,7 +301,7 @@ public sealed class TrainingPortalController : ControllerBase
             WHERE f.client_id = @clientId AND s.plan_id = (
                 SELECT plan_id FROM training_sessions WHERE id = @sessionId
             ) AND p.status = 'active' AND r.outcome IS NOT NULL
-            ORDER BY CASE WHEN r.id = @recordId THEN 0 ELSE 1 END, r.updated_at DESC, r.id DESC
+            ORDER BY CASE WHEN r.id = @recordId THEN 0 ELSE 1 END, s.scheduled_date DESC, r.id DESC
             LIMIT 3
             """, ("clientId", clientId), ("sessionId", sessionId), ("recordId", recordId)))
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
@@ -325,6 +325,9 @@ public sealed class TrainingPortalController : ControllerBase
         var fatigueCandidates = exerciseRecommendations
             .Where(item => item.Action == Anguloso.Server.Logica.TrainingExerciseVolumeAction.ProposeReduceOneSet)
             .ToArray();
+        var restoreCandidates = exerciseRecommendations
+            .Where(item => item.Action == Anguloso.Server.Logica.TrainingExerciseVolumeAction.ProposeRestoreOneSet)
+            .ToArray();
         var hasExercisePain = exerciseRecommendations.Any(item =>
             item.Action == Anguloso.Server.Logica.TrainingExerciseVolumeAction.PauseAndReview);
 
@@ -334,12 +337,17 @@ public sealed class TrainingPortalController : ControllerBase
             ? "pause_affected_exercise_and_review"
             : fatigueCandidates.Length > 0
                 ? "review_and_reduce_training_stress"
-                : ToApiAction(decision.Action);
+                : restoreCandidates.Length > 0 && decision.Action == Anguloso.Server.Logica.TrainingAdaptationAction.NoChange
+                    ? "restore_volume"
+                    : ToApiAction(decision.Action);
         var explanation = decision.Explanation;
         if (fatigueCandidates.Length > 0 && action == "review_and_reduce_training_stress")
             explanation += " Señales repetidas por ejercicio: " +
                 string.Join(", ", fatigueCandidates.Select(item => item.ExerciseId)) +
                 ". Revisa cada candidato; no se aplicará ningún cambio sin aprobación profesional.";
+        if (action == "restore_volume")
+            explanation = "Las últimas exposiciones se completaron sin señales de fatiga con el volumen reducido. Se propone recuperar una serie en: " +
+                string.Join(", ", restoreCandidates.Select(item => item.ExerciseId)) + ". No se aplica ningún cambio sin aprobación profesional.";
         if (action is null) return;
 
         await using var supersede = Command("""
@@ -500,6 +508,7 @@ public sealed class TrainingPortalController : ControllerBase
         Anguloso.Server.Logica.TrainingAdaptationAction.HoldProgressionAndReview => "hold_progression_and_review",
         Anguloso.Server.Logica.TrainingAdaptationAction.ReviewAndReduceTrainingStress => "review_and_reduce_training_stress",
         Anguloso.Server.Logica.TrainingAdaptationAction.ProgressAccordingToPrescription => "progress_according_to_prescription",
+        Anguloso.Server.Logica.TrainingAdaptationAction.ProposeDeload => "propose_deload",
         _ => "pause_affected_exercise_and_review"
     };
 }

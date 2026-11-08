@@ -74,6 +74,22 @@ public static class TrainingExerciseVolumeAdapter
                 continue;
             }
 
+            // Reversal: a previously approved reduction is not permanent. When the three latest
+            // exposures were all completed at the reduced dose with no fatigue signal and the effort
+            // reserve was met, propose giving back ONE set (never above the original dose).
+            // Internal product rule; requires professional approval like any volume change.
+            var latestExposure = recent[^1];
+            if (recent.All(item => item.OriginalPlannedSets is { } original && original > item.PlannedWorkingSets &&
+                                   item.SessionCompleted && !HasFatigueSignal(item) &&
+                                   item.CompletedWorkingSets >= item.PlannedWorkingSets) &&
+                latestExposure.OriginalPlannedSets > latestExposure.PlannedWorkingSets)
+            {
+                recommendations.Add(new(group.Key, TrainingExerciseVolumeAction.ProposeRestoreOneSet,
+                    "Las tres últimas exposiciones se completaron con el volumen reducido y sin señales de fatiga. Se propone recuperar una serie (sin superar la dosis original); requiere aprobación profesional.",
+                    latestExposure.PlannedWorkingSets + 1, recent.Length));
+                continue;
+            }
+
             recommendations.Add(new(group.Key, TrainingExerciseVolumeAction.NoChange,
                 "No hay señales específicas y repetidas suficientes para reducir el volumen de este ejercicio. Mantén la prescripción.",
                 null, recent.Length));
@@ -91,7 +107,8 @@ public sealed record TrainingExerciseVolumeExposure(
     bool SessionCompleted = true,
     bool PainReported = false,
     decimal? TargetRir = null,
-    decimal? ActualAverageRir = null);
+    decimal? ActualAverageRir = null,
+    int? OriginalPlannedSets = null);
 
 public sealed record TrainingExerciseVolumeRecommendation(
     string ExerciseId,
@@ -104,6 +121,7 @@ public enum TrainingExerciseVolumeAction
 {
     NoChange,
     ProposeReduceOneSet,
+    ProposeRestoreOneSet,
     ReviewWithoutReduction,
     PauseAndReview
 }
