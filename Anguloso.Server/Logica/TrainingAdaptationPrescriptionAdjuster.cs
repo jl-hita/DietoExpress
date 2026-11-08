@@ -235,6 +235,31 @@ public static class TrainingAdaptationPrescriptionAdjuster
         catch (FormatException) { return false; }
     }
 
+    /// <summary>Adds or removes sets of one exercise (bounds 1..5). A reduction remembers the original dose.</summary>
+    public static bool TryAdjustSets(string json, string exerciseId, int delta, out string updatedJson, out string legacyPrescription)
+    {
+        updatedJson = json;
+        legacyPrescription = string.Empty;
+        try
+        {
+            if (JsonNode.Parse(json) is not JsonObject root || root["exercises"] is not JsonArray exercises) return false;
+            var target = exercises.OfType<JsonObject>().FirstOrDefault(item =>
+                string.Equals(ReadString(item, "exerciseId", string.Empty), exerciseId, StringComparison.OrdinalIgnoreCase));
+            if (target is null || target["sets"] is not JsonValue setsNode || !setsNode.TryGetValue<int>(out var sets)) return false;
+            var next = sets + delta;
+            if (next < 1 || next > 5) return false;
+            if (delta < 0) target["adaptationOriginalSets"] ??= sets;
+            target["sets"] = next;
+            legacyPrescription = string.Join(Environment.NewLine, exercises.OfType<JsonObject>()
+                .Select(FormatExercise).Where(line => !string.IsNullOrWhiteSpace(line)));
+            updatedJson = root.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            return !string.IsNullOrWhiteSpace(legacyPrescription);
+        }
+        catch (JsonException) { return false; }
+        catch (InvalidOperationException) { return false; }
+        catch (FormatException) { return false; }
+    }
+
     /// <summary>Writes a working load (and why) into one exercise of a future session.</summary>
     public static bool TrySetLoad(
         string json, string exerciseId, decimal loadKg, string basis, out string updatedJson, out string legacyPrescription)

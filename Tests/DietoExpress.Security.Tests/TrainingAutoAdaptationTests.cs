@@ -102,4 +102,27 @@ public sealed class TrainingAutoAdaptationTests
         Assert.Contains("NOT EXISTS (SELECT 1 FROM training_session_records", source);
         Assert.Contains("BeginTransactionAsync", source);
     }
+
+    [Theory]
+    [InlineData("add_muscle_set", TrainingAutoAdaptationKind.AddMuscleSet)]
+    [InlineData("reduce_muscle_set", TrainingAutoAdaptationKind.ReduceMuscleSet)]
+    public void MuscleFeedbackSetChangesAreAppliedAutomaticallyWithACooldown(string action, TrainingAutoAdaptationKind kind)
+    {
+        Assert.Equal(kind, Decide(action, ["bench"]).Kind);
+        Assert.False(Decide(action, ["bench"], new TrainingAutoAdaptationRecord(kind, Now.AddDays(-3))).ShouldApply);
+    }
+
+    [Fact]
+    public void AdjustSetsStaysBetweenOneAndFiveAndRemembersTheOriginalDoseWhenReducing()
+    {
+        Assert.True(TrainingAdaptationPrescriptionAdjuster.TryAdjustSets(Session, "squat", 1, out var more, out _));
+        Assert.Equal(5, (int)JsonNode.Parse(more)!["exercises"]![0]!["sets"]!);
+        Assert.False(TrainingAdaptationPrescriptionAdjuster.TryAdjustSets(more, "squat", 1, out _, out _));      // max 5
+        Assert.False(TrainingAdaptationPrescriptionAdjuster.TryAdjustSets(Session, "curl", -1, out _, out _));    // min 1
+        Assert.True(TrainingAdaptationPrescriptionAdjuster.TryAdjustSets(Session, "squat", -1, out var less, out _));
+        var squat = JsonNode.Parse(less)!["exercises"]![0]!;
+        Assert.Equal(3, (int)squat["sets"]!);
+        Assert.Equal(4, (int)squat["adaptationOriginalSets"]!);
+        Assert.False(TrainingAdaptationPrescriptionAdjuster.TryAdjustSets(Session, "nope", 1, out _, out _));
+    }
 }

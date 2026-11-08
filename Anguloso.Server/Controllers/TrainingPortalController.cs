@@ -378,7 +378,10 @@ public sealed class TrainingPortalController : ControllerBase
                 (item.CompletedSets < item.PlannedSets &&
                     (item.SkippedSetReason is null ||
                      !IsAllowed(item.SkippedSetReason, "time", "fatigue", "equipment", "motivation", "illness", "pain", "load_too_heavy", "other"))) ||
-                (item.CompletedSets == item.PlannedSets && item.SkippedSetReason is not null));
+                (item.CompletedSets == item.PlannedSets && item.SkippedSetReason is not null) ||
+                !IsAllowed(item.Stimulus, "low", "adequate", "high") ||
+                !IsAllowed(item.Discomfort, "none", "mild", "strong") ||
+                !IsAllowed(item.PreFatigue, "recovered", "loaded"));
             if (invalidExerciseFeedback)
                 return BadRequest(new { message = "Revisa las series realizadas y el motivo de las series omitidas de cada ejercicio." });
 
@@ -492,6 +495,8 @@ public sealed class TrainingPortalController : ControllerBase
         if (structuredFeedback)
         {
             await CreateAdaptationProposalAsync(clientId, sessionId, Convert.ToInt64(id), cancellationToken);
+            try { await ApplyMuscleFeedbackAsync(clientId, sessionId, Convert.ToInt64(id), cancellationToken); }
+            catch (Exception) { /* muscle feedback is best effort; it must not fail the record */ }
             try { await _autoAdaptation.ApplyLoadSuggestionsAsync(clientId, cancellationToken); }
             catch (Exception) { /* suggestions are still shown from the progression engine */ }
         }
@@ -599,6 +604,112 @@ public sealed class TrainingPortalController : ControllerBase
         catch (Exception) { /* the proposal simply remains pending */ }
     }
 
+
+    /// <summary>
+    /// Applies the post-exercise answers (stimulus, discomfort, pre-fatigue) of the plan's last sessions:
+    /// +1/-1 set per muscle is applied by the system itself; strong discomfort pauses the exercise and
+    /// repeated mild discomfort suggests a swap (both stay pending for a person / the patient).
+    /// </summary>
+    private async Task ApplyMuscleFeedbackAsync(int clientId, int sessionId, long recordId, CancellationToken cancellationToken)
+    {
+        var exposures = new List<Anguloso.Server.Logica.TrainingMuscleFeedbackExposure>();
+        var goal = Anguloso.Server.Logica.TrainingGoal.GeneralFitness;
+        int planId = 0;
+        string experienceText = "beginner";
+        await using (var command = Command("""
+            SELECT s.plan_id, s.scheduled_date, s.exercise_prescription_data::text, r.exercise_feedback::text, f.experience_level
+            FROM training_session_records r
+            JOIN training_sessions s ON s.id = r.session_id
+            JOIN training_plans p ON p.id = s.plan_id
+            JOIN training_profiles f ON f.id = p.profile_id
+            WHERE f.client_id = @clientId AND p.status = 'active' AND r.outcome IS NOT NULL
+              AND s.plan_id = (SELECT plan_id FROM training_sessions WHERE id = @sessionId)
+              AND s.exercise_prescription_data IS NOT NULL AND r.exercise_feedback IS NOT NULL
+            ORDER BY s.scheduled_date DESC, s.id DESC LIMIT 4
+            """, ("clientId", clientId), ("sessionId", sessionId)))
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                planId = reader.GetInt32(0);
+                experienceText = reader.GetString(4);
+                var date = DateOnly.FromDateTime(reader.GetDateTime(1));
+                var prescribed = new Dictionary<string, (string[] Muscles, int Sets)>(StringComparer.Ordinal);
+                try
+                {
+                    using var prescription = JsonDocument.Parse(reader.GetString(2));
+                    if (prescription.RootElement.TryGetProperty("goal", out var goalElement) && goalElement.ValueKind == JsonValueKind.String)
+                        Enum.TryParse(goalElement.GetString(), true, out goal);
+                    foreach (var exercise in prescription.RootElement.GetProperty("exercises").EnumerateArray())
+                    {
+                        var id = exercise.GetProperty("exerciseId").GetString();
+                        if (id is null) continue;
+                        var muscles = exercise.TryGetProperty("primaryMuscleGroups", out var m) && m.ValueKind == JsonValueKind.Array
+                            ? m.EnumerateArray().Select(x => x.GetString()!).ToArray() : [];
+                        prescribed[id] = (muscles, exercise.TryGetProperty("sets", out var s) && s.TryGetInt32(out var sets) ? sets : 0);
+                    }
+                    using var feedback = JsonDocument.Parse(reader.GetString(3));
+                    foreach (var item in feedback.RootElement.EnumerateArray())
+                    {
+                        var id = item.TryGetProperty("exerciseId", out var e) ? e.GetString() : null;
+                        if (id is null || !prescribed.TryGetValue(id, out var info)) continue;
+                        string? Text(string name) => item.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+                        exposures.Add(new(date, id, info.Muscles, info.Sets, Text("stimulus"), Text("discomfort"), Text("preFatigue")));
+                    }
+                }
+                catch (Exception exception) when (exception is JsonException or KeyNotFoundException or InvalidOperationException) { }
+            }
+        }
+        if (exposures.Count == 0 || planId == 0) return;
+        exposures.Reverse(); // chronological
+        if (!Enum.TryParse<Anguloso.Server.Logica.TrainingExperience>(experienceText, true, out var experience))
+            experience = Anguloso.Server.Logica.TrainingExperience.Beginner;
+
+        var plannedByMuscle = new Dictionary<string, int>(StringComparer.Ordinal);
+        await using (var upcoming = Command("""
+            SELECT s.exercise_prescription_data::text FROM training_sessions s
+            WHERE s.plan_id = @planId AND s.scheduled_date > CURRENT_DATE AND s.scheduled_date <= CURRENT_DATE + 7
+              AND s.status = 'planned' AND s.exercise_prescription_data IS NOT NULL
+            """, ("planId", planId)))
+        await using (var upcomingReader = await upcoming.ExecuteReaderAsync(cancellationToken))
+            while (await upcomingReader.ReadAsync(cancellationToken))
+                try
+                {
+                    using var doc = JsonDocument.Parse(upcomingReader.GetString(0));
+                    foreach (var exercise in doc.RootElement.GetProperty("exercises").EnumerateArray())
+                    {
+                        var sets = exercise.TryGetProperty("sets", out var s) && s.TryGetInt32(out var n) ? n : 0;
+                        if (exercise.TryGetProperty("primaryMuscleGroups", out var m) && m.ValueKind == JsonValueKind.Array)
+                            foreach (var muscle in m.EnumerateArray().Select(x => x.GetString()!))
+                                plannedByMuscle[muscle] = plannedByMuscle.GetValueOrDefault(muscle) + sets;
+                    }
+                }
+                catch (Exception exception) when (exception is JsonException or KeyNotFoundException or InvalidOperationException) { }
+        var ceilings = Anguloso.Server.Logica.TrainingProgramVolumeAllocator.GetWeeklyCeilings(goal, experience)
+            .ToDictionary(pair => pair.Key.ToString(), pair => (int)pair.Value, StringComparer.Ordinal);
+
+        var decisions = Anguloso.Server.Logica.TrainingMuscleFeedbackAdapter.Evaluate(exposures, plannedByMuscle, ceilings);
+        foreach (var decision in decisions.GroupBy(item => item.Action).Select(group => group.First()))
+        {
+            var action = decision.Action switch
+            {
+                Anguloso.Server.Logica.TrainingMuscleFeedbackAction.AddSet => "add_muscle_set",
+                Anguloso.Server.Logica.TrainingMuscleFeedbackAction.ReduceSet => "reduce_muscle_set",
+                Anguloso.Server.Logica.TrainingMuscleFeedbackAction.SuggestSwap => "suggest_exercise_swap",
+                _ => "pause_affected_exercise_and_review"
+            };
+            await using var insert = Command("""
+                INSERT INTO training_adaptation_proposals(client_id, plan_id, source_session_id, source_record_id, action, explanation)
+                VALUES (@clientId, @planId, @sessionId, @recordId, @action, @explanation)
+                ON CONFLICT(source_record_id, action) DO NOTHING
+                RETURNING id
+                """, ("clientId", clientId), ("planId", planId), ("sessionId", sessionId), ("recordId", recordId),
+                ("action", action), ("explanation", $"{decision.Explanation} (ejercicio: {decision.ExerciseId})"));
+            var proposalId = await insert.ExecuteScalarAsync(cancellationToken);
+            if (proposalId is not null && action is "add_muscle_set" or "reduce_muscle_set")
+                await _autoAdaptation.TryApplyAsync(Convert.ToInt64(proposalId), planId, action, [decision.ExerciseId], cancellationToken);
+        }
+    }
 
     private async Task<IReadOnlyList<Anguloso.Server.Logica.TrainingExerciseVolumeRecommendation>>
         GetExerciseVolumeRecommendationsAsync(int clientId, int sessionId, CancellationToken cancellationToken)
@@ -755,7 +866,10 @@ public sealed record PatientTrainingExerciseFeedback(
     int PlannedSets,
     int CompletedSets,
     string? SkippedSetReason = null,
-    List<PatientTrainingSetFeedback>? Sets = null);
+    List<PatientTrainingSetFeedback>? Sets = null,
+    string? Stimulus = null,
+    string? Discomfort = null,
+    string? PreFatigue = null);
 
 public sealed record PatientTrainingRecordRequest(
     DateTime? CompletedAt,

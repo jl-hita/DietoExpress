@@ -10,7 +10,8 @@ namespace Anguloso.Server.Logica;
 ///  - +1 RIR in the next 3 sessions when low recovery repeats and no exercise can be blamed;
 ///  - give back one previously removed set after clean exposures (never above the original dose);
 ///  - a conservative deload of the next 7 days when stress signals converge (once per 28 days);
-///  - pause load progression text for the next sessions.
+///  - pause load progression text for the next sessions;
+///  - +1 / -1 set for a muscle from the post-exercise answers (stimulus, fatigue), one session per change.
 /// What is NEVER applied automatically: pain / safety reviews (they pause progression of that exercise
 /// and wait for a human) and session reorganisation.
 /// Cooldowns stop the system from stacking changes: if the same kind of change was applied recently
@@ -37,6 +38,8 @@ public static class TrainingAutoAdaptationPolicy
             "restore_volume" => (TrainingAutoAdaptationKind.RestoreSets, 14),
             "propose_deload" => (TrainingAutoAdaptationKind.Deload, 28),
             "hold_progression_and_review" => (TrainingAutoAdaptationKind.HoldProgression, 7),
+            "add_muscle_set" => (TrainingAutoAdaptationKind.AddMuscleSet, 14),
+            "reduce_muscle_set" => (TrainingAutoAdaptationKind.ReduceMuscleSet, 14),
             _ => (TrainingAutoAdaptationKind.None, 0)
         };
         if (kind == TrainingAutoAdaptationKind.None)
@@ -61,11 +64,13 @@ public static class TrainingAutoAdaptationPolicy
         TrainingAutoAdaptationKind.RestoreSets => "restore_sets",
         TrainingAutoAdaptationKind.Deload => "deload",
         TrainingAutoAdaptationKind.HoldProgression => "hold_progression",
+        TrainingAutoAdaptationKind.AddMuscleSet => "add_muscle_set",
+        TrainingAutoAdaptationKind.ReduceMuscleSet => "reduce_muscle_set",
         _ => "none"
     };
 }
 
-public enum TrainingAutoAdaptationKind { None, ReduceSets, RaiseReserve, RestoreSets, Deload, HoldProgression }
+public enum TrainingAutoAdaptationKind { None, ReduceSets, RaiseReserve, RestoreSets, Deload, HoldProgression, AddMuscleSet, ReduceMuscleSet }
 
 public sealed record TrainingAutoAdaptationRecord(TrainingAutoAdaptationKind Kind, DateTimeOffset AppliedAt);
 

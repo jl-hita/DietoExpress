@@ -74,3 +74,12 @@ Decisión de producto: el sistema aplica por sí mismo los ajustes pequeños, ac
 - **Nunca se aplica solo:** dolor/seguridad (pausa la progresión y espera revisión) y reorganización de sesiones.
 - **Salvaguardas:** enfriamiento por tipo de ajuste (14 días; descarga 28; mantener 7), una descarga en curso absorbe otras reducciones, todo en una transacción y un fallo deja la propuesta pendiente sin afectar al registro del paciente.
 - **Trazabilidad:** cada ajuste queda como propuesta `approved` sin revisor y con nota `auto:<tipo>`, y una nota en las instrucciones de la sesión; el profesional puede revisarla o deshacerla. La aprobación manual sigue disponible para lo que queda pendiente.
+
+## 13. Valoración tras cada ejercicio (aplicada por el sistema)
+Tras cada ejercicio con series hechas, la app pregunta (opcional, 3 toques): estímulo (poco/adecuado/mucho), molestias (ninguna/leves/fuertes) y cómo estaba el músculo al empezar (recuperado/aún cargado). Se guardan en el feedback del ejercicio (`stimulus`, `discomfort`, `preFatigue`) y `TrainingMuscleFeedbackAdapter` decide **por músculo**:
+- Molestias fuertes en la última exposición → pausa la progresión del ejercicio y queda pendiente de revisión (no se automatiza).
+- Molestias leves en 2 de las últimas 3 → sugerencia de cambiar de ejercicio (informativa).
+- Poco estímulo en las 2 últimas sesiones del músculo, siempre recuperado, sin molestias y con volumen semanal por debajo del techo (objetivo + tolerancia del generador) → **+1 serie** (al ejercicio con menos series, máx. 5), aplicada sola en una sesión de la próxima semana.
+- Estímulo alto y «aún cargado» en ≥2 de las últimas 3 → **−1 serie** (mínimo 1), aplicada sola.
+- Respuestas ausentes nunca cuentan como evidencia y una sola sesión nunca decide; enfriamiento de 14 días por tipo de cambio. Todo es umbral interno de producto, no de guía.
+- Migración idempotente V10 amplía las acciones de propuesta (`add_muscle_set`, `reduce_muscle_set`, `suggest_exercise_swap`).

@@ -54,6 +54,13 @@ public sealed class TrainingAutoAdaptationApplier
                     DateOnly.FromDateTime(DateTime.UtcNow).AddDays(TrainingAutoAdaptationPolicy.DeloadWindowDays),
                     note + "semana de descarga conservadora (mitad de series, RIR +2) por estrés acumulado en las últimas sesiones.", cancellationToken,
                     json => TrainingAdaptationPrescriptionAdjuster.TryApplyDeload(json, out var updated, out var legacy) ? (true, updated, legacy) : (false, json, string.Empty)),
+                TrainingAutoAdaptationKind.AddMuscleSet or TrainingAutoAdaptationKind.ReduceMuscleSet => await RewriteAsync(
+                    connection, transaction, planId, 1, DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),
+                    note + (decision.Kind == TrainingAutoAdaptationKind.AddMuscleSet
+                        ? "una serie más (poco estímulo repetido, bien recuperado y con margen de volumen)."
+                        : "una serie menos (estímulo alto y fatiga acumulada repetidos)."), cancellationToken,
+                    json => TrainingAdaptationPrescriptionAdjuster.TryAdjustSets(json, decision.ExerciseIds.FirstOrDefault() ?? string.Empty,
+                        decision.Kind == TrainingAutoAdaptationKind.AddMuscleSet ? 1 : -1, out var updated, out var legacy) ? (true, updated, legacy) : (false, json, string.Empty)),
                 _ => await HoldProgressionAsync(connection, transaction, planId, note, cancellationToken)
             };
 

@@ -245,6 +245,11 @@ public static class TrainingProgramVolumeAllocator
         int maximumSessionDurationMinutes = 60) =>
         BuildTargets(goal, experience, preferences, sessionsPerWeek, maximumSessionDurationMinutes);
 
+    /// <summary>Upper bound of the default weekly dose per muscle (target + tolerance); used to stop automatic volume increases.</summary>
+    internal static IReadOnlyDictionary<TrainingMuscleGroup, decimal> GetWeeklyCeilings(TrainingGoal goal, TrainingExperience experience) =>
+        BuildTargets(goal, experience, null, 3, 60)
+            .ToDictionary(pair => pair.Key, pair => pair.Value + GetTargetTolerance(goal, experience, null, pair.Key));
+
     internal static decimal EstimateDurationSeconds(TrainingSessionPrescription session) =>
         EstimateDuration(session);
 
