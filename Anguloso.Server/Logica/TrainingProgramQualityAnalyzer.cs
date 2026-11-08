@@ -7,6 +7,14 @@ namespace Anguloso.Server.Logica;
 public static class TrainingProgramQualityAnalyzer
 {
     private const int HighEffectiveSetReviewThreshold = 20;
+    private const int HighSessionWorkingSetReviewThreshold = 30;
+    private static readonly TrainingMuscleGroup[] StrengthFrequencyReviewMuscles =
+    [
+        TrainingMuscleGroup.Chest, TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack,
+        TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Triceps,
+        TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Hamstrings,
+        TrainingMuscleGroup.Calves
+    ];
 
     public static TrainingManualVolumeAnalysisResult AnalyzeManual(
         IReadOnlyCollection<TrainingExerciseCandidate> catalog,
@@ -178,6 +186,23 @@ public static class TrainingProgramQualityAnalyzer
                 }).ToArray();
                 sessionVolumes.Add(new TrainingSessionMuscleVolume(
                     session.WeekNumber, session.Day, session.Title, sessionMuscles));
+
+                var sessionWorkingSets = session.Exercises.Sum(exercise => exercise.Sets);
+                if (sessionWorkingSets > HighSessionWorkingSetReviewThreshold)
+                    warnings.Add($"Semana {week}: '{session.Title}' concentra {sessionWorkingSets} series de trabajo. Supera el umbral interno de revisión de {HighSessionWorkingSetReviewThreshold} series por sesión; no es un límite fisiológico ni una cifra prescrita por ACSM. Revisa la fatiga intra-sesión y la posible redistribución semanal.");
+            }
+
+            if (string.Equals(plan.Goal, "Strength", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var muscle in StrengthFrequencyReviewMuscles)
+                {
+                    var effectiveFrequency = sessions.Count(session => session.Exercises.Any(exercise =>
+                        TrainingExerciseStimulus.GetEffectiveMuscles(
+                            exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups)
+                            .Contains(muscle)));
+                    if (effectiveFrequency is > 0 and < 2)
+                        warnings.Add($"Semana {week}: {muscle} recibe estímulo efectivo en 1 sesión; la práctica habitual y las guías de entrenamiento de fuerza recomiendan trabajar cada grupo principal al menos dos días por semana (referencia no verificada). Revisa la distribución del split; la generación no se bloquea.");
+                }
             }
 
             // Zero exposure for an accessory or stabilizing muscle is not automatically a
