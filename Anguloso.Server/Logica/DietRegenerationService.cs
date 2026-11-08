@@ -7,6 +7,10 @@ namespace Anguloso.Server.Logica;
 /// <summary>
 /// Regeneración localizada de dietas ya creadas. La operación conserva el árbol de la
 /// dieta, cambia únicamente el alcance solicitado y valida el resultado antes de persistirlo.
+/// Flujo: autoriza y carga la dieta -> reúne restricciones de los pacientes asignados -> elige sustitutos compatibles
+/// (misma función culinaria, restricciones y tipo de dieta) -> recalibra gramos de la comida -> compara el objetivo global
+/// antes/después y hace rollback si empeora demasiado. A diferencia de <see cref="DietGeneratorService"/> no usa el motor
+/// de menús ni el validador semántico completo: trabaja sobre entidades ya persistidas.
 /// </summary>
 public sealed class DietRegenerationService
 {
@@ -21,6 +25,10 @@ public sealed class DietRegenerationService
         _specializationRulesService = specializationRulesService;
     }
 
+    /// <summary>
+    /// Operaciones: <c>replace-food</c> (sustituir un alimento), <c>regenerate-meal</c> y <c>regenerate-day</c>. Todo ocurre
+    /// en una transacción: si algo falla o el resultado se descarta, no se guarda ningún cambio.
+    /// </summary>
     public async Task<DietRegenerationResponseDto> RegenerateAsync(
         int dietId,
         DietRegenerationRequestDto request,
@@ -53,6 +61,8 @@ public sealed class DietRegenerationService
         if (request.Operation != "replace-food" && !request.MealId.HasValue && !request.DayId.HasValue)
             throw new ArgumentException("Debe indicarse MealId o DayId.");
 
+        // Catálogo candidato acotado a 5000 (criterio de producto) y con la misma visibilidad de alimentos locales que la
+        // generación; el superadmin ve todos. Aquí se exigen macros completos, a diferencia de la carga inicial del generador.
         var allFoods = await _context.foods.AsNoTracking()
             .Where(f => f.kcal.HasValue && f.kcal > 0 &&
                 f.protein.HasValue && f.protein.Value >= 0 &&
@@ -104,6 +114,8 @@ public sealed class DietRegenerationService
         if (request.ClientId.HasValue && restrictionClients.All(c => c.id != request.ClientId.Value))
             throw new KeyNotFoundException("El cliente indicado no existe o no pertenece a esta clínica.");
 
+        // "forbidden" acumula términos de exclusión (alergias, intolerancias, especializaciones y exclusiones explícitas
+        // guardadas con la dieta); los ids excluidos por atributos y por falta de datos de alérgenos se calculan aparte.
         var dietType = ResolveDietType(diet);
         var forbidden = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var specializationExcludedFoodIds = new HashSet<int>();
@@ -130,6 +142,7 @@ public sealed class DietRegenerationService
         var usedFoodIds = diet.diet_days.SelectMany(d => d.meals).SelectMany(m => m.meal_items)
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
 
+        // "before" es el objetivo global previo; al final se compara con "after" para decidir si se confirma o se revierte.
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         var before = Objective(diet);
         meals? selectedMeal = null;
@@ -187,9 +200,10 @@ public sealed class DietRegenerationService
                 var candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && !allergenMetadataExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat, foodId: f.id) && IsCompatibleRole(f, item, selectedMeal.name, foodsById))
                     .Where(f => !request.PreserveWeeklyVariety || !usedFoodIds.Contains(f.id) || mealUsed.Contains(f.id))
                     .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed))
-                    .Take(20)
+                    .Take(20) // se ordena por parecido nutricional al original (CandidateScore); Take(20)/Take(15): criterio de producto
                     .ToList();
 
+                // Si la variedad semanal vacía la lista, se relaja esa condición (nunca las restricciones de seguridad).
                 if (candidates.Count == 0)
                     candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && !allergenMetadataExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat, foodId: f.id) && IsCompatibleRole(f, item, selectedMeal.name, foodsById))
                         .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(20).ToList();
@@ -233,6 +247,8 @@ public sealed class DietRegenerationService
         }
 
         var after = Objective(diet);
+        // Se revierte si el error global crece más de un 12 % (con objetivos preservados) o un 30 % (sin ellos).
+        // Umbrales: criterio de producto, origen no documentado.
         var maxAllowedWorsening = request.PreserveNutritionTargets ? 0.12 : 0.30;
         if (after > before * (1 + maxAllowedWorsening))
         {
@@ -266,6 +282,8 @@ public sealed class DietRegenerationService
         return response;
     }
 
+    // Tipo de dieta para filtrar sustitutos. "Equilibrada" almacenada se trata como posible valor por defecto y se
+    // intenta deducir del nombre por compatibilidad con dietas antiguas.
     private static string ResolveDietType(diets diet)
     {
         var stored = diet.diet_type?.Trim();
@@ -324,6 +342,8 @@ public sealed class DietRegenerationService
         _ => "otro"
     };
 
+    // Un sustituto es válido si comparte grupo de intercambio con el original o, si se conoce el original, cumple su misma
+    // función en la comida. Las reglas por texto del final solo se aplican cuando no hay alimento original que comparar (legado).
     private static bool IsCompatibleRole(foods food, meal_items source, string mealName, IReadOnlyDictionary<int, foods> foodsById)
     {
         if (source.exchange_group_id.HasValue && food.exchange_group_id == source.exchange_group_id) return true;
@@ -338,6 +358,8 @@ public sealed class DietRegenerationService
         return true;
     }
 
+    // Cuanto menor, mejor: suma del error relativo de kcal y macros del sustituto frente al original (a los mismos gramos),
+    // más recargo por repetir alimento en la semana (+0.8) o en la misma comida (+1.2). Recargos: criterio de producto.
     private static double CandidateScore(foods food, meal_items source, HashSet<int> weekly, HashSet<int> mealUsed)
     {
         double Relative(double a, double b) => Math.Abs(a - b) / Math.Max(1, Math.Abs(b));
@@ -355,6 +377,9 @@ public sealed class DietRegenerationService
         return score;
     }
 
+    // Kcal objetivo de una comida a partir del nombre y del número de comidas del día. Duplica los porcentajes de
+    // DietGeneratorService.GetMealSplits: si se cambian allí, hay que cambiarlos aquí. No respeta nombres de plantilla personalizados
+    // (cualquier otro nombre cae en el último reparto, el de cena).
     private static double DietMealTarget(diets diet, diet_days day, meals meal)
     {
         var count = Math.Max(1, day.meals.Count);
@@ -368,6 +393,8 @@ public sealed class DietRegenerationService
         return (double)(diet.target_kcal ?? 2000) * share;
     }
 
+    // Recalibra solo la energía de la comida (no los macros) moviendo cada alimento en pasos de 5 g, hasta 12 pasadas o
+    // hasta que nada mejore. Límites 5-350 g por alimento: criterio de producto. No hace nada si no se piden objetivos preservados.
     private static void RebalanceMeal(meals meal, double targetKcal, bool preserveTargets)
     {
         if (!preserveTargets) return;
@@ -433,6 +460,9 @@ public sealed class DietRegenerationService
     private static SnapshotDto Snapshot(meal_items item) =>
         new(item.food_id, item.kcal, item.protein, item.carbs, item.fat, null);
 
+    // Error relativo medio por día respecto a los objetivos de la dieta (menor es mejor). Pesos: kcal 0.45, proteína 0.20,
+    // hidratos 0.15, grasa 0.20 (criterio de producto). Es la métrica que decide el rollback; ObjectiveBefore/After/KcalDelta
+    // de la respuesta son este valor adimensional, no kcal.
     private static double Objective(diets diet)
     {
         var targetKcal = (double)(diet.target_kcal ?? 2000);

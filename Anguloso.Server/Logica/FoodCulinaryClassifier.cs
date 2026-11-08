@@ -4,7 +4,11 @@ using Anguloso.Server.Models;
 
 namespace Anguloso.Server.Logica;
 
-/// <summary>Perfil culinario de un alimento tal y como lo consume el motor de menús.</summary>
+/// <summary>
+/// Perfil culinario de un alimento tal y como lo consume el motor de menús: rol (qué papel juega en el plato), familia
+/// de rotación, franjas horarias y rejilla de porciones en gramos. Se carga de la tabla food_culinary_profile (curado)
+/// o lo produce <see cref="FoodCulinaryClassifier"/> en memoria cuando no hay perfil guardado.
+/// </summary>
 public sealed class FoodProfileData
 {
     public const string RoleProtein = "Protein";
@@ -23,10 +27,13 @@ public sealed class FoodProfileData
     public string Role { get; set; } = "";
     /// <summary>Grupo de rotación semanal (ave, carne_roja, pescado_blanco, pescado_azul, marisco, huevo, vegetal, legumbre, arroz, pasta, patata...).</summary>
     public string Family { get; set; } = "";
+    /// <summary>Popularidad 1-5 del alimento en la cocina habitual (criterio de producto); pondera la probabilidad de selección.</summary>
     public short Commonness { get; set; } = 3;
     /// <summary>B = desayuno, S = media mañana/merienda, M = comida/cena.</summary>
     public string[] Slots { get; set; } = Array.Empty<string>();
+    /// <summary>Estado del peso del catálogo: "raw" (crudo), "cooked" (cocinado) o "ready" (listo para consumir).</summary>
     public string State { get; set; } = "ready";
+    // Rejilla de porciones en gramos: mínimo, máximo, paso y valor inicial (el motor las escala por energía en PortionPolicy).
     public double Min { get; set; }
     public double Max { get; set; }
     public double Step { get; set; } = 10;
@@ -34,7 +41,9 @@ public sealed class FoodProfileData
     public string? UnitName { get; set; }
     public double? UnitGrams { get; set; }
     public string[] Tags { get; set; } = Array.Empty<string>();
+    /// <summary>Alimento básico de uso diario (aceite, pan, leche, yogur natural): no se penaliza por repetición semanal.</summary>
     public bool IsStaple { get; set; }
+    /// <summary>Si no es null el alimento no se usa en la generación (motivo técnico, p. ej. datos energéticos incoherentes).</summary>
     public string? ExcludedReason { get; set; }
 
     public bool IsUsable => ExcludedReason == null && Role.Length > 0;
@@ -75,11 +84,19 @@ public sealed class FoodProfileData
 /// Es una lista blanca: lo que no reconoce no entra en la generación automática. Los alimentos reconocidos pero con datos
 /// incoherentes (p. ej. «Arroz, hervido» con las kcal del crudo) se marcan con <see cref="FoodProfileData.ExcludedReason"/>.
 /// Los pesos de cereales, legumbres, carnes y pescados se expresan en crudo cuando el catálogo los guarda en crudo.
+/// Lugar en el flujo: se invoca desde <see cref="DietGeneratorService"/> al filtrar el catálogo, antes del motor de menús;
+/// no conoce alergias ni tipo de dieta (eso se filtra aparte). Todos los rangos de gramos, popularidades y listas de
+/// palabras de esta clase son criterio de producto (cocina española habitual); origen no documentado.
+/// Cada método por rol (Oil, Egg, Poultry...) devuelve null si no reconoce el alimento y el primero que acierta gana.
 /// </summary>
 public static class FoodCulinaryClassifier
 {
+    // Versión de las reglas; se guarda en classifier_version al persistir un perfil. Súbela al cambiar cualquier regla.
     public const int Version = 4;
 
+    // Palabras (comparadas por subcadena sobre el nombre normalizado) que descartan el alimento: fritos, procesados,
+    // embutidos, bebidas, dulces y platos preparados. Criterio de producto: la generación automática solo trabaja con
+    // ingredientes básicos. Ojo: al ser subcadena puede rechazar nombres que la contienen por casualidad.
     private static readonly string[] GlobalRejectWords =
     {
         "frito", "frita", "fritos", "fritas", "rebozad", "empanad", "churro", "ahumad", "escabeche", "salado", "salada",
@@ -135,6 +152,7 @@ public static class FoodCulinaryClassifier
         ("paraguaya", 3, 100, 250, 50, 150), ("chirimoya", 2, 100, 250, 50, 150), ("mora", 2, 60, 150, 20, 100)
     };
 
+    /// <summary>Minúsculas, sin acentos ni signos: solo [a-z0-9] separados por un espacio. Base de todas las comparaciones por palabra.</summary>
     public static string Normalize(string? value)
     {
         if (string.IsNullOrEmpty(value)) return string.Empty;
@@ -166,9 +184,12 @@ public static class FoodCulinaryClassifier
 
         foreach (var reject in GlobalRejectWords)
             if (n.Contains(reject, StringComparison.Ordinal)) return null;
+        // Descarta conservas "en aceite" (el aceite culinario solo entra como aceite de oliva/girasol, ver Oil).
         if (Has("en") && Has("aceite") && !Starts("aceite")) return null;
         if (!conserva && Has("congelado") && (Has("pure") || Has("copos"))) return null;
 
+        // El orden importa: el primer clasificador que reconoce el nombre fija el rol (proteínas antes que lácteos, féculas
+        // antes que legumbres, etc.).
         FoodProfileData? p =
             Oil(n, tokens) ?? Egg(n, Has, tokens) ?? Poultry(Has, tokens, n) ?? RedMeat(Has, tokens, n) ?? Fish(Has, tokens, n) ??
             PlantProtein(Has, tokens) ?? Cold(Has, n) ?? Dairy(n, Has, set, tokens) ?? Bread(Has, tokens, n) ?? Cereal(Has, tokens, n) ??
@@ -180,6 +201,8 @@ public static class FoodCulinaryClassifier
         return p;
     }
 
+    // Fábrica común. Parámetros: rol, familia de rotación, popularidad, franjas (B/S/M), estado del peso, rejilla de
+    // gramos (mín, máx, paso, defecto) y "kind" (variedad concreta); extraTags añade etiquetas como "cheese" o "berry".
     private static FoodProfileData Make(string role, string family, short common, string[] slots, string state, double min, double max, double step, double def, string kind, params string[] extraTags)
     {
         var tags = new List<string> { "kind:" + kind };
@@ -198,11 +221,14 @@ public static class FoodCulinaryClassifier
         if (!(tokens.Length >= 3 && tokens[0] == "aceite" && tokens[1] == "de" && (tokens[2] == "oliva" || tokens[2] == "girasol")))
             return null;
         if (n.Contains("ecologic", StringComparison.Ordinal)) return null;
+        // Solo se aceptan aceite de oliva y de girasol (sin ecológico); es el único rol exento de la comprobación de macros incompletos.
         var p = Make(FoodProfileData.RoleOil, "aceite", (short)(tokens[2] == "oliva" ? 5 : 2), S("B", "M"), "ready", 5, 20, 5, 10, "aceite_" + tokens[2], "fat");
         p.IsStaple = true;
         return p;
     }
 
+    // Deduce por el nombre si el peso del catálogo es de producto cocinado; en carnes y pescados cambia el rango de gramos
+    // (el cocinado pesa menos por ración equivalente). Los rangos exactos son criterio de producto.
     private static bool StateIsCooked(Func<string, bool> has) =>
         has("plancha") || has("horno") || has("asado") || has("asada") || has("hervido") || has("hervida") || has("vapor") || has("parrilla") || has("cocido") || has("cocida");
 
@@ -428,6 +454,9 @@ public static class FoodCulinaryClassifier
             var pp = Make(FoodProfileData.RoleStarch, family, common, S("M"), has("cruda") ? "raw" : "cooked", 150, 350, 50, 220, kind);
             return pp;
         }
+        // Coherencia crudo/cocinado por energía: >= 250 kcal/100 g es producto crudo, <= 200 es cocinado (el cocido se hidrata
+        // y baja de densidad). Si el nombre dice "cocido" pero las kcal son de crudo, o si cae en la zona intermedia, se excluye
+        // para no calcular raciones con un peso equivocado. Umbrales: criterio de producto, origen no documentado.
         var cookedName = has("hervido") || has("hervida") || has("cocido") || has("cocida");
         string? excluded = null;
         string state;
@@ -448,6 +477,7 @@ public static class FoodCulinaryClassifier
         if (kind == null) return null;
         var cookedName = has("hervida") || has("hervido") || has("cocida") || has("cocido") || has("cocidas") || has("cocidos") || has("hervidas") || has("remojada") || conserva;
         string state; string? excluded = null;
+        // Misma regla de coherencia energética crudo/cocinado que en Starch.
         if (kcal >= 250) { state = "raw"; if (cookedName) excluded = "energia_incoherente_con_cocinado"; }
         else if (kcal > 0 && kcal <= 200) state = "cooked";
         else { state = "raw"; excluded = "estado_crudo_cocinado_ambiguo"; }
@@ -478,6 +508,7 @@ public static class FoodCulinaryClassifier
             var isSalad = salad && !has("hervida") && !has("hervido") && !has("asado") && !has("asada");
             var p = Make(FoodProfileData.RoleVegetable, "verdura", common, S("M"), has("cruda") || has("crudo") || tokens.Length == 1 ? "raw" : "cooked",
                 isSalad ? 80 : 100, isSalad ? 250 : 300, 10, isSalad ? 150 : 180, word, tags.ToArray());
+            // Una "verdura" con > 60 kcal o > 3 g de grasa por 100 g suele ser un dato erróneo o un producto elaborado. Criterio de producto.
             if (kcal > 60 || fat > 3) p.ExcludedReason = "datos_incoherentes_verdura";
             return p;
         }
@@ -493,6 +524,8 @@ public static class FoodCulinaryClassifier
             if (tokens.Length > 4) return null;
             if (n.Contains("seca", StringComparison.Ordinal) || n.Contains("pasa", StringComparison.Ordinal) || n.Contains("deseca", StringComparison.Ordinal)) return null;
             var p = Make(FoodProfileData.RoleFruit, "fruta", common, S("B", "S", "M"), "raw", min, max, step, def, word);
+            // "berry" es la única fruta admitida en cetogénica; "highsugar" se excluye en bajo en hidratos (ver DietMenuEngine).
+            // Las listas son criterio de producto, no una clasificación nutricional formal.
             if (word is "fresa" or "frambuesa" or "arandano" or "mora") p.Tags = p.Tags.Append("berry").ToArray();
             if (word is "platano" or "uva" or "cereza" or "mango" or "caqui" or "higos") p.Tags = p.Tags.Append("highsugar").ToArray();
             return p;
@@ -521,6 +554,9 @@ public static class FoodCulinaryClassifier
     }
 
 
+    // Control de calidad de datos común a todos los roles: excluye sin energía, macros negativos o incompletos (salvo
+    // aceites) y los casos en que las kcal declaradas difieren de la fórmula de Atwater (4/4/9 kcal/g) en más de un
+    // 30 % y 25 kcal. Los factores 4/4/9 son estándar; los umbrales 30 % y 25 kcal son criterio de producto.
     private static void ApplyEnergyPlausibility(FoodProfileData p, string n, double kcal, double? protein, double? carbs, double? fat)
     {
         if (p.ExcludedReason != null) return;

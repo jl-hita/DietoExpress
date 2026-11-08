@@ -10,9 +10,18 @@ namespace Anguloso.Server.Logica;
 /// convierte datos estructurados del paciente en objetivos y señales de optimización
 /// que el profesional puede revisar. Las restricciones de seguridad siguen resolviéndose
 /// antes de esta capa.
+/// Lugar en el flujo: se ejecuta al inicio de <see cref="DietGeneratorService"/> (entrada), antes de elegir alimentos.
+/// Produce un <see cref="DietTherapyProfile"/> con (a) energía estimada, (b) pesos de nutrientes que sesgan la selección
+/// de alimentos (valor positivo penaliza, negativo favorece) y (c) frecuencias semanales objetivo para el motor de menús.
+/// Las reglas por patología son criterio de producto (señales blandas), no prescripciones clínicas; los pesos
+/// numéricos tienen origen no documentado y el texto de <c>Rules</c> es lo que se muestra al profesional.
 /// </summary>
 public sealed class DietTherapyRuleEngine
 {
+    /// <summary>
+    /// Construye el perfil dietoterapéutico. La energía solo se estima si no hay objetivo explícito. Las condiciones del
+    /// paciente solo añaden pesos y avisos; nunca excluyen alimentos (eso lo hacen las restricciones de seguridad).
+    /// </summary>
     public DietTherapyProfile BuildProfile(
         clients client,
         medical_history? medical,
@@ -68,12 +77,15 @@ public sealed class DietTherapyRuleEngine
         if (!string.IsNullOrWhiteSpace(lifestyle?.work_schedule))
             profile.Rules.Add("Horario laboral considerado para mantener una distribución de comidas compatible con la rutina.");
 
+        // Frecuencias semanales objetivo (por día para fruta/verdura; por semana /7 para el resto). Criterio de producto.
+        // Hoy el motor de menús solo consume "legumbre" y "pescado_marisco"; el resto es informativo.
         profile.FrequencyTargets["fruta"] = 1;
         profile.FrequencyTargets["verdura"] = 2;
         profile.FrequencyTargets["legumbre"] = 3.0 / 7.0;
         profile.FrequencyTargets["pescado_marisco"] = 2.0 / 7.0;
         profile.FrequencyTargets["frutos_secos"] = 4.0 / 7.0;
 
+        // Umbral de grasa corporal > 35 %: criterio de producto, origen no documentado. Solo genera un aviso.
         if (latestBiometrics?.body_fat is > 35)
             profile.Rules.Add("Composición corporal: priorizar saciedad y densidad nutricional; revisar el objetivo energético antes de prescribir.");
 
@@ -91,6 +103,8 @@ public sealed class DietTherapyRuleEngine
     /// Coincide con el rango operativo que valida <c>DietSemanticValidationService</c>.
     /// </summary>
     public const double MinimumSafeKcal = 1200;
+    // Techo operativo del generador (mismo rango que valida la validación semántica). Criterio de producto.
+    // Nota: ApplyWeightManagementTarget acota con 5000 (su propio techo), no con esta constante.
     public const double MaximumKcal = 4500;
 
     public static double ApplyWeightManagementTarget(
@@ -102,6 +116,7 @@ public sealed class DietTherapyRuleEngine
         if (!double.IsFinite(maintenanceKcal) || maintenanceKcal <= 0)
             maintenanceKcal = 2000;
 
+        // Déficit por defecto 15 % y máximo 20 % (criterio de producto; el profesional puede fijar el mínimo en el perfil).
         var percent = Math.Clamp(deficitPercent ?? 15, 0, 20);
         var percentDeficit = maintenanceKcal * percent / 100.0;
         var rate = targetRateKgPerWeek.GetValueOrDefault();
@@ -119,6 +134,11 @@ public sealed class DietTherapyRuleEngine
         return Math.Round(Math.Clamp(target, floor, 5000), MidpointRounding.AwayFromZero);
     }
 
+    /// <summary>
+    /// Estima el gasto energético diario: metabolismo basal x factor de actividad fijo. Con % de grasa válido (3-70) usa una
+    /// ecuación basada en masa magra (forma de Cunningham: 370 + 21,6 x masa magra); si no, Mifflin-St Jeor
+    /// (10 peso + 6,25 talla - 5 edad + 5 o -161 según sexo). Sin peso y talla devuelve <paramref name="fallbackKcal"/>.
+    /// </summary>
     public static double EstimateEnergy(
         clients client,
         biometrics? biometric,
@@ -129,6 +149,7 @@ public sealed class DietTherapyRuleEngine
             return fallbackKcal;
 
         var age = client.birth_date.HasValue
+            // Edad mínima 18 (la estimación está pensada para adultos); sin fecha de nacimiento se asume 40. Criterio de producto.
             ? Math.Max(18, (DateTime.UtcNow.Date - client.birth_date.Value.ToDateTime(TimeOnly.MinValue)).TotalDays / 365.2425)
             : 40;
 
@@ -150,6 +171,8 @@ public sealed class DietTherapyRuleEngine
         // usamos un factor neutro y dejamos que el profesional ajuste el objetivo.
         var estimated = bmr * 1.45;
 
+        // Ajustes por tipo de dieta: -15 % para pérdida de peso, +8 % para ganancia. Criterio de producto, origen no documentado.
+        // Rango final 1200-4500 kcal, igual que MinimumSafeKcal/MaximumKcal.
         if (dietType.Contains("perdida", StringComparison.OrdinalIgnoreCase) ||
             dietType.Contains("peso", StringComparison.OrdinalIgnoreCase) ||
             dietType.Contains("adelgaz", StringComparison.OrdinalIgnoreCase))
@@ -163,9 +186,14 @@ public sealed class DietTherapyRuleEngine
     }
 }
 
+/// <summary>
+/// Resultado de <see cref="DietTherapyRuleEngine"/>: energía estimada, avisos legibles (<c>Rules</c>), pesos por nutriente
+/// (claves: sugar, salt, fiber, potassium) y frecuencias semanales objetivo por grupo de alimentos.
+/// </summary>
 public sealed class DietTherapyProfile
 {
     public double TargetKcal { get; set; }
+    // Se calcula pero actualmente no lo consume el generador (reservado para el reparto por comidas).
     public double MealDistributionWeight { get; set; } = 1.0;
     public List<string> Rules { get; } = new();
     public Dictionary<string, double> NutrientWeights { get; } = new(StringComparer.OrdinalIgnoreCase);

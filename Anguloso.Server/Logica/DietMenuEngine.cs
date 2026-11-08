@@ -3,14 +3,20 @@ using Anguloso.Server.Models;
 
 namespace Anguloso.Server.Logica;
 
-/// <summary>Política de porciones compartida por el motor y el validador, escalada por energía objetivo.</summary>
+/// <summary>
+/// Política de porciones compartida por el motor y el validador, escalada por energía objetivo. Los límites mín/máx/por
+/// defecto de cada alimento vienen de su perfil culinario (<see cref="FoodProfileData"/>) y aquí solo se escalan.
+/// </summary>
 public static class PortionPolicy
 {
+    // 2000 kcal es la referencia (porción "normal"); el rango 0.6-2.2 evita porciones absurdas en dietas extremas. Criterio de producto.
     public static double EnergyScale(double targetKcal) => targetKcal <= 0 ? 1.0 : Math.Clamp(targetKcal / 2000.0, 0.6, 2.2);
 
     public static (double Min, double Max, double Default) Bounds(FoodProfileData p, double targetKcal, bool highFat = false)
     {
         var s = EnergyScale(targetKcal);
+        // Cuánto crece la porción con la energía según el rol: féculas/frutos secos proporcional; proteína, aceite y
+        // verdura crecen menos que la energía (exponentes 0.85/0.7/0.5, criterio de producto). El mínimo nunca baja del 80 %.
         var factor = p.Role switch
         {
             FoodProfileData.RoleStarch or FoodProfileData.RoleLegume or FoodProfileData.RoleBread or FoodProfileData.RoleCereal or FoodProfileData.RoleNut => s,
@@ -32,6 +38,8 @@ public static class PortionPolicy
 /// <summary>Alimento ya filtrado (seguro) y enriquecido con su perfil culinario y valores por 100 g.</summary>
 public sealed class EngineFood
 {
+    // Abreviaturas: K = kcal, Pr = proteína, C = hidratos, F = grasa (todo por 100 g); P = perfil culinario.
+    // Preferred/Disliked/TherapyFactor son pesos blandos para la selección; nunca amplían el catálogo seguro.
     public foods Food { get; init; } = null!;
     public FoodProfileData P { get; init; } = null!;
     public double K { get; init; }
@@ -49,6 +57,7 @@ public sealed class EngineFood
     };
 }
 
+/// <summary>Entrada del motor: objetivos diarios, reparto por comidas (nombre y fracción de kcal), semilla y límites de variedad.</summary>
 public sealed class MenuEngineOptions
 {
     public int Days { get; set; } = 7;
@@ -62,9 +71,11 @@ public sealed class MenuEngineOptions
     public bool Refine { get; set; } = true;
     public int Seed { get; set; } = 12345;
     public List<(string Name, double KcalPct)> Meals { get; set; } = new();
+    /// <summary>Frecuencias semanales objetivo por grupo (p. ej. "legumbre", "pescado_marisco") procedentes del perfil terapéutico; solo sesgan el esqueleto semanal.</summary>
     public Dictionary<string, double> FrequencyTargets { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
+/// <summary>Salida del motor: días construidos, nº de reintentos locales de composición y avisos no bloqueantes.</summary>
 public sealed class MenuEngineResult
 {
     public List<DietDayDto> Days { get; set; } = new();
@@ -76,12 +87,18 @@ public sealed class MenuEngineResult
 /// Constructor determinista de menús: esqueleto semanal de rotación (primeros platos, proteínas), plantillas de comidas
 /// españolas (desayuno, media mañana, comida de 1º/2º/guarnición/pan/postre, merienda, cena ligera) y resolución de
 /// porciones por descenso de coordenadas sobre una rejilla de raciones. Solo usa alimentos ya filtrados por seguridad.
+/// Lugar en el flujo: recibe de <see cref="DietGeneratorService"/> los alimentos seguros y compatibles con la dieta, y
+/// devuelve los días ya con gramos y macros; la validación posterior no es responsabilidad de esta clase.
+/// Por cada día: (1) esqueleto semanal (BuildSkeleton) fija qué grupo de primer/segundo plato toca; (2) ComposeDay elige
+/// alimentos por comida y rol culinario (Pick, ponderado y con semilla); (3) SolveDay ajusta gramos a kcal/macros;
+/// (4) se repite hasta obtener un día aceptable, penalizando comidas repetidas.
 /// </summary>
 public sealed class DietMenuEngine
 {
     private readonly MenuEngineOptions _o;
     private readonly bool _vegan, _vegetarian, _keto, _lowCarb;
     private readonly Dictionary<string, List<EngineFood>> _byRole = new(StringComparer.Ordinal);
+    // Estado de variedad semanal (se actualiza en Commit): usos por alimento y por "kind" (variedad del mismo tipo de alimento).
     private readonly Dictionary<int, int> _weeklyUse = new();
     private readonly Dictionary<string, int> _weeklyKind = new(StringComparer.Ordinal);
     private HashSet<int> _prevDay = new();
@@ -90,6 +107,7 @@ public sealed class DietMenuEngine
     private string[] _dinnerProtein = Array.Empty<string>();
     private readonly List<string> _warnings = new();
 
+    // Estado provisional de un intento de composición de un día; solo se vuelca al estado semanal si gana (Commit).
     private sealed class Attempt
     {
         public readonly HashSet<int> DayUsed = new();
@@ -105,6 +123,7 @@ public sealed class DietMenuEngine
         public readonly HashSet<string> Kinds = new(StringComparer.Ordinal);
     }
 
+    // Hueco de la plantilla de comida: un alimento con su rol dentro del plato (Course) y sus gramos G acotados por [Min, Max] en rejilla Step.
     private sealed class Slot
     {
         public EngineFood Food = null!;
@@ -134,6 +153,8 @@ public sealed class DietMenuEngine
             if (!f.P.IsUsable) continue;
             if (!DietSemanticValidationService.IsFoodCompatibleWithDietType(f.Food.name, o.DietType, f.Food.category, f.Food.carbs, f.Food.fat, foodId: f.Food.id)) continue;
             if (_keto && (f.P.Role is FoodProfileData.RoleStarch or FoodProfileData.RoleLegume or FoodProfileData.RoleBread or FoodProfileData.RoleCereal)) continue;
+            // Filtros adicionales por patrón de dieta (criterio de producto; el tope clínico de hidratos cetogénico lo valida DietSemanticValidationService):
+            // keto solo admite frutos rojos, verduras de bajo contenido en hidratos (<= 4.5 g/100 g) y lácteos sin leche (<= 6 g); bajo en hidratos excluye féculas densas y fruta muy azucarada.
             if (_keto && f.P.Role == FoodProfileData.RoleFruit && !f.P.HasTag("berry")) continue;
             if (_lowCarb && f.P.Role == FoodProfileData.RoleStarch && f.P.Family is "pasta" or "patata" or "cereal") continue;
             if (_lowCarb && f.P.Role == FoodProfileData.RoleFruit && f.P.HasTag("highsugar")) continue;
@@ -144,6 +165,7 @@ public sealed class DietMenuEngine
         }
     }
 
+    /// <summary>Punto de entrada: construye los días del menú. Determinista para un mismo catálogo, opciones y <c>Seed</c>.</summary>
     public static MenuEngineResult Build(IReadOnlyList<EngineFood> foods, MenuEngineOptions options)
     {
         var engine = new DietMenuEngine(foods, options);
@@ -161,6 +183,8 @@ public sealed class DietMenuEngine
         for (var day = 0; day < _o.Days; day++)
         {
             var best = (Slots: (List<Slot>?)null, Score: double.MaxValue, Attempt: (Attempt?)null);
+            // Con Refine se comparan al menos 4 composiciones por día y se conserva la de menor puntuación; sin Refine basta
+            // la primera aceptable. 40 es el tope de reintentos (criterio de producto). Los multiplicadores del seed son primos arbitrarios.
             var minTries = _o.Refine ? 4 : 1;
             const int maxTries = 40;
             var bestAcceptable = false;
@@ -171,6 +195,7 @@ public sealed class DietMenuEngine
                 var solveScore = SolveDay(slots, out var acceptable);
                 var variety = VarietyPenalty(slots);
                 // Un día que repite una comida completa ya usada dos veces solo vale si no hay alternativa.
+                // Pesos de la puntuación (0.05 variedad, +1 si no cumple tolerancias): criterio de producto. Menor es mejor.
                 var score = solveScore + variety * 0.05 + (acceptable ? 0 : 1);
                 if (score < best.Score) { best = (slots, score, attempt); bestAcceptable = acceptable && variety < 1; }
                 if (t + 1 >= minTries && bestAcceptable) break;
@@ -215,6 +240,10 @@ public sealed class DietMenuEngine
         }
     }
 
+    // Fija para toda la semana qué grupo toca en cada primer plato (_lunchStarch) y en cada segundo plato de comida y cena
+    // (_lunchProtein/_dinnerProtein). Los pesos de reparto entre grupos (arroz, pasta, ave, pescado...) y las preferencias
+    // de comida/cena son criterio de producto (gastronomía española); origen no documentado. Los FrequencyTargets del
+    // perfil terapéutico solo elevan el peso de legumbre y pescado (con suelos 0.30 y 0.29).
     private void BuildSkeleton()
     {
         var rnd = new Random(_o.Seed);
@@ -247,6 +276,8 @@ public sealed class DietMenuEngine
             foreach (var g in Pool(FoodProfileData.RoleProtein).Select(x => x.P.Family).Distinct()) groups.Add((g, 1));
             if (groups.Count == 0 && legumes.Count > 0) groups.Add(("legumbre", 1));
         }
+        // Cada "token" es un hueco de segundo plato asignado a un grupo; después se reparten entre comidas y cenas
+        // (Choose) con preferencia por grupo, algo de azar y penalización por repetir el grupo del día anterior o el de la comida.
         var tokens = groups.Count == 0 ? new List<string>() : Distribute(groups, 2 * n, rnd, false).ToList();
         EnforceCapacity(tokens, groups, g => g == "legumbre" ? Pool(FoodProfileData.RoleLegume).Count : Pool(FoodProfileData.RoleProtein).Count(x => x.P.Family == g));
         _lunchProtein = new string[n]; _dinnerProtein = new string[n];
@@ -333,6 +364,13 @@ public sealed class DietMenuEngine
 
     // ───────────────────────── Selección ─────────────────────────
 
+    // Elige un alimento por sorteo ponderado (determinista con la semilla del intento). Peso = comunidad del alimento
+    // (Commonness^1.6) x señal terapéutica x preferencia, atenuado por repetición semanal, por repetir "kind" y por
+    // haberlo usado el día anterior (x0.15). Si no hay candidatos, relaja en 3 pasos: (0) respeta el límite semanal y
+    // el día, (1) ignora el límite semanal, (2) permite repetir en el día. Los alimentos "staple" (básicos de uso
+    // diario: aceite, pan, leche, yogur natural) no se penalizan. Todos los factores numéricos son criterio de producto, origen no documentado.
+    // Con optional=true no relaja y devuelve null si no hay candidato (el componente se omite).
+
     private EngineFood? Pick(IEnumerable<EngineFood> pool, Attempt a, MealCtx mealUsed, Func<EngineFood, bool>? filter = null, Func<EngineFood, double>? bias = null, bool optional = false)
     {
         var cands = filter == null ? pool.ToList() : pool.Where(filter).ToList();
@@ -394,6 +432,9 @@ public sealed class DietMenuEngine
 
     // ───────────────────────── Plantillas de comidas ─────────────────────────
 
+    // Cada comida usa una plantilla según su nombre (desayuno, media mañana, merienda, cena; cualquier otro nombre se
+    // trata como comida principal). Esto acopla el motor a los nombres de GetMealSplits o de la plantilla profesional.
+    // Los "Course" ("Primer plato", "Segundo plato", "Guarnición"...) son los roles culinarios que se guardan en CourseRole.
     private List<Slot> ComposeDay(int day, Attempt a)
     {
         var slots = new List<Slot>();
@@ -411,6 +452,7 @@ public sealed class DietMenuEngine
         return slots;
     }
 
+    // Franja de uso del perfil culinario: B = desayuno, S = snack (media mañana/merienda), M = comidas principales.
     private bool InSlot(EngineFood f, string slot) => f.P.HasSlot(slot);
 
     // En cetogénica los lácteos con hidratos (yogur, kéfir) solo entran en el desayuno; el resto de ingestas usan queso.
@@ -554,6 +596,11 @@ public sealed class DietMenuEngine
         public double[] MealK = Array.Empty<double>();
     }
 
+    // Ajuste de raciones: descenso de coordenadas sobre los gramos de cada hueco, dentro de [Min, Max] y en pasos de Step.
+    // Minimiza J = suma ponderada de errores relativos al cuadrado de kcal, proteína, hidratos y grasa del día, más un
+    // término pequeño por desviación de kcal de cada comida respecto a su reparto. Prueba pasos x1, x2 y x4; cuando
+    // ningún movimiento simple mejora, prueba pares (sube uno, baja otro). Devuelve J y, en "acceptable", si el día queda
+    // dentro de las tolerancias. fixedLoad aporta carga ya fijada (recetas); keepGrams parte de los gramos actuales.
     private double SolveDay(List<Slot> slots, out bool acceptable, FixedLoad? fixedLoad = null, bool keepGrams = false)
     {
         var n = slots.Count;
@@ -578,6 +625,8 @@ public sealed class DietMenuEngine
         }
         var mealTarget = _o.Meals.Select(x => _o.Kcal * x.KcalPct).ToArray();
 
+        // Pesos de J: kcal 0.35, proteína 0.25, hidratos 0.20, grasa 0.20, reparto por comida 0.03. Criterio de producto
+        // (prioriza energía y proteína); origen no documentado.
         double J(double a, double b, double cc, double d, double[] mk)
         {
             var j = 0.0;
@@ -594,6 +643,7 @@ public sealed class DietMenuEngine
         var cur = J(tK, tP, tC, tF, mealK);
         var tmpMeal = new double[mealCount];
         int[] mults = { 1, 2, 4 };
+        // 600 iteraciones: tope de seguridad; normalmente converge antes (sin movimiento que mejore J).
         for (var iter = 0; iter < 600; iter++)
         {
             var bestJ = cur; var bestI = -1; var bestJi = -1; var bestD = 0.0; var bestD2 = 0.0;
@@ -642,6 +692,8 @@ public sealed class DietMenuEngine
             cur = bestJ;
         }
 
+        // Tolerancias de aceptación del motor: kcal +/-5 %, macros +/-12 %. Criterio de producto; son el contrato de
+        // calidad que luego comprueba la validación semántica (no son un límite clínico).
         acceptable = (_o.Kcal <= 0 || Math.Abs(tK - _o.Kcal) / _o.Kcal <= 0.05) &&
                      (_o.Protein <= 0 || Math.Abs(tP - _o.Protein) / _o.Protein <= 0.12) &&
                      (_o.Carbs <= 0 || Math.Abs(tC - _o.Carbs) / _o.Carbs <= 0.12) &&
@@ -652,6 +704,9 @@ public sealed class DietMenuEngine
     private static double Sq(double x) => x * x;
 
     // ───────────────────────── DTO ─────────────────────────
+
+    // Los gramos se redondean a entero y los macros se recalculan desde ese valor redondeado (lo mostrado es coherente
+    // con lo que se suma). ExchangeCount son raciones de intercambio, solo si el alimento define gramos por ración.
 
     private static MealItemDto BuildItem(EngineFood food, double grams, string course)
     {

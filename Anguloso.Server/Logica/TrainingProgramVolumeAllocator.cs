@@ -7,16 +7,28 @@ namespace Anguloso.Server.Logica;
 /// </summary>
 public static class TrainingProgramVolumeAllocator
 {
+    // All constants below are internal product limits (not guideline figures).
     private const int MinimumSetsPerExercise = 1;
     private const int MaximumSetsPerExercise = 5;
     private const int MaximumSetsPerExerciseForStrength = 4;
+    // Duration model: reps x 2.5 s + rest between sets + 45 s transition per exercise + 5 min
+    // session overhead (warm-up). It decides how many extra sets fit in a session.
     private const decimal SecondsPerRepEstimate = 2.5m;
     private const int TransitionSecondsPerExercise = 45;
     private const int SessionOverheadMinutes = 5;
+    // Non-hypertrophy default targets shrink linearly when weekly time is below 180 min, never
+    // below 65 % of the baseline; explicit professional targets are never reduced.
     private const decimal WeeklyMinutesForFullDefaultVolume = 180m;
     private const decimal MinimumDefaultVolumeTimeFactor = 0.65m;
     private const decimal ExplicitHypertrophyTargetToleranceSets = 2m;
 
+    /// <summary>
+    /// Raises each exercise's sets one at a time, always choosing the exercise whose stimulated muscles
+    /// have the largest normalized deficit to their weekly target, until no set fits within the
+    /// per-exercise ceiling, the muscle's upper tolerance or the session time limit. Remaining
+    /// deficits become warnings; the allocator never forces volume. Returns errors only for invalid
+    /// preferences or when a session ends up longer than the allowed duration.
+    /// </summary>
     public static TrainingVolumeAllocationResult Allocate(
         IReadOnlyList<TrainingSessionPrescription> sessions,
         TrainingGoal goal,

@@ -11,6 +11,14 @@ using Microsoft.Extensions.Logging;
 
 namespace Anguloso.Server.Logica;
 
+/// <summary>
+/// Orquestador de la generación de dietas. Flujo: (1) resuelve cliente, perfiles de especialización y objetivos
+/// energéticos/macros; (2) carga el catálogo de alimentos y lo filtra por seguridad (alergias, intolerancias,
+/// exclusiones, visibilidad por tenant); (3) delega en <see cref="DietMenuEngine"/> el reparto por comidas/roles
+/// culinarios y el ajuste de raciones; (4) opcionalmente inyecta recetas y reequilibra; (5) valida con
+/// <see cref="DietSemanticValidationService"/> (reintenta con otro seed si falla); (6) añade el resumen de micronutrientes.
+/// No persiste nada: devuelve el DTO ya validado.
+/// </summary>
 public class DietGeneratorService
 {
     private readonly angulosodbContext _context;
@@ -114,6 +122,8 @@ public class DietGeneratorService
                     // Cuando la adherencia reciente es baja damos más peso a lo que el
                     // paciente ya ha declarado que le gusta. Es una señal de adherencia,
                     // no una regla clínica ni una sustitución del criterio profesional.
+                    // Umbral (<= 5 sobre 10) y valor del boost: criterio de producto, origen no documentado.
+                    // El valor solo se usa como indicador (>0); el peso real es el x1.5 de TherapyFactor más abajo.
                     if (recentAdherence.HasValue && recentAdherence.Value <= 5)
                         adherenceBoost = 20;
                 }
@@ -190,6 +200,9 @@ public class DietGeneratorService
             targetKcal = minimumKcal.Value;
         }
 
+        // 2. Macros objetivo. Prioridad de la proteína: valor explícito de la petición > perfil deportivo (g/kg)
+        // > perfil de control de peso (g/kg) > perfil de nutrición deportiva > porcentaje por tipo de dieta.
+        // Los hidratos son el residuo energético tras proteína y grasa, salvo objetivo explícito o perfil deportivo.
         double? sportsProtein = GetProfileDouble(sportsProfile, "proteinGPerKg");
         double? sportsCarbs = GetProfileDouble(sportsProfile, "carbsGPerKg");
         double? weightProtein = GetProfileDouble(weightProfile, "proteinGPerKg");
@@ -215,6 +228,7 @@ public class DietGeneratorService
             var ketoCarbCeiling = DietSemanticValidationService.KetoDailyCarbLimitGrams * 0.9;
             if (targetCarbs > ketoCarbCeiling)
             {
+                // 4 kcal/g de hidrato retirado se convierten en gramos de grasa a 9 kcal/g (conserva la energía total).
                 targetFat += (targetCarbs - ketoCarbCeiling) * 4.0 / 9.0;
                 targetCarbs = ketoCarbCeiling;
             }
@@ -224,6 +238,7 @@ public class DietGeneratorService
         // No debemos traer toda la tabla a memoria: el catálogo puede crecer mucho
         // con las sincronizaciones de USDA/OpenFoodFacts y bloquear la generación.
         // Los alimentos con perfil culinario curado se cargan primero para que un catálogo grande no los desplace.
+        // Tope de carga: criterio de producto (rendimiento), origen no documentado.
         const int maxFoodsToLoad = 5000;
         var foodsLoadTimer = Stopwatch.StartNew();
         // La expresión debe ser completamente traducible por EF Core. No podemos invocar
@@ -268,9 +283,11 @@ public class DietGeneratorService
             if (structuredSpecializationExclusions.Contains(f.id)) continue;
             // Defensa en profundidad del filtro SQL: un alimento local solo lo usa quien tiene permiso sobre él.
             if (string.Equals(f.source, "local", StringComparison.OrdinalIgnoreCase) && !UserCanUseTenantLocalFood(f, tenantId, userId, canUseTenantLocalFoods)) continue;
+            // Perfil culinario curado en BD si existe; si no, se infiere por heurística de nombre/categoría/macros.
             if (!storedProfiles.TryGetValue(f.id, out var profile))
                 profile = FoodCulinaryClassifier.Classify(f.name, f.category, f.kcal, f.protein, f.carbs, f.fat);
             if (profile == null || !profile.IsUsable) continue;
+            // Se descartan productos de marca (importados de bases comerciales); solo se admiten genéricos y BEDCA. Criterio de producto.
             if (!string.IsNullOrWhiteSpace(f.brands) && !string.Equals(f.source, "bedca", StringComparison.OrdinalIgnoreCase)) continue;
             if (IsBlocked(f, exclusionMatcher)) continue;
             if (!HasKnownAllergenDataForClient(f, client)) continue;
@@ -292,6 +309,8 @@ public class DietGeneratorService
                 allergenVerificationHint);
         }
 
+        // Compatibilidad con el tipo de dieta y comprobación de que existen alimentos para cada pool imprescindible
+        // (proteína, hidratos, verdura, fruta, aceite); en cetogénica no se exigen hidratos ni fruta.
         var isKetoType = request.DietType.Equals("Cetogenica", StringComparison.OrdinalIgnoreCase);
         var compatible = engineFoods.Where(e =>
             DietSemanticValidationService.IsFoodCompatibleWithDietType(e.Food.name, request.DietType, e.Food.category, e.Food.carbs, e.Food.fat, foodId: e.Id) &&
@@ -317,6 +336,7 @@ public class DietGeneratorService
             e.Preferred = MatchesFoodTerms(e.Food, preferredFoods);
             e.Disliked = MatchesFoodTerms(e.Food, dislikedFoods);
             e.TherapyFactor = CalculateTherapyFactor(e.Food, dietTherapyProfile);
+            // x1.5 (criterio de producto) sobre alimentos preferidos cuando la adherencia reciente es baja.
             if (e.Preferred && adherenceBoost > 0) e.TherapyFactor *= 1.5;
         }
 
@@ -366,6 +386,7 @@ public class DietGeneratorService
                 Fat = targetFat,
                 MaxWeeklyRepetitions = request.MaxWeeklyFoodRepetitions,
                 Refine = request.EnableGlobalOptimization,
+                // 7919 es un primo arbitrario para separar los seeds de cada intento (sin significado nutricional).
                 Seed = unchecked(baseSeed + attempt * 7919),
                 Meals = mealSplits.Select(sp => (sp.MealName, sp.KcalPct)).ToList(),
                 FrequencyTargets = dietTherapyProfile?.FrequencyTargets != null
@@ -453,6 +474,11 @@ public class DietGeneratorService
         return validatedDiet;
     }
 
+    /// <summary>
+    /// Calcula por día el aporte de micronutrientes y su % respecto a la ingesta de referencia. Los azúcares y las grasas
+    /// saturada/mono/poliinsaturada solo suman de alimentos con dato; los indicadores *DataComplete avisan de si el total
+    /// es parcial. Los alimentos sin dato de un micronutriente cuentan como 0 (infraestima, no se imputa).
+    /// </summary>
     public static void PopulateDailyMicronutrients(DietDetailDto diet, IReadOnlyCollection<foods> allowedFoods)
     {
         if (diet.Days == null || diet.Days.Count == 0) return;
@@ -502,7 +528,8 @@ public class DietGeneratorService
                 }
             }
 
-            // Ingestas Diarias Recomendadas (CDR / RDA adultos según EFSA/AESAN)
+            // Ingestas Diarias Recomendadas (CDR / RDA adultos según EFSA/AESAN). Valores únicos para todos los pacientes:
+            // no se ajustan por sexo, edad ni embarazo (limitación conocida; regla nutricional simplificada).
             const double rdaCa = 950.0;     // mg
             const double rdaFe = 14.0;      // mg (media adulta ponderada)
             const double rdaMg = 350.0;     // mg
@@ -569,6 +596,8 @@ public class DietGeneratorService
         public double KcalPct { get; set; }
     }
 
+    // Reparto calórico por comida (suma 1.0 en cada caso). Criterio de producto, origen no documentado;
+    // cualquier valor distinto de 3 o 4 se trata como 5 comidas.
     private List<MealSplit> GetMealSplits(int mealsCount)
     {
         return mealsCount switch
@@ -659,6 +688,8 @@ public class DietGeneratorService
         return Math.Round(weight * gramsPerKg, 1);
     }
 
+    // Macros por defecto cuando no hay objetivo explícito ni perfil: porcentaje de la energía por tipo de dieta
+    // (criterio de producto, origen no documentado). Proteína e hidratos a 4 kcal/g, grasa a 9 kcal/g.
     private double CalculateDefaultProtein(double kcal, string dietType)
     {
         double pct = dietType switch
@@ -698,7 +729,7 @@ public class DietGeneratorService
             .Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(NormalizeFoodTerm)
             .Where(term => term.Length >= 3)
-            .Take(80)
+            .Take(80) // tope defensivo ante textos libres enormes; criterio de producto
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
@@ -788,6 +819,8 @@ public class DietGeneratorService
             var value = key switch { "sugar" => (food.sugar ?? 0) / 10.0, "salt" => food.salt ?? 0, "fiber" => (food.fiber ?? 0) / 3.0, "potassium" => (food.potassium_mg ?? 0) / 100.0, _ => 0 };
             penalty += rule.Value * Math.Min(value, 3.0);
         }
+        // Los divisores (10, 3, 100), el tope 3.0, la pendiente 0.25 y los límites 0.2-2.5 son criterio de producto
+        // (normalizan cada nutriente a una escala comparable); origen no documentado. Pesos negativos favorecen el alimento.
         return Math.Clamp(Math.Exp(-0.25 * penalty), 0.2, 2.5);
     }
 

@@ -3,6 +3,22 @@ namespace Anguloso.Server.Logica;
 /// <summary>
 /// First deterministic draft generator. It only selects from explicitly supplied, reviewed catalog metadata.
 /// It does not infer exercise properties from names or automatically publish/apply the generated plan.
+///
+/// Flow of <see cref="Generate"/> (one call produces ONE block/mesocycle of 1–52 weeks):
+///  1. Validate the request and the catalog (structural errors are returned, never thrown).
+///  2. Pick the weekly split (<see cref="BuildSplit"/>) and, per session, one exercise per movement
+///     pattern from the reviewed catalog (goal, level, equipment, exclusions; best SelectionPriority,
+///     optionally rotated within a small curated pool, see <see cref="RotateCuratedPool"/>).
+///  3. Add 1–4 accessory exercises per session according to the session time budget and the
+///     weekly muscle deficit (<see cref="AddOptionalAccessoryExercises"/>).
+///  4. <see cref="TrainingProgramVolumeAllocator"/> distributes working sets towards weekly targets
+///     under time and per-exercise limits.
+///  5. Warm-up guidance, then either the explicit deload or the intra-block progression
+///     (introductory week). A deload is never applied automatically.
+///  6. Quality report (non-blocking warnings) and structural validation of the final plan.
+/// Every threshold in this file is an internal product heuristic unless a comment says otherwise;
+/// none is a figure prescribed by ACSM. Macrocycle phases are NOT built here (see
+/// <see cref="TrainingMacrocycleDraftBuilder"/>); the professional decides how blocks are chained.
 /// </summary>
 public static class TrainingProgramGenerator
 {
@@ -306,6 +322,8 @@ public static class TrainingProgramGenerator
             .Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
+    // Equipment check: every required token must be available. "machine" is the generic gym
+    // option and is interchangeable with any "<something>-machine" token in both directions.
     private static bool HasRequiredEquipment(
         IReadOnlyList<string> requiredEquipment,
         IReadOnlySet<string> availableEquipment)
@@ -329,6 +347,8 @@ public static class TrainingProgramGenerator
         });
     }
 
+    // Explains WHY no exercise was found by counting candidates after each filter step, so the
+    // professional can see whether review status, goal, level, equipment or exclusions removed them.
     private static string BuildCandidateDiagnostic(
         TrainingMovementPattern pattern,
         TrainingProgramGenerationRequest request,
@@ -670,6 +690,8 @@ public static class TrainingProgramGenerator
         TrainingMuscleGroup.HipFlexors, TrainingMuscleGroup.TibialisAnterior, TrainingMuscleGroup.ErectorSpinae
     ];
 
+    // Higher score = bigger remaining weekly deficit across the muscles the accessory trains,
+    // weighted by muscle importance (hamstrings count half by default; minor muscles 0.6).
     private static decimal AccessoryDeficitScore(
         TrainingExerciseCandidate candidate,
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> currentEffectiveVolume,
@@ -696,6 +718,9 @@ public static class TrainingProgramGenerator
         });
     }
 
+    // Weekly templates. Every template lists the movement patterns a session must cover; titles
+    // are also used later to restrict accessory muscles (e.g. "superior", "Empuje"). Unsupported
+    // split/day combinations return an empty list and are rejected earlier in ValidateRequest.
     private static IReadOnlyList<SessionTemplate> BuildSplit(int daysPerWeek, TrainingProgramSplit requestedSplit)
     {
         var fullBodyA = new SessionTemplate("Cuerpo completo A",

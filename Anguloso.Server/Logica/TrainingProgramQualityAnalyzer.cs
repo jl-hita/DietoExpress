@@ -6,6 +6,8 @@ namespace Anguloso.Server.Logica;
 /// </summary>
 public static class TrainingProgramQualityAnalyzer
 {
+    // Review thresholds are internal product alerts, not physiological limits; every warning is
+    // non-blocking and worded as "revisa", leaving the decision to the professional.
     private const int HighEffectiveSetReviewThreshold = 20;
     private const int HighSessionWorkingSetReviewThreshold = 30;
     private static readonly TrainingMuscleGroup[] StrengthFrequencyReviewMuscles =
