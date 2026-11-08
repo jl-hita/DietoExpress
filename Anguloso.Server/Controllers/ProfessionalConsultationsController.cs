@@ -87,16 +87,19 @@ public sealed class ProfessionalConsultationsController : ControllerBase
                 waist = latestBiometric.waist.HasValue && previousBiometric.waist.HasValue ? latestBiometric.waist.Value - previousBiometric.waist.Value : (double?)null
             };
 
-        var previousConsultationExists = await _db.patient_appointments.AsNoTracking()
-            .AnyAsync(a => a.tenant_id == appointment.TenantId && a.client_id == appointment.ClientId &&
-                           a.id != appointmentId && a.status == "completed");
+        // El resumen y el tipo "seguimiento" dependen de que exista una consulta guiada CERRADA
+        // anterior, no de una cita marcada como completada desde la agenda sin pasar por la consulta.
+        var previousAppointment = await ReadPreviousCompletedConsultationAsync(
+            appointment.TenantId, appointment.ClientId, appointmentId, appointment.StartsAt);
+        var previousConsultationExists = previousAppointment != null
+            || await HasCompletedConsultationAsync(appointment.TenantId, appointment.ClientId, appointmentId);
 
-        var previousAppointment = await _db.patient_appointments.AsNoTracking()
-            .Where(a => a.tenant_id == appointment.TenantId && a.client_id == appointment.ClientId &&
-                        a.id != appointmentId && a.status == "completed" && a.starts_at < appointment.StartsAt)
-            .OrderByDescending(a => a.starts_at)
-            .Select(a => new { a.id, a.starts_at, a.ends_at, a.professional_notes })
-            .FirstOrDefaultAsync();
+        // Una consulta ya iniciada conserva su tipo: no puede pasar de "primera" a "seguimiento"
+        // porque otra cita se cierre mientras tanto.
+        var storedType = consultation == null ? null : GetStoredType(consultation);
+        var suggestedType = storedType is "first" or "follow_up"
+            ? storedType
+            : previousConsultationExists ? "follow_up" : "first";
 
         var activeDiet = await _db.client_diets.AsNoTracking()
             .Where(cd => cd.client_id == appointment.ClientId && cd.is_active == true &&
@@ -156,8 +159,13 @@ public sealed class ProfessionalConsultationsController : ControllerBase
                 status = appointment.Status, clientId = appointment.ClientId, clientName = appointment.ClientName,
                 nutritionistId = appointment.NutritionistId, modality = appointment.Modality
             },
-            suggestedConsultationType = previousConsultationExists ? "follow_up" : "first",
-            consultation, latestCheckin, previousAppointment, activeDiet, openTasks, followupSignals,
+            suggestedConsultationType = suggestedType,
+            consultation,
+            // El resumen de datos previos del paciente solo se ofrece en consultas de seguimiento.
+            latestCheckin = suggestedType == "first" ? null : latestCheckin,
+            previousAppointment = suggestedType == "first" ? null : previousAppointment,
+            activeDiet, openTasks,
+            followupSignals = suggestedType == "first" ? new List<object>() : followupSignals,
             biometrics = new { latest = latestBiometric, previous = previousBiometric, changes = biometricChanges }
         });
     }
@@ -238,16 +246,19 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         var existing = await ReadConsultationAsync(appointmentId, appointment.TenantId);
         if (existing != null) return Ok(existing);
 
-        var previousConsultationExists = await _db.patient_appointments.AsNoTracking()
-            .AnyAsync(a => a.tenant_id == appointment.TenantId && a.client_id == appointment.ClientId &&
-                           a.id != appointmentId && a.status == "completed");
+        var previousConsultationExists = await HasCompletedConsultationAsync(appointment.TenantId, appointment.ClientId, appointmentId);
 
-        var consultationType = string.IsNullOrWhiteSpace(request?.ConsultationType)
-            ? (previousConsultationExists ? "follow_up" : "first")
+        var requestedType = string.IsNullOrWhiteSpace(request?.ConsultationType)
+            ? null
             : request!.ConsultationType!.Trim().ToLowerInvariant();
-
-        if (!AllowedTypes.Contains(consultationType))
+        if (requestedType != null && !AllowedTypes.Contains(requestedType))
             return BadRequest(new { message = "Tipo de consulta no válido." });
+
+        // El servidor decide primera/seguimiento según el historial real: el cliente no puede
+        // abrir un "seguimiento" (con resumen) sin consulta previa ni una "primera" repetida.
+        var consultationType = requestedType == "quick"
+            ? "quick"
+            : previousConsultationExists ? "follow_up" : "first";
 
         await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await connection.OpenAsync();
@@ -262,7 +273,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         command.Parameters.AddWithValue("client", appointment.ClientId);
         command.Parameters.AddWithValue("professional", appointment.NutritionistId);
         command.Parameters.AddWithValue("type", consultationType);
-        command.Parameters.AddWithValue("initial_step", consultationType == "first" ? "anamnesis" : "summary");
+        command.Parameters.AddWithValue("initial_step", InitialStepFor(consultationType));
         await command.ExecuteNonQueryAsync();
 
         await _auditLogService.LogAccessAsync(
@@ -278,11 +289,19 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         var appointment = await GetAuthorizedAppointmentAsync(appointmentId);
         if (appointment == null) return NotFound();
 
-        var step = string.IsNullOrWhiteSpace(request.CurrentStep) ? "summary" : request.CurrentStep.Trim().ToLowerInvariant();
+        var current = await ReadConsultationAsync(appointmentId, appointment.TenantId);
+        if (current == null) return NotFound();
+        var consultationType = GetStoredType(current);
+
+        var step = string.IsNullOrWhiteSpace(request.CurrentStep) ? InitialStepFor(consultationType) : request.CurrentStep.Trim().ToLowerInvariant();
         if (!AllowedSteps.Contains(step)) return BadRequest(new { message = "Paso de consulta no válido." });
+        // El resumen de datos previos solo existe a partir de la primera consulta completada.
+        if (step == "summary" && consultationType == "first")
+            return BadRequest(new { message = "El resumen del paciente solo está disponible en consultas de seguimiento." });
 
         var completedSteps = (request.CompletedSteps ?? Array.Empty<string>())
             .Select(x => x.Trim().ToLowerInvariant()).Where(AllowedSteps.Contains)
+            .Where(x => !(consultationType == "first" && x == "summary"))
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
         var progressJson = request.Progress.HasValue && request.Progress.Value.ValueKind == JsonValueKind.Object
@@ -348,7 +367,9 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await using var command = new NpgsqlCommand("""
             UPDATE professional_consultations
             SET status='completed', current_step='close',
-                completed_steps='["anamnesis","summary","evolution","checkin","goals","training","diet","education","tasks","next_appointment","close"]'::jsonb,
+                completed_steps=CASE WHEN consultation_type='first'
+                    THEN '["anamnesis","evolution","checkin","goals","training","diet","education","tasks","next_appointment","close"]'::jsonb
+                    ELSE '["summary","evolution","checkin","goals","training","diet","education","tasks","next_appointment","close"]'::jsonb END,
                 completed_at=NOW(), updated_at=NOW()
             WHERE tenant_id=@tenant AND appointment_id=@appointment AND status='in_progress';
             """, connection, transaction);
@@ -457,6 +478,53 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         if (appointment == null) return null;
         if (!User.IsInRole("clinic_admin") && appointment.NutritionistId != _tenantContext.UserId.Value) return null;
         return appointment;
+    }
+
+    private static string InitialStepFor(string? consultationType) => consultationType == "first" ? "anamnesis" : "summary";
+
+    private static string? GetStoredType(object consultation)
+        => consultation.GetType().GetProperty("consultationType")?.GetValue(consultation) as string;
+
+    private async Task<bool> HasCompletedConsultationAsync(int tenantId, int clientId, int excludedAppointmentId)
+    {
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT EXISTS (
+                SELECT 1 FROM professional_consultations
+                WHERE tenant_id=@tenant AND client_id=@client AND status='completed' AND appointment_id<>@appointment);
+            """, connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("client", clientId);
+        command.Parameters.AddWithValue("appointment", excludedAppointmentId);
+        return (bool)(await command.ExecuteScalarAsync() ?? false);
+    }
+
+    private async Task<object?> ReadPreviousCompletedConsultationAsync(int tenantId, int clientId, int excludedAppointmentId, DateTime before)
+    {
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT a.id, a.starts_at, a.ends_at, a.professional_notes
+            FROM professional_consultations c
+            JOIN patient_appointments a ON a.id=c.appointment_id AND a.tenant_id=c.tenant_id
+            WHERE c.tenant_id=@tenant AND c.client_id=@client AND c.status='completed'
+              AND c.appointment_id<>@appointment AND a.starts_at<@before
+            ORDER BY a.starts_at DESC LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("client", clientId);
+        command.Parameters.AddWithValue("appointment", excludedAppointmentId);
+        command.Parameters.AddWithValue("before", before);
+        await using var reader = await command.ExecuteReaderAsync();
+        if (!await reader.ReadAsync()) return null;
+        return new
+        {
+            id = reader.GetInt32(0),
+            starts_at = reader.GetDateTime(1),
+            ends_at = reader.GetDateTime(2),
+            professional_notes = reader.IsDBNull(3) ? null : reader.GetString(3)
+        };
     }
 
     private async Task<object?> ReadConsultationAsync(int appointmentId, int tenantId)

@@ -164,22 +164,17 @@ interface GuidedConsultationResponse {
             </div>
           </section>
 
-          <section class="card" *ngIf="currentStep === 'summary'">
-            <div class="card-title"><mat-icon>person</mat-icon><div><h2>{{ isFirstConsultation ? 'Preparación de la primera consulta' : 'Resumen del seguimiento' }}</h2><p>{{ isFirstConsultation ? 'Contexto inicial para establecer la línea de base y los objetivos del paciente.' : 'Información disponible antes de empezar la revisión clínica.' }}</p></div></div>
-            <div class="mode-banner" [class.followup]="!isFirstConsultation">
-              <mat-icon>{{ isFirstConsultation ? 'flag' : 'insights' }}</mat-icon>
-              <div><strong>{{ isFirstConsultation ? 'Consulta inicial' : 'Consulta de seguimiento' }}</strong><span>{{ isFirstConsultation ? 'Prioriza datos de partida, objetivos, educación y configuración del plan.' : 'Prioriza evolución, check-in, señales detectadas y ajustes respecto a la consulta anterior.' }}</span></div>
+          <section class="card" *ngIf="currentStep === 'summary' && !isFirstConsultation">
+            <div class="card-title"><mat-icon>person</mat-icon><div><h2>Resumen del seguimiento</h2><p>Información disponible antes de empezar la revisión clínica.</p></div></div>
+            <div class="mode-banner followup">
+              <mat-icon>insights</mat-icon>
+              <div><strong>Consulta de seguimiento</strong><span>Prioriza evolución, check-in, señales detectadas y ajustes respecto a la consulta anterior.</span></div>
             </div>
             <div class="summary-grid">
               <div><span>Paciente</span><strong>{{ data.appointment.clientName || 'Paciente' }}</strong></div>
               <div><span>Tipo</span><strong>{{ data.suggestedConsultationType === 'first' ? 'Primera consulta' : 'Seguimiento' }}</strong></div>
               <div><span>Cita</span><strong>{{ data.appointment.startsAt | date:'dd/MM/yyyy HH:mm' }}</strong></div>
               <div><span>Check-in</span><strong>{{ data.latestCheckin ? (data.latestCheckin.submitted_at | date:'dd/MM/yyyy HH:mm') : 'Sin check-in' }}</strong></div>
-            </div>
-            <div class="pre-summary" *ngIf="isFirstConsultation">
-              <div class="summary-card"><span>Línea de base</span><strong>{{ data.latestCheckin ? 'Datos disponibles' : 'Pendiente' }}</strong><small>Registrar medidas y hábitos iniciales.</small></div>
-              <div class="summary-card"><span>Objetivos</span><strong>{{ goalsText ? 'Ya definidos' : 'Por definir' }}</strong><small>Concretar prioridades del paciente.</small></div>
-              <div class="summary-card"><span>Plan</span><strong>{{ activeDiet ? 'Dieta activa' : 'Por configurar' }}</strong><small>Decidir el plan de trabajo inicial.</small></div>
             </div>
             <div class="signal-panel" *ngIf="preConsultationSignals.length">
               <h3>Señales para revisar</h3>
@@ -190,7 +185,7 @@ interface GuidedConsultationResponse {
                 <button mat-stroked-button type="button" (click)="openPatientMessages()"><mat-icon>chat</mat-icon> Abrir conversación</button>
               </div>
             </div>
-            <div class="pre-summary" *ngIf="!isFirstConsultation && (previousAppointment || preConsultationTasks.length)">
+            <div class="pre-summary" *ngIf="previousAppointment || preConsultationTasks.length">
               <div class="summary-card" *ngIf="previousAppointment"><span>Consulta anterior</span><strong>{{ previousAppointment.starts_at | date:'dd/MM/yyyy' }}</strong><small>{{ previousAppointment.professional_notes || 'Sin notas registradas.' }}</small></div>
               <div class="summary-card" *ngIf="preConsultationTasks.length"><span>Tareas abiertas</span><strong>{{ preConsultationTasks.length }}</strong><small>Revisar antes de cerrar el seguimiento.</small></div>
             </div>
@@ -199,7 +194,7 @@ interface GuidedConsultationResponse {
           <section class="card" *ngIf="currentStep === 'evolution'">
             <div class="card-title"><mat-icon>show_chart</mat-icon><div><h2>{{ isFirstConsultation ? 'Línea de base' : 'Evolución' }}</h2><p>{{ isFirstConsultation ? 'Comprueba qué datos iniciales están disponibles para establecer el punto de partida.' : 'Compara los últimos seguimientos y detecta cambios relevantes.' }}</p></div></div>
             <p class="helper">Resumen rápido de los últimos seguimientos registrados. Para las gráficas completas puedes abrir la ficha del paciente.</p>
-            <div *ngIf="followupHistory.length" class="history-table">
+            <div *ngIf="followupHistory.length && !isFirstConsultation" class="history-table">
               <div class="history-row history-head"><span>Fecha</span><span>Peso</span><span>Adherencia</span><span>Hambre</span><span>Energía</span></div>
               <div class="history-row" *ngFor="let checkin of followupHistory.slice(-6).reverse()">
                 <span>{{ checkin.submitted_at | date:'dd/MM/yyyy' }}</span>
@@ -209,7 +204,7 @@ interface GuidedConsultationResponse {
                 <span>{{ checkin.energy ?? '—' }}/10</span>
               </div>
             </div>
-            <div class="empty" *ngIf="!followupHistory.length"><mat-icon>timeline</mat-icon><span>{{ isFirstConsultation ? 'No hay datos previos: utiliza la consulta para establecer la línea de base.' : 'No hay histórico de check-ins.' }}</span></div>
+            <div class="empty" *ngIf="!followupHistory.length || isFirstConsultation"><mat-icon>timeline</mat-icon><span>{{ isFirstConsultation ? 'No hay datos previos: utiliza la consulta para establecer la línea de base.' : 'No hay histórico de check-ins.' }}</span></div>
             <div class="quick-form" *ngIf="isFirstConsultation">
               <h3>Toma de datos antropométricos de esta consulta</h3>
               <p class="helper">Registra las mediciones disponibles hoy. No hace falta rellenarlas todas; se guardan en el historial antropométrico del paciente.</p>
@@ -698,10 +693,8 @@ export class GuidedConsultationComponent implements OnInit {
         this.previousAppointment = value.previousAppointment ?? null;
         this.preConsultationTasks = value.openTasks ?? [];
         if (this.consultation) {
-          const storedStep = this.consultation.currentStep || 'summary';
-          this.currentStep = this.isFirstConsultation && storedStep === 'summary' && !(this.consultation.completedSteps || []).includes('summary')
-            ? 'anamnesis'
-            : storedStep;
+          const storedStep = this.consultation.currentStep || (this.isFirstConsultation ? 'anamnesis' : 'summary');
+          this.currentStep = this.isFirstConsultation && storedStep === 'summary' ? 'anamnesis' : storedStep;
           this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === this.currentStep));
           this.currentStep = this.visibleSteps[this.stepIndex]?.key || this.visibleSteps[0].key;
           this.loading = false;
@@ -717,8 +710,11 @@ export class GuidedConsultationComponent implements OnInit {
               if (this.currentStep !== consultation.currentStep) this.saveProgress();
             },
             error: err => {
+              // Sin consulta iniciada (cita no confirmada, documentación pendiente…) la pantalla no
+              // tiene nada que editar: se vuelve a la agenda en lugar de dejar pasos que no responden.
               this.loading = false;
-              this.snack.open(err?.error?.message || 'No se ha podido iniciar la consulta.', 'Cerrar', { duration: 3500 });
+              this.snack.open(err?.error?.message || 'No se ha podido iniciar la consulta.', 'Cerrar', { duration: 5000 });
+              this.backToAgenda();
             }
           });
         }
@@ -993,11 +989,22 @@ export class GuidedConsultationComponent implements OnInit {
         this.baselineWeight = null; this.baselineHeight = null; this.baselineWaist = null;
         this.baselineHip = null; this.baselineBodyFat = null; this.baselineNotes = '';
         this.loadConsultationContext();
+        this.refreshBiometrics();
       },
       error: err => {
         this.savingBaseline = false;
         this.snack.open(err?.error?.message || 'No se han podido guardar las mediciones.', 'Cerrar', { duration: 4000 });
       }
+    });
+  }
+
+  // La última valoración mostrada viene de la carga inicial: se vuelve a pedir tras guardar una medición.
+  private refreshBiometrics(): void {
+    const appointmentId = this.data?.appointment.id;
+    if (!appointmentId) return;
+    this.portalService.getGuidedConsultation(appointmentId).subscribe({
+      next: value => { if (this.data) this.data = { ...this.data, biometrics: value.biometrics }; },
+      error: () => { /* se conserva la última valoración cargada */ }
     });
   }
 
@@ -1009,7 +1016,13 @@ export class GuidedConsultationComponent implements OnInit {
 
   saveClinicalProgress(onSaved?: () => void): void {
     if (onSaved) this.clinicalSaveCallbacks.push(onSaved);
-    if (!this.consultation || !this.data || this.consultation.status === 'completed') return;
+    if (!this.consultation || !this.data) return;
+    if (this.consultation.status === 'completed') {
+      // Una consulta cerrada no admite cambios: se libera la navegación en lugar de dejar el callback colgado.
+      const callbacks = this.clinicalSaveCallbacks.splice(0);
+      callbacks.forEach(callback => callback());
+      return;
+    }
     if (this.clinicalSaveState === 'saving') {
       this.clinicalSaveQueued = true;
       return;
@@ -1103,6 +1116,12 @@ export class GuidedConsultationComponent implements OnInit {
 
   private persistProgress(step: string, completedSteps: string[]): void {
     if (!this.consultation || !this.data || this.savingProgress) return;
+    if (this.consultation.status === 'completed') {
+      // Revisión de una consulta cerrada: solo se cambia de paso en pantalla (el servidor responde 409 a cualquier guardado).
+      this.currentStep = step;
+      this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === step));
+      return;
+    }
     const previousStep = this.currentStep;
     this.savingProgress = true;
     // Navegación optimista: la interfaz responde inmediatamente, pero revierte el paso
