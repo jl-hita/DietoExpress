@@ -37,7 +37,7 @@ public sealed class StartupCatalogReadinessTests
         Assert.Contains("exercise-catalog-ideal-strength-hypertrophy-v2", service);
         Assert.Contains("present == RepDbExerciseCuration.CuratedCatalogIds.Length", service);
         Assert.Contains("replaceRepDbOnly: true", service);
-        Assert.Contains("preserve", service, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("preserved", service);
         Assert.DoesNotContain("replaceExisting: true, markBootstrapComplete: true", service);
     }
 
