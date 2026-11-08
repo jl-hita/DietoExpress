@@ -223,6 +223,7 @@ public class DietGeneratorService
         // 3. Cargar un catálogo acotado de alimentos desde la BD.
         // No debemos traer toda la tabla a memoria: el catálogo puede crecer mucho
         // con las sincronizaciones de USDA/OpenFoodFacts y bloquear la generación.
+        // Los alimentos con perfil culinario curado se cargan primero para que un catálogo grande no los desplace.
         const int maxFoodsToLoad = 5000;
         var foodsLoadTimer = Stopwatch.StartNew();
         // La expresión debe ser completamente traducible por EF Core. No podemos invocar
@@ -233,19 +234,19 @@ public class DietGeneratorService
         var allFoods = await _context.foods
             .AsNoTracking()
             .Where(f => f.kcal.HasValue && f.kcal > 0 &&
-                f.protein.HasValue && f.protein.Value >= 0 &&
-                f.carbs.HasValue && f.carbs.Value >= 0 &&
-                f.fat.HasValue && f.fat.Value >= 0 &&
                 f.name != null &&
                 ((f.source == null || f.source.ToLower() != "local") ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value &&
                   (canUseAnyTenantLocalFood || f.created_by_user_id == userId))))
-            .OrderBy(f => f.id)
+            .OrderBy(f => _context.food_culinary_profile.Any(p => p.food_id == f.id && p.excluded_reason == null) ? 0 : 1)
+            .ThenBy(f => f.id)
             .Include(f => f.exchange_group)
             .Take(maxFoodsToLoad)
             .ToListAsync(cancellationToken);
+        var storedProfiles = (await _context.food_culinary_profile.AsNoTracking().ToListAsync(cancellationToken))
+            .ToDictionary(p => p.food_id, FoodProfileData.FromEntity);
         foodsLoadElapsedMs = foodsLoadTimer.ElapsedMilliseconds;
-        _logger?.LogInformation("Diet generation phase FoodCatalogLoad completed in {ElapsedMs} ms; LoadedFoods={LoadedFoods}; Limit={Limit}", foodsLoadElapsedMs, allFoods.Count, maxFoodsToLoad);
+        _logger?.LogInformation("Diet generation phase FoodCatalogLoad completed in {ElapsedMs} ms; LoadedFoods={LoadedFoods}; Limit={Limit}; CuratedProfiles={Profiles}", foodsLoadElapsedMs, allFoods.Count, maxFoodsToLoad, storedProfiles.Count);
 
         var foodFilteringTimer = Stopwatch.StartNew();
         // Las reglas estructuradas por atributos tienen prioridad sobre las coincidencias de texto.
@@ -258,31 +259,30 @@ public class DietGeneratorService
                 cancellationToken)
             : new HashSet<int>();
 
-        // Filtrar alimentos válidos (comunes y no excluidos).
-        var allowedFoods = allFoods
-            .Where(f => IsCommonFood(f)
-                && !structuredSpecializationExclusions.Contains(f.id)
-                && !IsExcluded(f, exclusions)
-                && HasKnownAllergenDataForClient(f, client))
-            .ToList();
-        if (allowedFoods.Count < 20)
+        // Filtro de seguridad único: los términos de exclusión se compilan una vez para todo el catálogo y solo
+        // los alimentos que lo superan (y tienen perfil culinario) pueden llegar al generador.
+        var exclusionMatcher = new DietaryRestrictionRules.ExclusionMatcher(exclusions);
+        var engineFoods = new List<EngineFood>();
+        foreach (var f in allFoods)
         {
-            // Fallback si la lista común es muy restrictiva
-            allowedFoods = allFoods
-                .Where(f => !structuredSpecializationExclusions.Contains(f.id)
-                    && !IsExcluded(f, exclusions)
-                    && HasKnownAllergenDataForClient(f, client))
-                .ToList();
+            if (structuredSpecializationExclusions.Contains(f.id)) continue;
+            // Defensa en profundidad del filtro SQL: un alimento local solo lo usa quien tiene permiso sobre él.
+            if (string.Equals(f.source, "local", StringComparison.OrdinalIgnoreCase) && !UserCanUseTenantLocalFood(f, tenantId, userId, canUseTenantLocalFoods)) continue;
+            if (!storedProfiles.TryGetValue(f.id, out var profile))
+                profile = FoodCulinaryClassifier.Classify(f.name, f.category, f.kcal, f.protein, f.carbs, f.fat);
+            if (profile == null || !profile.IsUsable) continue;
+            if (!string.IsNullOrWhiteSpace(f.brands) && !string.Equals(f.source, "bedca", StringComparison.OrdinalIgnoreCase)) continue;
+            if (IsBlocked(f, exclusionMatcher)) continue;
+            if (!HasKnownAllergenDataForClient(f, client)) continue;
+            engineFoods.Add(EngineFood.From(f, profile));
         }
 
         foodFilteringElapsedMs = foodFilteringTimer.ElapsedMilliseconds;
-        _logger?.LogInformation("Diet generation phase FoodFiltering completed in {ElapsedMs} ms; AllowedFoods={AllowedFoods}; ExclusionTerms={ExclusionTerms}", foodFilteringElapsedMs, allowedFoods.Count, exclusions.Count);
+        _logger?.LogInformation("Diet generation phase FoodFiltering completed in {ElapsedMs} ms; AllowedFoods={AllowedFoods}; ExclusionTerms={ExclusionTerms}", foodFilteringElapsedMs, engineFoods.Count, exclusionMatcher.TermCount);
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // La generación separa el catálogo en grupos antes de construir las comidas para poder
-        // buscar candidatos adecuados a cada franja y repartir el uso de alimentos entre días.
-        if (allowedFoods.Count == 0)
+        if (engineFoods.Count == 0)
         {
             var allergenVerificationHint = !string.IsNullOrWhiteSpace(client?.food_preferences?.allergies)
                 ? " Para proteger al paciente, se han descartado alimentos sin datos de alérgenos verificados; revisa el catálogo antes de volver a generar."
@@ -292,24 +292,37 @@ public class DietGeneratorService
                 allergenVerificationHint);
         }
 
-        var foodPools = CategorizeFoods(allowedFoods, request.DietType);
+        var isKetoType = request.DietType.Equals("Cetogenica", StringComparison.OrdinalIgnoreCase);
+        var compatible = engineFoods.Where(e =>
+            DietSemanticValidationService.IsFoodCompatibleWithDietType(e.Food.name, request.DietType, e.Food.category, e.Food.carbs, e.Food.fat, foodId: e.Id) &&
+            (!isKetoType || e.P.Role is not (FoodProfileData.RoleStarch or FoodProfileData.RoleLegume or FoodProfileData.RoleBread or FoodProfileData.RoleCereal))).ToList();
+        var allowedFoods = compatible.Select(e => e.Food).ToList();
+        var profilesById = compatible.ToDictionary(e => e.Id, e => e.P);
         var mealSplits = GetMealSplits(request.MealsPerDay);
         var missingPools = new List<string>();
-        if (!foodPools.Proteins.Any()) missingPools.Add("proteínas");
-        if (!foodPools.Carbs.Any() && !request.DietType.Equals("Cetogenica", StringComparison.OrdinalIgnoreCase)) missingPools.Add("hidratos de carbono");
-        if (!foodPools.Vegetables.Any()) missingPools.Add("verduras/hortalizas");
-        if (!foodPools.Fruits.Any()) missingPools.Add("frutas");
-        if (!foodPools.DairyAndEggs.Any() && !request.DietType.Equals("Vegana", StringComparison.OrdinalIgnoreCase)) missingPools.Add("lácteos/huevos");
-        if (!foodPools.OilsAndFats.Any()) missingPools.Add("aceite culinario");
+        if (!compatible.Any(e => e.P.Role is FoodProfileData.RoleProtein or FoodProfileData.RoleLegume)) missingPools.Add("proteínas");
+        if (!isKetoType && !compatible.Any(e => e.P.Role is FoodProfileData.RoleStarch or FoodProfileData.RoleLegume or FoodProfileData.RoleBread)) missingPools.Add("hidratos de carbono");
+        if (!compatible.Any(e => e.P.Role == FoodProfileData.RoleVegetable)) missingPools.Add("verduras/hortalizas");
+        if (!isKetoType && !compatible.Any(e => e.P.Role == FoodProfileData.RoleFruit)) missingPools.Add("frutas");
+        if (!compatible.Any(e => e.P.Role == FoodProfileData.RoleOil)) missingPools.Add("aceite culinario");
         if (missingPools.Count > 0)
         {
             throw new InvalidOperationException(
                 $"El catálogo compatible no contiene suficientes alimentos para construir el plan. Faltan: {string.Join(", ", missingPools)}. Revisa las restricciones del paciente, el tipo de dieta y las exclusiones.");
         }
 
+        // Preferencias del paciente y señal terapéutica: solo ponderan la selección, nunca amplían el catálogo seguro.
+        foreach (var e in compatible)
+        {
+            e.Preferred = MatchesFoodTerms(e.Food, preferredFoods);
+            e.Disliked = MatchesFoodTerms(e.Food, dislikedFoods);
+            e.TherapyFactor = CalculateTherapyFactor(e.Food, dietTherapyProfile);
+            if (e.Preferred && adherenceBoost > 0) e.TherapyFactor *= 1.5;
+        }
+
         // Las plantillas profesionales reutilizan la estructura de comidas, pero no fuerzan
         // alimentos concretos: cada componente vuelve a pasar por las restricciones clínicas
-        // y por el optimizador global.
+        // y por el motor de menús.
         var templateId = request.TemplateDietId ?? request.VariantOfDietId;
         if (templateId.HasValue && tenantId.HasValue)
         {
@@ -333,68 +346,33 @@ public class DietGeneratorService
 
         DietDetailDto? advancedDiet = null;
 
-        // La selección inicial contiene aleatoriedad para dar variedad. Si un menú concreto no
-        // alcanza los márgenes operativos, se vuelve a generar con otra selección antes de fallar.
-        // No se relajan restricciones ni tolerancias: cada intento debe superar la misma validación.
-        const int maxGenerationAttempts = 3;
+        // El motor es determinista dado un seed: la variedad procede de la rotación semanal y de la selección ponderada,
+        // y las composiciones de cada día se reintentan localmente. Solo si la validación final falla se genera otro seed;
+        // no se relajan restricciones ni tolerancias.
+        const int maxGenerationAttempts = 2;
+        var baseSeed = Random.Shared.Next();
+        var engineMap = compatible.ToDictionary(e => e.Id);
         for (var attempt = 0; attempt < maxGenerationAttempts; attempt++)
         {
             generationAttemptCount = attempt + 1;
             var attemptBuildTimer = Stopwatch.StartNew();
-            var weeklyUsageCount = new Dictionary<int, int>();
-            var weeklyRoleFamilyUsage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            var weeklyMealSignatures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var daysList = new List<DietDayDto>();
-            var rnd = new Random();
-
-            for (int dayIndex = 0; dayIndex < request.NumberOfDays; dayIndex++)
+            var engineOptions = new MenuEngineOptions
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var todayMeals = new List<MealDto>();
-                var dayUsedFoodIds = new HashSet<int>();
-
-                for (int mIndex = 0; mIndex < mealSplits.Count; mIndex++)
-                {
-                    var split = mealSplits[mIndex];
-                    double mealTargetKcal = targetKcal * split.KcalPct;
-                    double mealTargetP = targetProtein * split.KcalPct;
-                    double mealTargetC = targetCarbs * split.KcalPct;
-                    double mealTargetF = targetFat * split.KcalPct;
-
-                    var mealItems = BuildAndOptimizeMeal(
-                        split.MealName,
-                        mealTargetKcal,
-                        mealTargetP,
-                        mealTargetC,
-                        mealTargetF,
-                        foodPools,
-                        weeklyUsageCount,
-                        dayUsedFoodIds,
-                        preferredFoods,
-                        dislikedFoods,
-                        adherenceBoost,
-                        weeklyRoleFamilyUsage,
-                        weeklyMealSignatures,
-                        rnd);
-
-                    todayMeals.Add(new MealDto
-                    {
-                        Name = split.MealName,
-                        MealIndex = mIndex,
-                        Items = mealItems
-                    });
-                }
-
-                // Normalización final del día para calibración de Kcal y macros.
-                RebalanceDay(todayMeals, targetKcal, targetProtein, targetCarbs, targetFat);
-                daysList.Add(new DietDayDto
-                {
-                    DayIndex = dayIndex,
-                    Meals = todayMeals
-                });
-            }
-
-            _logger?.LogInformation("Diet generation phase BasePlanBuild completed in {ElapsedMs} ms; Attempt={Attempt}; Days={Days}; MealsPerDay={MealsPerDay}", attemptBuildTimer.ElapsedMilliseconds, attempt + 1, request.NumberOfDays, request.MealsPerDay);
+                Days = request.NumberOfDays,
+                DietType = request.DietType,
+                Kcal = targetKcal,
+                Protein = targetProtein,
+                Carbs = targetCarbs,
+                Fat = targetFat,
+                MaxWeeklyRepetitions = request.MaxWeeklyFoodRepetitions,
+                Refine = request.EnableGlobalOptimization,
+                Seed = unchecked(baseSeed + attempt * 7919),
+                Meals = mealSplits.Select(sp => (sp.MealName, sp.KcalPct)).ToList(),
+                FrequencyTargets = dietTherapyProfile?.FrequencyTargets != null
+                    ? new Dictionary<string, double>(dietTherapyProfile.FrequencyTargets, StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+            };
+            var engineResult = DietMenuEngine.Build(compatible, engineOptions);
 
             var candidateDiet = new DietDetailDto
             {
@@ -404,41 +382,26 @@ public class DietGeneratorService
                 TargetCarbs = (decimal)Math.Round(targetCarbs),
                 TargetFat = (decimal)Math.Round(targetFat),
                 Notes = $"Plan generado automáticamente por el motor experto el {DateTime.Now:dd/MM/yyyy}. {request.MealsPerDay} comidas al día." +
+                    " Cantidades de cereales, legumbres, carnes y pescados expresadas en peso en crudo salvo que el alimento indique que está cocinado." +
                     (request.ExplainGeneration && dietTherapyProfile != null && dietTherapyProfile.Rules.Count > 0 ? " Reglas aplicadas: " + string.Join(" ", dietTherapyProfile.Rules) : string.Empty) +
                     (clinicalGuidance.Count > 0 ? " Especializaciones activas: " + string.Join(" ", clinicalGuidance) : string.Empty) +
                     (preferredFoods.Count > 0 ? " Preferencias alimentarias del paciente aplicadas como criterio de adherencia." : string.Empty) +
                     (recentAdherence.HasValue ? $" Adherencia reciente considerada: {Math.Round(recentAdherence.Value, 1)}/10." : string.Empty),
-                Days = daysList
+                Days = engineResult.Days
             };
+            _logger?.LogInformation("Diet generation phase BasePlanBuild completed in {ElapsedMs} ms; Attempt={Attempt}; Days={Days}; MealsPerDay={MealsPerDay}; DayRetries={DayRetries}", attemptBuildTimer.ElapsedMilliseconds, attempt + 1, request.NumberOfDays, request.MealsPerDay, engineResult.DayRetries);
 
-            // Fase global posterior: recetas, frecuencias, compras, diversidad y sustituciones
-            // compiten sobre la semana completa y vuelven a equilibrar cada día después.
-            if (request.EnableGlobalOptimization)
+            // Las recetas profesionales solo entran si todos sus ingredientes están en el catálogo seguro; después se
+            // reequilibra cada día con las mismas porciones y límites culinarios que usa el motor.
+            if (request.UseRecipes && tenantId.HasValue)
             {
-                var optimizationTimer = Stopwatch.StartNew();
-                try
-                {
-                    await _advancedDietOptimizer.OptimizeWeeklyPlanAsync(
-                        candidateDiet,
-                        request,
-                        allowedFoods,
-                        tenantId,
-                        targetKcal,
-                        targetProtein,
-                        targetCarbs,
-                        targetFat,
-                        dietTherapyProfile,
-                        cancellationToken);
-                }
-                finally
-                {
-                    // También registra el tiempo cuando el cliente cancela y el token interrumpe la optimización.
-                    _logger?.LogInformation("Diet generation phase WeeklyOptimization ended after {ElapsedMs} ms; Attempt={Attempt}; Days={Days}; AllowedFoods={AllowedFoods}; CancellationRequested={CancellationRequested}", optimizationTimer.ElapsedMilliseconds, attempt + 1, candidateDiet.Days.Count, allowedFoods.Count, cancellationToken.IsCancellationRequested);
-                }
+                var recipeTimer = Stopwatch.StartNew();
+                await _advancedDietOptimizer.ApplyRecipesAsync(
+                    candidateDiet, request, allowedFoods.ToDictionary(f => f.id), tenantId, targetKcal, cancellationToken);
+                foreach (var day in candidateDiet.Days.Where(d => d.Meals.Any(m => m.Items.Any(i => i.RecipeId.HasValue))))
+                    DietMenuEngine.Rebalance(day, engineMap, engineOptions);
+                _logger?.LogInformation("Diet generation phase RecipeInjection completed in {ElapsedMs} ms; Attempt={Attempt}", recipeTimer.ElapsedMilliseconds, attempt + 1);
             }
-
-            // Ninguna fase posterior puede reintroducir cantidades culinarias inválidas.
-            NormalizeGeneratedPlan(candidateDiet, allowedFoods, request.MealsPerDay, request.DietType);
 
             try
             {
@@ -451,7 +414,8 @@ public class DietGeneratorService
                     tenantId,
                     userId,
                     canUseTenantLocalFoods,
-                    cancellationToken);
+                    cancellationToken,
+                    profilesById);
 
                 _logger?.LogInformation("Diet generation phase SemanticValidation completed in {ElapsedMs} ms; Attempt={Attempt}; Result=Valid", validationTimer.ElapsedMilliseconds, attempt + 1);
                 advancedDiet = candidateDiet;
@@ -597,766 +561,6 @@ public class DietGeneratorService
         }
     }
 
-    private static void NormalizeGeneratedPlan(DietDetailDto diet, IReadOnlyCollection<foods> allowedFoods, int mealsPerDay, string dietType)
-    {
-        var foodsById = allowedFoods.GroupBy(f => f.id).ToDictionary(g => g.Key, g => g.First());
-        var standardYogurt = allowedFoods
-            .Where(IsProfessionalAutomaticFoodForGenerator)
-            .Where(f => DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat, foodId: f.id))
-            .Where(f => NormalizeFoodTerm(f.name ?? string.Empty).StartsWith("yogur") &&
-                        !NormalizeFoodTerm(f.name ?? string.Empty).Contains("con ") &&
-                        !NormalizeFoodTerm(f.name ?? string.Empty).Contains("azucar"))
-            .OrderBy(f => Math.Abs((f.serving_size ?? 125) - 125))
-            .FirstOrDefault();
-        var standardOil = allowedFoods
-            .Where(IsStandardCulinaryOilForGenerator)
-            .OrderBy(f => NormalizeFoodTerm(f.name ?? string.Empty).Contains("girasol") ? 1 : 0)
-            .FirstOrDefault();
-
-        foreach (var day in diet.Days)
-        {
-            foreach (var meal in day.Meals)
-            {
-                var yogurtUsedInMeal = false;
-                var normalizedItems = new List<MealItemDto>();
-
-                foreach (var item in meal.Items.ToList())
-                {
-                    if ((item.Grams ?? 0) <= 0)
-                        continue;
-
-                    var name = NormalizeFoodTerm(item.FoodName ?? string.Empty);
-
-                    if (IsOilNameForGenerator(name) && !IsStandardCulinaryOilForGenerator(foodsById.GetValueOrDefault(item.FoodId ?? 0)))
-                    {
-                        if (standardOil != null)
-                            ReplaceItemForGenerator(item, standardOil, Math.Max(5, Math.Min(10, (double)(item.Grams ?? 10))));
-                    }
-
-                    name = NormalizeFoodTerm(item.FoodName ?? string.Empty);
-
-                    if (IsPreparedDairyForGenerator(name))
-                    {
-                        if (standardYogurt != null && !yogurtUsedInMeal)
-                        {
-                            ReplaceItemForGenerator(item, standardYogurt, 125);
-                            yogurtUsedInMeal = true;
-                        }
-                        else
-                        {
-                            continue;
-                        }
-                    }
-
-                    if (name.Contains("yogur"))
-                    {
-                        if (yogurtUsedInMeal)
-                            continue;
-                        yogurtUsedInMeal = true;
-                        // La validación semántica final exige una ración estándar de 125 g de yogur.
-                        // No usar serving_size aquí: describe el envase del catálogo y puede ser 100 g.
-                        const double yogurtGrams = 125;
-                        var yogurtFood = foodsById.GetValueOrDefault(item.FoodId ?? 0) ?? standardYogurt;
-                        if (item.Grams.HasValue && yogurtFood != null)
-                            ReplaceItemForGenerator(item, yogurtFood, yogurtGrams);
-                    }
-
-                    // La optimización semanal puede cambiar cantidades después del reequilibrado.
-                    // Reaplicar los límites culinarios al final evita que una merienda salga
-                    // con cantidades imposibles (p. ej. una tortilla de 35 g cuando el mínimo es 50 g).
-                    var culinaryBounds = GetCulinaryBounds(meal.Name, item);
-                    item.Grams = (decimal)Math.Clamp((double)(item.Grams ?? 0), culinaryBounds.Min, culinaryBounds.Max);
-                    normalizedItems.Add(item);
-                }
-
-                meal.Items = normalizedItems;
-            }
-        }
-    }
-
-    private static bool IsProfessionalAutomaticFoodForGenerator(foods food)
-    {
-        var n = NormalizeFoodTerm(food.name ?? string.Empty);
-        if (n.Contains("flan") || n.Contains("petit suisse") || n.Contains("natillas") ||
-            n.Contains("pudding") || n.Contains("mousse") || n.Contains("postre lacteo") ||
-            n.Contains("yogur liquido") || n.Contains("yogur con ") || n.Contains("yogur desnatado con ") ||
-            n.Contains("yogur azucarado") || n.Contains("lenteja seca") || n.Contains("garbanzo seco") ||
-            n.Contains("alubia seca") || n.Contains("huevo de pato") || n.Contains("huevo de codorniz") ||
-            n.Contains("huevo de pavo"))
-            return false;
-        return true;
-    }
-
-    private static bool IsPreparedDairyForGenerator(string name)
-        => name.Contains("flan") || name.Contains("petit suisse") || name.Contains("natillas") ||
-           name.Contains("pudding") || name.Contains("mousse") || name.Contains("postre lacteo") ||
-           name.Contains("yogur con ") || name.Contains("yogur desnatado con ") ||
-           name.Contains("yogur azucarado");
-
-    private static bool IsOilNameForGenerator(string name)
-        => name.StartsWith("aceite ") || name.Equals("aceite");
-
-    private static bool IsStandardCulinaryOilForGenerator(foods? food)
-    {
-        if (food == null) return false;
-        var n = NormalizeFoodTerm(food.name ?? string.Empty);
-        return n.Equals("aceite de oliva") || n.Contains("aceite de oliva virgen") ||
-               n.Contains("aceite de oliva virgen extra") || n.Equals("aceite de girasol");
-    }
-
-    private static void ReplaceItemForGenerator(MealItemDto item, foods food, double grams)
-    {
-        // La cantidad solicitada por el normalizador/llamador es la autoridad culinaria.
-        // serving_size describe el envase del catálogo (p. ej. 100 g), no la ración objetivo.
-        var g = grams;
-        g = Math.Clamp(g, 5, 350);
-        var ratio = g / 100.0;
-        item.FoodId = food.id;
-        item.FoodName = food.name;
-        item.Grams = (decimal)Math.Round(g, 0);
-        item.Kcal = (decimal)Math.Round((food.kcal ?? 0) * ratio, 1);
-        item.Protein = (decimal)Math.Round((food.protein ?? 0) * ratio, 1);
-        item.Carbs = (decimal)Math.Round((food.carbs ?? 0) * ratio, 1);
-        item.Fat = (decimal)Math.Round((food.fat ?? 0) * ratio, 1);
-        item.ExchangeGroupId = food.exchange_group_id;
-        item.ExchangeGroupName = food.exchange_group?.name;
-        item.ExchangeCount = food.grams_per_exchange.HasValue && food.grams_per_exchange.Value > 0
-            ? (decimal?)Math.Round((decimal)g / food.grams_per_exchange.Value, 1)
-            : null;
-    }
-
-    private static bool UserCanUseTenantLocalFood(foods food, int? tenantId, int userId, bool canUseTenantLocalFoods)
-    {
-        if (!tenantId.HasValue || food.tenant_id != tenantId.Value) return false;
-        return canUseTenantLocalFoods || food.created_by_user_id == userId;
-    }
-
-    #region Filtro de Alimentos Comunes y Culinarios
-
-    private static readonly string[] RareKeywords = new[]
-    {
-        "grasa", "sebo", "manteca", "harina de soja", "harina de trigo sarraceno", "concentrado", "aislado",
-        "suplemento", "espesante", "edulcorante", "almidón", "fécula", "salsa de soja", "pastilla de caldo",
-        "cubito", "gelatina en polvo", "levadura", "licor", "bebida alcohólica", "vino", "cerveza", "vodka",
-        "anís", "aguardiente", "oporto", "brandy", "whisky", "ron", "ginebra", "sidra", "sirope", "jarabe",
-        "snack", "gusanito", "patatas fritas de bolsa", "palomitas", "gofre", "croissant", "donut", "bollería", "ensaimada", "magdalena", "bizcocho",
-        "chuchería", "caramelo", "chicle", "malvavisco", "bombón", "chocolate blanco", "cacao en polvo azucarado",
-        "patatas chips", "chips de patata", "aceite de algodón", "aceite de coco", "aceite de palma",
-        "aceite de maíz", "aceite de soja", "aceite de cacahuete", "aceite de sésamo",
-        "zumo", "jugo", "néctar", "puré", "pure", "ahumado", "huevo de pavo", "huevo de codorniz", "huevo de pato", "huevo de gallina de guinea",
-        "melón desecado", "fruta desecada", "fruta seca azucarada", "preparado lácteo", "preparado lacteo",
-        "jengibre", "nuez moscada", "canela", "pimienta", "curry", "cúrcuma", "comino", "orégano", "oregano",
-        "perejil", "romero", "tomillo", "albahaca", "paprika", "vinagre", "mostaza", "ketchup", "mayonesa",
-        "pan rallado", "flan", "petit suisse", "natillas", "pudding", "mousse", "crema de postre", "nata montada", "postre lácteo", "postre lacteo", "yogur líquido", "yogur liquido",
-        "bonito en aceite vegetal", "en aceite vegetal", "lenteja seca", "lentejas secas", "garbanzo seco", "garbanzos secos", "alubia seca", "alubias secas", "aceite vegetal",
-    };
-
-    private bool IsCommonFood(foods f)
-    {
-        var name = (f.name ?? "").ToLowerInvariant();
-        var cat = (f.category ?? "").ToLowerInvariant();
-
-        // Evitar alimentos extremadamente procesados o ingredientes no culinarios
-        for (var i = 0; i < RareKeywords.Length; i++)
-        {
-            var k = RareKeywords[i];
-            if (name.Contains(k, StringComparison.Ordinal) || cat.Contains(k, StringComparison.Ordinal))
-                return false;
-        }
-
-        // Evitar nombres con códigos o rarezas industriales.
-        // El generador no debe convertir especias, condimentos o productos preparados en
-        // componentes principales solo porque su composición nutricional parezca encajar.
-        if (name.Length > 80 || name.Contains("deshidratado", StringComparison.Ordinal) || name.Contains("desecado", StringComparison.Ordinal) || name.Contains("liofilizado", StringComparison.Ordinal) || name.Contains("polvo", StringComparison.Ordinal))
-            return false;
-
-        // Productos líquidos o preparados de yogur se reservan para selección manual/recetas:
-        // una ración profesional de yogur se expresa como envase/porción estándar.
-        if (name.Contains("yogur líquido", StringComparison.Ordinal) || name.Contains("yogur liquido", StringComparison.Ordinal) || name.Contains("mousse", StringComparison.Ordinal) || name.Contains("postre lácteo", StringComparison.Ordinal) || name.Contains("postre lacteo", StringComparison.Ordinal))
-            return false;
-
-        // Las legumbres secas/crudas son materia prima, no una ración lista para comer.
-        if ((name.Contains("lenteja", StringComparison.Ordinal) || name.Contains("garbanzo", StringComparison.Ordinal) || name.Contains("alubia", StringComparison.Ordinal)) &&
-            (name.Contains("seca", StringComparison.Ordinal) || name.Contains("seco", StringComparison.Ordinal) || name.Contains("cruda", StringComparison.Ordinal) || name.Contains("crudo", StringComparison.Ordinal)))
-            return false;
-
-        return true;
-    }
-
-    #endregion
-
-    #region Algoritmo de Selección y Optimización Matemática
-
-    // Selecciona alimentos compatibles con la comida y reparte la cantidad objetivo mediante OptimizeGrams.
-    // Primera fase: construye la comida por componentes culinarios.
-    // Segunda fase: OptimizeGrams ajusta las cantidades dentro de los límites de cada componente.
-    // La selección de alimentos no depende primero de cuadrar macros.
-    // La aleatoriedad favorece variedad entre candidatos con puntuaciones similares.
-    private List<MealItemDto> BuildAndOptimizeMeal(
-        string mealName, 
-        double targetKcal, 
-        double targetP, 
-        double targetC, 
-        double targetF, 
-        FoodPools pools, 
-        Dictionary<int, int> weeklyUsage,
-        HashSet<int> dayUsage,
-        HashSet<string> preferredFoods,
-        HashSet<string> dislikedFoods,
-        double adherenceBoost,
-        Dictionary<string, int> weeklyRoleFamilyUsage,
-        HashSet<string> weeklyMealSignatures,
-        Random rnd)
-    {
-        var slots = GetTemplateForMeal(mealName);
-        var chosenFoods = new List<(foods food, SlotConfig slot)>();
-
-        foreach (var slot in slots)
-        {
-            var candidates = pools.GetFoodsForSlot(slot.Role);
-            if (!candidates.Any()) continue;
-
-            // Puntuación multicriterio: variedad semanal + preferencias + adecuación
-            // nutricional al papel de la comida. La aleatoriedad solo desempata candidatos
-            // razonablemente equivalentes; nunca vence una restricción clínica.
-            var scoredCandidates = candidates
-                .Select(f => new
-                {
-                    Food = f,
-                    Score =
-                        (dayUsage.Contains(f.id) ? 2000 : 0) +
-                        CalculateWeeklyRepetitionPenalty(f, weeklyUsage) +
-                        CalculateRoleFamilyRepetitionPenalty(f, slot.Role, weeklyRoleFamilyUsage) +
-                        CalculateSlotNutritionPenalty(f, slot.Role, targetKcal, targetP, targetC, targetF) +
-                        (MatchesFoodTerms(f, dislikedFoods) ? 80 : 0) -
-                        (MatchesFoodTerms(f, preferredFoods) ? 40 + adherenceBoost : 0) +
-                        rnd.Next(0, 6)
-                })
-                .OrderBy(x => x.Score)
-                .Take(8)
-                .ToList();
-
-            if (scoredCandidates.Any())
-            {
-                var pick = scoredCandidates[rnd.Next(scoredCandidates.Count)].Food;
-                chosenFoods.Add((pick, slot));
-                dayUsage.Add(pick.id);
-                weeklyUsage[pick.id] = weeklyUsage.GetValueOrDefault(pick.id, 0) + 1;
-
-                var familyKey = $"{slot.Role}:{GetFoodFamily(pick)}";
-                weeklyRoleFamilyUsage[familyKey] = weeklyRoleFamilyUsage.GetValueOrDefault(familyKey, 0) + 1;
-            }
-        }
-
-        if (!chosenFoods.Any()) return new List<MealItemDto>();
-
-        // Resolver gramos por optimización cuadrática acotada
-        var grams = OptimizeGrams(chosenFoods, targetKcal, targetP, targetC, targetF);
-
-        var result = new List<MealItemDto>();
-        for (int i = 0; i < chosenFoods.Count; i++)
-        {
-            var f = chosenFoods[i].food;
-            double g = SnapToServingSize(chosenFoods[i].food, chosenFoods[i].slot,
-                Math.Max(grams[i], chosenFoods[i].slot.MinGrams));
-            g = Math.Clamp(g, chosenFoods[i].slot.MinGrams, chosenFoods[i].slot.MaxGrams);
-            double ratio = g / 100.0;
-            var exchangeCount = f.grams_per_exchange.HasValue && f.grams_per_exchange.Value > 0
-                ? (decimal?)Math.Round((decimal)g / f.grams_per_exchange.Value, 1)
-                : null;
-
-            result.Add(new MealItemDto
-            {
-                FoodId = f.id,
-                FoodName = f.name,
-                Grams = (decimal)g,
-                Kcal = (decimal)Math.Round((f.kcal ?? 0) * ratio, 1),
-                Protein = (decimal)Math.Round((f.protein ?? 0) * ratio, 1),
-                Carbs = (decimal)Math.Round((f.carbs ?? 0) * ratio, 1),
-                Fat = (decimal)Math.Round((f.fat ?? 0) * ratio, 1),
-                ExchangeGroupId = f.exchange_group_id,
-                ExchangeGroupName = f.exchange_group?.name,
-                ExchangeCount = exchangeCount,
-                CourseRole = chosenFoods[i].slot.CourseRole
-            });
-        }
-
-        // Evitar comidas completas idénticas: si la combinación ya apareció en la semana,
-        // intentamos sustituir un componente por otro del mismo rol y con perfil nutricional similar.
-        // Si no existe una alternativa segura, conservamos la comida original: la diversidad nunca
-        // debe imponerse a la disponibilidad de alimentos válidos ni a las restricciones clínicas.
-        var signature = CreateMealSignature(result);
-        if (!weeklyMealSignatures.Add(signature))
-        {
-            TryReplaceRepeatedMealItem(
-                result,
-                chosenFoods,
-                slots,
-                pools,
-                weeklyUsage,
-                weeklyRoleFamilyUsage,
-                dayUsage,
-                preferredFoods,
-                dislikedFoods,
-                adherenceBoost,
-                targetKcal,
-                targetP,
-                targetC,
-                targetF);
-
-            signature = CreateMealSignature(result);
-            weeklyMealSignatures.Add(signature);
-        }
-
-        return result;
-    }
-
-    private static string CreateMealSignature(IEnumerable<MealItemDto> items)
-        => string.Join("|", items.Select(i => i.FoodId ?? 0).OrderBy(id => id));
-
-    private void TryReplaceRepeatedMealItem(
-        List<MealItemDto> items,
-        List<(foods food, SlotConfig slot)> chosenFoods,
-        List<SlotConfig> slots,
-        FoodPools pools,
-        Dictionary<int, int> weeklyUsage,
-        Dictionary<string, int> weeklyRoleFamilyUsage,
-        HashSet<int> dayUsage,
-        HashSet<string> preferredFoods,
-        HashSet<string> dislikedFoods,
-        double adherenceBoost,
-        double targetKcal,
-        double targetP,
-        double targetC,
-        double targetF)
-    {
-        for (int index = 0; index < items.Count && index < chosenFoods.Count; index++)
-        {
-            var current = chosenFoods[index];
-            var currentItem = items[index];
-            var alternatives = pools.GetFoodsForSlot(current.slot.Role)
-                .Where(f => f.id != current.food.id && !dayUsage.Contains(f.id))
-                .Select(f => new
-                {
-                    Food = f,
-                    Score = CalculateSubstitutionScore(
-                        f, current.food, currentItem, current.slot.Role, weeklyUsage,
-                        weeklyRoleFamilyUsage, preferredFoods, dislikedFoods, adherenceBoost,
-                        targetKcal, targetP, targetC, targetF)
-                })
-                .OrderBy(x => x.Score)
-                .Take(12)
-                .ToList();
-
-            if (!alternatives.Any()) continue;
-
-            var replacement = alternatives[0].Food;
-            var oldFamilyKey = $"{current.slot.Role}:{GetFoodFamily(current.food)}";
-            var newFamilyKey = $"{current.slot.Role}:{GetFoodFamily(replacement)}";
-
-            DecrementUsage(weeklyUsage, current.food.id);
-            DecrementUsage(weeklyRoleFamilyUsage, oldFamilyKey);
-            weeklyUsage[replacement.id] = weeklyUsage.GetValueOrDefault(replacement.id, 0) + 1;
-            weeklyRoleFamilyUsage[newFamilyKey] = weeklyRoleFamilyUsage.GetValueOrDefault(newFamilyKey, 0) + 1;
-            dayUsage.Remove(current.food.id);
-            dayUsage.Add(replacement.id);
-
-            var grams = Math.Max(5, (double)(currentItem.Grams ?? 0));
-            var ratio = grams / 100.0;
-            currentItem.FoodId = replacement.id;
-            currentItem.FoodName = replacement.name;
-            currentItem.Grams = (decimal)grams;
-            currentItem.Kcal = (decimal)Math.Round((replacement.kcal ?? 0) * ratio, 1);
-            currentItem.Protein = (decimal)Math.Round((replacement.protein ?? 0) * ratio, 1);
-            currentItem.Carbs = (decimal)Math.Round((replacement.carbs ?? 0) * ratio, 1);
-            currentItem.Fat = (decimal)Math.Round((replacement.fat ?? 0) * ratio, 1);
-            currentItem.ExchangeGroupId = replacement.exchange_group_id;
-            currentItem.ExchangeGroupName = replacement.exchange_group?.name;
-            currentItem.ExchangeCount = replacement.grams_per_exchange.HasValue && replacement.grams_per_exchange.Value > 0
-                ? (decimal?)Math.Round((decimal)grams / replacement.grams_per_exchange.Value, 1)
-                : null;
-            return;
-        }
-    }
-
-    private static double CalculateSubstitutionScore(
-        foods candidate,
-        foods source,
-        MealItemDto currentItem,
-        string role,
-        Dictionary<int, int> weeklyUsage,
-        Dictionary<string, int> weeklyRoleFamilyUsage,
-        HashSet<string> preferredFoods,
-        HashSet<string> dislikedFoods,
-        double adherenceBoost,
-        double targetKcal,
-        double targetP,
-        double targetC,
-        double targetF)
-    {
-        double densityError(double? candidateValue, double? sourceValue)
-        {
-            if (!candidateValue.HasValue || !sourceValue.HasValue || sourceValue.Value <= 0) return 1.0;
-            return Math.Min(Math.Abs(candidateValue.Value - sourceValue.Value) / sourceValue.Value, 2.0);
-        }
-
-        var nutritionError =
-            0.35 * densityError(candidate.kcal, source.kcal) +
-            0.30 * densityError(candidate.protein, source.protein) +
-            0.20 * densityError(candidate.carbs, source.carbs) +
-            0.15 * densityError(candidate.fat, source.fat);
-        var score = nutritionError * 100.0;
-        score += CalculateWeeklyRepetitionPenalty(candidate, weeklyUsage);
-        score += CalculateRoleFamilyRepetitionPenalty(candidate, role, weeklyRoleFamilyUsage);
-        score += MatchesFoodTerms(candidate, dislikedFoods) ? 80 : 0;
-        score -= MatchesFoodTerms(candidate, preferredFoods) ? 40 + adherenceBoost : 0;
-        score += CalculateSlotNutritionPenalty(candidate, role, targetKcal, targetP, targetC, targetF);
-        return score;
-    }
-
-    private static void DecrementUsage<TKey>(Dictionary<TKey, int> usage, TKey key) where TKey : notnull
-    {
-        if (!usage.TryGetValue(key, out var count)) return;
-        if (count <= 1) usage.Remove(key);
-        else usage[key] = count - 1;
-    }
-
-    // Penaliza la repetición de un alimento de forma progresiva. Así un alimento
-    // favorito puede seguir apareciendo, pero el plan evita convertirse en una dieta
-    // repetitiva cuando existen alternativas equivalentes.
-    private static double CalculateWeeklyRepetitionPenalty(
-        foods food,
-        Dictionary<int, int> weeklyUsage)
-    {
-        var uses = weeklyUsage.GetValueOrDefault(food.id, 0);
-        return uses == 0 ? 0 : 15 * uses * uses;
-    }
-
-    // Evita concentrar toda la semana en la misma familia de alimentos dentro de un rol.
-    // Por ejemplo, pollo y pavo no se consideran dos fuentes completamente independientes.
-    private static double CalculateRoleFamilyRepetitionPenalty(
-        foods food,
-        string role,
-        Dictionary<string, int> weeklyRoleFamilyUsage)
-    {
-        var key = $"{role}:{GetFoodFamily(food)}";
-        var uses = weeklyRoleFamilyUsage.GetValueOrDefault(key, 0);
-        return uses == 0 ? 0 : 12 * uses * uses;
-    }
-
-    private static string GetFoodFamily(foods food)
-    {
-        var name = NormalizeFoodTerm(food.name ?? string.Empty);
-
-        if (name.Contains("pollo") || name.Contains("pavo"))
-            return "ave";
-        if (name.Contains("ternera") || name.Contains("cerdo") || name.Contains("lomo") || name.Contains("vacuno"))
-            return "carne";
-        if (name.Contains("atun") || name.Contains("salmon") || name.Contains("merluza") ||
-            name.Contains("bacalao") || name.Contains("dorada") || name.Contains("lubina") ||
-            name.Contains("sardina") || name.Contains("caballa") || name.Contains("gamba"))
-            return "pescado_marisco";
-        if (name.Contains("huevo") || name.Contains("clara"))
-            return "huevo";
-        if (name.Contains("yogur") || name.Contains("queso") || name.Contains("leche") ||
-            name.Contains("kefir"))
-            return "lacteo";
-        if (name.Contains("tofu") || name.Contains("tempeh") || name.Contains("soja"))
-            return "soja";
-        if (name.Contains("lenteja") || name.Contains("garbanzo") || name.Contains("alubia") ||
-            name.Contains("judia") || name.Contains("frijol"))
-            return "legumbre";
-        if (name.Contains("arroz"))
-            return "arroz";
-        if (name.Contains("pasta") || name.Contains("espagueti") || name.Contains("macarron"))
-            return "pasta";
-        if (name.Contains("patata") || name.Contains("boniato"))
-            return "tuberculo";
-        if (name.Contains("avena") || name.Contains("pan") || name.Contains("tostada"))
-            return "cereal_pan";
-
-        return NormalizeFoodTerm(food.category ?? string.Empty) switch
-        {
-            var category when category.Contains("pescado") => "pescado_marisco",
-            var category when category.Contains("carne") => "carne",
-            var category when category.Contains("lacteo") => "lacteo",
-            var category when category.Contains("fruta") => "fruta",
-            var category when category.Contains("verdura") => "verdura",
-            _ => "otro"
-        };
-    }
-
-    // Evalúa si el alimento encaja bien con el papel de su franja y con los objetivos
-    // de la comida. Es una señal de selección, no una regla clínica.
-    private static double CalculateSlotNutritionPenalty(
-        foods food,
-        string role,
-        double targetKcal,
-        double targetP,
-        double targetC,
-        double targetF)
-    {
-        var kcal = Math.Max(food.kcal ?? 0, 1);
-        var proteinShare = (Math.Max(food.protein ?? 0, 0) * 4.0) / kcal;
-        var carbsShare = (Math.Max(food.carbs ?? 0, 0) * 4.0) / kcal;
-        var fatShare = (Math.Max(food.fat ?? 0, 0) * 9.0) / kcal;
-
-        var targetProteinShare = targetKcal > 0 ? (targetP * 4.0) / targetKcal : 0;
-        var targetCarbsShare = targetKcal > 0 ? (targetC * 4.0) / targetKcal : 0;
-        var targetFatShare = targetKcal > 0 ? (targetF * 9.0) / targetKcal : 0;
-
-        var penalty = role switch
-        {
-            "Protein" or "DairyOrEgg" or "SnackProtein" =>
-                Math.Abs(proteinShare - targetProteinShare) * 25 +
-                Math.Max(0, fatShare - targetFatShare) * 6,
-            "Carbs" or "BreakfastCarb" or "LightCarb" or "SnackCarb" =>
-                Math.Abs(carbsShare - targetCarbsShare) * 20,
-            "Vegetable" =>
-                Math.Max(0, kcal / 150.0 - 1.0) * 8,
-            "Fruit" =>
-                Math.Max(0, kcal / 100.0 - 1.5) * 5,
-            "Oil" =>
-                Math.Abs(fatShare - targetFatShare) * 15,
-            _ => 0
-        };
-
-        return double.IsNaN(penalty) || double.IsInfinity(penalty) ? 0 : penalty;
-    }
-
-    // Ajuste iterativo acotado: reduce el error de kcal y macronutrientes respetando los límites de cada alimento.
-    // Es una heurística, no un solver matemático exacto; por eso se acota también el número de iteraciones.
-    // Ajusta las cantidades de los alimentos buscando acercarse simultáneamente a energía y
-    // macronutrientes objetivo sin sustituir las restricciones ya aplicadas a la selección.
-    private static double SnapToServingSize(foods food, SlotConfig slot, double grams)
-    {
-        var name = NormalizeFoodTerm(food.name ?? string.Empty);
-        var step = slot.ServingStepGrams;
-
-        // Si el catálogo conoce la ración del alimento, la respetamos antes que inventar
-        // cantidades arbitrarias. Es especialmente importante para yogures y productos por unidad.
-        if (food.serving_size.HasValue && food.serving_size.Value > 0 &&
-            string.Equals(food.serving_size_unit, "g", StringComparison.OrdinalIgnoreCase))
-            step = food.serving_size.Value;
-
-        // Los yogures comerciales se sirven por envase/porción; no generamos 95 g o 143 g
-        // de un yogur como si fuera un ingrediente continuo.
-        if (name.Contains("yogur"))
-            step = food.serving_size is > 0 ? food.serving_size.Value : 125;
-        else if (name.Contains("leche"))
-            step = 50;
-        else if (name.Contains("huevo") || name.Contains("clara"))
-            step = 10;
-
-        if (!step.HasValue || step.Value <= 0)
-            return Math.Round(Math.Clamp(grams, slot.MinGrams, slot.MaxGrams), 0);
-
-        var snapped = Math.Round(grams / step.Value, MidpointRounding.AwayFromZero) * step.Value;
-        return Math.Round(Math.Clamp(snapped, slot.MinGrams, slot.MaxGrams), 0);
-    }
-
-    private double[] OptimizeGrams(List<(foods food, SlotConfig slot)> items, double tKcal, double tP, double tC, double tF)
-    {
-        int n = items.Count;
-        double[] grams = items.Select(x => x.slot.DefaultGrams).ToArray();
-
-        // 80 iteraciones de ajuste acotado
-        for (int iter = 0; iter < 80; iter++)
-        {
-            double curKcal = 0, curP = 0, curC = 0, curF = 0;
-            for (int i = 0; i < n; i++)
-            {
-                double r = grams[i] / 100.0;
-                curKcal += (items[i].food.kcal ?? 0) * r;
-                curP += (items[i].food.protein ?? 0) * r;
-                curC += (items[i].food.carbs ?? 0) * r;
-                curF += (items[i].food.fat ?? 0) * r;
-            }
-
-            double errKcal = tKcal - curKcal;
-            double errP = tP - curP;
-            double errC = tC - curC;
-            double errF = tF - curF;
-
-            for (int i = 0; i < n; i++)
-            {
-                var f = items[i].food;
-                var s = items[i].slot;
-
-                double step = 0;
-                if (s.Role == "Protein" || s.Role == "DairyOrEgg" || s.Role == "SnackProtein")
-                {
-                    double p100 = f.protein ?? 1;
-                    step = (errP / Math.Max(p100, 5)) * 15.0;
-                }
-                else if (s.Role == "Carbs" || s.Role == "BreakfastCarb" || s.Role == "LightCarb" || s.Role == "SnackCarb")
-                {
-                    double c100 = f.carbs ?? 1;
-                    step = (errC / Math.Max(c100, 5)) * 15.0;
-                }
-                else if (s.Role == "Oil")
-                {
-                    double f100 = f.fat ?? 1;
-                    step = (errF / Math.Max(f100, 10)) * 6.0;
-                }
-                else
-                {
-                    step = (errKcal / Math.Max(f.kcal ?? 50, 20)) * 8.0;
-                }
-
-                grams[i] = Math.Clamp(grams[i] + step, s.MinGrams, s.MaxGrams);
-            }
-        }
-
-        // La optimización trabaja en continuo, pero la salida profesional debe volver
-        // a cantidades culinarias válidas antes de llegar al DTO.
-        for (var i = 0; i < n; i++)
-        {
-            grams[i] = SnapToServingSize(items[i].food, items[i].slot, Math.Max(grams[i], items[i].slot.MinGrams));
-            grams[i] = Math.Clamp(grams[i], items[i].slot.MinGrams, items[i].slot.MaxGrams);
-        }
-
-        return grams;
-    }
-
-    // Hace una segunda pasada sobre el día generado para corregir desviaciones acumuladas entre
-    // comidas y acercar simultáneamente energía y macronutrientes sin alterar las restricciones
-    // que ya se aplicaron durante la selección de alimentos.
-    // Se usa descenso por coordenadas: cada pequeño cambio de gramos se acepta solo si mejora
-    // una función de error conjunta. Esto permite corregir la proporción de macros, algo que
-    // un simple escalado global por kcal no puede conseguir.
-    private void RebalanceDay(List<MealDto> meals, double targetKcal, double targetProtein, double targetCarbs, double targetFat)
-    {
-        var allItems = meals
-            .SelectMany(m => m.Items)
-            .Where(i => (i.Grams ?? 0) > 0)
-            .ToList();
-
-        if (!allItems.Any()) return;
-
-        const double stepGrams = 5.0;
-        const int maxPasses = 24;
-        // El rebalanceo nunca debe convertir una ración normal en una cantidad culinariamente
-        // absurda. Conservamos un margen respecto a la cantidad elegida inicialmente.
-        var rebalanceBounds = meals
-            .SelectMany(meal => meal.Items.Select(item => new { Meal = meal, Item = item }))
-            .Where(x => (x.Item.Grams ?? 0) > 0)
-            .ToDictionary(x => x.Item, x => GetCulinaryBounds(x.Meal.Name, x.Item));
-        var currentError = CalculateRebalanceError(allItems, targetKcal, targetProtein, targetCarbs, targetFat);
-
-        for (int pass = 0; pass < maxPasses; pass++)
-        {
-            var improved = false;
-
-            foreach (var item in allItems)
-            {
-                var currentGrams = (double)(item.Grams ?? 0);
-                if (currentGrams <= 0) continue;
-
-                var bestGrams = currentGrams;
-                var bestError = currentError;
-
-                foreach (var candidateGrams in new[] {
-                    Math.Clamp(currentGrams - stepGrams, rebalanceBounds[item].Min, rebalanceBounds[item].Max),
-                    Math.Clamp(currentGrams + stepGrams, rebalanceBounds[item].Min, rebalanceBounds[item].Max)
-                }.Distinct())
-                {
-                    ApplyItemRatio(item, candidateGrams);
-                    var candidateError = CalculateRebalanceError(allItems, targetKcal, targetProtein, targetCarbs, targetFat);
-
-                    if (candidateError + 0.000001 < bestError)
-                    {
-                        bestError = candidateError;
-                        bestGrams = candidateGrams;
-                    }
-                }
-
-                ApplyItemRatio(item, bestGrams);
-                if (bestError + 0.000001 < currentError)
-                {
-                    currentError = bestError;
-                    improved = true;
-                }
-                else
-                {
-                    ApplyItemRatio(item, currentGrams);
-                }
-            }
-
-            if (!improved || currentError < 0.0025)
-                break;
-        }
-    }
-
-    private static (double Min, double Max) GetCulinaryBounds(string mealName, MealItemDto item)
-        => DietSemanticValidationService.GetCulinaryBounds(mealName, item.FoodName);
-
-    private static double CalculateRebalanceError(
-        IReadOnlyCollection<MealItemDto> items,
-        double targetKcal,
-        double targetProtein,
-        double targetCarbs,
-        double targetFat)
-    {
-        var totalKcal = items.Sum(i => (double)(i.Kcal ?? 0));
-        var totalProtein = items.Sum(i => (double)(i.Protein ?? 0));
-        var totalCarbs = items.Sum(i => (double)(i.Carbs ?? 0));
-        var totalFat = items.Sum(i => (double)(i.Fat ?? 0));
-
-        return
-            (0.35 * Math.Pow(RelativeError(totalKcal, targetKcal), 2)) +
-            (0.25 * Math.Pow(RelativeError(totalProtein, targetProtein), 2)) +
-            (0.20 * Math.Pow(RelativeError(totalCarbs, targetCarbs), 2)) +
-            (0.20 * Math.Pow(RelativeError(totalFat, targetFat), 2));
-    }
-
-    private static double RelativeError(double actual, double target)
-        => target <= 0 ? 0 : (target - actual) / target;
-
-    private static double SnapExistingItemServing(MealItemDto item, double grams)
-    {
-        var name = NormalizeFoodTerm(item.FoodName ?? string.Empty);
-        var minimum = name.Contains("yogur") ? 125 :
-                      name.Contains("manzana") || name.Contains("naranja") || name.Contains("pera") ||
-                      name.Contains("mandarina") || name.Contains("platano") || name.Contains("fresa") ||
-                      name.Contains("kiwi") || name.Contains("melon") || name.Contains("sandia") ||
-                      name.Contains("melocoton") || name.Contains("albaricoque") || name.Contains("ciruela") ||
-                      name.Contains("uva") ? 100 :
-                      name.Contains("tomate") || name.Contains("lechuga") || name.Contains("espinaca") ||
-                      name.Contains("zanahoria") || name.Contains("pepino") || name.Contains("pimiento") ||
-                      name.Contains("brocoli") || name.Contains("calabacin") || name.Contains("berenjena") ||
-                      name.Contains("cebolla") || name.Contains("puerro") || name.Contains("coliflor") ? 100 :
-                      name.Contains("arroz") || name.Contains("pasta") || name.Contains("patata") ||
-                      name.Contains("boniato") || name.Contains("lenteja") || name.Contains("garbanzo") ||
-                      name.Contains("alubia") || name.Contains("guisante") || name.Contains("quinoa") ? 50 : 0;
-        var step = name.Contains("yogur") ? 125 :
-                   name.Contains("leche") ? 50 :
-                   (name.Contains("huevo") || name.Contains("clara") || name.Contains("tortilla")) ? 10 : 0;
-        var snapped = step > 0 ? Math.Round(grams / step, MidpointRounding.AwayFromZero) * step : grams;
-        return Math.Max(snapped, minimum);
-    }
-
-    private static void ApplyItemRatio(MealItemDto item, double grams)
-    {
-        var oldGrams = (double)(item.Grams ?? 0);
-        if (oldGrams <= 0) return;
-
-        grams = SnapExistingItemServing(item, grams);
-        var ratio = grams / oldGrams;
-        item.Grams = (decimal)grams;
-        item.Kcal = (decimal)Math.Round((double)(item.Kcal ?? 0) * ratio, 1);
-        item.Protein = (decimal)Math.Round((double)(item.Protein ?? 0) * ratio, 1);
-        item.Carbs = (decimal)Math.Round((double)(item.Carbs ?? 0) * ratio, 1);
-        item.Fat = (decimal)Math.Round((double)(item.Fat ?? 0) * ratio, 1);
-        if (item.ExchangeCount.HasValue && oldGrams > 0)
-        {
-            var exchangeRatio = (double)item.ExchangeCount.Value / oldGrams;
-            item.ExchangeCount = (decimal)Math.Round(grams * exchangeRatio, 1);
-        }
-    }
-
-    #endregion
-
     #region Plantillas de Comidas y Distribución
 
     private class MealSplit
@@ -1393,243 +597,11 @@ public class DietGeneratorService
         };
     }
 
-    private class SlotConfig
-    {
-        public string Role { get; set; } = string.Empty;
-        public string CourseRole { get; set; } = string.Empty;
-        public double MinGrams { get; set; }
-        public double MaxGrams { get; set; }
-        public double DefaultGrams { get; set; }
-        public double? ServingStepGrams { get; set; }
-    }
-
-    private List<SlotConfig> GetTemplateForMeal(string mealName)
-    {
-        var m = mealName.ToLowerInvariant();
-
-        // Las comidas pequeñas no se tratan como una comida principal reducida.
-        // Se construyen con combinaciones habituales de desayuno/media mañana/merienda.
-        // El optimizador ajusta después las cantidades, pero nunca elimina el componente
-        // que da identidad culinaria a la ingesta.
-        if (m.Contains("desayuno"))
-        {
-            return new List<SlotConfig>
-            {
-                // Desayuno habitual: cereal/pan + lácteo/huevo + fruta.
-                new() { Role = "BreakfastCarb", CourseRole = "Base desayuno", MinGrams = 35, MaxGrams = 90, DefaultGrams = 55 },
-                new() { Role = "DairyOrEgg", CourseRole = "Acompañamiento proteico", MinGrams = 100, MaxGrams = 200, DefaultGrams = 150 },
-                new() { Role = "Fruit", CourseRole = "Fruta fresca", MinGrams = 80, MaxGrams = 180, DefaultGrams = 120 }
-            };
-        }
-
-        if (m.Contains("media"))
-        {
-            return new List<SlotConfig>
-            {
-                // Media mañana habitual: fruta + lácteo/proteína.
-                new() { Role = "Fruit", CourseRole = "Fruta fresca", MinGrams = 100, MaxGrams = 200, DefaultGrams = 150 },
-                new() { Role = "SnackProtein", CourseRole = "Colación proteica", MinGrams = 80, MaxGrams = 180, DefaultGrams = 125 }
-            };
-        }
-
-        if (m.Contains("merienda"))
-        {
-            return new List<SlotConfig>
-            {
-                // Merienda habitual: pan/avena + proteína, con fruta como tercer componente.
-                new() { Role = "BreakfastCarb", CourseRole = "Base merienda", MinGrams = 30, MaxGrams = 80, DefaultGrams = 50 },
-                new() { Role = "SnackProtein", CourseRole = "Acompañamiento proteico", MinGrams = 60, MaxGrams = 160, DefaultGrams = 100 },
-                new() { Role = "Fruit", CourseRole = "Fruta fresca", MinGrams = 80, MaxGrams = 180, DefaultGrams = 120 }
-            };
-        }
-
-        // Comida y cena siguen el estándar clínico de DietoWin en 4 platos gastronómicos:
-        // 1º Plato: Base hidrocarbonada / legumbre / verdura cocida
-        // 2º Plato: Fuente proteica principal (carne, pescado, huevo, tofu)
-        // Guarnición: Ensalada u hortalizas frescas/salteadas
-        // Grasa culinaria: Aceite de oliva virgen para aliño/cocinado
-        return new List<SlotConfig>
-        {
-            new() { Role = "Carbs", CourseRole = "Primer plato", MinGrams = 50, MaxGrams = 180, DefaultGrams = 100 },
-            new() { Role = "Protein", CourseRole = "Segundo plato", MinGrams = 100, MaxGrams = 220, DefaultGrams = 140 },
-            new() { Role = "Vegetable", CourseRole = "Guarnición", MinGrams = 100, MaxGrams = 250, DefaultGrams = 150 },
-            new() { Role = "Oil", CourseRole = "Aliño / Cocinado", MinGrams = 5, MaxGrams = 18, DefaultGrams = 10 }
-        };
-    }
-
     #endregion
 
-    #region Clasificación de Pools de Alimentos
 
-    private static bool IsRecognizedVegetableName(string? name)
-    {
-        var normalized = NormalizeFoodTerm(name ?? string.Empty);
-        return new[] { "tomate", "lechuga", "espinaca", "acelga", "calabacin", "berenjena", "brocoli",
-            "zanahoria", "pepino", "pimiento", "judia verde", "champinon", "calabaza", "cebolla",
-            "puerro", "coliflor", "esparrago", "alcachofa", "apio", "repollo", "col lombarda",
-            "col rizada", "canonigo", "rucula", "endibia", "nabo", "rabanito", "remolacha",
-            "seta", "setas", "hongo", "cardo" }.Any(normalized.Contains);
-    }
-
-    private static bool IsMainProteinName(string? name) =>
-        new[] { "pollo", "pavo", "ternera", "cerdo", "conejo", "atun", "salmon", "merluza", "bacalao", "dorada", "lubina", "sardina", "caballa", "gamba", "tofu", "tempeh" }
-            .Any(NormalizeFoodTerm(name ?? string.Empty).Contains);
-
-    private class FoodPools
-    {
-        public List<foods> Proteins { get; set; } = new();
-        public List<foods> Carbs { get; set; } = new();
-        public List<foods> Vegetables { get; set; } = new();
-        public List<foods> Fruits { get; set; } = new();
-        public List<foods> DairyAndEggs { get; set; } = new();
-        public List<foods> BreakfastCarbs { get; set; } = new();
-        public List<foods> OilsAndFats { get; set; } = new();
-        public List<foods> Nuts { get; set; } = new();
-
-        public List<foods> GetFoodsForSlot(string role)
-        {
-            return role switch
-            {
-                "Protein" => Proteins,
-                "Carbs" => Carbs,
-                "LightCarb" => Carbs.Where(c => (c.kcal ?? 0) < 200).DefaultIfEmpty(Carbs.FirstOrDefault()).Where(x => x != null).ToList()!,
-                "Vegetable" => Vegetables,
-                "Fruit" => Fruits,
-                "DairyOrEgg" => DairyAndEggs,
-                "BreakfastCarb" => BreakfastCarbs,
-                "SnackProtein" => DairyAndEggs.Where(f => !DietGeneratorService.IsMainProteinName(f.name)).ToList(),
-                "SnackCarb" => BreakfastCarbs.Concat(Carbs).ToList(),
-                "SnackFruit" => Fruits,
-                "FruitOrNuts" => Fruits.Concat(Nuts).ToList(),
-                "Oil" => OilsAndFats,
-                "Fat" => OilsAndFats.Concat(Nuts).ToList(),
-                _ => Proteins
-            };
-        }
-    }
-
-    // Clasifica el catálogo en pools funcionales. Las exclusiones por dieta se aplican antes de clasificar
-    // y los fallbacks evitan que una categoría vacía deje al generador sin opciones.
-    private FoodPools CategorizeFoods(List<foods> all, string dietType)
-    {
-        var pools = new FoodPools();
-        bool isVeg   = dietType.Equals("Vegetariana", StringComparison.OrdinalIgnoreCase);
-        bool isVegan = dietType.Equals("Vegana",      StringComparison.OrdinalIgnoreCase);
-        bool isKeto  = dietType.Equals("Cetogenica",  StringComparison.OrdinalIgnoreCase);
-
-        foreach (var f in all)
-        {
-            if (!DietSemanticValidationService.IsFoodCompatibleWithDietType(
-                f.name, dietType, f.category, f.carbs, f.fat, foodId: f.id))
-                continue;
-
-            var name = (f.name ?? "").ToLowerInvariant();
-            var cat = (f.category ?? "").ToLowerInvariant();
-            double p = f.protein ?? 0;
-            double c = f.carbs ?? 0;
-            double fat = f.fat ?? 0;
-            double kcal = f.kcal ?? 0;
-
-            // Vegetariana y Vegana: excluyen carne y pescado
-            if ((isVeg || isVegan) && (
-                cat.Contains("carne") || cat.Contains("pescado") ||
-                name.Contains("pollo") || name.Contains("ternera") || name.Contains("atún") ||
-                name.Contains("salmon") || name.Contains("pavo") || name.Contains("merluza")))
-                continue;
-
-            // Vegana: además excluye lácteos y huevos
-            if (isVegan && (
-                name.Contains("huevo") || name.Contains("clara") ||
-                name.Contains("yogur") || name.Contains("queso") || name.Contains("leche") || name.Contains("kéfir") ||
-                name.Contains("miel") || name.Contains("gelatina") ||
-                cat.Contains("lácteo") || cat.Contains("lacteo") || cat.Contains("huevo")))
-                continue;
-
-            // Cetogénica: excluye carbohidratos altos (>10g/100g) y frutas azucaradas
-            if (isKeto && (
-                name.Contains("arroz") || name.Contains("pasta") || name.Contains("patata") || name.Contains("pan") ||
-                name.Contains("avena") || name.Contains("copos") || name.Contains("macarrones") || name.Contains("espaguetis") ||
-                name.Contains("lenteja") || name.Contains("garbanzo") || name.Contains("alubia") || name.Contains("quinoa") ||
-                name.Contains("plátano") || name.Contains("platano") || name.Contains("uva") || name.Contains("mango") || name.Contains("cereza") ||
-                (c > 10 && c > fat)))
-                continue;
-
-            // Aceites culinarios: solo aceites habituales. Nunca dejamos que un aceite raro
-            // compita por la ración de grasa de una comida normal.
-            if (name.Equals("aceite de oliva", StringComparison.OrdinalIgnoreCase) ||
-                name.Contains("aceite de oliva virgen") || name.Contains("aceite de oliva virgen extra") ||
-                name.Equals("aceite de girasol", StringComparison.OrdinalIgnoreCase))
-            {
-                pools.OilsAndFats.Add(f);
-            }
-            // Frutos secos
-            else if (name.Contains("nuez") || name.Contains("nueces") || name.Contains("almendra") || name.Contains("avellana") || name.Contains("anacardo") || name.Contains("pistacho") || cat.Contains("frutos secos"))
-            {
-                pools.Nuts.Add(f);
-            }
-            // Verduras y Hortalizas comunes
-            else if (cat.Contains("verdura") || cat.Contains("hortal") || IsRecognizedVegetableName(name))
-            {
-                // La validación final reconoce tanto nombres habituales como la categoría
-                // del catálogo. Esto evita que una hortaliza válida quede fuera del pool
-                // solo porque su nombre no está en una lista cerrada.
-                pools.Vegetables.Add(f);
-            }
-            // Frutas comunes
-            else if (cat.Contains("fruta") || name.Contains("manzana") || name.Contains("plátano") || name.Contains("platano") || name.Contains("naranja") || name.Contains("pera") || name.Contains("fresa") || name.Contains("kiwi") || name.Contains("mandarina") || name.Contains("sandía") || name.Contains("melón") || name.Contains("melocotón"))
-            {
-                pools.Fruits.Add(f);
-            }
-            // Desayuno (Panes, Avena, Tostadas)
-            else if (name.Contains("avena") || name.Contains("pan integral") || name.Contains("pan de molde") || name.Equals("pan blanco") || name.Contains("tostada") || name.Contains("copos"))
-            {
-                pools.BreakfastCarbs.Add(f);
-            }
-            // Lácteos y Huevos comunes
-            else if (name.Contains("huevo") || name.Contains("clara") || name.Contains("yogur") || name.Contains("queso fresco") || name.Contains("queso batido") || name.Contains("leche desnatada") || name.Contains("leche semidesnatada") || name.Contains("leche entera") || name.Contains("kéfir"))
-            {
-                pools.DairyAndEggs.Add(f);
-            }
-            // Proteínas Principales Magras/Pescados
-            else if (cat.Contains("carne") || cat.Contains("pescado") || cat.Contains("marisco") ||
-                     name.Contains("pechuga") || name.Contains("pollo") || name.Contains("pavo") || name.Contains("lomo") || name.Contains("ternera") || name.Contains("cerdo") || name.Contains("conejo") || name.Contains("atún") || name.Contains("salmon") || name.Contains("merluza") || name.Contains("bacalao") || name.Contains("dorada") || name.Contains("lubina") || name.Contains("sardina") || name.Contains("caballa") || name.Contains("gambas") || name.Contains("gamba") || name.Contains("tofu") || name.Contains("tempeh"))
-            {
-                pools.Proteins.Add(f);
-            }
-            // Carbohidratos Base Comunes
-            else if (cat.Contains("cereal") || cat.Contains("cereales") || cat.Contains("legumbre") || cat.Contains("tubérculo") || cat.Contains("tuberculo") ||
-                     name.Contains("arroz") || name.Contains("pasta") || name.Contains("patata") || name.Contains("boniato") || name.Contains("macarrones") || name.Contains("espaguetis") || name.Contains("lenteja") || name.Contains("garbanzo") || name.Contains("alubia") || name.Contains("guisante") || name.Contains("quinoa") || name.Contains("cuscús") || name.Contains("cuscus"))
-            {
-                pools.Carbs.Add(f);
-            }
-        }
-
-        // Fallbacks
-        // El aceite culinario es un componente explícito: nunca usamos frutos secos u otras grasas como sustituto silencioso.\n        // Si el catálogo no tiene aceite común, la generación fallará con un mensaje descriptivo.\n        
-        if (!pools.BreakfastCarbs.Any())
-            pools.BreakfastCarbs = pools.Carbs
-                .Where(f => IsStandardBreakfastCarb(f))
-                .ToList();
-
-        // No degradamos un desayuno a carne/pescado solo porque falte un lácteo.
-        // Si no existe un pool adecuado, la generación ya habrá fallado en la validación anterior.
-        if (!pools.DairyAndEggs.Any())
-            pools.DairyAndEggs = new List<foods>();
-
-        return pools;
-    }
-
-    #endregion
 
     #region Helpers de Cálculo y Restricciones
-
-    private static bool IsStandardBreakfastCarb(foods food)
-    {
-        var name = NormalizeFoodTerm(food.name ?? string.Empty);
-        return name.Contains("avena") || name.Contains("pan integral") ||
-               name.Contains("pan de molde") || name.Equals("pan blanco") ||
-               name.Contains("tostada") || name.Contains("copos");
-    }
 
     private static double? GetProfileDouble(JsonElement? profile, string property)
     {
@@ -1752,11 +724,45 @@ public class DietGeneratorService
                                  category.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static bool HasKnownAllergenDataForClient(foods food, clients? client) =>
-        !DietaryRestrictionRules.HasUnknownAllergenData(
-            client?.food_preferences?.allergies,
+    private static bool UserCanUseTenantLocalFood(foods food, int? tenantId, int userId, bool canUseTenantLocalFoods)
+    {
+        if (!tenantId.HasValue || food.tenant_id != tenantId.Value) return false;
+        return canUseTenantLocalFoods || food.created_by_user_id == userId;
+    }
+
+    // Con alergias declaradas solo se aceptan alimentos con datos de alérgenos verificados (fuente "reported"). Los alérgenos
+    // de food_dietary_profile son una curación propuesta: se suman al filtro de exclusiones pero no cuentan como verificación.
+    // Con intolerancias sin alergia declarada basta con que el alimento tenga perfil dietético curado.
+    private static bool HasKnownAllergenDataForClient(foods food, clients? client)
+    {
+        var declaresAllergies = !string.IsNullOrWhiteSpace(client?.food_preferences?.allergies);
+        var hasIntolerance = client?.digestive_health?.gluten_intolerance == true ||
+                             client?.digestive_health?.lactose_intolerance == true ||
+                             client?.digestive_health?.fodmaps_intolerance == true;
+        if (!declaresAllergies && !hasIntolerance) return true;
+
+        var verified = !DietaryRestrictionRules.HasUnknownAllergenData(
+            declaresAllergies ? client!.food_preferences!.allergies : "intolerancia",
             (food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()),
             food.allergen_data_status);
+        if (verified) return true;
+        // Intolerancia sin alergia declarada: basta con que el alimento tenga perfil dietético curado, cuyos alérgenos se suman al filtro.
+        return !declaresAllergies && FoodDietaryProfileCatalog.TryGet(food.id, out _);
+    }
+
+    // Misma comprobación que IsExcluded pero con los términos precompilados y las etiquetas curadas del perfil añadidas
+    // a las banderas estructuradas del alimento (nunca sustituyen a las etiquetas importadas: se suman).
+    private static bool IsBlocked(foods food, DietaryRestrictionRules.ExclusionMatcher matcher)
+    {
+        if (matcher.TermCount == 0) return false;
+        return !matcher.IsAllowed(
+            food.name,
+            food.category,
+            (food.dietary_flags ?? Array.Empty<string>())
+                .Concat(food.allergen_tags ?? Array.Empty<string>())
+                .Concat(food.traces_tags ?? Array.Empty<string>())
+                .Concat(FoodDietaryProfileCatalog.TryGet(food.id, out var dietary) ? dietary.AllergenTerms : Array.Empty<string>()));
+    }
 
     private bool IsExcluded(foods food, HashSet<string> exclusions)
     {
@@ -1769,6 +775,20 @@ public class DietGeneratorService
                 .Concat(food.allergen_tags ?? Array.Empty<string>())
                 .Concat(food.traces_tags ?? Array.Empty<string>()),
             exclusions);
+    }
+
+    // Señal terapéutica blanda: penaliza o favorece alimentos según los pesos de nutrientes del perfil terapéutico.
+    private static double CalculateTherapyFactor(foods food, DietTherapyProfile? profile)
+    {
+        if (profile == null || profile.NutrientWeights.Count == 0) return 1.0;
+        double penalty = 0;
+        foreach (var rule in profile.NutrientWeights)
+        {
+            var key = rule.Key.ToLowerInvariant();
+            var value = key switch { "sugar" => (food.sugar ?? 0) / 10.0, "salt" => food.salt ?? 0, "fiber" => (food.fiber ?? 0) / 3.0, "potassium" => (food.potassium_mg ?? 0) / 100.0, _ => 0 };
+            penalty += rule.Value * Math.Min(value, 3.0);
+        }
+        return Math.Clamp(Math.Exp(-0.25 * penalty), 0.2, 2.5);
     }
 
     private void AddGlutenKeywords(HashSet<string> ex)

@@ -227,6 +227,19 @@ public sealed class AdvancedDietOptimizerService
         return diet;
     }
 
+    /// <summary>
+    /// Introduce recetas profesionales cuando todos sus ingredientes pertenecen al catálogo seguro. Es la única parte de la
+    /// optimización histórica que sigue formando parte de la generación: las cantidades las resuelve el motor de menús.
+    /// </summary>
+    public Task ApplyRecipesAsync(
+        DietDetailDto diet,
+        GenerateDietRequestDto request,
+        IReadOnlyDictionary<int, foods> foodMap,
+        int? tenantId,
+        double targetKcal,
+        CancellationToken cancellationToken)
+        => ApplyRecipeCandidatesAsync(diet, request, foodMap, tenantId, targetKcal, cancellationToken);
+
     private async Task ApplyRecipeCandidatesAsync(
         DietDetailDto diet,
         GenerateDietRequestDto request,

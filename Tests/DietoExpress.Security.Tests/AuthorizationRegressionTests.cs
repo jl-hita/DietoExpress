@@ -1,3 +1,4 @@
+using Anguloso.Server.Logica;
 using Xunit;
 using System.Security.Claims;
 
@@ -329,53 +330,46 @@ public class AuthorizationRegressionTests
         Assert.Contains(".ToListAsync(cancellationToken)", section);
     }
 
-    [Fact]
-    public void AutomatedDietGeneration_RejectsUnusualFoodsAndPreservesPortionBounds()
+    [Theory]
+    [InlineData("Aceite de algodón")]
+    [InlineData("Zumo de naranja")]
+    [InlineData("Huevo de pavo, entero, crudo")]
+    [InlineData("Patatas, fritas, chips")]
+    [InlineData("Melocotón, desecado")]
+    [InlineData("Jengibre")]
+    [InlineData("Nuez moscada")]
+    [InlineData("Pan rallado")]
+    [InlineData("Yogur líquido, natural, azucarado")]
+    public void AutomatedDietGeneration_RejectsUnusualFoods(string foodName)
     {
-        var source = ReadServerLogica("DietGeneratorService.cs");
+        Assert.Null(FoodCulinaryClassifier.Classify(foodName, null, 200, 5, 20, 10));
+    }
 
-        Assert.Contains("aceite de algodón", source);
-        Assert.Contains("zumo", source);
-        Assert.Contains("huevo de pavo", source);
-        Assert.Contains("patatas chips", source);
-        Assert.Contains("desecado", source);
-        Assert.Contains("rebalanceBounds", source);
-        Assert.Contains("GetCulinaryBounds", source);
+    [Fact]
+    public void AutomatedDietGeneration_PreservesPortionBounds()
+    {
         var semanticValidator = ReadServerLogica("DietSemanticValidationService.cs");
-        Assert.Contains("=> DietSemanticValidationService.GetCulinaryBounds(mealName, item.FoodName);", source);
+        var engine = ReadServerLogica("DietMenuEngine.cs");
         Assert.Contains("if (IsVegetable(food) || IsFruit(food)) return (100, 250)", semanticValidator);
         Assert.Contains("if (IsCarb(food)) return (50, 180)", semanticValidator);
-        Assert.DoesNotContain("Math.Clamp(currentGrams - stepGrams, 5, 350)", source);
+        Assert.Contains("PortionPolicy.Bounds(s.Food.P, _o.Kcal, _keto || _lowCarb)", engine);
+        Assert.Contains("Math.Clamp(s.G + sign * mult * s.Step, s.Min, s.Max)", engine);
     }
 
     [Fact]
     public void AutomatedDietGeneration_BuildsMealsFromCulinaryComponentsBeforeMacroOptimization()
     {
-        var source = ReadServerLogica("DietGeneratorService.cs");
-        var templateStart = source.IndexOf("private List<SlotConfig> GetTemplateForMeal", StringComparison.Ordinal);
-        var templateEnd = source.IndexOf("#endregion", templateStart, StringComparison.Ordinal);
+        var engine = ReadServerLogica("DietMenuEngine.cs");
 
-        Assert.True(templateStart >= 0 && templateEnd > templateStart);
-        var template = source[templateStart..templateEnd];
+        foreach (var course in new[] { "Primer plato", "Segundo plato", "Guarnición", "Aliño / Cocinado", "Postre", "Base desayuno", "Base merienda", "Fruta fresca", "Pan" })
+            Assert.Contains("\"" + course + "\"", engine);
+        foreach (var template in new[] { "private void Breakfast(", "private void MidMorning(", "private void Snack(", "private void Lunch(", "private void Dinner(" })
+            Assert.Contains(template, engine);
 
-        Assert.Contains("Role = \"Carbs\"", template);
-        Assert.Contains("Role = \"Protein\"", template);
-        Assert.Contains("Role = \"Vegetable\"", template);
-        Assert.Contains("Role = \"Oil\"", template);
-
-        Assert.Contains("Role = \"BreakfastCarb\"", template);
-        Assert.Contains("Role = \"DairyOrEgg\"", template);
-        Assert.Contains("Role = \"SnackProtein\"", template);
-        Assert.Contains("Role = \"Fruit\"", template);
-        Assert.Contains("\"SnackProtein\" => DairyAndEggs.Where(f => !DietGeneratorService.IsMainProteinName(f.name)).ToList()", source);
-        Assert.Contains("IsRecognizedVegetableName(name)", source);
-
-        var buildStart = source.IndexOf("private List<MealItemDto> BuildAndOptimizeMeal", StringComparison.Ordinal);
-        Assert.True(buildStart >= 0);
-        var build = source[buildStart..source.IndexOf("private static string CreateMealSignature", buildStart, StringComparison.Ordinal)];
-
-        Assert.True(build.IndexOf("var slots = GetTemplateForMeal", StringComparison.Ordinal)
-            < build.IndexOf("var grams = OptimizeGrams", StringComparison.Ordinal));
+        // Primero se compone el día con sus platos y solo después se resuelven las cantidades.
+        var run = engine[engine.IndexOf("private MenuEngineResult Run()", StringComparison.Ordinal)..];
+        Assert.True(run.IndexOf("ComposeDay(day, attempt)", StringComparison.Ordinal)
+            < run.IndexOf("SolveDay(slots, out var acceptable)", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -395,17 +389,14 @@ public class AuthorizationRegressionTests
     [Fact]
     public void AutomatedDietGeneration_UsesCulinaryServingGuardrails()
     {
-        var source = ReadServerLogica("DietGeneratorService.cs");
+        var engine = ReadServerLogica("DietMenuEngine.cs");
+        var classifier = ReadServerLogica("FoodCulinaryClassifier.cs");
 
-        Assert.Contains("\"jengibre\"", source);
-        Assert.Contains("\"nuez moscada\"", source);
-        Assert.Contains("\"pan rallado\"", source);
-        Assert.Contains("\"yogur líquido\"", source);
-        Assert.Contains("SnapToServingSize", source);
-        Assert.Contains("name.Contains(\"yogur\")", source);
-        Assert.Contains("=> DietSemanticValidationService.GetCulinaryBounds(mealName, item.FoodName);", source);
-        Assert.DoesNotContain("(c >= 18 && c > p)", source);
-        Assert.DoesNotContain("(p >= 16 && p > c && fat < 18)", source);
+        // Las cantidades se mueven sobre la rejilla de raciones del perfil (unidades enteras de yogur, huevo, rebanada).
+        Assert.Contains("s.Step = s.Food.P.Step > 0 ? s.Food.P.Step : 10", engine);
+        Assert.Contains("p.UnitName = \"yogur\"; p.UnitGrams = 125;", classifier);
+        Assert.Contains("p.UnitName = \"huevo\"; p.UnitGrams = 55;", classifier);
+        Assert.Contains("\"yogur\"", classifier);
     }
 
     [Fact]

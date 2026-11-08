@@ -6,6 +6,7 @@ public partial class angulosodbContext
 {
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
+        ConfigureFoodCulinaryProfile(modelBuilder);
         ConfigureFoodDietaryProfile(modelBuilder);
         modelBuilder.Entity<patient_checkins>(entity =>
         {

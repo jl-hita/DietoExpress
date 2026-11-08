@@ -50,3 +50,41 @@ Este documento recoge el plan de evolución y auditoría técnica para elevar el
 1. Los tres pasos deben estar implementados y cubiertos por pruebas unitarias y de integración.
 2. 100% de tests del proyecto en verde (sin regresiones de seguridad clínica ni de exclusiones).
 3. No hacer merge a `main` hasta que los tres puntos estén completados satisfactoriamente y aprobados explícitamente.
+
+---
+
+## Estado de implementación (motor determinista)
+
+Medición sobre el catálogo BEDCA real (957 alimentos), endpoint `POST /api/dietas/generate`, semana de 5 comidas:
+
+| | Antes | Ahora |
+|---|---|---|
+| Perfiles probados que generan dieta (11) | 0 de 11 (422 tras 3 intentos) | 11 de 11 |
+| Tiempo por petición | 14–32 s | 30–70 ms (primera llamada tras arrancar ≈ 260 ms por JIT) |
+| Desviación diaria de kcal | — (fallaba) | ≤ ±1,5 % (cetogénica ≈ −4 %) |
+| Reintentos globales | 3 (con optimización de 5–7 s cada uno) | 0 en la medición; reintentos locales por día en el motor |
+
+Arquitectura (`Anguloso.Server/Logica`):
+
+- `FoodCulinaryClassifier` + tabla `food_culinary_profile` (rol, familia, popularidad, estado crudo/cocinado, porciones,
+  etiquetas de alérgenos curadas). Lista blanca: lo no reconocido no entra; los datos incoherentes (p. ej. «Arroz, hervido»
+  con kcal del crudo) se marcan con `excluded_reason`. `FoodCulinaryProfileSeeder` lo materializa al arrancar (idempotente).
+- `DietMenuEngine`: esqueleto semanal de rotación (legumbre/arroz/pasta/patata; ave, pescado blanco/azul, carne roja, huevo),
+  plantillas españolas (desayuno, media mañana, comida 1º/2º/guarnición/pan/postre, merienda, cena ligera), solver de
+  porciones por descenso de coordenadas sobre la rejilla de raciones y reintento local por día.
+- `PortionPolicy`: política de porciones compartida con el validador final (escala con la energía objetivo).
+- Pesos en **crudo** para cereales, legumbres, carnes y pescados cuando el catálogo los guarda en crudo (como DietoWin).
+
+Seguridad (sin relajar nada):
+
+- Filtro único y precompilado (`DietaryRestrictionRules.ExclusionMatcher`); solo alimentos que lo superan llegan al motor.
+- Vegano, vegetariano y alérgenos tienen **una única fuente**: `food_dietary_profile` (curación versionada en
+  `FoodCuration/food-dietary-profiles.json`, sin columnas nulas). `food_culinary_profile` solo guarda rol, familia, porciones y
+  etiquetas. Los alérgenos del perfil dietético **se suman** a los importados y al filtro de exclusiones, pero no cuentan como
+  verificación: con alergias declaradas se sigue exigiendo `allergen_data_status = 'reported'`. Con intolerancias
+  (gluten/lactosa/FODMAP) basta con que el alimento tenga perfil dietético.
+- El validador final independiente (clínico + semántico) se mantiene.
+
+Pendiente: revisión humana de las etiquetas curadas de `food_dietary_profile` antes de promoverlas a `foods.allergen_tags`,
+retirada del código legado de `AdvancedDietOptimizerService.OptimizeWeeklyPlanAsync` (ya no se invoca; solo se usan las
+recetas y `RegenerateMeal`), y migrar `DietRegenerationService` al mismo perfil culinario.

@@ -31,9 +31,13 @@ public sealed class DietSemanticValidationService
         int? tenantId = null,
         int userId = 0,
         bool canUseTenantLocalFoods = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyDictionary<int, FoodProfileData>? profiles = null)
     {
         var errors = ValidateStructure(diet, request, allowedFoods);
+        var targetKcalForPortions = diet.TargetKcal.HasValue ? (double)diet.TargetKcal.Value : request.TargetKcal;
+        var normalizedType = Normalize(request.DietType);
+        var highFatDiet = normalizedType.Contains("cetogen") || (normalizedType.Contains("baja") && normalizedType.Contains("carb"));
         var foodMap = allowedFoods.GroupBy(f => f.id).ToDictionary(g => g.Key, g => g.First());
 
         var recipeMap = new Dictionary<int, recipes>();
@@ -86,15 +90,15 @@ public sealed class DietSemanticValidationService
                 }
 
                 weeklyFoodUses[item.FoodId.Value] = weeklyFoodUses.GetValueOrDefault(item.FoodId.Value) + 1;
-                ValidateFoodItem(errors, day.DayIndex, meal, item, food);
+                ValidateFoodItem(errors, day.DayIndex, meal, item, food, ProfileOf(profiles, food.id), targetKcalForPortions, highFatDiet);
             }
 
-            ValidateMealSemantics(errors, day.DayIndex, meal, request.DietType, foodMap, recipeMap);
+            ValidateMealSemantics(errors, day.DayIndex, meal, request.DietType, foodMap, recipeMap, profiles);
         }
 
         foreach (var pair in weeklyFoodUses)
         {
-            if (!foodMap.TryGetValue(pair.Key, out var food) || IsStapleFood(food)) continue;
+            if (!foodMap.TryGetValue(pair.Key, out var food) || IsStapleFood(food, ProfileOf(profiles, food.id))) continue;
             if (pair.Value > Math.Max(1, request.MaxWeeklyFoodRepetitions))
                 errors.Add($"El alimento «{food.name}» aparece {pair.Value} veces en la semana; supera el máximo de repetición configurado.");
         }
@@ -150,7 +154,12 @@ public sealed class DietSemanticValidationService
         return errors;
     }
 
-    private static void ValidateMealSemantics(List<string> errors, int dayIndex, MealDto meal, string dietType, IReadOnlyDictionary<int, foods> foodMap, IReadOnlyDictionary<int, recipes> recipeMap)
+    private static FoodProfileData? ProfileOf(IReadOnlyDictionary<int, FoodProfileData>? profiles, int foodId)
+        => profiles != null && profiles.TryGetValue(foodId, out var profile) ? profile : null;
+
+    private static bool RoleIs(FoodProfileData? p, params string[] roles) => p != null && Array.IndexOf(roles, p.Role) >= 0;
+
+    private static void ValidateMealSemantics(List<string> errors, int dayIndex, MealDto meal, string dietType, IReadOnlyDictionary<int, foods> foodMap, IReadOnlyDictionary<int, recipes> recipeMap, IReadOnlyDictionary<int, FoodProfileData>? profiles = null)
     {
         var name = Normalize(meal.Name);
         var items = meal.Items.Where(i => (i.Grams ?? 0) > 0).ToList();
@@ -166,6 +175,13 @@ public sealed class DietSemanticValidationService
             .Where(food => food != null).Cast<foods>();
         var semanticFoods = directFoods.Concat(recipeFoods).ToList();
         if (items.Count == 0) { errors.Add($"Día {dayIndex + 1}, {meal.Name}: comida vacía."); return; }
+        var profileMap = profiles;
+        FoodProfileData? Prof(foods food) => ProfileOf(profileMap, food.id);
+        // Con perfil culinario curado el rol procede de la identidad del alimento; sin perfil (recetas, catálogo antiguo)
+        // se conserva la inferencia histórica por nombre.
+        bool IsMainProtein(foods food) => Prof(food) is { } p ? (p.Role == FoodProfileData.RoleProtein && p.Family != "huevo") : IsMainProteinName(food.name);
+        bool IsLegume(foods food) => Prof(food) is { } p ? p.Role == FoodProfileData.RoleLegume : IsLegumeName(food.name);
+        bool IsEggFood(foods food) => Prof(food) is { } p ? p.Role == FoodProfileData.RoleProtein && p.Family == "huevo" : IsEgg(food.name);
 
         if (items.GroupBy(i => i.FoodId ?? -i.RecipeId.GetValueOrDefault()).Any(g => g.Key != 0 && g.Count() > 1))
             errors.Add($"Día {dayIndex + 1}, {meal.Name}: un mismo componente aparece duplicado.");
@@ -173,12 +189,14 @@ public sealed class DietSemanticValidationService
         var small = name.Contains("desayuno") || name.Contains("media") || name.Contains("merienda");
         if (small)
         {
-            if (semanticFoods.Any(food => IsMainProteinName(food.name)))
+            if (semanticFoods.Any(food => IsMainProtein(food)))
                 errors.Add($"Día {dayIndex + 1}, {meal.Name}: una ingesta pequeña contiene carne o pescado como proteína principal.");
-            if (semanticFoods.Any(food => IsLegumeName(food.name)) &&
-                !semanticFoods.Any(food => IsBreakfastCarb(food.name)))
+            if (semanticFoods.Any(food => IsLegume(food)) &&
+                !semanticFoods.Any(food => Prof(food) is { } p ? RoleIs(p, FoodProfileData.RoleBread, FoodProfileData.RoleCereal) : IsBreakfastCarb(food.name)))
                 errors.Add($"Día {dayIndex + 1}, {meal.Name}: las legumbres no pueden sustituir al carbohidrato de una ingesta pequeña.");
-            if (!semanticFoods.Any(food => IsBreakfastCarb(food.name) || IsSnackProtein(food.name) || IsNut(food.name) || IsFruit(food.name)))
+            if (!semanticFoods.Any(food => Prof(food) is { } p
+                    ? RoleIs(p, FoodProfileData.RoleBread, FoodProfileData.RoleCereal, FoodProfileData.RoleDairy, FoodProfileData.RoleCold, FoodProfileData.RoleNut, FoodProfileData.RoleFruit, FoodProfileData.RoleFat) || IsEggFood(food)
+                    : IsBreakfastCarb(food.name) || IsSnackProtein(food.name) || IsNut(food.name) || IsFruit(food.name)))
                 errors.Add($"Día {dayIndex + 1}, {meal.Name}: falta un componente principal de desayuno/colación.");
             return;
         }
@@ -186,10 +204,10 @@ public sealed class DietSemanticValidationService
         var type = Normalize(dietType);
         var keto = type.Contains("cetogen");
         var lowCarb = type.Contains("baja") && type.Contains("carb");
-        var hasProtein = semanticFoods.Any(food => IsMainProteinName(food.name) || IsEgg(food.name) || IsLegumeName(food.name));
-        var hasVegetable = semanticFoods.Any(food => IsVegetable(food.name, food.category));
-        var hasCarb = semanticFoods.Any(food => IsCarb(food.name, food.category) || IsLegumeName(food.name));
-        var hasFat = semanticFoods.Any(food => IsOil(food.name) || IsNut(food.name) || IsFattyProtein(food.name));
+        var hasProtein = semanticFoods.Any(food => Prof(food) is { } p ? RoleIs(p, FoodProfileData.RoleProtein, FoodProfileData.RoleLegume) : IsMainProteinName(food.name) || IsEgg(food.name) || IsLegumeName(food.name));
+        var hasVegetable = semanticFoods.Any(food => Prof(food) is { } p ? p.Role == FoodProfileData.RoleVegetable : IsVegetable(food.name, food.category));
+        var hasCarb = semanticFoods.Any(food => Prof(food) is { } p ? RoleIs(p, FoodProfileData.RoleStarch, FoodProfileData.RoleLegume, FoodProfileData.RoleBread, FoodProfileData.RoleCereal) : IsCarb(food.name, food.category) || IsLegumeName(food.name));
+        var hasFat = semanticFoods.Any(food => Prof(food) is { } p ? RoleIs(p, FoodProfileData.RoleOil, FoodProfileData.RoleNut, FoodProfileData.RoleFat) || p.Family == "pescado_azul" : IsOil(food.name) || IsNut(food.name) || IsFattyProtein(food.name));
 
         if (!hasProtein) errors.Add($"Día {dayIndex + 1}, {meal.Name}: comida principal sin fuente proteica reconocible.");
         if (!hasVegetable) errors.Add($"Día {dayIndex + 1}, {meal.Name}: comida principal sin verdura/hortaliza reconocible.");
@@ -197,17 +215,27 @@ public sealed class DietSemanticValidationService
         if ((keto || lowCarb) && !hasFat) errors.Add($"Día {dayIndex + 1}, {meal.Name}: pauta baja en hidratos sin fuente de grasa reconocible.");
     }
 
-    private static void ValidateFoodItem(List<string> errors, int dayIndex, MealDto meal, MealItemDto item, foods food)
+    private static void ValidateFoodItem(List<string> errors, int dayIndex, MealDto meal, MealItemDto item, foods food, FoodProfileData? profile = null, double targetKcal = 0, bool highFat = false)
     {
         var grams = (double)(item.Grams ?? 0);
         if (grams <= 0) { errors.Add($"Día {dayIndex + 1}, {meal.Name}: «{food.name}» tiene una cantidad no válida."); return; }
         if (!IsProfessionalFood(food)) errors.Add($"Día {dayIndex + 1}, {meal.Name}: «{food.name}» no es apto para selección automática profesional.");
 
-        var bounds = GetCulinaryBounds(meal.Name, food.name);
-        if (grams < bounds.Min || grams > bounds.Max)
-            errors.Add($"Día {dayIndex + 1}, {meal.Name}: «{food.name}» está en {grams:0} g, fuera del rango culinario {bounds.Min:0}–{bounds.Max:0} g.");
-        if (IsLegumeName(food.name) && IsRawOrDry(food.name))
-            errors.Add($"Día {dayIndex + 1}, {meal.Name}: «{food.name}» está en formato seco/crudo.");
+        if (profile != null)
+        {
+            // Las porciones del perfil están expresadas en el estado del propio alimento (crudo o cocinado) y escalan con la energía.
+            var portion = PortionPolicy.Bounds(profile, targetKcal, highFat);
+            if (grams < portion.Min - 0.5 || grams > portion.Max + 0.5)
+                errors.Add($"Día {dayIndex + 1}, {meal.Name}: «{food.name}» está en {grams:0} g, fuera del rango culinario {portion.Min:0}–{portion.Max:0} g.");
+        }
+        else
+        {
+            var bounds = GetCulinaryBounds(meal.Name, food.name);
+            if (grams < bounds.Min || grams > bounds.Max)
+                errors.Add($"Día {dayIndex + 1}, {meal.Name}: «{food.name}» está en {grams:0} g, fuera del rango culinario {bounds.Min:0}–{bounds.Max:0} g.");
+            if (IsLegumeName(food.name) && IsRawOrDry(food.name))
+                errors.Add($"Día {dayIndex + 1}, {meal.Name}: «{food.name}» está en formato seco/crudo.");
+        }
         if (IsHighGlycemicHeuristic(food) && IsCarb(food.name))
             errors.Add($"Día {dayIndex + 1}, {meal.Name}: «{food.name}» es una fuente de hidratos de respuesta glucémica elevada no priorizada.");
         if (IsRareOil(food.name))
@@ -349,7 +377,16 @@ public sealed class DietSemanticValidationService
         }
     }
 
-    private static bool IsAnimalFood(string food) =>
+    private static string StripPlantBeverages(string food)
+    {
+        foreach (var plant in new[] { "leche de almendra", "leche de coco", "leche de soja", "leche de avena", "leche de arroz", "bebida de soja", "bebida de almendra", "bebida de avena", "bebida de arroz" })
+            food = food.Replace(plant, " ", StringComparison.Ordinal);
+        return food;
+    }
+
+    private static bool IsAnimalFood(string food) => IsAnimalFoodCore(StripPlantBeverages(food));
+
+    private static bool IsAnimalFoodCore(string food) =>
         new[] { "carne", "pollo", "pavo", "ternera", "cerdo", "conejo", "cordero", "pescado",
                 "atun", "salmon", "merluza", "bacalao", "sardina", "caballa", "marisco", "gamba",
                 "mejillon", "almeja", "pulpo", "calamar", "langostino", "anchoa", "boqueron", "jamon", "chorizo", "salchicha", "embutido", "pato", "cangrejo", "sepia", "berberecho", "ostra", "trucha", "dorada", "lubina", "rape", "surimi",
@@ -357,7 +394,8 @@ public sealed class DietSemanticValidationService
                 "gelatina" }.Any(food.Contains);
 
     private static bool IsKetoForbiddenCarb(string food) =>
-        new[] { "pan", "arroz", "pasta", "patata", "boniato", "avena", "cuscus", "quinoa",
+        (" " + food + " ").Contains(" pan ", StringComparison.Ordinal) ||
+        new[] { "arroz", "pasta", "patata", "boniato", "avena", "cuscus", "quinoa",
                 "lenteja", "garbanzo", "alubia", "guisante", "arroz inflado", "cereal",
                 "platano", "uva", "mango", "cereza" }.Any(food.Contains);
 
@@ -416,7 +454,13 @@ public sealed class DietSemanticValidationService
         return !forbidden.Any(n.Contains) && !IsRareOil(n);
     }
 
-    private static bool IsStapleFood(foods food) { var n = Normalize(food.name ?? string.Empty); return IsOil(n) || n.Contains("sal") || n.Contains("agua"); }
+    private static bool IsStapleFood(foods food, FoodProfileData? profile = null)
+    {
+        if (profile != null) return profile.IsStaple;
+        // Palabras completas: «sal» no puede eximir a salmón, ensalada o salchicha del límite de repetición.
+        var n = " " + Normalize(food.name ?? string.Empty) + " ";
+        return IsOil(n.Trim()) || n.Contains(" sal ", StringComparison.Ordinal) || n.Contains(" agua ", StringComparison.Ordinal);
+    }
     private static bool IsRareOil(string? name) { var n = Normalize(name ?? string.Empty); return IsOil(n) && !n.Contains("aceite de oliva") && !n.Contains("aceite de girasol"); }
     internal static bool IsOil(string? name) => Normalize(name ?? string.Empty).StartsWith("aceite ");
     internal static bool IsFruit(string? name) => new[] { "manzana","naranja","pera","mandarina","platano","fresa","kiwi","melocoton","melon","sandia","uva","albaricoque","ciruela","fruta fresca","fruta" }.Any(Normalize(name ?? string.Empty).Contains);

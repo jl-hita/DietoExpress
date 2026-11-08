@@ -31,12 +31,16 @@ public sealed class DietGeneratorRegressionTests
     public void Generator_UsesPatientFoodPreferencesAsSoftAdherenceSignals()
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        var engine = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietMenuEngine.cs"));
 
         Assert.Contains("preferredFoods = ParseFoodTerms(client.food_preferences?.preferred_foods)", source);
         Assert.Contains("dislikedFoods = ParseFoodTerms(client.food_preferences?.disliked_foods)", source);
-        Assert.Contains("MatchesFoodTerms(f, dislikedFoods)", source);
-        Assert.Contains("MatchesFoodTerms(f, preferredFoods)", source);
+        Assert.Contains("e.Disliked = MatchesFoodTerms(e.Food, dislikedFoods)", source);
+        Assert.Contains("e.Preferred = MatchesFoodTerms(e.Food, preferredFoods)", source);
         Assert.Contains("alergias, intolerancias, exclusiones clínicas", source);
+        // Las preferencias solo ponderan la selección dentro del catálogo ya filtrado por seguridad.
+        Assert.Contains("if (f.Preferred) w *= 2.5;", engine);
+        Assert.Contains("if (f.Disliked) w *= 0.03;", engine);
     }
 
     [Fact]
@@ -55,83 +59,86 @@ public sealed class DietGeneratorRegressionTests
     [Fact]
     public void Generator_RebalancesEnergyAndMacros()
     {
+        var engine = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietMenuEngine.cs"));
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
 
-        Assert.Contains("RebalanceDay(todayMeals, targetKcal, targetProtein, targetCarbs, targetFat)", source);
-        Assert.Contains("targetProtein", source);
-        Assert.Contains("targetCarbs", source);
-        Assert.Contains("targetFat", source);
-        Assert.Contains("RelativeError(totalProtein, targetProtein)", source);
-        Assert.Contains("RelativeError(totalCarbs, targetCarbs)", source);
-        Assert.Contains("RelativeError(totalFat, targetFat)", source);
-        Assert.Contains("CalculateRebalanceError", source);
-        Assert.Contains("ApplyItemRatio", source);
-        Assert.DoesNotContain("NormalizeDay(todayMeals", source);
+        Assert.Contains("private double SolveDay(", engine);
+        Assert.Contains("Sq((a - _o.Kcal) / _o.Kcal)", engine);
+        Assert.Contains("Sq((b - _o.Protein) / _o.Protein)", engine);
+        Assert.Contains("Sq((cc - _o.Carbs) / _o.Carbs)", engine);
+        Assert.Contains("Sq((d - _o.Fat) / _o.Fat)", engine);
+        Assert.Contains("public static void Rebalance(DietDayDto day", engine);
+        Assert.Contains("DietMenuEngine.Rebalance(day, engineMap, engineOptions)", source);
+        Assert.Contains("Protein = targetProtein", source);
+        Assert.Contains("Carbs = targetCarbs", source);
+        Assert.Contains("Fat = targetFat", source);
     }
 
     [Fact]
     public void Generator_PrioritizesWeeklyVarietyAndSlotNutrition()
     {
-        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        var engine = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietMenuEngine.cs"));
 
-        Assert.Contains("CalculateWeeklyRepetitionPenalty", source);
-        Assert.Contains("uses * uses", source);
-        Assert.Contains("CalculateSlotNutritionPenalty", source);
-        Assert.Contains("targetProteinShare", source);
-        Assert.Contains("targetCarbsShare", source);
-        Assert.Contains("targetFatShare", source);
-        Assert.Contains(".Take(8)", source);
+        Assert.Contains("w /= 1 + uses * 1.5;", engine);
+        Assert.Contains("kindUses", engine);
+        Assert.Contains("_prevDay.Contains(f.Id)", engine);
+        Assert.Contains("uses >= Math.Max(1, _o.MaxWeeklyRepetitions)", engine);
+        // La nutrición del hueco la resuelve el solver de porciones con la rejilla de raciones del perfil.
+        Assert.Contains("PortionPolicy.Bounds(s.Food.P, _o.Kcal, _keto || _lowCarb)", engine);
     }
 
     [Fact]
     public void Generator_OptimizesWeeklyDiversityByFoodFamilies()
     {
-        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        var engine = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietMenuEngine.cs"));
 
-        Assert.Contains("weeklyRoleFamilyUsage", source);
-        Assert.Contains("CalculateRoleFamilyRepetitionPenalty", source);
-        Assert.Contains("GetFoodFamily", source);
-        Assert.Contains("return uses == 0 ? 0 : 12 * uses * uses;", source);
-        Assert.Contains("pescado_marisco", source);
-        Assert.Contains("legumbre", source);
+        Assert.Contains("BuildSkeleton()", engine);
+        Assert.Contains("Distribute(", engine);
+        Assert.Contains("EnforceCapacity(", engine);
+        Assert.Contains("pescado_blanco", engine);
+        Assert.Contains("pescado_azul", engine);
+        Assert.Contains("carne_roja", engine);
+        Assert.Contains("legumbre", engine);
+        Assert.Contains("_weeklyKind", engine);
+    }
+
+    [Theory]
+    [InlineData("Miel")]
+    [InlineData("Gelatina")]
+    [InlineData("Yogur natural")]
+    [InlineData("Huevo")]
+    public void Generator_VeganFilter_ExcludesAnimalDerivedFoods(string foodName)
+    {
+        Assert.False(DietSemanticValidationService.IsFoodCompatibleWithDietType(foodName, "Vegana"));
     }
 
     [Fact]
-    public void Generator_VeganFilter_ExcludesAnimalDerivedHoneyAndGelatin()
+    public void Generator_VeganFilter_KeepsPlantBasedBeverages()
     {
-        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
-
-        Assert.Contains("name.Contains(\"miel\")", source);
-        Assert.Contains("name.Contains(\"gelatina\")", source);
-        Assert.Contains("if (isVegan", source);
+        Assert.True(DietSemanticValidationService.IsFoodCompatibleWithDietType("Bebida de soja", "Vegana"));
     }
 
     [Fact]
     public void Generator_ControlsCompleteMealRepetitionWithSmartSubstitution()
     {
-        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        var engine = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietMenuEngine.cs"));
 
-        Assert.Contains("weeklyMealSignatures", source);
-        Assert.Contains("CreateMealSignature", source);
-        Assert.Contains("TryReplaceRepeatedMealItem", source);
-        Assert.Contains("CalculateSubstitutionScore", source);
-        Assert.Contains("DecrementUsage", source);
-        Assert.Contains("mismo rol", source);
+        Assert.Contains("_mealSignatures", engine);
+        Assert.Contains("SignatureOf(", engine);
+        Assert.Contains("VarietyPenalty(", engine);
+        // Una comida completa ya usada dos veces solo se acepta si no existe alternativa en los reintentos del día.
+        Assert.Contains("uses >= 2 ? 1.0", engine);
     }
 
     [Fact]
-    public void Generator_SubstitutionPreservesNutritionAndWeeklyDiversitySignals()
+    public void Generator_RetriesCompositionLocallyInsteadOfRestartingTheWholePlan()
     {
+        var engine = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietMenuEngine.cs"));
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
 
-        Assert.Contains("densityError", source);
-        Assert.Contains("candidate.kcal", source);
-        Assert.Contains("candidate.protein", source);
-        Assert.Contains("candidate.carbs", source);
-        Assert.Contains("candidate.fat", source);
-        Assert.Contains("CalculateWeeklyRepetitionPenalty(candidate, weeklyUsage)", source);
-        Assert.Contains("CalculateRoleFamilyRepetitionPenalty(candidate, role, weeklyRoleFamilyUsage)", source);
-        Assert.Contains("CalculateSlotNutritionPenalty(candidate, role", source);
+        Assert.Contains("const int maxTries = 40;", engine);
+        Assert.Contains("DayRetries", engine);
+        Assert.Contains("const int maxGenerationAttempts = 2;", source);
     }
 
     [Fact]
@@ -207,14 +214,14 @@ public sealed class DietGeneratorRegressionTests
     public void Generator_UsesExchangeGroupsForSemanticSubstitution()
     {
         var optimizerSource = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
-        var generatorSource = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        var engineSource = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietMenuEngine.cs"));
 
         Assert.Contains("exchange_group_id", optimizerSource);
         Assert.Contains("exchangeBonus", optimizerSource);
         Assert.Contains("exchange_group?.name", optimizerSource);
-        Assert.Contains("ExchangeGroupId = f.exchange_group_id", generatorSource);
-        Assert.Contains("ExchangeGroupName = f.exchange_group?.name", generatorSource);
-        Assert.Contains("ExchangeCount = exchangeCount", generatorSource);
+        Assert.Contains("ExchangeGroupId = f.exchange_group_id", engineSource);
+        Assert.Contains("ExchangeGroupName = f.exchange_group?.name", engineSource);
+        Assert.Contains("ExchangeCount = f.grams_per_exchange.HasValue", engineSource);
     }
 
     [Fact]
@@ -262,13 +269,19 @@ public sealed class DietGeneratorRegressionTests
     [Fact]
     public void Generator_EnforcesHardCulinaryMinimumsAndMealScopedYogurt()
     {
-        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        var semantic = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs"));
+        var engine = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietMenuEngine.cs"));
 
-        Assert.Contains("var yogurtUsedInMeal = false", source);
-        Assert.DoesNotContain("var yogurtUsedToday = false", source);
-        Assert.Contains("return (125, 125)", source + File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs")));
-        Assert.Contains("return (100, 250)", source + File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs")));
-        Assert.Contains("Math.Max(snapped, minimum)", source);
+        // El yogur es una unidad de 125 g (rejilla del perfil) y no se repite dentro de la misma comida.
+        var yogurt = FoodCulinaryClassifier.Classify("Yogur natural", "Lácteos", 61, 3.5, 4.7, 3.3);
+        Assert.NotNull(yogurt);
+        Assert.Equal(125, yogurt!.Min);
+        Assert.Equal(125, yogurt.Step);
+        Assert.Equal(125, yogurt.UnitGrams);
+        Assert.Contains("mealUsed.Kinds.Contains(f.P.Kind)", engine);
+        Assert.Contains("return (125, 125)", semantic);
+        Assert.Contains("return (100, 250)", semantic);
+        Assert.Contains("PortionPolicy.Bounds(profile, targetKcal, highFat)", semantic);
     }
 
     [Fact]
@@ -325,7 +338,7 @@ public sealed class DietGeneratorRegressionTests
 
         Assert.Contains("var recipeMap = new Dictionary<int, recipes>()", semantic);
         Assert.Contains("var semanticFoods = directFoods.Concat(recipeFoods).ToList()", semantic);
-        Assert.Contains("semanticFoods.Any(food => IsVegetable(food.name, food.category))", semantic);
+        Assert.Contains("semanticFoods.Any(food => Prof(food) is { } p ? p.Role == FoodProfileData.RoleVegetable : IsVegetable(food.name, food.category))", semantic);
         Assert.Contains("RecipeHasRequiredMealStructure(x.Ingredients, request.DietType)", optimizer);
     }
 
@@ -353,7 +366,7 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("StringComparison.OrdinalIgnoreCase", semantic);
         Assert.Contains("ValidatePatientTherapySemanticsAsync", semantic);
         Assert.Contains("ValidateDietTypeSemantics", semantic);
-        Assert.Contains("semanticFoods.Any(food => IsLegumeName(food.name))", semantic);
+        Assert.Contains("semanticFoods.Any(food => IsLegume(food))", semantic);
         Assert.Contains("IsFruit(food.name)", semantic);
         Assert.Contains("IsAnimalFood", semantic);
         Assert.Contains("IsKetoForbiddenCarb", semantic);
@@ -440,22 +453,24 @@ public sealed class DietGeneratorRegressionTests
     [Fact]
     public void GeneratorAndRegenerationRequireCompleteNonNegativeMacrosForAutomaticFoodCandidates()
     {
-        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
         var regeneration = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietRegenerationService.cs"));
         var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+        var classifier = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "FoodCulinaryClassifier.cs"));
 
-        foreach (var source in new[] { generator, regeneration })
-        {
-            Assert.Contains("f.protein.HasValue", source);
-            Assert.Contains("f.carbs.HasValue", source);
-            Assert.Contains("f.fat.HasValue", source);
-            Assert.Contains(".Value >= 0", source);
-        }
-
+        Assert.Contains("f.protein.HasValue", regeneration);
+        Assert.Contains("f.carbs.HasValue", regeneration);
+        Assert.Contains("f.fat.HasValue", regeneration);
+        Assert.Contains(".Value >= 0", regeneration);
         Assert.Contains("food.protein.HasValue", optimizer);
         Assert.Contains("food.carbs.HasValue", optimizer);
         Assert.Contains("food.fat.HasValue", optimizer);
-        Assert.Contains(".Value >= 0", optimizer);
+
+        // El generador excluye por perfil los alimentos con macronutrientes incompletos o negativos.
+        Assert.Contains("macronutrientes_incompletos", classifier);
+        Assert.Contains("macronutrientes_negativos", classifier);
+        Assert.False(FoodCulinaryClassifier.Classify("Manzana", "Fruta", 50, -1, 10, 1)!.IsUsable);
+        Assert.False(FoodCulinaryClassifier.Classify("Manzana", "Fruta", 50, null, null, null)!.IsUsable);
+        Assert.True(FoodCulinaryClassifier.Classify("Manzana", "Fruta", 52, 0.3, 14, 0.2)!.IsUsable);
     }
 
     [Fact]
@@ -603,8 +618,11 @@ public sealed class DietGeneratorRegressionTests
     [Fact]
     public void BaseGeneratorUsesTheSameCulinaryBoundsAsFinalValidation()
     {
-        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
-        Assert.Contains("=> DietSemanticValidationService.GetCulinaryBounds(mealName, item.FoodName);", generator);
+        var engine = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietMenuEngine.cs"));
+        var semantic = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs"));
+        // Motor y validador final comparten una única política de porciones.
+        Assert.Contains("PortionPolicy.Bounds(", engine);
+        Assert.Contains("PortionPolicy.Bounds(", semantic);
     }
 
     [Fact]

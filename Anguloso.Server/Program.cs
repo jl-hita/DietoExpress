@@ -26,6 +26,19 @@ public class Program
     public static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
+        var cs = builder.Configuration.GetConnectionString("DefaultConnection");
+        var builderLogger = LoggerFactory.Create(logging => logging.AddConsole()).CreateLogger("StartupConfig");
+        builderLogger.LogWarning(
+            "DIAGNÓSTICO BD: ContentRoot={ContentRoot}; CurrentDirectory={CurrentDirectory}; Environment={Environment}; Database={Database}; Host={Host}; User={User}",
+            builder.Environment.ContentRootPath,
+            Environment.CurrentDirectory,
+            builder.Environment.EnvironmentName,
+            new Npgsql.NpgsqlConnectionStringBuilder(cs).Database,
+            new Npgsql.NpgsqlConnectionStringBuilder(cs).Host,
+            new Npgsql.NpgsqlConnectionStringBuilder(cs).Username
+        );
+
         string entorno = builder.Environment.ContentRootPath;
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
         builder.Services.AddDbContext<angulosodbContext>(options => options.UseNpgsql(connectionString));
@@ -302,6 +315,8 @@ builder.Services.AddScoped<SupportEnhancementService>();
         {
             using var profileScope = app.Services.CreateScope();
             var profileLogger = profileScope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+            try { await FoodCulinaryProfileSeeder.EnsureSeededAsync(profileScope.ServiceProvider.GetRequiredService<angulosodbContext>(), profileLogger); }
+            catch (Exception ex) { profileLogger.LogError(ex, "No se pudieron inicializar los perfiles culinarios de alimentos; el generador usará la clasificación en memoria."); }
             try { await FoodDietaryProfileSeeder.EnsureSeededAsync(profileScope.ServiceProvider.GetRequiredService<angulosodbContext>(), profileLogger); }
             catch (Exception ex) { profileLogger.LogError(ex, "No se pudo aplicar la curación dietética de alimentos; se reintentará en el siguiente arranque."); }
             try { await FoodDietaryProfileCatalog.ReloadAsync(profileScope.ServiceProvider.GetRequiredService<angulosodbContext>()); profileLogger.LogInformation("Perfiles dietéticos en memoria: {Count}.", FoodDietaryProfileCatalog.Count); }

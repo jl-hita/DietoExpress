@@ -919,6 +919,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UpgradeTrainingPeriodizationSchemaV6(context, logger);
             UpgradeTrainingPeriodizationSchemaV7(context, logger);
             UpgradeTrainingPeriodizationSchemaV8(context, logger);
+            UpgradeFoodCulinaryProfileSchema(context, logger);
             UpgradeFoodDietaryProfileSchema(context, logger);
             TrainingMacrocycleSchema.Initialize(context);
             TrainingPlanSplitSchema.Initialize(context);
@@ -3487,6 +3488,36 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         logger.LogInformation("Perfil dietético curado de alimentos inicializado.");
     }
 
+    /// <summary>Capa curada de perfiles culinarios para el generador de dietas (no altera la tabla foods).</summary>
+    public static void UpgradeFoodCulinaryProfileSchema(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS food_culinary_profile (
+                food_id INTEGER PRIMARY KEY REFERENCES foods(id) ON DELETE CASCADE,
+                role VARCHAR(30) NOT NULL DEFAULT '',
+                family VARCHAR(60) NOT NULL DEFAULT '',
+                commonness SMALLINT NOT NULL DEFAULT 3,
+                meal_slots TEXT[] NOT NULL DEFAULT '{{}}',
+                cooking_state VARCHAR(20) NOT NULL DEFAULT 'ready',
+                min_grams DOUBLE PRECISION NOT NULL DEFAULT 0,
+                max_grams DOUBLE PRECISION NOT NULL DEFAULT 0,
+                step_grams DOUBLE PRECISION NOT NULL DEFAULT 10,
+                default_grams DOUBLE PRECISION NOT NULL DEFAULT 0,
+                unit_name VARCHAR(40) NULL,
+                unit_grams DOUBLE PRECISION NULL,
+                tags TEXT[] NOT NULL DEFAULT '{{}}',
+                is_staple BOOLEAN NOT NULL DEFAULT FALSE,
+                excluded_reason VARCHAR(200) NULL,
+                origin VARCHAR(20) NOT NULL DEFAULT 'auto',
+                classifier_version INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_food_culinary_profile_role ON food_culinary_profile(role) WHERE excluded_reason IS NULL;
+            INSERT INTO schema_migrations(id) VALUES ('diet-generator-food-culinary-profile-v1') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Capa curada de perfiles culinarios de alimentos inicializada.");
+    }
+
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)
     {
         // Contrato mínimo de tablas: si alguna falta después de todas las reconciliaciones,
@@ -3520,7 +3551,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',
                     'billing_coupon_campaigns','billing_coupons','billing_coupon_redemptions',
                     'patient_commercial_communication_preferences',
-                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals','food_dietary_profile'
+                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals','food_dietary_profile','food_culinary_profile'
                 ]) AS required_table
             ) required
             WHERE NOT EXISTS (

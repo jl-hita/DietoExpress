@@ -19,8 +19,8 @@ public static class DietaryRestrictionRules
         ["soja"] = new[] { "soja", "soya", "soy", "soybean", "soybeans" },
         ["gluten"] = new[] { "gluten", "trigo", "centeno", "cebada", "espelta", "wheat", "rye", "barley" },
         ["pescado"] = new[] { "pescado", "fish" },
-        ["crustaceos"] = new[] { "crustaceos", "crustaceo", "crustacean", "crustaceans" },
-        ["moluscos"] = new[] { "moluscos", "molusco", "mollusc", "molluscs", "mollusk", "mollusks" },
+        ["crustaceos"] = new[] { "crustaceos", "crustaceo", "crustacean", "crustaceans", "marisco", "mariscos", "shellfish" },
+        ["moluscos"] = new[] { "moluscos", "molusco", "mollusc", "molluscs", "mollusk", "mollusks", "marisco", "mariscos", "shellfish" },
         ["sesamo"] = new[] { "sesamo", "sesame" },
         ["mostaza"] = new[] { "mostaza", "mustard" },
         ["apio"] = new[] { "apio", "celery" },
@@ -33,10 +33,20 @@ public static class DietaryRestrictionRules
         if (string.IsNullOrWhiteSpace(value)) return string.Empty;
         var decomposed = value.Normalize(NormalizationForm.FormD);
         var builder = new StringBuilder(decomposed.Length);
-        foreach (var character in decomposed)
-            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+        var pendingSpace = false;
+        foreach (var raw in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(raw) == UnicodeCategory.NonSpacingMark) continue;
+            var character = char.ToLowerInvariant(raw);
+            if ((character >= 'a' && character <= 'z') || (character >= '0' && character <= '9'))
+            {
+                if (pendingSpace && builder.Length > 0) builder.Append(' ');
+                pendingSpace = false;
                 builder.Append(character);
-        return Regex.Replace(builder.ToString().ToLowerInvariant().Replace('_', ' '), @"[^a-z0-9]+", " ").Trim();
+            }
+            else pendingSpace = true;
+        }
+        return builder.ToString();
     }
 
     public static HashSet<string> BuildForbiddenTerms(string? allergies, bool glutenIntolerance, bool lactoseIntolerance, bool fodmapsIntolerance)
@@ -100,38 +110,62 @@ public static class DietaryRestrictionRules
     }
 
     public static bool IsFoodAllowed(string? name, string? category, IEnumerable<string>? dietaryFlags, IEnumerable<string> forbiddenTerms)
-    {
-        var normalizedTerms = forbiddenTerms.Select(Normalize).Where(term => term.Length >= 2).Distinct().ToArray();
-        var text = Normalize(string.Join(" ", new[] { name, category }.Where(value => !string.IsNullOrWhiteSpace(value))
-            .Concat(dietaryFlags ?? Array.Empty<string>())));
+        => new ExclusionMatcher(forbiddenTerms).IsAllowed(name, category, dietaryFlags);
 
-        foreach (var term in normalizedTerms)
+    /// <summary>
+    /// Versión precompilada de <see cref="IsFoodAllowed"/> para filtrar un catálogo completo: los términos se normalizan
+    /// una sola vez en lugar de una vez por alimento. Mantiene exactamente la misma semántica de coincidencia.
+    /// </summary>
+    public sealed class ExclusionMatcher
+    {
+        private readonly string[] _terms;
+        private readonly string[]?[] _flagGroups;
+
+        public ExclusionMatcher(IEnumerable<string> forbiddenTerms)
         {
-            if (ContainsPhrase(text, term)) return false;
-            // Preserve the legacy lactose-prefix keyword used by the generator, but keep
-            // all other exclusions on whole-word/whole-phrase boundaries.
-            if (term == "lact" && text.Contains("lact", StringComparison.Ordinal)) return false;
-            // Structured flags can use canonical identifiers such as tree_nut, peanut_allergy or dairy.
-            if (FlagMatches(term, dietaryFlags)) return false;
+            _terms = forbiddenTerms.Select(Normalize).Where(term => term.Length >= 2).Distinct().ToArray();
+            _flagGroups = _terms.Select(FlagGroupFor).ToArray();
         }
-        return true;
+
+        public int TermCount => _terms.Length;
+
+        public bool IsAllowed(string? name, string? category, IEnumerable<string>? dietaryFlags)
+        {
+            if (_terms.Length == 0) return true;
+            var flagList = dietaryFlags as IReadOnlyCollection<string> ?? (dietaryFlags ?? Array.Empty<string>()).ToArray();
+            var text = Normalize(string.Join(" ", new[] { name, category }.Where(value => !string.IsNullOrWhiteSpace(value)).Concat(flagList)));
+            HashSet<string>? normalizedFlags = null;
+
+            for (var i = 0; i < _terms.Length; i++)
+            {
+                var term = _terms[i];
+                if (ContainsPhrase(text, term)) return false;
+                // Preserve the legacy lactose-prefix keyword used by the generator, but keep
+                // all other exclusions on whole-word/whole-phrase boundaries.
+                if (term == "lact" && text.Contains("lact", StringComparison.Ordinal)) return false;
+                if (flagList.Count == 0) continue;
+                normalizedFlags ??= flagList.Select(Normalize).ToHashSet(StringComparer.Ordinal);
+                var group = _flagGroups[i];
+                if (group != null ? normalizedFlags.Overlaps(group) : normalizedFlags.Contains(term)) return false;
+            }
+            return true;
+        }
     }
 
-    private static bool FlagMatches(string term, IEnumerable<string>? flags)
+    private static string[]? FlagGroupFor(string term)
     {
-        var normalizedFlags = (flags ?? Array.Empty<string>()).Select(Normalize).ToHashSet(StringComparer.Ordinal);
         if (term is "peanut" or "peanuts" or "cacahuete" or "cacahuetes")
-            return normalizedFlags.Overlaps(new[] { "peanut", "peanuts", "peanut allergy", "cacahuete", "cacahuetes" });
+            return new[] { "peanut", "peanuts", "peanut allergy", "cacahuete", "cacahuetes" };
         if (term is "tree nut" or "tree nuts" or "frutos secos" or "fruto seco" ||
             term is "almendra" or "almendras" or "avellana" or "avellanas" or "nuez" or "nueces")
-            return normalizedFlags.Overlaps(new[] { "tree nut", "tree nuts", "tree nut allergy", "tree nut allergen", "nuts", "frutos secos" });
+            return new[] { "tree nut", "tree nuts", "tree nut allergy", "tree nut allergen", "nuts", "frutos secos" };
         if (term is "leche" or "milk" or "lactosa" or "lactose" or "dairy" or "lacteos")
-            return normalizedFlags.Overlaps(new[] { "milk", "dairy", "dairy allergy", "lactose", "lactose intolerance", "leche" });
+            return new[] { "milk", "dairy", "dairy allergy", "lactose", "lactose intolerance", "leche" };
         if (term is "soja" or "soya" or "soy" or "soybean")
-            return normalizedFlags.Overlaps(new[] { "soy", "soya", "soybean", "soy allergy" });
+            return new[] { "soy", "soya", "soybean", "soy allergy" };
         if (term is "gluten" or "trigo" or "wheat" or "cebada" or "barley" or "centeno" or "rye")
-            return normalizedFlags.Overlaps(new[] { "gluten", "wheat", "barley", "rye", "celiac" });
-        return normalizedFlags.Contains(term);
+            return new[] { "gluten", "wheat", "barley", "rye", "celiac" };
+        return null;
     }
 
     private static bool ContainsPhrase(string text, string phrase) =>
