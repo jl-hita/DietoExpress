@@ -467,6 +467,14 @@ public class DietController : ControllerBase
                 warnings = explicitExclusionWarnings
             });
 
+        var dietTypeWarnings = await _validationService.ValidateDietTypeCompatibilityAsync(draftForExclusionValidation, _context, tenantId);
+        if (dietTypeWarnings.Count > 0)
+            return Conflict(new
+            {
+                message = "La dieta no se ha creado porque contiene alimentos incompatibles con su tipo de dieta.",
+                warnings = dietTypeWarnings
+            });
+
         // La creación y eventual asignación de la dieta forman una unidad: si falla cualquiera de las validaciones o escrituras posteriores, no queda una dieta huérfana ni una asignación parcial.
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -672,6 +680,14 @@ public class DietController : ControllerBase
             {
                 message = "La edición no se ha guardado porque contiene alimentos incompatibles con las exclusiones explícitas de la dieta.",
                 warnings = explicitExclusionWarnings
+            });
+
+        var dietTypeWarnings = await _validationService.ValidateDietTypeCompatibilityAsync(draftDiet, _context, tenantId);
+        if (dietTypeWarnings.Count > 0)
+            return Conflict(new
+            {
+                message = "La edición no se ha guardado porque contiene alimentos incompatibles con el tipo de dieta.",
+                warnings = dietTypeWarnings
             });
 
         foreach (var activeClientId in activeClientIds)

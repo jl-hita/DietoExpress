@@ -278,6 +278,8 @@ builder.Services.AddScoped<SupportEnhancementService>();
             var profileLogger = profileScope.ServiceProvider.GetRequiredService<ILogger<Program>>();
             try { await FoodDietaryProfileSeeder.EnsureSeededAsync(profileScope.ServiceProvider.GetRequiredService<angulosodbContext>(), profileLogger); }
             catch (Exception ex) { profileLogger.LogError(ex, "No se pudo aplicar la curación dietética de alimentos; se reintentará en el siguiente arranque."); }
+            try { await FoodDietaryProfileCatalog.ReloadAsync(profileScope.ServiceProvider.GetRequiredService<angulosodbContext>()); profileLogger.LogInformation("Perfiles dietéticos en memoria: {Count}.", FoodDietaryProfileCatalog.Count); }
+            catch (Exception ex) { profileLogger.LogError(ex, "No se pudieron cargar los perfiles dietéticos; se usará la heurística por nombre."); }
         }
         var liveKitCspSource = string.Empty;
         try

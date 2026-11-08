@@ -412,6 +412,64 @@ public class DietValidationService
         return violations;
     }
 
+    /// <summary>
+    /// Comprueba al guardar que una dieta vegana o vegetariana no contiene alimentos (ni ingredientes de receta) que su
+    /// perfil dietético curado, o en su defecto la heurística por nombre, marque como incompatibles. Es el mismo contrato
+    /// que aplica el generador, de modo que crear o editar no abre un camino de validación distinto.
+    /// </summary>
+    public async Task<List<DietValidationResultDto>> ValidateDietTypeCompatibilityAsync(DietDetailDto dietDto, angulosodbContext context, int? tenantId)
+    {
+        var violations = new List<DietValidationResultDto>();
+        var type = (dietDto.DietType ?? string.Empty).ToLowerInvariant();
+        if (!type.Contains("vegan") && !type.Contains("vegetarian") || dietDto.Days == null) return violations;
+
+        var foodIds = new HashSet<int>();
+        var recipeIds = new HashSet<int>();
+        foreach (var day in dietDto.Days)
+        foreach (var meal in day.Meals ?? new List<MealDto>())
+        foreach (var item in meal.Items ?? new List<MealItemDto>())
+        {
+            if (item.FoodId.HasValue) foodIds.Add(item.FoodId.Value);
+            if (item.RecipeId.HasValue) recipeIds.Add(item.RecipeId.Value);
+        }
+        if (foodIds.Count == 0 && recipeIds.Count == 0) return violations;
+
+        var foodsById = await context.foods.AsNoTracking()
+            .Where(f => foodIds.Contains(f.id))
+            .Select(f => new { f.id, f.name, f.category, f.carbs, f.fat })
+            .ToDictionaryAsync(f => f.id);
+        var recipeFoods = await context.recipe_items.AsNoTracking()
+            .Where(i => recipeIds.Contains(i.recipe_id) && (!tenantId.HasValue || (i.recipe != null && i.recipe.tenant_id == tenantId.Value)))
+            .Select(i => new { i.recipe_id, f = new { i.food.id, i.food.name, i.food.category, i.food.carbs, i.food.fat } })
+            .ToListAsync();
+
+        foreach (var day in dietDto.Days)
+        foreach (var meal in day.Meals ?? new List<MealDto>())
+        foreach (var item in meal.Items ?? new List<MealItemDto>())
+        {
+            if (item.FoodId.HasValue && foodsById.TryGetValue(item.FoodId.Value, out var food) &&
+                !DietSemanticValidationService.IsFoodCompatibleWithDietType(food.name, dietDto.DietType, food.category, food.carbs, food.fat, food.id))
+                violations.Add(TypeViolation(food.id, food.name, meal.Name, day.DayIndex, false));
+
+            if (!item.RecipeId.HasValue) continue;
+            foreach (var ing in recipeFoods.Where(r => r.recipe_id == item.RecipeId.Value))
+                if (!DietSemanticValidationService.IsFoodCompatibleWithDietType(ing.f.name, dietDto.DietType, ing.f.category, ing.f.carbs, ing.f.fat, ing.f.id))
+                    violations.Add(TypeViolation(ing.f.id, ing.f.name, meal.Name, day.DayIndex, true));
+        }
+        return violations;
+
+        static DietValidationResultDto TypeViolation(int foodId, string? name, string? mealName, int dayIndex, bool fromRecipe) => new()
+        {
+            FoodId = foodId,
+            FoodName = name ?? (fromRecipe ? "Ingrediente de receta" : "Alimento"),
+            MealName = mealName ?? string.Empty,
+            DayIndex = dayIndex,
+            AlertType = "DietTypeIncompatible",
+            Severity = "High",
+            Message = "La dieta contiene un alimento incompatible con su tipo de dieta (vegana o vegetariana)."
+        };
+    }
+
     private void AddRecipeIngredientWarnings(
         List<DietValidationResultDto> warnings,
         clients client,

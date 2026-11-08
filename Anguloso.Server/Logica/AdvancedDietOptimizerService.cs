@@ -51,7 +51,7 @@ public sealed class AdvancedDietOptimizerService
         var candidates = allowedFoods
             .Where(IsOptimizerFood)
             .Where(IsProfessionalAutomaticFood)
-            .Where(f => DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, request.DietType, f.category, f.carbs, f.fat))
+            .Where(f => DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, request.DietType, f.category, f.carbs, f.fat, foodId: f.id))
             .Take(2500)
             .ToList();
 
@@ -180,7 +180,7 @@ public sealed class AdvancedDietOptimizerService
             var candidate = allowedFoods
                 .Where(IsOptimizerFood)
                 .Where(IsProfessionalAutomaticFood)
-                .Where(f => DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, request.DietType, f.category, f.carbs, f.fat))
+                .Where(f => DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, request.DietType, f.category, f.carbs, f.fat, foodId: f.id))
                 .Where(f => f.id != source.id && SameRole(role, meal.Name, f))
                 .Where(f => IsProfessionalReplacement(role, f))
                 .OrderBy(f => NutrientDistance(f, source))
@@ -243,7 +243,7 @@ public sealed class AdvancedDietOptimizerService
                     })
                     .Where(x => x.Ingredients.Count >= 2
                              && x.Ingredients.Count == x.Recipe.recipe_items.Count
-                             && x.Ingredients.All(i => foodMap.ContainsKey(i.food_id) && DietSemanticValidationService.IsFoodCompatibleWithDietType(i.food.name, request.DietType, i.food.category, i.food.carbs, i.food.fat))
+                             && x.Ingredients.All(i => foodMap.ContainsKey(i.food_id) && DietSemanticValidationService.IsFoodCompatibleWithDietType(i.food.name, request.DietType, i.food.category, i.food.carbs, i.food.fat, foodId: i.food.id))
                              && RecipeHasRequiredMealStructure(x.Ingredients, request.DietType))
                     .Select(x => new
                     {
@@ -305,7 +305,7 @@ public sealed class AdvancedDietOptimizerService
             .Where(IsOptimizerFood)
             .Where(IsProfessionalAutomaticFood)
             .Where(food => DietSemanticValidationService.IsFoodCompatibleWithDietType(
-                food.name, dietType, food.category, food.carbs, food.fat))
+                food.name, dietType, food.category, food.carbs, food.fat, foodId: food.id))
             .Select(GetFamily)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 

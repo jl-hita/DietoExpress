@@ -586,7 +586,7 @@ public class DietGeneratorService
         var foodsById = allowedFoods.GroupBy(f => f.id).ToDictionary(g => g.Key, g => g.First());
         var standardYogurt = allowedFoods
             .Where(IsProfessionalAutomaticFoodForGenerator)
-            .Where(f => DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat))
+            .Where(f => DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat, foodId: f.id))
             .Where(f => NormalizeFoodTerm(f.name ?? string.Empty).StartsWith("yogur") &&
                         !NormalizeFoodTerm(f.name ?? string.Empty).Contains("con ") &&
                         !NormalizeFoodTerm(f.name ?? string.Empty).Contains("azucar"))
@@ -1496,7 +1496,7 @@ public class DietGeneratorService
         foreach (var f in all)
         {
             if (!DietSemanticValidationService.IsFoodCompatibleWithDietType(
-                f.name, dietType, f.category, f.carbs, f.fat))
+                f.name, dietType, f.category, f.carbs, f.fat, foodId: f.id))
                 continue;
 
             var name = (f.name ?? "").ToLowerInvariant();

@@ -254,7 +254,8 @@ public sealed class DietSemanticValidationService
         string? dietType,
         string? category = null,
         double? carbsPer100g = null,
-        double? fatPer100g = null)
+        double? fatPer100g = null,
+        int? foodId = null)
     {
         var type = Normalize(dietType ?? string.Empty);
         var food = Normalize($"{foodName ?? string.Empty} {category ?? string.Empty}");
@@ -263,8 +264,17 @@ public sealed class DietSemanticValidationService
         var keto = type.Contains("cetogen");
         var lowCarb = type.Contains("baja") && type.Contains("carb");
 
-        if (vegan && IsAnimalFood(food)) return false;
-        if (vegetarian && IsVegetarianForbiddenFood(food)) return false;
+        // Perfil curado por alimento (food_dietary_profile): si existe, manda sobre la heurística por nombre.
+        if ((vegan || vegetarian) && foodId is int id && FoodDietaryProfileCatalog.TryGet(id, out var profile))
+        {
+            if (vegan && !profile.IsVegan) return false;
+            if (vegetarian && !profile.IsVegetarian) return false;
+        }
+        else
+        {
+            if (vegan && IsAnimalFood(food)) return false;
+            if (vegetarian && IsVegetarianForbiddenFood(food)) return false;
+        }
         if (keto && IsKetoForbiddenCarb(food)) return false;
         if (keto && carbsPer100g is double carbs && fatPer100g is double fat && carbs > 10 && carbs > fat) return false;
         if (lowCarb && IsLowCarbForbiddenStaple(food)) return false;
@@ -273,7 +283,8 @@ public sealed class DietSemanticValidationService
 
     private static bool IsVegetarianForbiddenFood(string food) =>
         new[] { "carne", "pollo", "pavo", "ternera", "cerdo", "conejo", "cordero", "pescado",
-                "atun", "salmon", "merluza", "bacalao", "sardina", "caballa", "marisco", "gamba" }
+                "atun", "salmon", "merluza", "bacalao", "sardina", "caballa", "marisco", "gamba",
+                "mejillon", "almeja", "pulpo", "calamar", "langostino", "anchoa", "boqueron", "jamon", "chorizo", "salchicha", "embutido", "pato", "cangrejo", "sepia", "berberecho", "ostra", "trucha", "dorada", "lubina", "rape", "surimi", "gelatina" }
             .Any(food.Contains);
 
     private static void ValidateDietTypeSemantics(List<string> errors, DietDetailDto diet, string dietType)
@@ -290,9 +301,15 @@ public sealed class DietSemanticValidationService
         {
             var food = Normalize(item.FoodName ?? string.Empty);
 
-            if (vegan && IsAnimalFood(food))
+            var hasProfile = item.FoodId.HasValue && FoodDietaryProfileCatalog.TryGet(item.FoodId.Value, out _);
+            FoodDietaryProfileCatalog.Profile itemProfile = default;
+            if (hasProfile) FoodDietaryProfileCatalog.TryGet(item.FoodId!.Value, out itemProfile);
+            var notVegan = hasProfile ? !itemProfile.IsVegan : IsAnimalFood(food);
+            var notVegetarian = hasProfile ? !itemProfile.IsVegetarian : IsVegetarianForbiddenFood(food);
+
+            if (vegan && notVegan)
                 errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» no es compatible con una pauta vegana.");
-            if (vegetarian && IsVegetarianForbiddenFood(food))
+            if (vegetarian && notVegetarian)
                 errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» no es compatible con una pauta vegetariana.");
 
             if (keto && IsKetoForbiddenCarb(food))
@@ -315,6 +332,7 @@ public sealed class DietSemanticValidationService
     private static bool IsAnimalFood(string food) =>
         new[] { "carne", "pollo", "pavo", "ternera", "cerdo", "conejo", "cordero", "pescado",
                 "atun", "salmon", "merluza", "bacalao", "sardina", "caballa", "marisco", "gamba",
+                "mejillon", "almeja", "pulpo", "calamar", "langostino", "anchoa", "boqueron", "jamon", "chorizo", "salchicha", "embutido", "pato", "cangrejo", "sepia", "berberecho", "ostra", "trucha", "dorada", "lubina", "rape", "surimi",
                 "huevo", "clara", "leche", "yogur", "queso", "kefir", "lacteo", "mantequilla", "miel",
                 "gelatina" }.Any(food.Contains);
 
