@@ -6,6 +6,7 @@ public partial class angulosodbContext
 {
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
+        ConfigureFoodDietaryProfile(modelBuilder);
         modelBuilder.Entity<patient_checkins>(entity =>
         {
             entity.HasKey(e => e.id).HasName("patient_checkins_pkey");

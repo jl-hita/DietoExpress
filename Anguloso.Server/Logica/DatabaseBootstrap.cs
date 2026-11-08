@@ -919,6 +919,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UpgradeTrainingPeriodizationSchemaV6(context, logger);
             UpgradeTrainingPeriodizationSchemaV7(context, logger);
             UpgradeTrainingPeriodizationSchemaV8(context, logger);
+            UpgradeFoodDietaryProfileSchema(context, logger);
             TrainingMacrocycleSchema.Initialize(context);
             TrainingPlanSplitSchema.Initialize(context);
 
@@ -3467,6 +3468,25 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         logger.LogInformation("Flujo de revisión profesional de adaptaciones de entrenamiento inicializado.");
     }
 
+    /// <summary>Perfil dietético curado (vegano, vegetariano, alérgenos) de todos los alimentos; sin columnas nulas.</summary>
+    public static void UpgradeFoodDietaryProfileSchema(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS food_dietary_profile (
+                food_id INTEGER PRIMARY KEY REFERENCES foods(id) ON DELETE CASCADE,
+                is_vegan BOOLEAN NOT NULL,
+                is_vegetarian BOOLEAN NOT NULL,
+                allergens TEXT[] NOT NULL DEFAULT '{{}}',
+                origin VARCHAR(20) NOT NULL DEFAULT 'ai-curated',
+                profile_version INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_food_dietary_vegan_implies_vegetarian CHECK (NOT is_vegan OR is_vegetarian)
+            );
+            INSERT INTO schema_migrations(id) VALUES ('diet-generator-food-dietary-profile-v1') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Perfil dietético curado de alimentos inicializado.");
+    }
+
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)
     {
         // Contrato mínimo de tablas: si alguna falta después de todas las reconciliaciones,
@@ -3500,7 +3520,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',
                     'billing_coupon_campaigns','billing_coupons','billing_coupon_redemptions',
                     'patient_commercial_communication_preferences',
-                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals'
+                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals','food_dietary_profile'
                 ]) AS required_table
             ) required
             WHERE NOT EXISTS (

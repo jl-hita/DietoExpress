@@ -272,6 +272,13 @@ builder.Services.AddScoped<SupportEnhancementService>();
                 }
             }
         }
+        if (databaseReady)
+        {
+            using var profileScope = app.Services.CreateScope();
+            var profileLogger = profileScope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+            try { await FoodDietaryProfileSeeder.EnsureSeededAsync(profileScope.ServiceProvider.GetRequiredService<angulosodbContext>(), profileLogger); }
+            catch (Exception ex) { profileLogger.LogError(ex, "No se pudo aplicar la curación dietética de alimentos; se reintentará en el siguiente arranque."); }
+        }
         var liveKitCspSource = string.Empty;
         try
         {
