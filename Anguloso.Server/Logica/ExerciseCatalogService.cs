@@ -1775,6 +1775,64 @@ public sealed class ExerciseCatalogService
     /// Exports every catalog row (approved, pending, rejected and professional contributions)
     /// with both normalized curation fields and the original source payload. Superadmin-only endpoint.
     /// </summary>
+    /// <summary>Página de solo lectura del catálogo para la curación externa (cursor por exercise_id, orden ordinal).</summary>
+    public async Task<(int Total, IReadOnlyList<ExerciseCurationRow> Rows)> ExportCurationPageAsync(
+        string? afterId, int take, string? source, string? reviewStatus, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        const string sql = """
+            SELECT exercise_id, source, name_es, name_en, description_es, category, force_type, mechanic, difficulty,
+                   equipment, body_part, primary_muscles::text, secondary_muscles::text, goals::text, tags::text,
+                   instructions_es::text, tips_es::text, met, is_unilateral, is_bodyweight, review_status, reviewed,
+                   reviewed_movement_pattern, reviewed_primary_muscles::text, reviewed_secondary_muscles::text,
+                   reviewed_minimum_experience, reviewed_suitable_goals::text, reviewed_required_equipment::text,
+                   reviewed_selection_priority, review_notes, reviewed_by, (exercise_id = ANY(@curated_ids)) AS curated
+            FROM exercise_catalog
+            WHERE (@after IS NULL OR exercise_id COLLATE "C" > @after)
+              AND (@source IS NULL OR source = @source)
+              AND (@status IS NULL OR review_status = @status)
+            ORDER BY exercise_id COLLATE "C"
+            LIMIT @take
+            """;
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            int total;
+            await using (var count = new NpgsqlCommand("SELECT COUNT(*) FROM exercise_catalog", connection))
+                total = Convert.ToInt32(await count.ExecuteScalarAsync(cancellationToken));
+
+            var rows = new List<ExerciseCurationRow>();
+            await using var command = new NpgsqlCommand(sql, connection);
+            command.Parameters.AddWithValue("after", NpgsqlTypes.NpgsqlDbType.Text, (object?)afterId ?? DBNull.Value);
+            command.Parameters.AddWithValue("source", NpgsqlTypes.NpgsqlDbType.Text, (object?)source ?? DBNull.Value);
+            command.Parameters.AddWithValue("status", NpgsqlTypes.NpgsqlDbType.Text, (object?)reviewStatus ?? DBNull.Value);
+            command.Parameters.AddWithValue("take", take);
+            command.Parameters.AddWithValue("curated_ids", RepDbExerciseCuration.CuratedCatalogIds);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                rows.Add(new ExerciseCurationRow(
+                    reader.GetString(0), reader.GetString(1), NullableString(reader, 2), reader.GetString(3), NullableString(reader, 4),
+                    NullableString(reader, 5), NullableString(reader, 6), NullableString(reader, 7), NullableString(reader, 8),
+                    NullableString(reader, 9), NullableString(reader, 10),
+                    ParseElement(reader.GetString(11)), ParseElement(reader.GetString(12)), ParseElement(reader.GetString(13)),
+                    ParseElement(reader.GetString(14)), ParseElement(reader.GetString(15)), ParseElement(reader.GetString(16)),
+                    reader.IsDBNull(17) ? null : reader.GetDouble(17), reader.IsDBNull(18) ? null : reader.GetBoolean(18),
+                    reader.IsDBNull(19) ? null : reader.GetBoolean(19), reader.GetString(20), reader.GetBoolean(21),
+                    NullableString(reader, 22), NullableJson(reader, 23), NullableJson(reader, 24), NullableString(reader, 25),
+                    NullableJson(reader, 26), NullableJson(reader, 27), reader.GetInt32(28), NullableString(reader, 29),
+                    NullableString(reader, 30), reader.GetBoolean(31)));
+            }
+            return (total, rows);
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
     public async Task<IReadOnlyList<ExerciseCatalogExportItem>> ExportCatalogAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -2164,6 +2222,14 @@ public sealed class ExerciseCatalogService
 }
 
 public sealed record ExerciseCatalogSyncResult(string Source, string SchemaVersion, int ImportedCount, int ReviewedCount, DateTimeOffset SyncedAtUtc);
+public sealed record ExerciseCurationRow(
+    string Id, string Source, string? NameEs, string NameEn, string? DescriptionEs,
+    string? Category, string? ForceType, string? Mechanic, string? Difficulty, string? Equipment, string? BodyPart,
+    JsonElement PrimaryMuscles, JsonElement SecondaryMuscles, JsonElement Goals, JsonElement Tags,
+    JsonElement InstructionsEs, JsonElement TipsEs, double? Met, bool? IsUnilateral, bool? IsBodyweight,
+    string ReviewStatus, bool Reviewed, string? MovementPattern, JsonElement? ReviewedPrimaryMuscles,
+    JsonElement? ReviewedSecondaryMuscles, string? MinimumExperience, JsonElement? SuitableGoals,
+    JsonElement? RequiredEquipment, int SelectionPriority, string? ReviewNotes, string? ReviewedBy, bool Curated);
 public sealed record ExerciseCatalogExportItem(
     string Id, string? NameEs, string NameEn, string? DescriptionEs, string? DescriptionEn,
     string? Category, string? ForceType, string? Mechanic, string? Difficulty, string? Equipment, string? BodyPart,

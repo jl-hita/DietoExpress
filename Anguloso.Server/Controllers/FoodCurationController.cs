@@ -84,7 +84,7 @@ public class FoodCurationController : ControllerBase
         });
     }
 
-    private static bool IsAuthorized(string? key)
+    internal static bool IsAuthorized(string? key)
     {
         if (string.IsNullOrEmpty(key) || key.Length > 256) return false;
         var expectedHex = Environment.GetEnvironmentVariable("FOOD_CURATION_KEY_SHA256");
