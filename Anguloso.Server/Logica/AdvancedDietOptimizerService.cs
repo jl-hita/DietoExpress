@@ -811,6 +811,21 @@ public sealed class AdvancedDietOptimizerService
         return penalty;
     }
 
+    /// <summary>
+    /// ¿Puede <paramref name="replacement"/> ocupar el lugar de <paramref name="source"/> sin cambiar su función en la comida
+    /// (proteína, hidrato, verdura, fruta, grasa culinaria...)? Si alguno de los dos no encaja en un rol concreto, solo se acepta
+    /// si comparten grupo de intercambio o familia alimentaria reconocida.
+    /// </summary>
+    public static bool IsFunctionallyEquivalent(string mealName, foods source, foods replacement, out string sourceRole, out string replacementRole)
+    {
+        sourceRole = InferRole(mealName, source);
+        replacementRole = InferRole(mealName, replacement);
+        if (source.exchange_group_id.HasValue && source.exchange_group_id == replacement.exchange_group_id) return true;
+        if (sourceRole != "other" && replacementRole != "other") return sourceRole == replacementRole;
+        var family = GetFamily(source);
+        return family != "otro" && family == GetFamily(replacement);
+    }
+
     private static string InferRole(string mealName, foods food)
     {
         var n = NormalizeFoodTerm(food.name ?? string.Empty);

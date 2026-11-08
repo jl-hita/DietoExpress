@@ -9,6 +9,11 @@ public sealed class DietRegenerationRequestDto
     public int? MealId { get; set; }
     public int? MealItemId { get; set; }
     public int? ReplacementFoodId { get; set; }
+    /// <summary>
+    /// Por defecto la sustitución manual debe conservar la función del alimento en la comida (una proteína por otra proteína,
+    /// no por una fruta). Con true el profesional acepta cambiar la función; se añade un aviso a la respuesta.
+    /// </summary>
+    public bool AllowFunctionChange { get; set; }
     public int? ClientId { get; set; }
     public bool PreserveNutritionTargets { get; set; } = true;
     public bool PreserveWeeklyVariety { get; set; } = true;
