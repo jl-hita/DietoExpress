@@ -1346,7 +1346,9 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       hold_progression_and_review: 'Pausa la progresión y revisa cómo te encuentras',
       review_and_reduce_training_stress: 'Revisa la carga de entrenamiento con tu profesional',
       progress_according_to_prescription: 'Se cumplen los criterios de la progresión prescrita',
-      pause_affected_exercise_and_review: 'Detén el ejercicio implicado y consulta con tu profesional'
+      pause_affected_exercise_and_review: 'Detén el ejercicio implicado y consulta con tu profesional',
+      restore_volume: 'Tu profesional puede recuperar una serie que se había reducido',
+      propose_deload: 'Tu profesional valorará una semana de descarga'
     };
     return labels[action] || 'Revisa la recomendación con tu profesional';
   }

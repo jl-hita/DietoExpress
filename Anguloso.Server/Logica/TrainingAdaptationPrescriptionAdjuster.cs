@@ -160,9 +160,11 @@ public static class TrainingAdaptationPrescriptionAdjuster
             ? rirValue.ToString() : "—";
         var rest = ReadInt(exercise, "restSeconds", 0);
         var progression = ReadProgression(exercise["progressionRule"]);
+        var load = exercise["targetLoadKg"] is JsonValue loadNode && loadNode.TryGetValue<decimal>(out var loadKg) ? $" carga {loadKg} kg;" : string.Empty;
+        var warmup = exercise["warmupSets"] is JsonValue warmNode && warmNode.TryGetValue<int>(out var warmSets) ? $" aproximación {warmSets} serie(s) muy fácil(es);" : string.Empty;
         var id = ReadString(exercise, "exerciseId", string.Empty);
         var version = ReadString(exercise, "catalogVersion", string.Empty);
-        return $"{order}. {name} — {sets} × {min}-{max} reps; RIR {rir}; descanso {rest}s; progresión {progression}. [ID: {id}; catálogo: {version}]";
+        return $"{order}. {name} — {sets} × {min}-{max} reps; RIR {rir}; descanso {rest}s;{load}{warmup} progresión {progression}. [ID: {id}; catálogo: {version}]";
     }
 
     private static int ReadInt(JsonObject node, string key, int fallback) =>

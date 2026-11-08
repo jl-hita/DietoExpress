@@ -18,6 +18,7 @@ interface GeneratedExercise {
   restSeconds: number; progressionRule: string | number; selectionRationale: string;
   primaryMuscleGroups?: Array<string | number>; secondaryMuscleGroups?: Array<string | number>;
   smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null;
+  warmupSets?: number | null; warmupNote?: string | null; targetLoadKg?: number | null; loadBasis?: string | null; adaptationOriginalSets?: number | null;
 }
 interface GeneratedSession {
   weekNumber: number; day: number; title: string; estimatedDurationMinutes: number; exercises: GeneratedExercise[];
@@ -39,7 +40,7 @@ interface GenerationRequest {
   goal: number; experience: number; startDate: string; durationWeeks: number; trainingDays: number[]; split: number;
   maximumSessionDurationMinutes: number; availableEquipment: string[]; excludedExerciseIds: string[];
   muscleVolumeTargets?: Array<{ muscleGroup: string; priority: number; targetWeeklyPrimarySets?: number | null }>;
-  isDeload?: boolean;
+  isDeload?: boolean; rotationIndex?: number;
 }
 interface ManualVolumePreview {
   qualityReport: NonNullable<GeneratedProgram['qualityReport']>;
@@ -72,6 +73,7 @@ interface StructuredExerciseDraft {
   exerciseId?: string; catalogVersion?: string; progressionRule?: string | number;
   primaryMuscleGroups?: Array<string | number>; secondaryMuscleGroups?: Array<string | number>;
   smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null; selectionRationale?: string;
+  warmupSets?: number | null; warmupNote?: string | null; targetLoadKg?: number | null; loadBasis?: string | null; adaptationOriginalSets?: number | null;
 }
 interface WeeklySessionDraft {
   date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string;
@@ -337,7 +339,7 @@ interface RepDbExercise {
             </section>
                         <ng-container *ngIf="activePlanWorkspace[plan.id] === 'macrocycle'"><section class="macro-generator" *ngIf="current.canManage">
               <div class="macro-generator-heading"><div><span class="macro-kicker">PLANIFICACIÓN GLOBAL</span><h4>Diseña tu macrociclo</h4><p>La estructura y las fechas se guardan de forma independiente de los mesociclos, microciclos y sesiones.</p></div><span class="macro-generator-icon">✦</span></div>
-              <div class="macro-generator-controls"><label>Duración total (semanas)<input type="number" min="3" max="52" [name]="'macroWeeks' + plan.id" [ngModel]="macroProposalWeeks[plan.id] || 12" (ngModelChange)="macroProposalWeeks[plan.id] = $event" /></label><button type="button" (click)="generateMacrocycleProposal(plan)" [disabled]="saving">✦ Generar propuesta de macrociclo</button><button *ngIf="macrocyclePlans[plan.id]?.phases?.length" type="button" class="secondary" (click)="editMacrocycle(plan)" [disabled]="saving">Editar macrociclo guardado</button></div>
+              <div class="macro-generator-controls"><label>Duración total (semanas)<input type="number" min="3" max="52" [name]="'macroWeeks' + plan.id" [ngModel]="macroProposalWeeks[plan.id] || 12" (ngModelChange)="macroProposalWeeks[plan.id] = $event" /></label><label class="macro-deload-option"><input type="checkbox" [name]="'macroDeload' + plan.id" [(ngModel)]="macroIncludeDeload" /> Incluir semanas de descarga</label><label *ngIf="macroIncludeDeload">Cada (semanas de entrenamiento, 4–8)<input type="number" min="4" max="8" [name]="'macroDeloadEvery' + plan.id" [(ngModel)]="macroDeloadEvery" /></label><button type="button" (click)="generateMacrocycleProposal(plan)" [disabled]="saving">✦ Generar propuesta de macrociclo</button><button *ngIf="macrocyclePlans[plan.id]?.phases?.length" type="button" class="secondary" (click)="editMacrocycle(plan)" [disabled]="saving">Editar macrociclo guardado</button></div>
               <div *ngIf="macroProposals[plan.id] as proposal" class="macro-proposal-editor">
                 <div class="macro-proposal-top"><strong>Propuesta editable · {{ proposal.length }} fases</strong><span>Independiente de las rutinas</span></div>
                 <article class="macro-proposal-phase" *ngFor="let phase of proposal; let phaseIndex = index">
@@ -455,6 +457,7 @@ interface RepDbExercise {
                 <label>Duración (semanas)<input type="number" name="autoWeeks{{plan.id}}" [(ngModel)]="autoDurationWeeks" min="1" max="52" required /></label>
                 <label class="auto-deload-option"><span><input type="checkbox" name="autoIsDeload{{plan.id}}" [(ngModel)]="autoIsDeload" /> Generar este bloque como descarga activa</span><small>Úsalo para un bloque/fase de descarga, preferentemente de una semana. Reduce las series aproximadamente un 40–50 % y deja más RIR.</small></label>
                 <label>Distribución semanal<select name="autoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>La distribución se elige independientemente del calendario, con combinaciones equilibradas: cuerpo completo 2–4 días, torso/pierna 2 o 4 y PPL 3, 5 o 6.</small></label>
+                <label>Rotación de ejercicios (opcional)<input type="number" name="autoRotation{{plan.id}}" [(ngModel)]="autoRotationIndex" min="0" max="20" step="1" placeholder="Automática" /><small>Vacío = el sistema rota entre los mejores ejercicios de cada patrón al crear un mesociclo nuevo. 0 = los mejor valorados; 1, 2… = alternativas igual de adecuadas.</small></label>
                 <fieldset class="auto-day-picker full"><legend>¿Qué días entrenará?</legend><p>Elige entre 2 y 6 días. La combinación debe ser compatible con la distribución elegida.</p><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'autoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
                 <details class="auto-advanced-settings full"><summary>Opciones avanzadas de la sesión</summary><div class="auto-advanced-grid"><label>Duración máxima por sesión<input type="number" name="autoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" (ngModelChange)="invalidateSplitReplacement(plan)" min="35" max="180" required /><small>Entre 35 y 180 minutos.</small></label><label>Material disponible (opcional)<input name="autoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" (ngModelChange)="invalidateSplitReplacement(plan)" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Guiones y guiones bajos son equivalentes. «machine» incluye máquinas específicas; puedes usar «leg-press-machine» o «smith-machine» para restringir. Vacío = todo el material.</small></label></div></details>
                 <section class="muscle-preference-editor full">
@@ -514,7 +517,7 @@ interface RepDbExercise {
                 <article *ngFor="let session of generated.sessions" class="generated-session">
                   <strong>Semana {{ session.weekNumber }} · {{ dayName(session.day) }} · {{ session.title }}</strong>
                   <small>{{ session.estimatedDurationMinutes }} min</small>
-                  <ul><li *ngFor="let exercise of session.exercises">{{ exercise.order }}. {{ exercise.exerciseNameSnapshot }} — {{ exercise.sets }} × {{ exercise.minRepetitions }}–{{ exercise.maxRepetitions }} · descanso {{ exercise.restSeconds }} s</li></ul>
+                  <ul><li *ngFor="let exercise of session.exercises">{{ exercise.order }}. {{ exercise.exerciseNameSnapshot }} — {{ exercise.sets }} × {{ exercise.minRepetitions }}–{{ exercise.maxRepetitions }} · descanso {{ exercise.restSeconds }} s<ng-container *ngIf="exercise.targetLoadKg"> · carga {{ exercise.targetLoadKg }} kg</ng-container><ng-container *ngIf="exercise.warmupSets"> · aproximación {{ exercise.warmupSets }} serie(s) muy fácil(es)</ng-container></li></ul>
                   <div *ngIf="sessionVolume(generated, session) as volume" style="margin-top:8px;padding:10px;border:1px solid #e7edf4;border-radius:9px;background:#fff">
                     <strong style="font-size:12px">Volumen efectivo de esta sesión</strong>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:4px;margin-top:6px">
@@ -707,6 +710,9 @@ interface RepDbExercise {
                         <label>Reps<input [name]="'weeklyExerciseReps' + session.id + exerciseIndex" [(ngModel)]="exercise.repetitions" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="30" placeholder="8–12" /></label>
                         <label>RIR<input type="number" [name]="'weeklyExerciseRir' + session.id + exerciseIndex" [(ngModel)]="exercise.rir" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="10" step="0.5" /></label>
                         <label>Descanso (s)<input type="number" [name]="'weeklyExerciseRest' + session.id + exerciseIndex" [(ngModel)]="exercise.restSeconds" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="3600" /></label>
+                        <label>Carga (kg)<input type="number" [name]="'weeklyExerciseLoad' + session.id + exerciseIndex" [(ngModel)]="exercise.targetLoadKg" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="1000" step="0.5" /></label>
+                        <small class="muted" *ngIf="exercise.loadBasis">{{ exercise.loadBasis }}</small>
+                        <small class="muted" *ngIf="exercise.warmupNote">{{ exercise.warmupNote }}</small>
                         <div style="display:flex;gap:3px"><button type="button" class="secondary" (click)="moveWeeklyExercise(plan, session, exerciseIndex, -1)" [disabled]="exerciseIndex === 0" aria-label="Subir ejercicio">↑</button><button type="button" class="secondary" (click)="moveWeeklyExercise(plan, session, exerciseIndex, 1)" [disabled]="exerciseIndex === weekly.exercises.length - 1" aria-label="Bajar ejercicio">↓</button><button type="button" class="secondary" (click)="removeWeeklyExercise(plan, session, exerciseIndex)" aria-label="Eliminar ejercicio">×</button></div>
                         <label style="grid-column:span 2">Progresión<select [name]="'weeklyExerciseProgression' + session.id + exerciseIndex" [(ngModel)]="exercise.progressionRule" (ngModelChange)="onWeeklyDraftChanged(plan, session)"><option value="DoubleProgression">Doble progresión</option><option value="None">Sin progresión automática</option></select></label>
                         <label style="grid-column:span 4">Notas del ejercicio<input [name]="'weeklyExerciseNotes' + session.id + exerciseIndex" [(ngModel)]="exercise.notes" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="500" placeholder="Notas complementarias (opcional)" /></label>
@@ -980,6 +986,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   autoExperience = 0;
   autoDurationWeeks = 4;
   autoSplit = 0;
+  macroIncludeDeload = false;
+  macroDeloadEvery = 4;
+  // Optional manual override. Empty = the server rotates automatically with the mesocycle number.
+  autoRotationIndex: number | null = null;
   autoIsDeload = false;
   autoMaximumMinutes = 60;
   autoTrainingDayOptions = [{ value: 1, label: 'Lunes' }, { value: 2, label: 'Martes' }, { value: 3, label: 'Miércoles' }, { value: 4, label: 'Jueves' }, { value: 5, label: 'Viernes' }, { value: 6, label: 'Sábado' }, { value: 0, label: 'Domingo' }];
@@ -1897,7 +1907,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       hold_progression_and_review: 'Pausar progresión y revisar recuperación',
       review_and_reduce_training_stress: 'Revisar y reducir carga de entrenamiento',
       progress_according_to_prescription: 'Revisar progresión prescrita',
-      pause_affected_exercise_and_review: 'Dolor registrado: revisión prioritaria'
+      pause_affected_exercise_and_review: 'Dolor registrado: revisión prioritaria',
+      restore_volume: 'Recuperar una serie reducida (sin fatiga reciente)',
+      propose_deload: 'Valorar una semana de descarga (señales de estrés combinadas)'
     };
     return labels[action] ?? 'Revisión de adaptación';
   }
@@ -2271,7 +2283,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
       excludedExerciseIds: [],
       muscleVolumeTargets: this.buildMuscleVolumeTargets(),
-      isDeload: this.autoIsDeload
+      isDeload: this.autoIsDeload,
+      rotationIndex: this.autoRotationIndex ?? undefined
     };
     this.generatingPlan = true;
     this.volumeDeficitAcknowledged[plan.id] = false;
@@ -2962,7 +2975,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
               secondaryMuscleGroups: exercise.secondaryMuscleGroups,
               smallestLoadIncrementKg: exercise.smallestLoadIncrementKg,
               maximumLoadIncreasePercent: exercise.maximumLoadIncreasePercent,
-              selectionRationale: exercise.selectionRationale
+              selectionRationale: exercise.selectionRationale,
+              warmupSets: exercise.warmupSets, warmupNote: exercise.warmupNote,
+              targetLoadKg: exercise.targetLoadKg, loadBasis: exercise.loadBasis,
+              adaptationOriginalSets: exercise.adaptationOriginalSets
             });
           } else {
             rowsByGeneratedSession[sessionIndex].push({
@@ -2978,7 +2994,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
               secondaryMuscleGroups: exercise.secondaryMuscleGroups,
               smallestLoadIncrementKg: exercise.smallestLoadIncrementKg,
               maximumLoadIncreasePercent: exercise.maximumLoadIncreasePercent,
-              selectionRationale: exercise.selectionRationale
+              selectionRationale: exercise.selectionRationale,
+              warmupSets: exercise.warmupSets, warmupNote: exercise.warmupNote,
+              targetLoadKg: exercise.targetLoadKg, loadBasis: exercise.loadBasis,
+              adaptationOriginalSets: exercise.adaptationOriginalSets
             });
           }
         }
@@ -3149,6 +3168,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
             ? item['smallestLoadIncrementKg'] : undefined,
           maximumLoadIncreasePercent: typeof item['maximumLoadIncreasePercent'] === 'number'
             ? item['maximumLoadIncreasePercent'] : undefined,
+          warmupSets: typeof item['warmupSets'] === 'number' ? item['warmupSets'] : undefined,
+          warmupNote: typeof item['warmupNote'] === 'string' ? item['warmupNote'] : undefined,
+          targetLoadKg: typeof item['targetLoadKg'] === 'number' ? item['targetLoadKg'] : undefined,
+          loadBasis: typeof item['loadBasis'] === 'string' ? item['loadBasis'] : undefined,
+          adaptationOriginalSets: typeof item['adaptationOriginalSets'] === 'number' ? item['adaptationOriginalSets'] : undefined,
           selectionRationale: typeof item['selectionRationale'] === 'string'
             ? item['selectionRationale'] : undefined
         };
@@ -3210,6 +3234,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
           smallestLoadIncrementKg: item.smallestLoadIncrementKg,
           maximumLoadIncreasePercent: item.maximumLoadIncreasePercent,
           selectionRationale: item.selectionRationale,
+          warmupSets: item.warmupSets, warmupNote: item.warmupNote,
+          targetLoadKg: item.targetLoadKg, loadBasis: item.loadBasis,
+          adaptationOriginalSets: item.adaptationOriginalSets,
           notes: item.notes.trim() || undefined
         };
       })
@@ -3499,23 +3526,30 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       weeks = Math.min(requestedWeeks, availableWeeks);
     }
     this.macroProposalWeeks[plan.id] = weeks;
-    const phaseDefinitions: Array<{ name: string; objective: string; phaseType: MacrocyclePhase['phaseType'] }> = [
-      { name: 'Acumulación y base', objective: 'Construir tolerancia al volumen y consolidar la técnica.', phaseType: 'accumulation' },
-      { name: 'Intensificación y progresión', objective: 'Progresar en el estímulo manteniendo una ejecución sólida.', phaseType: 'intensification' },
-      { name: 'Descarga y evaluación', objective: 'Reducir fatiga, revisar resultados y preparar el siguiente bloque.', phaseType: 'deload' }
-    ];
-    const first = Math.floor(weeks / 3);
-    const second = Math.floor(weeks / 3);
-    const durations = [first, second, weeks - first - second];
-    let cursor = start;
-    this.macroProposals[plan.id] = phaseDefinitions.map((phase, index) => {
-      const phaseStart = cursor;
-      const phaseEnd = this.addDays(phaseStart, durations[index] * 7 - 1);
-      cursor = this.addDays(phaseEnd, 1);
-      return { ...phase, sequence: index + 1, startDate: phaseStart, endDate: phaseEnd };
+    // The draft comes from the server (internal product heuristic, editable). Deload weeks are
+    // never added unless the professional asks for them with the checkbox below.
+    this.saving = true;
+    this.http.post<{ phases: Array<{ name: string; sequenceNumber: number; startDate: string; endDate: string; objective?: string | null; phaseType: MacrocyclePhase['phaseType'] }> }>(
+      '/api/training/macrocycle-draft',
+      {
+        startDate: start, totalWeeks: weeks, goal: this.autoGoal, experience: this.autoExperience,
+        includeDeloadPhases: this.macroIncludeDeload, deloadEveryTrainingWeeks: this.macroDeloadEvery
+      }
+    ).subscribe({
+      next: draft => {
+        this.macroProposals[plan.id] = draft.phases.map(phase => ({
+          name: phase.name, objective: phase.objective ?? '', phaseType: phase.phaseType,
+          sequence: phase.sequenceNumber, startDate: phase.startDate, endDate: phase.endDate
+        }));
+        this.saving = false;
+        this.notice = 'Borrador creado sin modificar mesociclos ni sesiones. Es una propuesta editable basada en criterios internos del producto; revisa fases y fechas antes de guardar.';
+        this.error = '';
+      },
+      error: () => {
+        this.saving = false;
+        this.error = 'No se pudo preparar el borrador de macrociclo. Revisa la duración y el intervalo de descarga.';
+      }
     });
-    this.notice = 'Propuesta creada sin modificar mesociclos ni sesiones. Revisa fases y fechas antes de guardar.';
-    this.error = '';
   }
 
   addMacroPhase(plan: TrainingPlan): void {

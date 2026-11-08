@@ -43,3 +43,11 @@ Todas las acciones son propuestas; solo un profesional puede aprobarlas y nunca 
 - **Descarga reactiva (`propose_deload`):** solo propuesta, si las tres últimas sesiones muestran estrés y al menos dos tipos de señal (recuperación insuficiente, RPE ≥ 9, <80 % de series). Nunca se aplica sola.
 - **Orden del historial:** las tres últimas sesiones se ordenan por fecha programada, no por fecha de edición.
 - Migración idempotente V9 amplía el CHECK de acciones de propuesta. Los clientes antiguos ven acciones nuevas que no conocen: deben tratarlas como informativas.
+
+## 9. Frontend (Angular)
+- Los modelos y todos los puntos donde se copian ejercicios conservan ahora `warmupSets`, `warmupNote`, `targetLoadKg`, `loadBasis` y `adaptationOriginalSets` (antes se habrían perdido al guardar).
+- Editor semanal: campo «Carga (kg)» editable y avisos de motivo de la carga y de aproximación. Vista previa: carga y series de aproximación.
+- Generación: campo opcional «Rotación de ejercicios»; vacío = rotación automática por número de mesociclo.
+- Macrociclo: «Generar propuesta» usa ahora el borrador del servidor; las descargas solo se incluyen si el profesional marca la casilla (antes siempre se añadía una fase de descarga final).
+- Etiquetas para `restore_volume` y `propose_deload`. El texto de prescripción heredado incluye carga y aproximación.
+- Splits: cuerpo completo 2–4 días y PPL 3, 5 o 6 en toda la validación.

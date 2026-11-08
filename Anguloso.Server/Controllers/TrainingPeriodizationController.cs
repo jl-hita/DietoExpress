@@ -615,7 +615,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     var offset = ((int)session.Day - (int)prescription.StartDate.DayOfWeek + 7) % 7;
                     var sessionDate = prescription.StartDate.AddDays((week - 1) * 7 + offset);
                     var prescriptionText = string.Join(Environment.NewLine, session.Exercises.Select(exercise =>
-                        $"{exercise.Order}. {exercise.ExerciseNameSnapshot} — {exercise.Sets} × {exercise.MinRepetitions}-{exercise.MaxRepetitions} reps; RIR {(exercise.TargetRepetitionsInReserve?.ToString() ?? "—")}; descanso {exercise.RestSeconds}s; progresión {exercise.ProgressionRule}. [ID: {exercise.ExerciseId}; catálogo: {exercise.CatalogVersion}]"));
+                        $"{exercise.Order}. {exercise.ExerciseNameSnapshot} — {exercise.Sets} × {exercise.MinRepetitions}-{exercise.MaxRepetitions} reps; RIR {(exercise.TargetRepetitionsInReserve?.ToString() ?? "—")}; descanso {exercise.RestSeconds}s;{(exercise.TargetLoadKg is null ? "" : $" carga {exercise.TargetLoadKg} kg;")}{(exercise.WarmupSets is null ? "" : $" aproximación {exercise.WarmupSets} serie(s) muy fácil(es);")} progresión {exercise.ProgressionRule}. [ID: {exercise.ExerciseId}; catálogo: {exercise.CatalogVersion}]"));
                     await using var command = connection.CreateCommand();
                     command.Transaction = transaction;
                     command.CommandText = """
