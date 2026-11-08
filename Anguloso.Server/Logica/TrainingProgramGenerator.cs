@@ -106,7 +106,7 @@ public static class TrainingProgramGenerator
                     // Prefer a different exercise elsewhere in this week's plan when possible.
                     // Never penalize an exercise for being selected in previous weeks: continuity
                     // across a mesocycle supports progression and performance tracking.
-                    var candidate = RotateCuratedPool(compatibleCandidates, request.RotationIndex)
+                    var candidate = RotateCuratedPool(compatibleCandidates, request.RotationIndex ?? 0)
                         .FirstOrDefault(x => !selectedThisWeek.Contains(x.ExerciseId))
                         ?? compatibleCandidates.FirstOrDefault();
 
@@ -152,7 +152,7 @@ public static class TrainingProgramGenerator
         if (!allocation.Succeeded)
             return new(null, allocation.Errors);
 
-        var sessionsWithWarmups = AddWarmupGuidance(allocation.Sessions);
+        var sessionsWithWarmups = ApplyLoadReferences(AddWarmupGuidance(allocation.Sessions), request.LoadReferences);
         var prescribedSessions = request.IsDeload
             ? ApplyConservativeDeload(sessionsWithWarmups)
             : ApplyIntraBlockProgression(sessionsWithWarmups, request.DurationWeeks);
@@ -281,6 +281,45 @@ public static class TrainingProgramGenerator
             }).ToArray();
             return session with { Exercises = exercises };
         }).ToArray();
+
+    /// <summary>
+    /// Prescribes a working load for week 1 only, and only for exercises with a recorded reference
+    /// (see <see cref="TrainingLoadEstimator"/>). Later weeks are left without a number because the
+    /// right load depends on how week 1 goes; the progression engine proposes it session by session.
+    /// Exercises without history keep no load rather than receiving an invented one.
+    /// </summary>
+    private static IReadOnlyList<TrainingSessionPrescription> ApplyLoadReferences(
+        IReadOnlyList<TrainingSessionPrescription> sessions,
+        IReadOnlyList<TrainingLoadReference>? references)
+    {
+        if (references is null || references.Count == 0) return sessions;
+        var byExercise = references
+            .Where(reference => !string.IsNullOrWhiteSpace(reference.ExerciseId))
+            .GroupBy(reference => reference.ExerciseId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);
+        return sessions.Select(session => session.WeekNumber != 1 ? session : session with
+        {
+            Exercises = session.Exercises.Select(exercise =>
+            {
+                if (!byExercise.TryGetValue(exercise.ExerciseId, out var reference)) return exercise;
+                var sets = Enumerable.Repeat(
+                    new TrainingExecutedSet("working", reference.WeightKg, reference.Repetitions, reference.Rir, true),
+                    Math.Clamp(reference.Sets, 1, 10)).ToArray();
+                var increment = exercise.SmallestLoadIncrementKg ?? TrainingLoadEstimator.DefaultLoadIncrementKg;
+                var suggestion = TrainingLoadEstimator.Suggest(
+                    sets, exercise.MinRepetitions, exercise.MaxRepetitions,
+                    exercise.TargetRepetitionsInReserve, increment);
+                return suggestion is null
+                    ? exercise
+                    : exercise with
+                    {
+                        TargetLoadKg = suggestion.LoadKg,
+                        LoadBasis = suggestion.Basis,
+                        SmallestLoadIncrementKg = increment
+                    };
+            }).ToArray()
+        }).ToArray();
+    }
 
     private static IReadOnlyList<TrainingSessionPrescription> ApplyConservativeDeload(
         IReadOnlyList<TrainingSessionPrescription> sessions) =>
@@ -820,7 +859,8 @@ public sealed record TrainingProgramGenerationRequest(
     IReadOnlyList<TrainingMuscleVolumeTarget>? MuscleVolumeTargets = null,
     bool IsDeload = false,
     TrainingProgramSplit Split = TrainingProgramSplit.Automatic,
-    int RotationIndex = 0);
+    int? RotationIndex = null,
+    IReadOnlyList<TrainingLoadReference>? LoadReferences = null);
 
 public sealed record TrainingExerciseCandidate(
     string ExerciseId,

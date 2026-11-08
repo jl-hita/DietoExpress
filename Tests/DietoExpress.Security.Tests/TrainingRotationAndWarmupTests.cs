@@ -22,7 +22,7 @@ public sealed class TrainingRotationAndWarmupTests
     {
         var result = TrainingProgramGenerator.Generate(
             new TrainingProgramGenerationRequest(TrainingGoal.Hypertrophy, TrainingExperience.Intermediate, new DateOnly(2026, 11, 9), 2,
-                Days, 90, [], [], null, false, TrainingProgramSplit.FullBody, rotationIndex),
+                Days, 90, [], [], null, false, TrainingProgramSplit.FullBody, (int?)rotationIndex),
             CatalogWithSquatVariants());
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         return result.Prescription!.Sessions.First(s => s.WeekNumber == 1).Exercises

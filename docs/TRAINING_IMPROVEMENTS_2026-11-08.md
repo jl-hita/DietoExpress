@@ -29,3 +29,8 @@ Todo lo marcado «umbral interno» es una heurística de producto, no una cifra 
 ## 6. Series de aproximación
 - `TrainingExercisePrescription` gana `WarmupSets` (0–3) y `WarmupNote` (≤300) opcionales. Un ejercicio recibe 1–2 series muy fáciles (2 el primero de la sesión) solo si trabaja como principal un músculo que ningún ejercicio anterior de la sesión ha trabajado como principal. Ej.: press banca → aperturas (sin aproximación) → elevaciones laterales (con aproximación).
 - No cuentan como series de trabajo ni en el volumen semanal; su tiempo se considera cubierto por la holgura fija de calentamiento/transiciones. Convención de producto, no cifra de guía.
+
+## 7. Prescripción de pesos desde el historial (criterio de producto)
+- `TrainingExercisePrescription` gana `TargetLoadKg` y `LoadBasis` (opcionales). `TrainingLoadEstimator` (puro) calcula la carga: si el último rendimiento estuvo dentro del rango con el esfuerzo previsto, **mantiene la carga**; si quedó por debajo/por encima del rango (o el rango cambió, p. ej. bloque de fuerza nuevo), estima un 1RM con la relación tipo Epley (aproximada, menos fiable a muchas repeticiones) y recalcula la carga para el inicio del nuevo rango al RIR objetivo, con cambio máximo del 10 % y redondeo al incremento mínimo (2,5 kg por defecto). Sin historial no se inventa ninguna carga.
+- El generador acepta `LoadReferences` y prescribe pesos **solo en la semana 1**; las siguientes dependen de cómo vaya esa semana y las propone el motor de progresión. `generate-mesocycle` rellena `LoadReferences` automáticamente con el último rendimiento registrado del cliente.
+- `RotationIndex` pasa a ser opcional: `generate-mesocycle` lo deriva del número de mesociclo (`SequenceNumber - 1`) salvo que se indique explícitamente.

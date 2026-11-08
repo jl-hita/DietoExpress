@@ -251,6 +251,58 @@ public sealed class TrainingExerciseProgressionService
         return recommendations;
     }
 
+    /// <summary>
+    /// Last recorded working performance per exercise (any of the client's plans, newest record wins),
+    /// used by the generator to prescribe starting loads. Warm-up and incomplete sets are ignored;
+    /// an exercise with no usable set simply has no reference.
+    /// </summary>
+    public async Task<IReadOnlyList<TrainingLoadReference>> GetLoadReferencesAsync(
+        int clientId, CancellationToken cancellationToken)
+    {
+        var references = new Dictionary<string, TrainingLoadReference>(StringComparer.Ordinal);
+        await using var command = Command("""
+            SELECT r.exercise_feedback::text
+            FROM training_session_records r
+            JOIN training_sessions s ON s.id = r.session_id
+            WHERE r.client_id = @clientId AND r.outcome IS NOT NULL AND s.session_type = 'strength'
+              AND r.exercise_feedback IS NOT NULL
+            ORDER BY s.scheduled_date DESC, s.id DESC
+            LIMIT 40
+            """, ("clientId", clientId));
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(reader.GetString(0));
+                if (document.RootElement.ValueKind != JsonValueKind.Array) continue;
+                foreach (var exercise in document.RootElement.EnumerateArray())
+                {
+                    var exerciseId = JsonString(exercise, "exerciseId");
+                    if (string.IsNullOrWhiteSpace(exerciseId) || references.ContainsKey(exerciseId)) continue;
+                    if (!exercise.TryGetProperty("sets", out var setArray) || setArray.ValueKind != JsonValueKind.Array) continue;
+                    var sets = setArray.EnumerateArray()
+                        .Where(set => JsonString(set, "kind") == "working" && JsonBool(set, "completed"))
+                        .Select(set => (Weight: JsonDecimal(set, "weightKg"), Reps: JsonInt(set, "repetitions"), Rir: JsonDecimal(set, "rir")))
+                        .Where(set => set.Weight is > 0 && set.Reps is >= 1)
+                        .ToArray();
+                    if (sets.Length == 0) continue;
+                    var top = sets.Max(set => set.Weight!.Value);
+                    var atTop = sets.Where(set => set.Weight == top).ToArray();
+                    var rirs = atTop.Where(set => set.Rir is not null).Select(set => set.Rir!.Value).ToArray();
+                    references[exerciseId] = new TrainingLoadReference(
+                        exerciseId, top, atTop.Min(set => set.Reps!.Value),
+                        rirs.Length == atTop.Length ? rirs.Average() : null, atTop.Length);
+                }
+            }
+            catch (JsonException)
+            {
+                // A corrupt record must not block generation; it simply provides no reference.
+            }
+        }
+        return references.Values.ToArray();
+    }
+
     private static string? JsonString(JsonElement element, string property) =>
         element.ValueKind == JsonValueKind.Object &&
         element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String

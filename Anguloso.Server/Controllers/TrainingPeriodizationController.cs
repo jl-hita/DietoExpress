@@ -465,7 +465,27 @@ public sealed class TrainingPeriodizationController : ControllerBase
             return BadRequest(new { message = "Las notas admiten hasta 4000 caracteres." });
 
         var candidates = await _exerciseCatalog.LoadGeneratorCandidatesAsync(userId.Value, cancellationToken);
-        var generated = TrainingProgramGenerator.Generate(request.Generation, candidates);
+        // Defaults that make the generator history-aware without extra client input:
+        //  - rotation index follows the mesocycle number (each new block rotates within the curated
+        //    pool), unless the professional set it explicitly;
+        //  - starting loads come from the client's last recorded performance, when there is any.
+        var generation = request.Generation with
+        {
+            RotationIndex = request.Generation.RotationIndex ?? Math.Max(0, request.SequenceNumber - 1)
+        };
+        if (generation.LoadReferences is null)
+        {
+            var clientId = await _context.Database.SqlQueryRaw<int?>(
+                """SELECT f.client_id AS "Value" FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id WHERE p.id = {0}""", planId)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (clientId.HasValue)
+                generation = generation with
+                {
+                    LoadReferences = await new TrainingExerciseProgressionService(_context)
+                        .GetLoadReferencesAsync(clientId.Value, cancellationToken)
+                };
+        }
+        var generated = TrainingProgramGenerator.Generate(generation, candidates);
         if (!generated.Succeeded)
             return UnprocessableEntity(new { errors = generated.Errors });
         var prescription = generated.Prescription!;

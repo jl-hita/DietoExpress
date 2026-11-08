@@ -36,7 +36,9 @@ public sealed record TrainingExercisePrescription(
     decimal? SmallestLoadIncrementKg = null,
     decimal? MaximumLoadIncreasePercent = null,
     int? WarmupSets = null,
-    string? WarmupNote = null);
+    string? WarmupNote = null,
+    decimal? TargetLoadKg = null,
+    string? LoadBasis = null);
 
 /// <summary>Controlled vocabulary for reviewed exercise muscle metadata.</summary>
 public enum TrainingMuscleGroup
@@ -151,6 +153,8 @@ public static class TrainingPrescriptionValidator
                     errors.Add($"{exercisePrefix}: el incremento máximo de carga debe ser mayor que 0 y no superar el 10 % cuando se especifica.");
                 if (exercise.WarmupSets is < 0 or > 3 || exercise.WarmupNote?.Length > 300)
                     errors.Add($"{exercisePrefix}: las series de aproximación deben estar entre 0 y 3 y la nota admite hasta 300 caracteres.");
+                if (exercise.TargetLoadKg is <= 0 or > 1000 || exercise.LoadBasis?.Length > 300)
+                    errors.Add($"{exercisePrefix}: la carga objetivo debe ser positiva (máximo 1000 kg) y su motivo admite hasta 300 caracteres.");
                 if (!Enum.IsDefined(exercise.ProgressionRule))
                     errors.Add($"{exercisePrefix}: la regla de progresión no es válida.");
                 if (string.IsNullOrWhiteSpace(exercise.SelectionRationale) || exercise.SelectionRationale.Length > 500)
