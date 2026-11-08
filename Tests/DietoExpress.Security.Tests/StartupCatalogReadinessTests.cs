@@ -42,6 +42,20 @@ public sealed class StartupCatalogReadinessTests
     }
 
     [Fact]
+    public void BedcaImport_SkipsExistingExternalIdsBeforeFetchingFoodDetails()
+    {
+        var client = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "BEDCAClient.cs"));
+
+        var skipExisting = client.IndexOf("if (existingIds.Contains(externalId))", StringComparison.Ordinal);
+        var fetchDetails = client.IndexOf("GetFoodDetails(food.Id)", StringComparison.Ordinal);
+
+        Assert.True(skipExisting >= 0);
+        Assert.True(fetchDetails > skipExisting);
+        Assert.Contains("nExistentes++", client);
+        Assert.DoesNotContain("ya existe en la BBDD", client);
+    }
+
+    [Fact]
     public void BedcaImport_DoesNotSwallowFoodPersistenceFailures()
     {
         var client = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "BEDCAClient.cs"));
