@@ -407,7 +407,7 @@ public sealed class ExerciseCatalogService
             if (markIdealCatalogComplete)
             {
                 await using var markerCommand = new NpgsqlCommand(
-                    "INSERT INTO schema_migrations(id) VALUES ('exercise-catalog-ideal-strength-hypertrophy-v1') ON CONFLICT (id) DO NOTHING",
+                    "INSERT INTO schema_migrations(id) VALUES ('exercise-catalog-ideal-strength-hypertrophy-v2') ON CONFLICT (id) DO NOTHING",
                     connection, transaction);
                 await markerCommand.ExecuteNonQueryAsync(cancellationToken);
             }
