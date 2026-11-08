@@ -30,6 +30,7 @@ public class BEDCAClient
     {
         int i = 0;
         int nGuardados = 0;
+        int nExistentes = 0;
         //int nRegistros = 0;
 
         var gruposXml = await GetFoodGroups();
@@ -44,6 +45,17 @@ public class BEDCAClient
 
             foreach (var food in alimentos)
             {
+                // La consulta de listado ya proporciona el ID externo. No descargues
+                // detalles nutricionales ni esperes al límite de BEDCA para filas
+                // que ya están guardadas: el arranque debe poder reparar una
+                // importación parcial sin volver a recorrer toda la fuente.
+                var externalId = $"bedca_{food.Id}";
+                if (existingIds.Contains(externalId))
+                {
+                    nExistentes++;
+                    continue;
+                }
+
                 var detailsXml = await GetFoodDetails(food.Id);
                 var (parsedFood, compositions) = ParseFoodDetails(detailsXml);
 
@@ -54,27 +66,18 @@ public class BEDCAClient
                 if (string.IsNullOrEmpty(dbFood.name))
                     continue;
 
-                var exists = existingIds.Contains(dbFood.external_id);
-
-                if (!exists)
+                _dbContext.foods.Add(dbFood);
+                try
                 {
-                    _dbContext.foods.Add(dbFood);
-                    try
-                    {
-                        nGuardados += await _dbContext.SaveChangesAsync();
-
-                    }
-                    catch (Exception e)
-                    {
-                        _logServ.LogError($"Error al guardar alimentos de BEDCA: {e.Message}");
-                        throw new InvalidOperationException(
-                            $"BEDCA import stopped while saving '{dbFood.name}' ({dbFood.external_id}). The startup catalog was not marked complete.",
-                            e);
-                    }
+                    nGuardados += await _dbContext.SaveChangesAsync();
+                    existingIds.Add(dbFood.external_id);
                 }
-                else
+                catch (Exception e)
                 {
-                    _logServ.LogError($"El alimento {dbFood.name} ya existe en la BBDD");
+                    _logServ.LogError($"Error al guardar alimentos de BEDCA: {e.Message}");
+                    throw new InvalidOperationException(
+                        $"BEDCA import stopped while saving '{dbFood.name}' ({dbFood.external_id}). The startup catalog was not marked complete.",
+                        e);
                 }
 
                 await Task.Delay(200); // importante para no saturar BEDCA
@@ -105,7 +108,7 @@ public class BEDCAClient
         //    _logServ.LogError($"[BEDCA] Error al guardar en BD: {bmGuardar.Mensaje}");
         //}
 
-        return $"Importación finalizada: {i} alimentos procesados, {nGuardados} guardados";
+        return $"Importación finalizada: {i} alimentos procesados, {nGuardados} guardados y {nExistentes} ya existentes omitidos";
     }
 
     public async Task<string> ExecuteQuery(string xml)
