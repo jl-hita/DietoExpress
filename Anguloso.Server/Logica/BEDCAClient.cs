@@ -67,6 +67,9 @@ public class BEDCAClient
                     catch (Exception e)
                     {
                         _logServ.LogError($"Error al guardar alimentos de BEDCA: {e.Message}");
+                        throw new InvalidOperationException(
+                            $"BEDCA import stopped while saving '{dbFood.name}' ({dbFood.external_id}). The startup catalog was not marked complete.",
+                            e);
                     }
                 }
                 else
