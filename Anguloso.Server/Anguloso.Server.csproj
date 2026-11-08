@@ -24,6 +24,7 @@
   <ItemGroup>
     <Content Include="LegalTemplates\**\*.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Update="FoodCuration\**\*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Update="ExerciseCuration\**\*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\scripts\dietoexpress-backup.sh"
              Link="scripts\dietoexpress-backup.sh"
              CopyToOutputDirectory="PreserveNewest"

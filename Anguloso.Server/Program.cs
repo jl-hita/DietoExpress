@@ -208,6 +208,9 @@ builder.Services.AddScoped<SupportEnhancementService>();
                 var syncResult = await exerciseCatalog.EnsureSeededAsync();
                 if (syncResult is not null)
                     logger.LogInformation("RepDB exercise catalog initialized with {Count} records.", syncResult.ImportedCount);
+                // Correcciones versionadas de calidad (vocabulario, material, nombres). Un fallo aquí no debe impedir el arranque.
+                try { await ExerciseCatalogCorrectionsSeeder.EnsureAppliedAsync((Npgsql.NpgsqlConnection)context.Database.GetDbConnection(), logger); }
+                catch (Exception correctionsEx) { logger.LogError(correctionsEx, "No se pudieron aplicar las correcciones del catálogo de ejercicios; se reintentarán en el siguiente arranque."); }
                 var patientTemplateSeeder = scope.ServiceProvider.GetRequiredService<PatientDocumentTemplateSeeder>();
                 await patientTemplateSeeder.SeedAllTenantsAsync();
                 // Una vez disponible el esquema, recuperamos incidencias que pudieron producirse con PostgreSQL caído.
