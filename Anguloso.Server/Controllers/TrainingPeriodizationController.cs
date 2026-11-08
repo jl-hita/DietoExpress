@@ -405,6 +405,23 @@ public sealed class TrainingPeriodizationController : ControllerBase
         };
     }
 
+    /// <summary>
+    /// Devuelve un borrador editable de macrociclo con la forma de <see cref="SaveTrainingMacrocycleRequest"/>.
+    /// No persiste nada: el profesional lo revisa y lo guarda con PUT plans/{planId}/macrocycle.
+    /// </summary>
+    [HttpPost("macrocycle-draft")]
+    public IActionResult DraftMacrocycle([FromBody] TrainingMacrocycleDraftRequest request)
+    {
+        if (request is null) return BadRequest(new { message = "Indica fecha de inicio, duración, objetivo y nivel." });
+        var result = TrainingMacrocycleDraftBuilder.Build(request);
+        if (!result.Succeeded) return BadRequest(new { message = string.Join(" ", result.Errors) });
+        var draft = result.Draft!;
+        return Ok(new SaveTrainingMacrocycleRequest(
+            draft.Name, draft.PeriodizationModel, draft.StartDate, draft.EndDate, draft.Notes,
+            draft.Phases.Select(phase => new SaveTrainingMacrocyclePhaseRequest(
+                phase.Name, phase.SequenceNumber, phase.StartDate, phase.EndDate, phase.Objective, phase.PhaseType)).ToList()));
+    }
+
     [HttpPost("volume-preview")]
     public async Task<IActionResult> PreviewManualVolume(
         [FromBody] TrainingManualVolumePreviewRequest request,
