@@ -129,7 +129,7 @@ public sealed class ExerciseCatalogService
         ExerciseCatalogSyncResult? result;
         if (!bootstrapCompleted)
         {
-            result = await SyncFromSourceAsync(cancellationToken, replaceRepDbOnly: true, markBootstrapComplete: true);
+            result = await SyncFromSourceAsync(cancellationToken, replaceRepDbOnly: true, markBootstrapComplete: true, markIdealCatalogComplete: true);
         }
         else
         {
