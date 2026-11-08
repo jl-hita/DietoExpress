@@ -9,6 +9,7 @@ public static class TrainingProgramVolumeAllocator
 {
     private const int MinimumSetsPerExercise = 1;
     private const int MaximumSetsPerExercise = 5;
+    private const int MaximumSetsPerExerciseForStrength = 3;
     private const decimal SecondsPerRepEstimate = 2.5m;
     private const int TransitionSecondsPerExercise = 45;
     private const int SessionOverheadMinutes = 5;
@@ -36,6 +37,12 @@ public static class TrainingProgramVolumeAllocator
             ? 1m
             : DefaultVolumeTimeFactor(sessionsPerWeek, maximumSessionDurationMinutes);
         var targets = BuildTargets(goal, experience, preferences, sessionsPerWeek, maximumSessionDurationMinutes);
+        // ACSM 2026 summarizes 2–3 sets per exercise for strength. Keep the automatic
+        // strength prescription inside that range; hypertrophy/general-fitness retain the
+        // existing product ceiling and report any remaining weekly dose deficit transparently.
+        var maximumSetsPerExercise = goal == TrainingGoal.Strength
+            ? MaximumSetsPerExerciseForStrength
+            : MaximumSetsPerExercise;
         var warnings = new List<string>();
         var explicitTargetMuscles = (preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
             .Where(preference => preference.TargetWeeklyPrimarySets is not null)
@@ -52,7 +59,7 @@ public static class TrainingProgramVolumeAllocator
             {
                 Exercises = session.Exercises.Select(exercise => exercise with
                 {
-                    Sets = Math.Clamp(exercise.Sets, MinimumSetsPerExercise, MaximumSetsPerExercise)
+                    Sets = Math.Clamp(exercise.Sets, MinimumSetsPerExercise, maximumSetsPerExercise)
                 }).ToArray()
             });
         foreach (var week in output.Keys.Select(key => key.WeekNumber).Distinct().Order())
@@ -86,7 +93,7 @@ public static class TrainingProgramVolumeAllocator
                     for (var exerciseIndex = 0; exerciseIndex < session.Exercises.Count; exerciseIndex++)
                     {
                         var exercise = session.Exercises[exerciseIndex];
-                        if (exercise.Sets >= MaximumSetsPerExercise)
+                        if (exercise.Sets >= maximumSetsPerExercise)
                             continue;
                         var addedDuration = AdditionalSetSeconds(exercise);
                         if (duration + addedDuration > maximumSessionDurationMinutes * 60m)

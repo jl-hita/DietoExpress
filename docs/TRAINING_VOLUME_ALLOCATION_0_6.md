@@ -137,3 +137,13 @@ La revisión del manifiesto público de RepDB (701 ejercicios) detectó dos movi
 La máquina de aducción de cadera (`hip-adduction`) también queda identificada como opción de aislamiento útil para aductores. La abducción de cadera ya estaba contemplada. Estos accesorios solo pueden entrar después de los patrones básicos, si el déficit muscular, el material y el tiempo lo justifican.
 
 La corrección no afirma que estos ejercicios falten físicamente en la fuente RepDB: estaban en su manifiesto. Corrige su elegibilidad y clasificación dentro del generador DietoExpress. La comprobación de que existan ya como filas aprobadas en la PostgreSQL desplegada sigue requiriendo ejecutar la exportación administrativa completa.
+
+
+## Guardas adicionales de calidad — auditoría ACSM 2026
+
+- En el objetivo de fuerza, el asignador automático limita cada ejercicio a un máximo de **3 series**. El límite aplica por ejercicio, no por grupo muscular; si el objetivo semanal no puede alcanzarse sin superar ese techo, se conserva el déficit como advertencia en vez de concentrar cinco o más series en un solo movimiento. La guía práctica de ACSM 2026 resume 2–3 series por ejercicio para fuerza.
+- El informe de calidad señala cuando un grupo muscular principal recibe estímulo efectivo en menos de dos días de la semana para un plan de fuerza. Es una advertencia revisable, no un bloqueo de generación; ayuda a detectar splits torso/pierna de dos días o push/pull/legs de tres días que dejan cada grupo en una sola exposición.
+- Una sesión con más de 30 series de trabajo genera una advertencia de densidad para revisión profesional. **30 no es un umbral fisiológico ni una regla de ACSM**: es un control interno para hacer visibles sesiones muy cargadas, revisar fatiga intra-sesión y considerar redistribuir trabajo. No se recortan series automáticamente por esta alerta.
+- No se introduce una descarga por calendario. La descarga sigue siendo explícita y conservadora; estas guardas no cambian la progresión ni la recuperación.
+
+Referencia práctica ACSM 2026: [5 Things to Know About Creating an Effective Resistance Training Plan](https://www.acsm.org/effective-resistance-training-program-infographic/).
