@@ -165,7 +165,7 @@ public sealed class SpecializationsRegressionTests
         Assert.Contains("GetClinicalGuidanceAsync", resolver);
         Assert.Contains("CalculateSportsProteinAsync", generator);
         Assert.Contains("clinicalGuidance", generator);
-        Assert.Contains("Los objetivos explícitos enviados por el profesional siempre prevalecen", generator);
+        Assert.Contains("Contrato energético: un objetivo explícito del profesional prevalece sobre el cálculo automático", generator);
     }
 
     [Fact]

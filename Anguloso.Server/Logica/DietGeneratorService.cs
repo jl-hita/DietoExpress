@@ -179,12 +179,16 @@ public class DietGeneratorService
             }
         }
 
-        // Los objetivos explícitos enviados por el profesional siempre prevalecen.
-        // El mínimo energético se aplica antes de calcular macros para mantener coherencia entre
-        // energía y distribución de macronutrientes.
+        // Contrato energético: un objetivo explícito del profesional prevalece sobre el cálculo automático, pero NO sobre
+        // el mínimo energético que el propio profesional fijó en el perfil de control de peso del paciente (salvaguarda
+        // clínica) ni sobre el rango operativo 1200–4500 kcal (la validación semántica rechaza lo que quede fuera).
+        // El mínimo se aplica antes de calcular macros para mantener coherencia entre energía y distribución.
         var minimumKcal = GetProfileDouble(weightProfile, "minimumKcal");
-        if (minimumKcal.HasValue)
-            targetKcal = Math.Max(targetKcal, minimumKcal.Value);
+        if (minimumKcal.HasValue && targetKcal < minimumKcal.Value)
+        {
+            _logger?.LogWarning("El objetivo energético {Requested} kcal queda por debajo del mínimo del perfil de control de peso; se aplica {Minimum} kcal.", targetKcal, minimumKcal.Value);
+            targetKcal = minimumKcal.Value;
+        }
 
         double? sportsProtein = GetProfileDouble(sportsProfile, "proteinGPerKg");
         double? sportsCarbs = GetProfileDouble(sportsProfile, "carbsGPerKg");

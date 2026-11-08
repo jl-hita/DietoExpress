@@ -142,7 +142,10 @@ public sealed class DietSemanticValidationService
         if (request.NumberOfDays is < 1 or > 31) errors.Add("El número de días debe estar entre 1 y 31.");
         if (request.MealsPerDay is < 3 or > 5) errors.Add("El generador solo admite entre 3 y 5 comidas al día.");
         if (diet.Days.Count != request.NumberOfDays) errors.Add($"La dieta contiene {diet.Days.Count} días y se solicitaron {request.NumberOfDays}.");
-        if (request.TargetKcal > 0 && (request.TargetKcal < 1200 || request.TargetKcal > 4500)) errors.Add("El objetivo energético queda fuera del rango operativo del generador (1200–4500 kcal/día).");
+        if (request.TargetKcal > 0 && (request.TargetKcal < DietTherapyRuleEngine.MinimumSafeKcal || request.TargetKcal > DietTherapyRuleEngine.MaximumKcal)) errors.Add("El objetivo energético queda fuera del rango operativo del generador (1200–4500 kcal/día).");
+        // También se valida el objetivo efectivo de la dieta (el calculado automáticamente), no solo el de la petición.
+        if (diet.TargetKcal is decimal effectiveKcal && (effectiveKcal < (decimal)DietTherapyRuleEngine.MinimumSafeKcal || effectiveKcal > (decimal)DietTherapyRuleEngine.MaximumKcal))
+            errors.Add($"El objetivo energético de la dieta ({effectiveKcal:0} kcal/día) queda fuera del rango operativo del generador (1200–4500 kcal/día).");
         if (allowedFoods.Count == 0) errors.Add("El catálogo permitido está vacío.");
         return errors;
     }

@@ -85,6 +85,14 @@ public sealed class DietTherapyRuleEngine
     /// La conversión usa una aproximación operativa de 7.700 kcal/kg; el resultado siempre
     /// respeta el mínimo configurado y debe ser revisado por el profesional.
     /// </summary>
+    /// <summary>
+    /// Suelo energético del generador (kcal/día). Un objetivo calculado automáticamente nunca baja de aquí aunque el
+    /// déficit lo permita: que una cifra sea matemáticamente válida no la hace una prescripción razonable.
+    /// Coincide con el rango operativo que valida <c>DietSemanticValidationService</c>.
+    /// </summary>
+    public const double MinimumSafeKcal = 1200;
+    public const double MaximumKcal = 4500;
+
     public static double ApplyWeightManagementTarget(
         double maintenanceKcal,
         double? deficitPercent,
@@ -106,7 +114,9 @@ public sealed class DietTherapyRuleEngine
         if (minimumKcal.HasValue && double.IsFinite(minimumKcal.Value) && minimumKcal.Value > 0)
             target = Math.Max(target, minimumKcal.Value);
 
-        return Math.Round(Math.Clamp(target, 800, 5000), MidpointRounding.AwayFromZero);
+        // El suelo es el mayor entre el mínimo de seguridad del generador y el mínimo del perfil del profesional.
+        var floor = Math.Min(5000, Math.Max(MinimumSafeKcal, minimumKcal.HasValue && double.IsFinite(minimumKcal.Value) ? minimumKcal.Value : 0));
+        return Math.Round(Math.Clamp(target, floor, 5000), MidpointRounding.AwayFromZero);
     }
 
     public static double EstimateEnergy(
