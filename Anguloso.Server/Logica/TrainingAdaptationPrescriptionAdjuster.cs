@@ -149,6 +149,55 @@ public static class TrainingAdaptationPrescriptionAdjuster
         catch (FormatException) { return false; }
     }
 
+    /// <summary>
+    /// Replaces one prescribed exercise by another in ONE session's JSON (patient exercise swap).
+    /// Sets, repetition range, RIR, rest and progression rule are kept. Load and warm-up guidance
+    /// belong to the old exercise, so they are removed; the origin is kept in
+    /// <c>swappedFromExerciseId</c> so the professional can see and revert the change.
+    /// Fails (returns false) if the exercise is missing, the replacement is already in the session
+    /// or the JSON is not a valid structured prescription.
+    /// </summary>
+    public static bool TrySwapExercise(
+        string json,
+        string currentExerciseId,
+        TrainingExerciseCandidate replacement,
+        out string updatedJson,
+        out string legacyPrescription)
+    {
+        updatedJson = json;
+        legacyPrescription = string.Empty;
+        try
+        {
+            if (JsonNode.Parse(json) is not JsonObject root || root["exercises"] is not JsonArray exercises) return false;
+            var items = exercises.OfType<JsonObject>().ToArray();
+            if (items.Any(item => string.Equals(ReadString(item, "exerciseId", string.Empty), replacement.ExerciseId, StringComparison.OrdinalIgnoreCase)))
+                return false;
+            var target = items.FirstOrDefault(item =>
+                string.Equals(ReadString(item, "exerciseId", string.Empty), currentExerciseId, StringComparison.OrdinalIgnoreCase));
+            if (target is null) return false;
+
+            var originalName = ReadString(target, "exerciseNameSnapshot", "Ejercicio");
+            target["swappedFromExerciseId"] ??= ReadString(target, "exerciseId", string.Empty);
+            target["exerciseId"] = replacement.ExerciseId;
+            target["catalogVersion"] = replacement.CatalogVersion;
+            target["exerciseNameSnapshot"] = replacement.Name;
+            target["primaryMuscleGroups"] = new JsonArray(replacement.PrimaryMuscleGroups.Select(m => (JsonNode?)JsonValue.Create(m.ToString())).ToArray());
+            target["secondaryMuscleGroups"] = new JsonArray(replacement.SecondaryMuscleGroups.Select(m => (JsonNode?)JsonValue.Create(m.ToString())).ToArray());
+            foreach (var stale in new[] { "targetLoadKg", "loadBasis", "warmupSets", "warmupNote", "adaptationOriginalSets" })
+                target.Remove(stale);
+            var rationale = $"Intercambio solicitado por el paciente: {originalName} → {replacement.Name} (mismo patrón o mismos músculos principales).";
+            target["selectionRationale"] = rationale.Length <= 500 ? rationale : rationale[..500];
+
+            legacyPrescription = string.Join(Environment.NewLine, exercises.OfType<JsonObject>()
+                .Select(FormatExercise).Where(line => !string.IsNullOrWhiteSpace(line)));
+            updatedJson = root.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            return !string.IsNullOrWhiteSpace(legacyPrescription);
+        }
+        catch (JsonException) { return false; }
+        catch (InvalidOperationException) { return false; }
+        catch (FormatException) { return false; }
+    }
+
     private static string FormatExercise(JsonObject exercise)
     {
         var order = ReadInt(exercise, "order", 0);

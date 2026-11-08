@@ -51,3 +51,13 @@ Todas las acciones son propuestas; solo un profesional puede aprobarlas y nunca 
 - Macrociclo: «Generar propuesta» usa ahora el borrador del servidor; las descargas solo se incluyen si el profesional marca la casilla (antes siempre se añadía una fase de descarga final).
 - Etiquetas para `restore_volume` y `propose_deload`. El texto de prescripción heredado incluye carga y aproximación.
 - Splits: cuerpo completo 2–4 días y PPL 3, 5 o 6 en toda la validación.
+
+## 10. Imágenes en nuestro backend e intercambio de ejercicio
+**Imágenes.** Las apps ya no contactan con terceros. `exercise_images` (PostgreSQL, bytes) guarda una fila por (ejercicio, posición): 0 = inicio/principal, 1 = final. Fuentes: `repdb-free` (copia diferida, de una en una, la primera vez que un ejercicio prescrito la necesita, desde el host fijo de RepDB usando la ruta del catálogo; valida tipo por bytes, máx. 2 MB; sin copia masiva ni endpoint de listado/exportación) y `custom` (subida por el propietario de una aportación profesional o superadmin; WebP/PNG/JPEG ≤ 2 MB), que permite imágenes de ejercicios que no son de RepDB.
+- Paciente: `GET api/portal/training/sessions/{id}/exercise-images` (posiciones por ejercicio + atribución) y `GET api/portal/training/exercise-images/{exerciseId}/{slot}` (solo ejercicios prescritos a ese paciente).
+- Profesional: `GET api/exercise-catalog/{id}/images[/{slot}]`, `PUT`/`DELETE api/exercise-catalog/{id}/images/{slot}` (propietario o superadmin). Angular usa ya este endpoint.
+- Licencia RepDB Free Tier (leída en LICENSE-DATA.md): uso dentro de aplicaciones con atribución visible y sin redistribución como dataset o API. Servirlas solo a usuarios autenticados, una a una y con atribución es nuestra interpretación de «uso en la app»; si se quiere certeza, consultar con support@repdb.co.
+
+**Intercambio de ejercicio (solo esa sesión).**
+- `GET api/portal/training/sessions/{sessionId}/exercises/{exerciseId}/alternatives[?equipment=a,b]`: mismo patrón primero (ordenado por solapamiento muscular y prioridad; marca los del pool de rotación); si no hay, ejercicios que entrenan los mismos músculos principales; si tampoco, mensaje explícito de que no existe alternativa revisada. Respeta objetivo, nivel mínimo y material (si se indica); solo ejercicios aprobados.
+- `POST .../swap` con `{replacementExerciseId}`: exige que sea una alternativa válida, solo en sesiones próximas sin registro, mantiene series/repeticiones/RIR/descanso, elimina carga y calentamiento del ejercicio anterior y guarda el origen en `swappedFromExerciseId` y una nota en las instrucciones de la sesión para que el profesional lo vea.

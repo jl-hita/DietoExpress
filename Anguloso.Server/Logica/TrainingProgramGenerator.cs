@@ -338,7 +338,7 @@ public static class TrainingProgramGenerator
             }).ToArray()
         }).ToArray();
 
-    private static bool IsAccessoryGoalCompatible(
+    internal static bool IsAccessoryGoalCompatible(
         TrainingExerciseCandidate candidate,
         TrainingGoal requestedGoal)
     {
@@ -352,7 +352,7 @@ public static class TrainingProgramGenerator
             && candidate.SuitableGoals.Contains(TrainingGoal.Hypertrophy);
     }
 
-    private static string NormalizeEquipmentToken(string value)
+    internal static string NormalizeEquipmentToken(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return string.Empty;
         // RepDB uses underscores while the application catalog uses hyphenated tokens.
@@ -363,7 +363,7 @@ public static class TrainingProgramGenerator
 
     // Equipment check: every required token must be available. "machine" is the generic gym
     // option and is interchangeable with any "<something>-machine" token in both directions.
-    private static bool HasRequiredEquipment(
+    internal static bool HasRequiredEquipment(
         IReadOnlyList<string> requiredEquipment,
         IReadOnlySet<string> availableEquipment)
     {

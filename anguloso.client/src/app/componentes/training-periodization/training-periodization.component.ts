@@ -1630,7 +1630,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
               id: 'repdb-' + item.id, name, muscles: muscles || 'Grupo muscular según ficha',
               goal, equipment, equipmentLabel: equipmentLabel.charAt(0).toLocaleUpperCase('es') + equipmentLabel.slice(1),
               instructions, prescription,
-              imageUrl: typeof imagePath === 'string' ? 'https://exercise-dataset.com/' + imagePath.replace(/^\//, '') : undefined,
+              // Pictures are served by our own backend (same origin, session cookie); no third-party host is contacted.
+              imageUrl: typeof imagePath === 'string' ? '/api/exercise-catalog/' + encodeURIComponent(String(item.id)) + '/images/0' : undefined,
               source: 'repdb'
             };
           }).filter((item): item is NonNullable<typeof item> => !!item && typeof item.name === 'string' && !!item.name.trim());

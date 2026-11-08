@@ -19,7 +19,18 @@ namespace Anguloso.Server.Controllers;
 public sealed class TrainingPortalController : ControllerBase
 {
     private readonly angulosodbContext _context;
-    public TrainingPortalController(angulosodbContext context) => _context = context;
+    private readonly Anguloso.Server.Logica.ExerciseCatalogService _catalog;
+    private readonly Anguloso.Server.Logica.ExerciseImageService _images;
+
+    public TrainingPortalController(
+        angulosodbContext context,
+        Anguloso.Server.Logica.ExerciseCatalogService catalog,
+        Anguloso.Server.Logica.ExerciseImageService images)
+    {
+        _context = context;
+        _catalog = catalog;
+        _images = images;
+    }
 
     [HttpGet("sessions")]
     public async Task<IActionResult> GetSessions(CancellationToken cancellationToken)
@@ -125,6 +136,198 @@ public sealed class TrainingPortalController : ControllerBase
             },
             exerciseProgressionRecommendations
         });
+    }
+
+    // ---- Exercise images (served from our own storage; the app never contacts third parties) ----
+
+    /// <summary>Which picture slots exist for each exercise prescribed in one of the patient's sessions.</summary>
+    [HttpGet("sessions/{sessionId:int}/exercise-images")]
+    public async Task<IActionResult> GetSessionExerciseImages(int sessionId, CancellationToken cancellationToken)
+    {
+        var clientId = await GetValidatedClientIdAsync(cancellationToken);
+        if (clientId is null) return Unauthorized();
+        var session = await LoadOwnSessionAsync(clientId.Value, sessionId, cancellationToken);
+        if (session is null) return NotFound();
+        var result = new List<object>();
+        foreach (var exercise in ReadPrescribedExercises(session.Value.Json))
+            result.Add(new { exerciseId = exercise.Id, slots = await _images.GetAvailableSlotsAsync(exercise.Id, cancellationToken) });
+        return Ok(new { attribution = "Exercise data by RepDB (repdb.co)", exercises = result });
+    }
+
+    /// <summary>One picture. Only exercises prescribed to this patient can be requested; there is no listing or bulk endpoint.</summary>
+    [HttpGet("exercise-images/{exerciseId}/{slot:int}")]
+    public async Task<IActionResult> GetExerciseImage(string exerciseId, int slot, CancellationToken cancellationToken)
+    {
+        var clientId = await GetValidatedClientIdAsync(cancellationToken);
+        if (clientId is null) return Unauthorized();
+        await using var check = Command("""
+            SELECT EXISTS (
+                SELECT 1 FROM training_sessions s
+                JOIN training_plans p ON p.id = s.plan_id
+                JOIN training_profiles f ON f.id = p.profile_id
+                WHERE f.client_id = @clientId AND s.exercise_prescription_data IS NOT NULL
+                  AND s.exercise_prescription_data @> jsonb_build_object('exercises',
+                        jsonb_build_array(jsonb_build_object('exerciseId', @exerciseId::text))))
+            """, ("clientId", clientId.Value), ("exerciseId", exerciseId));
+        if (!(bool)(await check.ExecuteScalarAsync(cancellationToken) ?? false)) return NotFound();
+        var image = await _images.GetImageAsync(exerciseId, slot, cancellationToken);
+        if (image is null) return NotFound();
+        Response.Headers.CacheControl = "private, max-age=86400";
+        return File(image.Data, image.ContentType);
+    }
+
+    // ---- Exercise swap ----
+
+    /// <summary>
+    /// Alternatives for one prescribed exercise of an upcoming, still unrecorded session. Same movement
+    /// pattern first; otherwise exercises that train the same primary muscles; otherwise an explicit
+    /// message that nothing suitable exists (never an unreviewed suggestion).
+    /// </summary>
+    [HttpGet("sessions/{sessionId:int}/exercises/{exerciseId}/alternatives")]
+    public async Task<IActionResult> GetExerciseAlternatives(
+        int sessionId, string exerciseId, [FromQuery] string? equipment, CancellationToken cancellationToken)
+    {
+        var clientId = await GetValidatedClientIdAsync(cancellationToken);
+        if (clientId is null) return Unauthorized();
+        var context = await LoadSwapContextAsync(clientId.Value, sessionId, exerciseId, cancellationToken);
+        if (context.Error is not null) return context.Error;
+        var equipmentList = (equipment ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Take(20).ToArray();
+        var result = Anguloso.Server.Logica.TrainingExerciseAlternativeFinder.Find(
+            exerciseId, context.PrimaryMuscles, context.Catalog, context.SessionExerciseIds,
+            context.Goal, context.Experience, equipmentList, 8);
+        return Ok(new { exerciseId, alternatives = result.Alternatives, message = result.Message });
+    }
+
+    /// <summary>
+    /// Replaces the exercise in THIS session only. The replacement must be one of the finder's valid
+    /// alternatives; sets, reps, RIR and rest are kept and the origin is recorded in the prescription.
+    /// </summary>
+    [HttpPost("sessions/{sessionId:int}/exercises/{exerciseId}/swap")]
+    public async Task<IActionResult> SwapExercise(
+        int sessionId, string exerciseId, [FromBody] PatientTrainingSwapRequest request, CancellationToken cancellationToken)
+    {
+        var clientId = await GetValidatedClientIdAsync(cancellationToken);
+        if (clientId is null) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(request?.ReplacementExerciseId))
+            return BadRequest(new { message = "Indica el ejercicio de sustitución." });
+        var context = await LoadSwapContextAsync(clientId.Value, sessionId, exerciseId, cancellationToken);
+        if (context.Error is not null) return context.Error;
+
+        var alternatives = Anguloso.Server.Logica.TrainingExerciseAlternativeFinder.Find(
+            exerciseId, context.PrimaryMuscles, context.Catalog, context.SessionExerciseIds,
+            context.Goal, context.Experience, null, 10);
+        var replacement = context.Catalog.FirstOrDefault(candidate =>
+            string.Equals(candidate.ExerciseId, request.ReplacementExerciseId, StringComparison.OrdinalIgnoreCase));
+        if (replacement is null || !alternatives.Alternatives.Any(item =>
+                string.Equals(item.ExerciseId, replacement.ExerciseId, StringComparison.OrdinalIgnoreCase)))
+            return BadRequest(new { message = "Ese ejercicio no es una alternativa válida para esta sesión.", alternatives = alternatives.Alternatives });
+        if (!Anguloso.Server.Logica.TrainingAdaptationPrescriptionAdjuster.TrySwapExercise(
+                context.Json, exerciseId, replacement, out var updatedJson, out var legacyText))
+            return Conflict(new { message = "No se pudo aplicar el intercambio sobre la prescripción de esta sesión." });
+
+        var note = $"Intercambio solicitado por el paciente: {context.ExerciseName} → {replacement.Name}.";
+        await using var update = Command("""
+            UPDATE training_sessions
+            SET exercise_prescription_data = @json::jsonb, exercise_prescription = @text,
+                instructions = CASE WHEN COALESCE(instructions, '') = '' THEN @note ELSE instructions || E'\n' || @note END,
+                updated_at = NOW()
+            WHERE id = @sessionId AND scheduled_date >= CURRENT_DATE AND status = 'planned'
+              AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = training_sessions.id)
+            """, ("json", updatedJson), ("text", legacyText), ("note", note), ("sessionId", sessionId));
+        if (await update.ExecuteNonQueryAsync(cancellationToken) == 0)
+            return Conflict(new { message = "La sesión ya no admite cambios (registrada, pasada o modificada)." });
+        return Ok(new { exerciseId = replacement.ExerciseId, exercisePrescriptionData = JsonSerializer.Deserialize<JsonElement>(updatedJson) });
+    }
+
+    private async Task<int?> GetValidatedClientIdAsync(CancellationToken cancellationToken)
+    {
+        if (!int.TryParse(User.FindFirstValue("clientId"), out var clientId)) return null;
+        if (!int.TryParse(User.FindFirstValue("portalTokenVersion"), out var version)) return null;
+        var valid = await _context.clients.AsNoTracking().AnyAsync(
+            c => c.id == clientId && c.archived_at == null && c.portal_token_version == version, cancellationToken);
+        return valid ? clientId : null;
+    }
+
+    private async Task<(string Json, string Goal, string Experience)?> LoadOwnSessionAsync(
+        int clientId, int sessionId, CancellationToken cancellationToken)
+    {
+        await using var command = Command("""
+            SELECT s.exercise_prescription_data::text, f.primary_goal, f.experience_level
+            FROM training_sessions s
+            JOIN training_plans p ON p.id = s.plan_id
+            JOIN training_profiles f ON f.id = p.profile_id
+            WHERE s.id = @sessionId AND f.client_id = @clientId AND f.enabled = TRUE
+              AND s.exercise_prescription_data IS NOT NULL
+            """, ("sessionId", sessionId), ("clientId", clientId));
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken)
+            ? (reader.GetString(0), reader.GetString(1), reader.GetString(2))
+            : null;
+    }
+
+    private static IReadOnlyList<(string Id, string Name, string[] Primary)> ReadPrescribedExercises(string json)
+    {
+        var result = new List<(string, string, string[])>();
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (!document.RootElement.TryGetProperty("exercises", out var exercises) || exercises.ValueKind != JsonValueKind.Array)
+                return result;
+            foreach (var exercise in exercises.EnumerateArray())
+            {
+                if (!exercise.TryGetProperty("exerciseId", out var id) || id.ValueKind != JsonValueKind.String) continue;
+                var name = exercise.TryGetProperty("exerciseNameSnapshot", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString()! : id.GetString()!;
+                var primary = exercise.TryGetProperty("primaryMuscleGroups", out var p) && p.ValueKind == JsonValueKind.Array
+                    ? p.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).ToArray()
+                    : [];
+                result.Add((id.GetString()!, name, primary));
+            }
+        }
+        catch (JsonException) { }
+        return result;
+    }
+
+    private sealed record SwapContext(
+        IActionResult? Error, string Json, string ExerciseName,
+        IReadOnlyList<Anguloso.Server.Logica.TrainingMuscleGroup> PrimaryMuscles,
+        IReadOnlyCollection<Anguloso.Server.Logica.TrainingExerciseCandidate> Catalog,
+        IReadOnlySet<string> SessionExerciseIds,
+        Anguloso.Server.Logica.TrainingGoal Goal, Anguloso.Server.Logica.TrainingExperience Experience);
+
+    private async Task<SwapContext> LoadSwapContextAsync(int clientId, int sessionId, string exerciseId, CancellationToken cancellationToken)
+    {
+        SwapContext Fail(IActionResult error) => new(error, string.Empty, string.Empty, [], [], new HashSet<string>(), default, default);
+        var session = await LoadOwnSessionAsync(clientId, sessionId, cancellationToken);
+        if (session is null) return Fail(NotFound());
+
+        // Only an upcoming session without a record can change; completed history is never rewritten.
+        await using (var state = Command("""
+            SELECT (s.scheduled_date >= CURRENT_DATE AND s.status = 'planned'
+                    AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id))
+            FROM training_sessions s WHERE s.id = @sessionId
+            """, ("sessionId", sessionId)))
+            if (!(bool)(await state.ExecuteScalarAsync(cancellationToken) ?? false))
+                return Fail(Conflict(new { message = "Solo se pueden intercambiar ejercicios de sesiones próximas que aún no se han registrado." }));
+
+        var prescribed = ReadPrescribedExercises(session.Value.Json);
+        var current = prescribed.FirstOrDefault(item => string.Equals(item.Id, exerciseId, StringComparison.OrdinalIgnoreCase));
+        if (current.Id is null) return Fail(NotFound());
+
+        var goal = Anguloso.Server.Logica.TrainingGoal.GeneralFitness;
+        using (var document = JsonDocument.Parse(session.Value.Json))
+            if (document.RootElement.TryGetProperty("goal", out var goalElement) && goalElement.ValueKind == JsonValueKind.String)
+                Enum.TryParse(goalElement.GetString(), true, out goal);
+        if (!Enum.TryParse<Anguloso.Server.Logica.TrainingExperience>(session.Value.Experience, true, out var experience))
+            experience = Anguloso.Server.Logica.TrainingExperience.Beginner;
+
+        // Owner id 0: only globally approved exercises (no professional's pending drafts) reach a patient.
+        var catalog = await _catalog.LoadGeneratorCandidatesAsync(0, cancellationToken);
+        var primary = current.Primary
+            .Select(value => Enum.TryParse<Anguloso.Server.Logica.TrainingMuscleGroup>(value, true, out var muscle) ? (Anguloso.Server.Logica.TrainingMuscleGroup?)muscle : null)
+            .Where(muscle => muscle.HasValue).Select(muscle => muscle!.Value).ToArray();
+        return new(null, session.Value.Json, current.Name, primary, catalog,
+            prescribed.Select(item => item.Id).ToHashSet(StringComparer.OrdinalIgnoreCase), goal, experience);
     }
 
     [HttpPost("sessions/{sessionId:int}/record")]
@@ -540,3 +743,5 @@ public sealed record PatientTrainingRecordRequest(
     string? PainSignal = null,
     bool? ProgressionTargetAchieved = null,
     List<PatientTrainingExerciseFeedback>? ExerciseFeedback = null);
+
+public sealed record PatientTrainingSwapRequest(string ReplacementExerciseId);

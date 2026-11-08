@@ -11,11 +11,13 @@ namespace Anguloso.Server.Controllers;
 public sealed class ExerciseCatalogController : ControllerBase
 {
     private readonly ExerciseCatalogService _catalog;
+    private readonly ExerciseImageService _images;
     private readonly ILogger<ExerciseCatalogController> _logger;
 
-    public ExerciseCatalogController(ExerciseCatalogService catalog, ILogger<ExerciseCatalogController> logger)
+    public ExerciseCatalogController(ExerciseCatalogService catalog, ExerciseImageService images, ILogger<ExerciseCatalogController> logger)
     {
         _catalog = catalog;
+        _images = images;
         _logger = logger;
     }
 
@@ -155,6 +157,42 @@ public sealed class ExerciseCatalogController : ControllerBase
             _logger.LogError(exception, "Failed to update professional exercise {ExerciseId}.", id);
             return StatusCode(500, new { error = "No se pudo actualizar el ejercicio." });
         }
+    }
+
+    // ---- Pictures stored in our backend (no third-party hosts) ----
+
+    [HttpGet("{id}/images/{slot:int}")]
+    public async Task<IActionResult> GetImage(string id, int slot, CancellationToken cancellationToken)
+    {
+        var image = await _images.GetImageAsync(id, slot, cancellationToken);
+        if (image is null) return NotFound();
+        Response.Headers.CacheControl = "private, max-age=86400";
+        return File(image.Data, image.ContentType);
+    }
+
+    [HttpGet("{id}/images")]
+    public async Task<IActionResult> GetImageSlots(string id, CancellationToken cancellationToken) =>
+        Ok(new { slots = await _images.GetAvailableSlotsAsync(id, cancellationToken), attribution = "Exercise data by RepDB (repdb.co)" });
+
+    /// <summary>Uploads a WebP/PNG/JPEG (max 2 MB) for an exercise you own (superadmin: any).</summary>
+    [HttpPut("{id}/images/{slot:int}")]
+    [RequestSizeLimit(ExerciseImageService.MaximumImageBytes + 1024)]
+    public async Task<IActionResult> UploadImage(string id, int slot, CancellationToken cancellationToken)
+    {
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return Unauthorized();
+        if (!await _images.CanManageAsync(id, userId, User.IsInRole("superadmin"), cancellationToken)) return NotFound();
+        using var buffer = new MemoryStream();
+        await Request.Body.CopyToAsync(buffer, cancellationToken);
+        var error = await _images.SaveCustomImageAsync(id, slot, buffer.ToArray(), userId, cancellationToken);
+        return error is null ? NoContent() : BadRequest(new { error });
+    }
+
+    [HttpDelete("{id}/images/{slot:int}")]
+    public async Task<IActionResult> DeleteImage(string id, int slot, CancellationToken cancellationToken)
+    {
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return Unauthorized();
+        if (!await _images.CanManageAsync(id, userId, User.IsInRole("superadmin"), cancellationToken)) return NotFound();
+        return await _images.DeleteImageAsync(id, slot, cancellationToken) ? NoContent() : NotFound();
     }
 
     [HttpPost("contributions")]
