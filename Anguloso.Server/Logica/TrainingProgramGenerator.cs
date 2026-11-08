@@ -138,7 +138,7 @@ public static class TrainingProgramGenerator
 
         var prescribedSessions = request.IsDeload
             ? ApplyConservativeDeload(allocation.Sessions)
-            : allocation.Sessions;
+            : ApplyIntraBlockProgression(allocation.Sessions, request.DurationWeeks);
         var plan = new TrainingProgramPrescription(
             "0.9.0",
             request.Goal.ToString(),
@@ -170,6 +170,38 @@ public static class TrainingProgramGenerator
             : new(null, validationErrors);
 
         TrainingProgramGenerationResult Failure(string error) => new(null, [error]);
+    }
+
+    /// <summary>
+    /// Internal product heuristic (not an ACSM-prescribed scheme): in blocks of three or more weeks
+    /// the first week is introductory (+1 RIR; +0.5 RIR in week 2 of blocks of five or more) and,
+    /// in blocks of four or more weeks, exercises with three or more sets lose one set in week 1.
+    /// Later weeks keep the allocated weekly dose, so effort and volume rise across the block.
+    /// It is never a deload and never reduces any exercise below two sets.
+    /// </summary>
+    private static IReadOnlyList<TrainingSessionPrescription> ApplyIntraBlockProgression(
+        IReadOnlyList<TrainingSessionPrescription> sessions, int durationWeeks)
+    {
+        if (durationWeeks < 3) return sessions;
+        return sessions.Select(session =>
+        {
+            var rirOffset = session.WeekNumber == 1 ? 1m
+                : session.WeekNumber == 2 && durationWeeks >= 5 ? 0.5m : 0m;
+            var trimSet = session.WeekNumber == 1 && durationWeeks >= 4;
+            if (rirOffset == 0m && !trimSet) return session;
+            return session with
+            {
+                Exercises = session.Exercises.Select(exercise => exercise with
+                {
+                    Sets = trimSet && exercise.Sets >= 3 ? exercise.Sets - 1 : exercise.Sets,
+                    TargetRepetitionsInReserve = exercise.TargetRepetitionsInReserve is null
+                        ? null
+                        : Math.Min(5m, exercise.TargetRepetitionsInReserve.Value + rirOffset),
+                    SelectionRationale = exercise.SelectionRationale +
+                        " Semana de introducción del bloque: mayor reserva de repeticiones (umbral interno de producto, no pauta ACSM)."
+                }).ToArray()
+            };
+        }).ToArray();
     }
 
     private static IReadOnlyList<TrainingSessionPrescription> ApplyConservativeDeload(

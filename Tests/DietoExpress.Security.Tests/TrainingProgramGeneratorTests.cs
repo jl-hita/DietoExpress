@@ -452,8 +452,9 @@ public sealed class TrainingProgramGeneratorTests
                 .Select(exercise => (exercise.ExerciseId, exercise.Sets))
                 .ToArray());
 
-        Assert.Equal(signatureByWeek[1], signatureByWeek[4]);
-        Assert.Equal(signatureByWeek[1], signatureByWeek[8]);
+        // Week 1 is the introductory week of the block (see TrainingBlockProgressionTests); steady weeks match.
+        Assert.Equal(signatureByWeek[3], signatureByWeek[4]);
+        Assert.Equal(signatureByWeek[3], signatureByWeek[8]);
         Assert.All(sessions.SelectMany(session => session.Exercises), exercise =>
             Assert.InRange(exercise.TargetRepetitionsInReserve!.Value, 0m, 5m));
         Assert.Empty(TrainingPrescriptionValidator.Validate(result.Prescription));
@@ -519,10 +520,10 @@ public sealed class TrainingProgramGeneratorTests
 
         // The two-day full-body split includes a squat exposure on both days.
         // Count the audited effective dose, not only the provider's primary label.
-        Assert.InRange(weekOneQuads.EstimatedEffectiveSets, 8m, 12m);
+        Assert.InRange(weekTwoQuads.EstimatedEffectiveSets, 8m, 12m);
+        Assert.True(weekOneQuads.EstimatedEffectiveSets <= weekTwoQuads.EstimatedEffectiveSets);
         Assert.Equal(2, weekOneQuads.PrimaryFrequencySessions);
-        Assert.Equal(weekOneQuads.EstimatedEffectiveSets, weekTwoQuads.EstimatedEffectiveSets);
-        Assert.Equal(weekOneQuads.EstimatedEffectiveSets, weekFourQuads.EstimatedEffectiveSets);
+        Assert.Equal(weekTwoQuads.EstimatedEffectiveSets, weekFourQuads.EstimatedEffectiveSets);
         Assert.DoesNotContain(report.Warnings, warning =>
             warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
         Assert.DoesNotContain(report.Warnings, warning =>
