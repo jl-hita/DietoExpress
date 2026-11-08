@@ -62,6 +62,7 @@ public class Program
         builder.Services.AddScoped<RecipeNutritionService>();
         builder.Services.AddScoped<ExerciseCatalogService>();
         builder.Services.AddScoped<ExerciseImageService>();
+        builder.Services.AddScoped<TrainingAutoAdaptationApplier>();
 builder.Services.AddScoped<SupportEnhancementService>();
         builder.Services.AddScoped<SupportService>();
         builder.Services.AddSingleton<DatabaseBackupService>();

@@ -198,6 +198,70 @@ public static class TrainingAdaptationPrescriptionAdjuster
         catch (FormatException) { return false; }
     }
 
+    /// <summary>
+    /// Turns one session into a conservative deload (same rule as the explicit deload of the generator):
+    /// about half the sets (rounded up, minimum 1), +2 RIR (maximum 5) and no load progression.
+    /// Marked with <c>adaptationDeload</c> so it is never applied twice. Used by the autonomous
+    /// reactive deload; the user is told in the session instructions.
+    /// </summary>
+    public static bool TryApplyDeload(string json, out string updatedJson, out string legacyPrescription)
+    {
+        updatedJson = json;
+        legacyPrescription = string.Empty;
+        try
+        {
+            if (JsonNode.Parse(json) is not JsonObject root || root["exercises"] is not JsonArray exercises) return false;
+            if (root["adaptationDeload"] is JsonValue marker && marker.TryGetValue<bool>(out var already) && already) return false;
+            var changed = false;
+            foreach (var item in exercises.OfType<JsonObject>())
+            {
+                if (item["sets"] is not JsonValue setsNode || !setsNode.TryGetValue<int>(out var sets)) continue;
+                item["adaptationOriginalSets"] ??= sets;
+                item["sets"] = Math.Max(1, (int)Math.Ceiling(sets * 0.5m));
+                if (item["targetRepetitionsInReserve"] is JsonValue rirNode && rirNode.TryGetValue<decimal>(out var rir))
+                    item["targetRepetitionsInReserve"] = Math.Min(5m, rir + 2m);
+                item["progressionRule"] = (int)TrainingProgressionRule.None;
+                changed = true;
+            }
+            if (!changed) return false;
+            root["adaptationDeload"] = true;
+            legacyPrescription = string.Join(Environment.NewLine, exercises.OfType<JsonObject>()
+                .Select(FormatExercise).Where(line => !string.IsNullOrWhiteSpace(line)));
+            updatedJson = root.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            return !string.IsNullOrWhiteSpace(legacyPrescription);
+        }
+        catch (JsonException) { return false; }
+        catch (InvalidOperationException) { return false; }
+        catch (FormatException) { return false; }
+    }
+
+    /// <summary>Writes a working load (and why) into one exercise of a future session.</summary>
+    public static bool TrySetLoad(
+        string json, string exerciseId, decimal loadKg, string basis, out string updatedJson, out string legacyPrescription)
+    {
+        updatedJson = json;
+        legacyPrescription = string.Empty;
+        if (loadKg <= 0 || loadKg > 1000) return false;
+        try
+        {
+            if (JsonNode.Parse(json) is not JsonObject root || root["exercises"] is not JsonArray exercises) return false;
+            var target = exercises.OfType<JsonObject>().FirstOrDefault(item =>
+                string.Equals(ReadString(item, "exerciseId", string.Empty), exerciseId, StringComparison.OrdinalIgnoreCase));
+            if (target is null) return false;
+            if (target["targetLoadKg"] is JsonValue current && current.TryGetValue<decimal>(out var existing) && existing == loadKg)
+                return false;
+            target["targetLoadKg"] = loadKg;
+            target["loadBasis"] = basis.Length <= 300 ? basis : basis[..300];
+            legacyPrescription = string.Join(Environment.NewLine, exercises.OfType<JsonObject>()
+                .Select(FormatExercise).Where(line => !string.IsNullOrWhiteSpace(line)));
+            updatedJson = root.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            return !string.IsNullOrWhiteSpace(legacyPrescription);
+        }
+        catch (JsonException) { return false; }
+        catch (InvalidOperationException) { return false; }
+        catch (FormatException) { return false; }
+    }
+
     private static string FormatExercise(JsonObject exercise)
     {
         var order = ReadInt(exercise, "order", 0);

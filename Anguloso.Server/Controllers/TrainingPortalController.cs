@@ -21,15 +21,18 @@ public sealed class TrainingPortalController : ControllerBase
     private readonly angulosodbContext _context;
     private readonly Anguloso.Server.Logica.ExerciseCatalogService _catalog;
     private readonly Anguloso.Server.Logica.ExerciseImageService _images;
+    private readonly Anguloso.Server.Logica.TrainingAutoAdaptationApplier _autoAdaptation;
 
     public TrainingPortalController(
         angulosodbContext context,
         Anguloso.Server.Logica.ExerciseCatalogService catalog,
-        Anguloso.Server.Logica.ExerciseImageService images)
+        Anguloso.Server.Logica.ExerciseImageService images,
+        Anguloso.Server.Logica.TrainingAutoAdaptationApplier autoAdaptation)
     {
         _context = context;
         _catalog = catalog;
         _images = images;
+        _autoAdaptation = autoAdaptation;
     }
 
     [HttpGet("sessions")]
@@ -487,7 +490,11 @@ public sealed class TrainingPortalController : ControllerBase
         var id = await command.ExecuteScalarAsync(cancellationToken);
         if (id is null) return NotFound();
         if (structuredFeedback)
+        {
             await CreateAdaptationProposalAsync(clientId, sessionId, Convert.ToInt64(id), cancellationToken);
+            try { await _autoAdaptation.ApplyLoadSuggestionsAsync(clientId, cancellationToken); }
+            catch (Exception) { /* suggestions are still shown from the progression engine */ }
+        }
         return Ok(new { id = Convert.ToInt64(id), sessionId, clientId });
     }
 
@@ -572,6 +579,24 @@ public sealed class TrainingPortalController : ControllerBase
             """, ("clientId", clientId), ("sessionId", sessionId), ("recordId", recordId),
             ("action", action), ("explanation", explanation));
         await insert.ExecuteNonQueryAsync(cancellationToken);
+
+        // The system adjusts the future sessions by itself (product decision). Pain and reorganisation
+        // stay pending for a person; the policy also applies cooldowns. A failure never fails the record.
+        try
+        {
+            long? proposalId = null; int planId = 0;
+            await using (var find = Command("SELECT id, plan_id FROM training_adaptation_proposals WHERE source_record_id = @recordId AND action = @action AND status = 'pending'", ("recordId", recordId), ("action", action)))
+            await using (var found = await find.ExecuteReaderAsync(cancellationToken))
+                if (await found.ReadAsync(cancellationToken)) { proposalId = found.GetInt64(0); planId = found.GetInt32(1); }
+            if (proposalId is not null)
+            {
+                var targetIds = action == "restore_volume" ? restoreCandidates.Select(item => item.ExerciseId).ToArray()
+                    : action == "review_and_reduce_training_stress" ? fatigueCandidates.Select(item => item.ExerciseId).ToArray()
+                    : Array.Empty<string>();
+                await _autoAdaptation.TryApplyAsync(proposalId.Value, planId, action, targetIds, cancellationToken);
+            }
+        }
+        catch (Exception) { /* the proposal simply remains pending */ }
     }
 
 
