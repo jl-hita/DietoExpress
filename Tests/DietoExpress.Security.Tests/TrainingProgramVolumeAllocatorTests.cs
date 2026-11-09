@@ -421,6 +421,25 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
+    public void StrengthAllocationCapsEveryExerciseAtThreeWorkingSets()
+    {
+        var session = Session(
+            new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 5, 3, 6, 2m, 180,
+                TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], []),
+            new TrainingExercisePrescription("row", "v1", "Remo", 2, 5, 3, 6, 2m, 180,
+                TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.UpperBack], []));
+
+        var result = TrainingProgramVolumeAllocator.Allocate(
+            [session], TrainingGoal.Strength, TrainingExperience.Advanced, null, 90);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.All(result.Sessions.SelectMany(item => item.Exercises),
+            exercise => Assert.InRange(exercise.Sets, 1, 3));
+        Assert.All(result.Sessions.SelectMany(item => item.Exercises),
+            exercise => Assert.Equal(3, exercise.Sets));
+    }
+
+    [Fact]
     public void DuplicateOrOutOfRangeMusclePreferencesAreRejected()
     {
         var session = Session(new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
