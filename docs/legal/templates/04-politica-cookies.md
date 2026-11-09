@@ -1,43 +1,48 @@
-# Política de cookies
+# Política de cookies y tecnologías similares
 
 **Versión:** {{platform.document_version}}  
 **Fecha:** {{platform.last_update_date}}
 
 ## 1. Responsable
 
-{{platform.legal_name}} — {{platform.contact_email}}.
+**{{platform.legal_name}}**  
+{{platform.contact_email}}
 
-## 2. Cookies utilizadas
+## 2. Qué son estas tecnologías
 
-DietoExpress utiliza actualmente las siguientes cookies propias de sesión:
+Las cookies y tecnologías similares (como el almacenamiento local del navegador) son pequeños archivos o datos que se guardan en tu dispositivo. Usamos las que se indican a continuación.
+
+## 3. Cookies propias (necesarias)
 
 | Cookie | Finalidad | Duración | Tipo |
 |---|---|---|---|
-| `dietoexpress_professional_session` | Sesión autenticada del profesional | 3 horas | Necesaria |
-| `dietoexpress_patient_session` | Sesión autenticada del paciente | 30 días desde el último inicio de sesión; revocable al cerrar sesión | Necesaria |
+| `dietoexpress_professional_session` | Mantener la sesión del profesional y garantizar la seguridad y la autorización | 3 horas | Propia, necesaria |
+| `dietoexpress_patient_session` | Mantener la sesión del paciente en su portal | Hasta 30 días desde el último acceso; se elimina al cerrar sesión | Propia, necesaria |
 
-Estas cookies se configuran como `HttpOnly`, `Secure` y `SameSite=Strict`.
+Ambas son `HttpOnly`, `Secure` y `SameSite=Strict`. No se usan para publicidad ni para registrar preferencias comerciales.
 
-## 3. Tecnologías similares
+## 4. Almacenamiento local (necesario)
 
-El portal puede utilizar almacenamiento local para funciones solicitadas por el paciente, actualmente para recordar comidas completadas. La analítica pública se procesa server-side y no utiliza almacenamiento del navegador para deduplicación.
+El portal del paciente guarda en tu navegador las comidas que marcas como completadas y las casillas de la lista de la compra, para que no las pierdas durante el día. Se eliminan al cerrar sesión. No se usan con fines publicitarios ni de seguimiento.
 
-## 4. Terceros
+## 5. Terceros
 
-{{platform.cookie_third_parties}}.
+- **Inicio de sesión con Google.** En las pantallas de acceso y creación de cuenta se carga el servicio de identidad de Google, que puede establecer la cookie técnica `g_state` (estado de la sesión de Google, duración aproximada de seis meses). No se carga en la página pública inicial.
+- **Pagos (Stripe), videoconsulta (LiveKit) y calendario (Google Calendar).** Solo intervienen cuando usas esas funciones; se accede a ellas mediante redirección o carga bajo demanda.
+- **Avisos en el dispositivo (Web Push).** Solo se activan cuando tú lo pides expresamente y concedes el permiso en tu navegador.
 
-Los recursos e integraciones de terceros deben comprobarse en el flujo efectivo y no deben describirse como cookies si no establecen una cookie o tecnología equivalente.
+Las tipografías y los iconos se sirven desde nuestro propio sitio. No utilizamos cookies de analítica ni de publicidad.
 
-## 5. Tecnologías no necesarias
+Servicios y terceros que pueden intervenir:  
+{{platform.cookie_third_parties}}
 
-En la versión técnica auditada no se han identificado cookies de publicidad ni SDK de analítica de terceros.
+Otras tecnologías no esenciales, si las hubiera:  
+{{platform.non_essential_cookies_summary}}
 
-Si se incorpora una tecnología no estrictamente necesaria, deberá bloquearse hasta disponer del consentimiento correspondiente, actualizar el inventario y publicar la información aplicable.
+## 6. Cómo gestionar o eliminar cookies
 
-## 6. Gestión y retirada
+Puedes bloquear o eliminar las cookies desde la configuración de tu navegador; si bloqueas las necesarias, no podrás iniciar sesión. Si en el futuro utilizáramos cookies no necesarias, solo se activarían tras tu consentimiento, con una opción de rechazar tan visible como la de aceptar, y podrías cambiar tu decisión en cualquier momento.
 
-Las cookies estrictamente necesarias para autenticación y seguridad no se presentan como una categoría opcional.
+## 7. Actualización
 
-Cuando exista consentimiento para una tecnología no necesaria, el usuario podrá aceptar, rechazar o configurar las categorías disponibles y retirar su decisión posteriormente con una facilidad equivalente.
-
-**Nota interna:** esta plantilla debe validarse contra el dominio de producción, la configuración de terceros y la revisión jurídica antes de marcar el documento como definitivo.
+Revisamos esta política cuando incorporamos, retiramos o modificamos cookies, SDK o contenidos de terceros.

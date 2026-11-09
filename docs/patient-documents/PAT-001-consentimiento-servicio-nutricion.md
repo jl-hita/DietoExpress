@@ -1,40 +1,38 @@
-# PAT-001 — Información y consentimiento informado del servicio de nutrición
+# Información y consentimiento informado del servicio de nutrición
 
-**Versión:** {{professional.document_version}}  
-**Profesional/centro:** {{professional.legal_name}}  
+**Profesional o centro:** {{professional.legal_name}} (NIF/CIF {{professional.tax_id}})  
+**Domicilio:** {{professional.address}}  
+**Contacto:** {{professional.contact_email}}  
+**Titulación y colegiación:** {{professional.professional_title}} · {{professional.professional_college}} · n.º {{professional.professional_collegiate_number}}  
 **Paciente:** {{patient.full_name}}  
-**Fecha:** {{acceptance.date}}
+**Fecha de emisión:** {{acceptance.date}} · **Versión:** {{professional.document_version}}
 
-## 1. Identificación del servicio
+## 1. Qué servicio vas a recibir
 
-{{professional.legal_name}} presta servicios de asesoramiento/intervención nutricional en los términos informados al paciente.
+{{professional.consultation_description}}
 
-Antes de comenzar, el paciente recibe información suficiente sobre el servicio contratado, su alcance, funcionamiento, contacto y condiciones económicas aplicables.
+Las recomendaciones se basan en la información que tú facilitas y en la valoración del profesional. Se revisarán durante el seguimiento y pueden cambiar según tu evolución.
 
-## 2. Naturaleza del servicio
+## 2. Límites, riesgos y alternativas
 
-La intervención nutricional se basa en la información facilitada por el paciente y en la valoración profesional realizada dentro del ámbito de actuación del profesional.
+{{professional.consultation_limits}}
 
-Las recomendaciones se revisarán cuando sea necesario y podrán modificarse según la evolución y la información disponible.
+Riesgos y precauciones a tener en cuenta: {{professional.consultation_risks}}
 
-## 3. Información facilitada por el paciente
+El servicio de nutrición no sustituye la atención médica, farmacológica ni de urgencias. No se garantizan resultados concretos, porque dependen también de tu adherencia y de tus circunstancias de salud. Si tu situación requiere la valoración de otro profesional sanitario, te lo indicaremos. Puedes, en cualquier momento, optar por no iniciar el servicio o por otras alternativas (otro profesional, atención médica).
 
-El paciente se compromete a facilitar información veraz, completa y actualizada que pueda resultar relevante para la prestación del servicio, incluyendo alergias, intolerancias, patologías, medicación y otros datos de salud que el profesional solicite legítimamente.
+## 3. Información que debes facilitar
 
-El paciente deberá comunicar cambios relevantes durante el seguimiento.
+Para que las recomendaciones sean seguras, necesitamos que nos indiques con veracidad tus diagnósticos, medicación y suplementos, alergias e intolerancias, embarazo o lactancia y cualquier indicación o restricción médica, y que nos avises de los cambios relevantes durante el seguimiento. Una información incompleta o desactualizada puede reducir la adecuación de las recomendaciones. Esto no te hace responsable de las decisiones profesionales, que corresponden al profesional.
 
-## 4. Límites del servicio
+## 4. Confidencialidad
 
-El servicio de nutrición no sustituye la atención médica, farmacológica o de urgencia que corresponda.
+Los datos que compartas están protegidos por el secreto profesional y la normativa de protección de datos. Puedes consultar cómo los tratamos en el documento «Información sobre el tratamiento de tus datos personales y de salud».
 
-Cuando la situación del paciente requiera valoración de otro profesional sanitario, el nutricionista podrá recomendar que la solicite.
+## 5. Tus derechos
 
-## 5. Aceptación
+Tu participación es voluntaria. Puedes hacer preguntas en cualquier momento y **revocar este consentimiento cuando quieras**, sin que ello afecte a la atención ya prestada ni a las obligaciones legales de conservación. Las condiciones económicas, de cancelación y de reembolso se te facilitan por separado.
 
-Declaro que he recibido información sobre el servicio, he podido formular preguntas y comprendo su alcance.
+## 6. Aceptación
 
-☐ **Acepto la prestación del servicio en los términos informados.**
-
-**Evidencia técnica:** versión, fecha/hora, identificador del paciente, IP y agente de usuario cuando la configuración de la plataforma y la normativa aplicable permitan conservarlos.
-
-> Plantilla de trabajo. Requiere revisión jurídica y profesional antes de publicación.
+Al pulsar «Aceptar» en tu portal declaras que has recibido esta información, que has podido formular preguntas y que aceptas la prestación del servicio en los términos descritos. Se guardará la versión del documento, la fecha y hora de la aceptación y datos técnicos de seguridad (dirección IP y navegador) como prueba de la aceptación.

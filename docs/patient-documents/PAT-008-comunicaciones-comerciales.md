@@ -1,22 +1,21 @@
-# PAT-008 — Consentimiento para comunicaciones comerciales
+# Consentimiento para comunicaciones comerciales
 
-**Versión:** {{professional.document_version}}  
-**Paciente:** {{patient.full_name}}
+**Versión:** {{professional.document_version}} · **Fecha de emisión:** {{acceptance.date}}  
+**Paciente:** {{patient.full_name}}  
+**Responsable:** {{professional.legal_name}} · {{professional.privacy_email}}
 
-## Información
+## 1. Qué recibirás
 
-El profesional/centro desea enviar comunicaciones comerciales relacionadas con sus servicios, novedades, contenidos o promociones.
+Si aceptas, {{professional.legal_name}} podrá enviarte por correo electrónico información comercial sobre sus servicios, novedades, contenidos y promociones.
 
-Estas comunicaciones son independientes de las comunicaciones necesarias para gestionar la relación asistencial.
+## 2. Es opcional
 
-## Consentimiento
+Es completamente voluntario y **no afecta** al servicio que recibes ni a las comunicaciones necesarias (citas, documentación, seguimiento).
 
-☐ **Sí, quiero recibir comunicaciones comerciales.**
+## 3. Cómo darte de baja
 
-El consentimiento es opcional y puede retirarse en cualquier momento.
+Puedes retirar el consentimiento en cualquier momento, sin explicar el motivo: cada correo comercial incluye un enlace de baja de un solo paso. La baja se aplica a los envíos futuros y no afecta a los ya realizados.
 
-## Retirada
+## 4. Aceptación
 
-Cada comunicación comercial deberá incluir un mecanismo sencillo para darse de baja. La retirada deberá aplicarse a futuros envíos comerciales sin afectar a las comunicaciones asistenciales necesarias.
-
-> Este documento debe utilizarse únicamente cuando la base jurídica y el mecanismo de consentimiento hayan sido validados. Requiere revisión jurídica antes de producción.
+Al pulsar «Aceptar» consientes expresamente recibir comunicaciones comerciales por correo electrónico.

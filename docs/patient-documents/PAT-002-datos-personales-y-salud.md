@@ -1,57 +1,50 @@
-# PAT-002 — Información sobre tratamiento de datos personales y datos de salud
+# Información sobre el tratamiento de tus datos personales y de salud
 
-**Versión:** {{professional.document_version}}  
-**Responsable del tratamiento:** {{professional.legal_name}}  
-**Contacto:** {{professional.privacy_contact}}  
+**Versión:** {{professional.document_version}} · **Fecha de emisión:** {{acceptance.date}}  
 **Paciente:** {{patient.full_name}}
 
-## 1. Responsable
+## 1. Quién es el responsable
 
-El responsable del tratamiento de los datos del paciente será la persona o entidad identificada en la configuración legal del profesional/centro: {{professional.legal_name}}.
+**Responsable del tratamiento:** {{professional.legal_name}} (NIF/CIF {{professional.tax_id}})  
+**Domicilio:** {{professional.address}}  
+**Contacto para privacidad y derechos:** {{professional.privacy_email}}
 
-Domicilio y datos de contacto: {{professional.address}}, {{professional.privacy_contact}}.
+DietoExpress, la plataforma que utiliza el responsable, trata tus datos únicamente por su cuenta y siguiendo sus instrucciones (encargado del tratamiento).
 
-## 2. Datos tratados
+## 2. Qué datos tratamos
 
-Según los servicios contratados y la información facilitada, pueden tratarse datos identificativos y de contacto, información relativa a hábitos, alimentación, medidas corporales y otros datos de salud necesarios para la prestación profesional.
+Datos identificativos y de contacto; datos de salud y hábitos que nos facilitas o que se miden en consulta (antecedentes, medicación, alergias e intolerancias, medidas corporales, alimentación, actividad física); planes dietéticos y seguimiento; citas, comunicaciones y documentos; y datos técnicos de seguridad del portal (dirección IP, navegador y fecha y hora de las aceptaciones). Facilitar los datos de salud necesarios es imprescindible para poder prestarte el servicio; si no los facilitas, no será posible elaborar recomendaciones adecuadas.
 
-No deben solicitarse ni conservarse datos que no sean necesarios para las finalidades declaradas.
+## 3. Para qué y con qué base jurídica
 
-## 3. Finalidades
+- **Prestar el servicio de nutrición y hacer tu seguimiento, gestionar citas y emitir documentación.** Base: ejecución del contrato o de medidas precontractuales (art. 6.1.b RGPD). Para los datos de salud: {{professional.patient_special_categories_summary}}
+- **Cumplir obligaciones legales** (documentación clínica, obligaciones fiscales y de consumo). Base: obligación legal (art. 6.1.c RGPD).
+- **Atender tus solicitudes de derechos y conservar pruebas de tus aceptaciones.** Base: obligación legal y defensa de reclamaciones (art. 6.1.c y 6.1.f RGPD).
+- **Mantener la seguridad del portal.** Base: interés legítimo (art. 6.1.f RGPD).
+- Otras finalidades, si las hay: {{professional.patient_additional_purposes}}
 
-Los datos podrán tratarse para:
+Las fotografías, las comunicaciones comerciales y la cesión de información a terceros se tratan **solo si las autorizas** en un documento aparte, y puedes retirar esa autorización cuando quieras.
 
-- gestionar la relación profesional;
-- realizar la valoración y seguimiento nutricional;
-- elaborar recomendaciones, dietas y documentación del paciente;
-- gestionar citas y comunicaciones asistenciales;
-- atender obligaciones legales aplicables;
-- gestionar derechos, incidencias y evidencias necesarias.
+Las propuestas de dietas y menús pueden elaborarse con ayuda de herramientas automatizadas de la plataforma, pero siempre las revisa y valida el profesional: no se adoptan decisiones únicamente automatizadas con efectos jurídicos sobre ti.
 
-Las finalidades adicionales deberán identificarse separadamente: {{professional.patient_additional_purposes}}.
+## 4. A quién se comunican tus datos
 
-## 4. Base jurídica
+{{professional.patient_recipients_summary}}
 
-La base o bases jurídicas aplicables deberán ser determinadas por el responsable y reflejar la situación real del tratamiento: {{professional.patient_legal_basis}}.
+No se ceden datos a otros terceros salvo obligación legal o autorización tuya.
 
-Cuando se trate de categorías especiales de datos, deberá documentarse específicamente la condición que permite su tratamiento: {{professional.patient_special_categories_summary}}.
+## 5. Transferencias internacionales
 
-## 5. Destinatarios y proveedores
+{{professional.patient_international_transfers_summary}}
 
-Los destinatarios y encargados deberán corresponder con el inventario real del responsable. Cuando DietoExpress actúe como proveedor tecnológico, la relación entre responsable y encargado deberá estar documentada contractualmente.
+## 6. Cuánto tiempo los conservamos
 
-Información adicional: {{professional.patient_recipients_summary}}.
+{{professional.patient_retention_summary}}
 
-## 6. Conservación
+## 7. Tus derechos
 
-Los datos se conservarán durante los plazos definidos en la política de conservación aplicable al profesional/centro: {{professional.patient_retention_summary}}.
+Puedes ejercer los derechos de **acceso, rectificación, supresión, limitación del tratamiento, oposición y portabilidad**, y **retirar en cualquier momento los consentimientos** que hayas dado, escribiendo a {{professional.privacy_email}}. Responderemos en el plazo máximo de un mes. Si consideras que no hemos tratado tus datos correctamente, puedes presentar una reclamación ante la Agencia Española de Protección de Datos (www.aepd.es).
 
-## 7. Derechos
+## 8. Constancia
 
-El paciente podrá ejercer los derechos que correspondan mediante {{professional.rights_contact}}.
-
-## 8. Aceptación
-
-☐ **Declaro haber recibido esta información y comprender el tratamiento de mis datos en los términos indicados.**
-
-> Este documento informa sobre el tratamiento y no debe utilizarse para convertir en consentimiento lo que tenga otra base jurídica. Requiere adaptación y revisión jurídica.
+Al pulsar «Aceptar» en tu portal confirmas que has recibido esta información. No es un consentimiento para el tratamiento de tus datos: sirve como constancia de que se te ha informado.

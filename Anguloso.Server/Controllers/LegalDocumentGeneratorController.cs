@@ -20,8 +20,8 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
     {
         ["01-aviso-legal"]="Aviso legal",["02-privacidad-dietoexpress"]="Política de privacidad de DietoExpress",
         ["03-terminos-saas"]="Términos y condiciones de DietoExpress",["04-politica-cookies"]="Política de cookies",
-        ["05-dpa-encargo-tratamiento"]="Acuerdo de encargo del tratamiento",["06-informacion-privacidad-paciente"]="Información de privacidad para pacientes",
-        ["07-consentimiento-informado-paciente"]="Consentimiento informado del paciente",["08-condiciones-economicas"]="Condiciones económicas",
+        ["05-dpa-encargo-tratamiento"]="Acuerdo de encargo del tratamiento",["12-rat-profesional"]="Registro de Actividades de Tratamiento del profesional",
+        ["13-protocolo-brechas"]="Protocolo de actuación ante brechas de seguridad",["14-procedimiento-derechos"]="Procedimiento de atención de derechos",["08-condiciones-economicas"]="Condiciones económicas",
         ["09-rat-minimo"]="Registro de Actividades de Tratamiento",["10-matriz-conservacion"]="Matriz de conservación y supresión",
         ["11-analisis-riesgos-eipd"]="Análisis de riesgos y decisión EIPD"
     };
@@ -29,8 +29,17 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
     private static readonly HashSet<string> PlatformTemplates =
     ["01-aviso-legal","02-privacidad-dietoexpress","03-terminos-saas","04-politica-cookies","09-rat-minimo","10-matriz-conservacion","11-analisis-riesgos-eipd"];
 
+    // Solo estos documentos de plataforma se publican en el catálogo público (/api/legal-documents/current,
+    // anónimo). RAT, matriz de conservación y análisis de riesgos son documentos internos.
+    private static readonly HashSet<string> PublishablePlatformTemplates =
+    ["01-aviso-legal","02-privacidad-dietoexpress","03-terminos-saas","04-politica-cookies"];
+
+    // El alta de cuenta y la facturación exigen la clave histórica 'saas_terms'.
+    internal static string PublishedKey(string templateKey) =>
+        string.Equals(templateKey, "03-terminos-saas", StringComparison.OrdinalIgnoreCase) ? "saas_terms" : templateKey;
+
     private static readonly HashSet<string> ProfessionalTemplates =
-    ["05-dpa-encargo-tratamiento","06-informacion-privacidad-paciente","07-consentimiento-informado-paciente","08-condiciones-economicas"];
+    ["05-dpa-encargo-tratamiento","08-condiciones-economicas","12-rat-profesional","13-protocolo-brechas","14-procedimiento-derechos"];
 
     [HttpPost("{templateKey}")]
     public async Task<IActionResult> Generate(string templateKey, CancellationToken ct)
@@ -104,13 +113,13 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
         await using var q=new NpgsqlCommand("""SELECT template_key,title,content,version FROM legal_generated_documents WHERE id=@id AND scope_type='platform' AND scope_id=1 AND status='draft' FOR UPDATE;""",c,tx);
         q.Parameters.AddWithValue("id",id);await using var rd=await q.ExecuteReaderAsync(ct);if(!await rd.ReadAsync(ct))return NotFound();
         var key=rd.GetString(0);var title=rd.GetString(1);var content=rd.GetString(2);var sourceVersion=rd.GetInt32(3);await rd.CloseAsync();
-        if (!PlatformTemplates.Contains(key))
+        if (!PublishablePlatformTemplates.Contains(key))
             return Conflict(new { message = "Este documento es interno y no se publica en el catálogo público.", documentKey = key });
         var unresolved=Regex.Matches(content,@"\{\{([a-zA-Z0-9_.-]+)\}\}").Select(m=>m.Groups[1].Value).Distinct().ToArray();
         if(unresolved.Length>0)return Conflict(new{message="El documento contiene placeholders sin resolver.",unresolved});
         var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
         await using var ins=new NpgsqlCommand("""INSERT INTO legal_documents(document_key,version,title,document_type,content,status,effective_from,sha256,created_at,published_at) VALUES(@key,(SELECT COALESCE(MAX(version),0)+1 FROM legal_documents WHERE document_key=@key),@title,'legal',@content,'published',NOW(),@sha,NOW(),NOW()) RETURNING id,version;""",c,tx);
-        ins.Parameters.AddWithValue("key",key);ins.Parameters.AddWithValue("title",title);ins.Parameters.AddWithValue("content",content);ins.Parameters.AddWithValue("sha",hash);
+        ins.Parameters.AddWithValue("key",PublishedKey(key));ins.Parameters.AddWithValue("title",title);ins.Parameters.AddWithValue("content",content);ins.Parameters.AddWithValue("sha",hash);
         await using var published=await ins.ExecuteReaderAsync(ct);await published.ReadAsync(ct);var publishedId=published.GetInt64(0);var publishedVersion=published.GetInt32(1);await published.CloseAsync();
         await using var mark=new NpgsqlCommand("""UPDATE legal_generated_documents SET status='published',updated_at=NOW() WHERE id=@id;""",c,tx);mark.Parameters.AddWithValue("id",id);await mark.ExecuteNonQueryAsync(ct);
         await tx.CommitAsync(ct);return Ok(new{generatedDocumentId=id,legalDocumentId=publishedId,version=publishedVersion,sourceVersion});

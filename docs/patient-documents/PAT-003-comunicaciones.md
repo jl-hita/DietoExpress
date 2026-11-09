@@ -1,47 +1,28 @@
-# PAT-003 — Autorización y preferencias de comunicaciones
+# Comunicaciones del servicio
 
-**Versión:** {{professional.document_version}}  
-**Paciente:** {{patient.full_name}}
+**Versión:** {{professional.document_version}} · **Fecha de emisión:** {{acceptance.date}}  
+**Paciente:** {{patient.full_name}}  
+**Responsable:** {{professional.legal_name}} · {{professional.privacy_email}}
 
-## 1. Comunicaciones asistenciales
+## 1. Comunicaciones necesarias para el servicio
 
-El profesional podrá utilizar los canales necesarios para gestionar la relación asistencial, por ejemplo para:
+Para prestarte el servicio utilizaremos el correo electrónico, los avisos del portal y, si los activas, las notificaciones en tu dispositivo para:
 
 - confirmar, modificar o cancelar citas;
-- responder consultas del paciente;
-- enviar documentación necesaria para la prestación;
-- comunicar incidencias relevantes del servicio;
-- facilitar instrucciones relacionadas con una consulta.
+- responder a tus consultas;
+- enviarte la documentación y los planes necesarios;
+- informarte de incidencias del servicio o de documentación pendiente.
 
-Estas comunicaciones deben mantenerse separadas de las comunicaciones comerciales.
+Estas comunicaciones son necesarias para la relación profesional y no requieren un consentimiento aparte. No las utilizamos para fines comerciales.
 
 ## 2. Comunicaciones comerciales
 
-El envío de promociones, novedades comerciales o contenidos de marketing deberá gestionarse separadamente y conforme a la base jurídica aplicable.
+Las promociones, novedades y contenidos de marketing son **independientes** y solo se envían si das tu consentimiento expreso en un documento específico. No aceptar no afecta a la prestación del servicio ni a las comunicaciones del apartado 1.
 
-☐ **Deseo recibir comunicaciones comerciales.**
+## 3. Tus preferencias
 
-La ausencia de esta aceptación no impedirá recibir comunicaciones asistenciales necesarias.
+Puedes elegir y cambiar los canales de aviso (portal, correo, notificaciones) desde tu portal en cualquier momento. Evita enviar datos de salud por canales no seguros como mensajería instantánea o SMS; para ello utiliza el portal.
 
-## 3. Preferencias
+## 4. Confirmación
 
-Canales que el paciente autoriza cuando resulten aplicables:
-
-☐ Email  
-☐ SMS  
-☐ WhatsApp u otro canal configurado por el profesional  
-☐ Otros: {{professional.other_communication_channels}}
-
-## 4. Baja
-
-Las comunicaciones comerciales deberán incluir un mecanismo sencillo y gratuito para darse de baja.
-
-La baja deberá registrarse de forma persistente y respetarse en futuros envíos comerciales.
-
-La baja comercial no deberá impedir las comunicaciones asistenciales necesarias para gestionar la relación profesional.
-
-## 5. Aceptación
-
-☐ **Confirmo mis preferencias de comunicación indicadas anteriormente.**
-
-> El consentimiento comercial debe ser granular, demostrable y revocable. El texto debe adaptarse al canal y a la base jurídica real.
+Al pulsar «Aceptar» confirmas que has leído cómo nos comunicaremos contigo.

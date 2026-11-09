@@ -1,6 +1,6 @@
 # Catálogo inicial de documentación del paciente
 
-> Plantilla funcional para el Módulo 15 de DietoExpress. No constituye asesoramiento jurídico ni sustituye la adaptación a la actividad, profesional, centro, menores, servicios y bases jurídicas reales.
+> Catálogo de documentos de paciente. Las variables se resuelven al emitir cada documento; sin configuración legal completa no se emiten.
 
 ## Objetivo
 
@@ -12,10 +12,9 @@ La documentación del paciente debe integrarse con el alta y con el inicio de ca
 |---|---|---:|---:|---:|---|
 | PAT-001 | Información y consentimiento informado del servicio de nutrición | Sí | No | Sí | Documento principal del servicio |
 | PAT-002 | Información sobre tratamiento de datos personales y datos de salud | Sí | No | Sí | Adaptar a responsable/base jurídica reales |
-| PAT-003 | Autorización y preferencias de comunicaciones | Sí | No | Sí | Asistenciales separadas de comerciales |
+| PAT-003 | Comunicaciones del servicio | Sí | No | Sí | Informativo; lo comercial va solo en PAT-008 |
 | PAT-004 | Consentimiento para teleconsulta | No | Si teleconsulta | Sí | Solo cuando se utilice |
 | PAT-005 | Consentimiento para fotografías de seguimiento | No | Cuando proceda | Sí | Separado de la prestación |
-| PAT-006 | Declaración de información sanitaria y responsabilidad del paciente | Sí | No | Sí | Adaptar al servicio |
 | PAT-007 | Representación de menores o personas representadas | Cuando proceda | No | Sí | Solo cuando corresponda |
 | PAT-008 | Consentimiento para comunicaciones comerciales | No | No | Sí | Opcional y separado; nunca preseleccionado por defecto |
 | PAT-009 | Anamnesis y antecedentes nutricionales | No | No | No | Registro asistencial; no convertir automáticamente en consentimiento |
@@ -23,7 +22,6 @@ La documentación del paciente debe integrarse con el alta y con el inicio de ca
 | PAT-011 | Autorización para intercambio de información asistencial | Cuando proceda | No | Sí | Destinatario, finalidad y alcance concretos |
 | PAT-012 | Acceso al portal y comunicaciones digitales | Cuando proceda | No | Sí | Acceso personal y comunicaciones del servicio |
 | PAT-013 | Persona de contacto autorizada | Cuando proceda | No | Sí | Alcance limitado; no sustituye una autorización sanitaria general |
-| PAT-014 | Constancia de entrega y recepción de documentación | Cuando proceda | No | No | Recepción/visualización no equivale a consentimiento |
 
 ## Principios
 
@@ -38,7 +36,7 @@ La documentación del paciente debe integrarse con el alta y con el inicio de ca
 
 ## Flujo objetivo
 
-**Alta:** crear paciente → provisionar PAT-001, PAT-002, PAT-003 y PAT-006 → enviar aviso al portal → completar/aceptar → alta documental completa.
+**Alta:** crear paciente → provisionar PAT-001, PAT-002 y PAT-003 → enviar aviso al portal → completar/aceptar → alta documental completa.
 
 **Consulta:** iniciar cita → provisionar los documentos configurados para consulta → comprobar pendientes → solicitar aceptación → permitir continuar cuando los obligatorios estén completos.
 

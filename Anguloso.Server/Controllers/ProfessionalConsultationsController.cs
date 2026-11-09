@@ -194,6 +194,24 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         if (appointment.Status != "confirmed")
             return Conflict(new { message = "La consulta solo puede iniciarse desde una cita confirmada." });
 
+        var missingLegal = await _patientDocumentService.GetMissingLegalSettingsAsync(
+            appointment.TenantId, _tenantContext.UserId, HttpContext.RequestAborted);
+        if (missingLegal.Count > 0)
+            return Conflict(new
+            {
+                message = "Completa la configuración legal (datos del responsable y bases jurídicas) antes de iniciar consultas.",
+                missingLegalSettings = missingLegal
+            });
+
+        // Documentación de alta que quedó bloqueada por configuración legal incompleta.
+        await _patientDocumentService.CreateRequiredDocumentsAsync(
+            appointment.TenantId,
+            appointment.ClientId,
+            _tenantContext.UserId,
+            forClientCreation: true,
+            includeAllRequired: false,
+            cancellationToken: HttpContext.RequestAborted);
+
         // Los documentos marcados como obligatorios antes de consulta se provisionan
         // aquí también, por si la plantilla se configuró después del alta del paciente.
         await _patientDocumentService.CreateRequiredDocumentsAsync(

@@ -67,6 +67,7 @@ import { LegalConfigurationService } from '../../servicios/legal-configuration.s
           <mat-form-field appearance="outline" class="full"><mat-label>Base jurídica para la información de privacidad</mat-label><textarea matInput rows="2" formControlName="patient_privacy_legal_basis"></textarea></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>Destinatarios / encargados</mat-label><textarea matInput rows="2" formControlName="patient_recipients_summary"></textarea></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>Conservación de datos del paciente</mat-label><textarea matInput rows="2" formControlName="patient_retention_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Transferencias internacionales de datos del paciente</mat-label><textarea matInput rows="2" formControlName="patient_international_transfers_summary"></textarea></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>URL de política de privacidad</mat-label><input matInput formControlName="privacy_policy_url"></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>Descripción del servicio / consulta</mat-label><textarea matInput rows="2" formControlName="consultation_description"></textarea></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>Finalidades adicionales del tratamiento</mat-label><textarea matInput rows="2" formControlName="patient_additional_purposes"></textarea></mat-form-field>
@@ -133,7 +134,7 @@ export class LegalSettingsComponent implements OnInit {
       patient_recipients_summary: [''], patient_retention_summary: [''], privacy_policy_url: [''],
       consultation_description: [''], consultation_limits: [''], service_prices_summary: [''],
       booking_payment_summary: [''], appointment_cancellation_summary: [''], refund_summary: [''],
-      no_show_summary: [''], dpa_duration: [''], dpa_end_of_service_summary: [''], patient_additional_purposes: [''], patient_special_categories_summary: [''], consultation_risks: ['']
+      no_show_summary: [''], dpa_duration: [''], dpa_end_of_service_summary: [''], patient_additional_purposes: [''], patient_special_categories_summary: [''], consultation_risks: [''], patient_international_transfers_summary: ['']
     });
   }
 

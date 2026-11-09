@@ -8,32 +8,41 @@
 **{{platform.legal_name}}**  
 {{platform.contact_email}}
 
-## 2. Tecnologías utilizadas
+## 2. Qué son estas tecnologías
 
-DietoExpress puede utilizar cookies, almacenamiento local, almacenamiento de sesión y otras tecnologías similares para autenticación, seguridad, preferencias y funcionamiento del servicio.
+Las cookies y tecnologías similares (como el almacenamiento local del navegador) son pequeños archivos o datos que se guardan en tu dispositivo. Usamos las que se indican a continuación.
 
-Inventario y clasificación de tecnologías no esenciales:  
-{{platform.non_essential_cookies_summary}}
+## 3. Cookies propias (necesarias)
 
-## 3. Tecnologías necesarias
+| Cookie | Finalidad | Duración | Tipo |
+|---|---|---|---|
+| `dietoexpress_professional_session` | Mantener la sesión del profesional y garantizar la seguridad y la autorización | 3 horas | Propia, necesaria |
+| `dietoexpress_patient_session` | Mantener la sesión del paciente en su portal | Hasta 30 días desde el último acceso; se elimina al cerrar sesión | Propia, necesaria |
 
-Las tecnologías estrictamente necesarias para proporcionar una funcionalidad solicitada, mantener una sesión, garantizar la seguridad o recordar una configuración esencial podrán utilizarse en la medida necesaria para esas finalidades. El portal de paciente también guarda localmente estados funcionales —comidas completadas y casillas marcadas de la lista de la compra— y los elimina al cerrar sesión.
+Ambas son `HttpOnly`, `Secure` y `SameSite=Strict`. No se usan para publicidad ni para registrar preferencias comerciales.
 
-## 4. Tecnologías no esenciales
+## 4. Almacenamiento local (necesario)
 
-Las tecnologías que requieran consentimiento se activarán únicamente después de obtener una decisión válida del usuario. La opción de aceptar y la de rechazar se presentará de forma clara y accesible y las preferencias podrán modificarse o retirarse mediante el mecanismo disponible.
+El portal del paciente guarda en tu navegador las comidas que marcas como completadas y las casillas de la lista de la compra, para que no las pierdas durante el día. Se eliminan al cerrar sesión. No se usan con fines publicitarios ni de seguimiento.
 
 ## 5. Terceros
 
-Outfit y Material Icons se sirven desde activos estáticos del propio sitio. Google Identity Services se carga en las pantallas de inicio de sesión y creación de cuenta. En producción se ha observado la cookie `g_state` asociada a esta integración; su finalidad documentada es conservar el estado de cierre de sesión. Su clasificación de necesidad/consentimiento debe revisarse según el flujo y la configuración efectivos. Google Calendar, Stripe y LiveKit pueden intervenir en flujos funcionales concretos. El service worker propio `/sw.js` gestiona notificaciones Web Push; se registra al activar expresamente los avisos y requiere permiso del navegador.
+- **Inicio de sesión con Google.** En las pantallas de acceso y creación de cuenta se carga el servicio de identidad de Google, que puede establecer la cookie técnica `g_state` (estado de la sesión de Google, duración aproximada de seis meses). No se carga en la página pública inicial.
+- **Pagos (Stripe), videoconsulta (LiveKit) y calendario (Google Calendar).** Solo intervienen cuando usas esas funciones; se accede a ellas mediante redirección o carga bajo demanda.
+- **Avisos en el dispositivo (Web Push).** Solo se activan cuando tú lo pides expresamente y concedes el permiso en tu navegador.
+
+Las tipografías y los iconos se sirven desde nuestro propio sitio. No utilizamos cookies de analítica ni de publicidad.
 
 Servicios y terceros que pueden intervenir:  
 {{platform.cookie_third_parties}}
 
-## 6. Preferencias
+Otras tecnologías no esenciales, si las hubiera:  
+{{platform.non_essential_cookies_summary}}
 
-Las preferencias de tecnologías no esenciales se gestionarán de forma separada de la aceptación de los términos de uso y de la información de privacidad.
+## 6. Cómo gestionar o eliminar cookies
+
+Puedes bloquear o eliminar las cookies desde la configuración de tu navegador; si bloqueas las necesarias, no podrás iniciar sesión. Si en el futuro utilizáramos cookies no necesarias, solo se activarían tras tu consentimiento, con una opción de rechazar tan visible como la de aceptar, y podrías cambiar tu decisión en cualquier momento.
 
 ## 7. Actualización
 
-El inventario deberá revisarse cuando se incorporen, retiren o modifiquen cookies, SDK, analítica, contenidos de terceros u otras tecnologías similares.
+Revisamos esta política cuando incorporamos, retiramos o modificamos cookies, SDK o contenidos de terceros.

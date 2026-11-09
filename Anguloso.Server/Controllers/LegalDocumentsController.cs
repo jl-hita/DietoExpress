@@ -98,6 +98,8 @@ public sealed class LegalDocumentsController : ControllerBase
         {
             while (await reader.ReadAsync(cancellationToken)) published.Add(reader.GetString(0));
         }
+        // Los términos se publican con la clave 'saas_terms' (la usan el alta y la facturación).
+        if (published.Contains("saas_terms")) published.Add("03-terminos-saas");
 
         var configured = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         await using (var configuration = new NpgsqlCommand("""

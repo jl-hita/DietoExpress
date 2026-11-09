@@ -389,6 +389,15 @@ public class ClientsController : ControllerBase
                 .LogError(ex, "No se pudo registrar la automatización de alta del paciente {ClientId}.", client.id);
         }
 
+        // Sin configuración legal completa no se emite documentación al paciente (se avisa en la respuesta).
+        IReadOnlyList<string> missingLegalSettings = [];
+        try { missingLegalSettings = await _patientDocumentService.GetMissingLegalSettingsAsync(tenantId.Value, userId.Value, HttpContext.RequestAborted); }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<ClientsController>>()
+                .LogError(ex, "No se pudo comprobar la configuración legal.");
+        }
+
         // Generamos la documentación obligatoria una vez confirmado el alta.
         // Un fallo documental nunca invalida un paciente ya creado.
         try
@@ -456,7 +465,12 @@ public class ClientsController : ControllerBase
             details: "Alta inicial de expediente clínico"
         );
 
-        return CreatedAtAction(nameof(GetClient), new { id = client.id }, new { id = client.id });
+        return CreatedAtAction(nameof(GetClient), new { id = client.id }, new
+        {
+            id = client.id,
+            documentationBlocked = missingLegalSettings.Count > 0,
+            missingLegalSettings
+        });
     }
 
     // PUT: api/clients/5

@@ -1,36 +1,25 @@
-# PAT-013 — Persona de contacto autorizada por el paciente
+# Persona de contacto autorizada
 
-> Plantilla funcional de DietoExpress. Requiere revisión jurídica antes de uso.
+**Versión:** {{professional.document_version}} · **Fecha de emisión:** {{acceptance.date}}  
+**Paciente:** {{patient.full_name}}  
+**Profesional o centro:** {{professional.legal_name}}
 
 ## 1. Persona designada
 
-El paciente puede designar una persona de contacto para determinadas comunicaciones relacionadas con el servicio, dentro del alcance indicado expresamente.
+Designo como persona de contacto a {{contact.name}} ({{contact.relationship}}), con teléfono {{contact.phone}} y correo {{contact.email}}.
 
-- Paciente: {{patient.full_name}}
-- Persona de contacto: {{contact.name}}
-- Relación: {{contact.relationship}}
-- Teléfono: {{contact.phone}}
-- Email: {{contact.email}}
+## 2. Qué puede recibir
 
-## 2. Alcance de la autorización
+Solo las comunicaciones que autorizo expresamente: {{contact.authorized_scope}}
 
-La persona indicada podrá recibir únicamente las comunicaciones expresamente autorizadas:
+## 3. Qué no incluye
 
-{{contact.authorized_scope}}
+Esta designación **no da acceso** a mi historial, a mis datos de salud ni a mi documentación. Para compartir información clínica con alguien hará falta una autorización específica.
 
-## 3. Límites
+## 4. Modificación o retirada
 
-Esta designación no autoriza automáticamente el acceso al historial completo del paciente, datos de salud, documentación privada ni a cualquier otra información no incluida en el alcance anterior.
-
-Cuando sea necesario, se deberá utilizar una autorización específica para intercambio de información asistencial.
-
-## 4. Retirada o modificación
-
-El paciente podrá solicitar la modificación o retirada de esta designación cuando corresponda. La retirada no afecta a comunicaciones realizadas legítimamente antes de hacerse efectiva.
+Puedo modificar o retirar esta designación en cualquier momento escribiendo a {{professional.privacy_email}}.
 
 ## 5. Aceptación
 
-- Paciente: {{patient.full_name}}
-- Persona designada: {{contact.name}}
-- Fecha y hora: {{document.accepted_at}}
-- Profesional: {{professional.full_name}}
+Al pulsar «Aceptar» confirmo esta designación.

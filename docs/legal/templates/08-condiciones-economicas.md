@@ -1,26 +1,35 @@
 # Condiciones económicas, cancelación y reembolso
 
-**Profesional/centro:** {{professional.display_name}}  
+**Profesional o centro:** {{professional.legal_name}} (NIF/CIF {{professional.tax_id}})  
+**Titulación y colegiación:** {{professional.professional_title}} · {{professional.professional_college}} · n.º {{professional.professional_collegiate_number}}  
 **Contacto:** {{professional.contact_email}}
 
-## Servicios
+## 1. Servicios y precios
 
-Descripción de los servicios y precios: {{professional.service_prices_summary}}
+{{professional.service_prices_summary}}
 
-## Reserva y pago
+Los precios incluyen los impuestos que correspondan, salvo que se indique lo contrario.
 
-Condiciones de reserva y pago: {{professional.booking_payment_summary}}.
+## 2. Reserva y pago
 
-## Cancelación
+{{professional.booking_payment_summary}}
 
-Política de cancelación de citas: {{professional.appointment_cancellation_summary}}.
+## 3. Cancelación y cambio de citas
 
-## Reembolsos
+{{professional.appointment_cancellation_summary}}
 
-Política de reembolso: {{professional.refund_summary}}.
+## 4. No asistencia
 
-## No asistencia
+{{professional.no_show_summary}}
 
-Condiciones aplicables a la no asistencia: {{professional.no_show_summary}}.
+## 5. Reembolsos
 
-**Nota interna:** debe adaptarse a la actividad y a la normativa aplicable antes de utilizarse con consumidores.
+{{professional.refund_summary}}
+
+## 6. Derecho de desistimiento (consumidores)
+
+Si contratas el servicio a distancia como consumidor, tienes derecho a desistir en 14 días naturales sin indicar el motivo. Si pides expresamente que el servicio comience dentro de ese plazo, deberás abonar la parte proporcional al servicio ya prestado hasta que nos comuniques el desistimiento y, una vez prestado íntegramente, perderás el derecho de desistimiento si lo aceptas de forma expresa. Para desistir, escribe a {{professional.contact_email}}.
+
+## 7. Reclamaciones
+
+Puedes dirigir tus reclamaciones a {{professional.contact_email}}. Dispones también de las hojas de reclamaciones y de los organismos de consumo de tu comunidad autónoma.
