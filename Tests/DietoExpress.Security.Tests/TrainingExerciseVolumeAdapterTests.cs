@@ -21,6 +21,36 @@ public sealed class TrainingExerciseVolumeAdapterTests
     }
 
     [Fact]
+    public void ReducedVolumeIsNotRestoredWhenRecentRirDataIsMissing()
+    {
+        var history = Enumerable.Range(0, 3)
+            .Select(_ => new TrainingExerciseVolumeExposure(
+                "bench", 2, 2, SessionCompleted: true,
+                TargetRir: 2m, ActualAverageRir: null, OriginalPlannedSets: 3))
+            .ToArray();
+
+        var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate(history));
+
+        Assert.Equal(TrainingExerciseVolumeAction.NoChange, recommendation.Action);
+        Assert.Null(recommendation.SuggestedWorkingSets);
+    }
+
+    [Fact]
+    public void ReducedVolumeIsRestoredOnlyAfterThreeCompleteExposuresMeetTargetRir()
+    {
+        var history = Enumerable.Range(0, 3)
+            .Select(_ => new TrainingExerciseVolumeExposure(
+                "bench", 2, 2, SessionCompleted: true,
+                TargetRir: 2m, ActualAverageRir: 2m, OriginalPlannedSets: 3))
+            .ToArray();
+
+        var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate(history));
+
+        Assert.Equal(TrainingExerciseVolumeAction.ProposeRestoreOneSet, recommendation.Action);
+        Assert.Equal(3, recommendation.SuggestedWorkingSets);
+    }
+
+    [Fact]
     public void TwoFatigueExposuresAreInsufficientWithoutAThirdExposure()
     {
         var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate([
