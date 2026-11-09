@@ -18,6 +18,7 @@ npm-debug.log
 
 # Secrets
 Anguloso.Server/appsettings.json
-# Semilla de imagenes de ejercicios (licencia RepDB: no se versiona en el repositorio)
-Anguloso.Server/seed/
+# Semillas de imágenes RepDB: no se versionan por sus condiciones de licencia.
+Anguloso.Server/seed/*
+!Anguloso.Server/seed/exercise-images-curated.jsonl
 *.jsonl.gz
