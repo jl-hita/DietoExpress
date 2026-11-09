@@ -560,13 +560,25 @@ public static class FoodCulinaryClassifier
     private static void ApplyEnergyPlausibility(FoodProfileData p, string n, double kcal, double? protein, double? carbs, double? fat)
     {
         if (p.ExcludedReason != null) return;
-        if (kcal <= 0) { p.ExcludedReason = "sin_energia"; return; }
-        if (protein < 0 || carbs < 0 || fat < 0) { p.ExcludedReason = "macronutrientes_negativos"; return; }
+        p.ExcludedReason = GetMacroIntegrityIssue(p.Role, kcal, protein, carbs, fat);
+    }
+
+    /// <summary>
+    /// Comprueba la integridad de los datos nutricionales ACTUALES del alimento (energía, signo, completitud y coherencia
+    /// Atwater 4/4/9). Devuelve el motivo de exclusión o null. Se aplica también a perfiles persistidos (automáticos o
+    /// manuales) para que un cambio posterior de macros nunca deje pasar un alimento incoherente al generador.
+    /// </summary>
+    public static string? GetMacroIntegrityIssue(string role, double? kcal, double? protein, double? carbs, double? fat)
+    {
+        if (kcal is null or <= 0) return "sin_energia";
+        if (protein < 0 || carbs < 0 || fat < 0) return "macronutrientes_negativos";
         var pr = Math.Max(protein ?? 0, 0); var c = Math.Max(carbs ?? 0, 0); var f = Math.Max(fat ?? 0, 0);
         var atwater = pr * 4 + c * 4 + f * 9;
-        if (atwater > 0 && Math.Abs(atwater - kcal) / Math.Max(kcal, 1) > 0.30 && Math.Abs(atwater - kcal) > 25)
-            p.ExcludedReason = "energia_no_coincide_con_macros";
-        if ((protein == null || carbs == null || fat == null) && p.Role != FoodProfileData.RoleOil)
-            p.ExcludedReason ??= "macronutrientes_incompletos";
+        var k = kcal.Value;
+        if (atwater > 0 && Math.Abs(atwater - k) / Math.Max(k, 1) > 0.30 && Math.Abs(atwater - k) > 25)
+            return "energia_no_coincide_con_macros";
+        if ((protein == null || carbs == null || fat == null) && role != FoodProfileData.RoleOil)
+            return "macronutrientes_incompletos";
+        return null;
     }
 }
