@@ -81,15 +81,32 @@ public sealed class ExerciseImageSeedTests
     }
 
     [Fact]
-    public void SeedFilesAreNeverCommittedAndStartupImportsThemAfterTheCatalogUpsert()
+    public void CuratedSvgSeedIsAcceptedButUnsafeSvgIsRejected()
+    {
+        var safe = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\"/></svg>"u8.ToArray();
+        var row = new ExerciseImageService.SeedRow("db-fly", 0, "custom", "",
+            Convert.ToBase64String(safe));
+        Assert.True(ExerciseImageService.TryParseSeedLine(System.Text.Json.JsonSerializer.Serialize(row), out _, out var parsed));
+        Assert.Equal(safe, parsed);
+        var unsafeSvg = "<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"alert(1)\"></svg>"u8.ToArray();
+        row = row with { DataBase64 = Convert.ToBase64String(unsafeSvg) };
+        Assert.False(ExerciseImageService.TryParseSeedLine(System.Text.Json.JsonSerializer.Serialize(row), out _, out _));
+    }
+
+    [Fact]
+    public void CuratedSeedIsVersionedAndStartupImportsItAfterTheCatalogUpsert()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Anguloso.sln"))) dir = dir.Parent;
         var gitignore = File.ReadAllText(Path.Combine(dir!.FullName, ".gitignore"));
         Assert.Contains("*.jsonl.gz", gitignore);
+        Assert.Contains("!Anguloso.Server/seed/exercise-images-curated.jsonl", gitignore);
         var program = File.ReadAllText(Path.Combine(dir.FullName, "Anguloso.Server", "Program.cs"));
+        Assert.Contains("exercise-images-curated.jsonl", program);
         Assert.True(program.IndexOf("ExerciseCatalogAdditionsSeeder.UpsertAsync", StringComparison.Ordinal) <
                     program.IndexOf("imageService.ImportSeedAsync", StringComparison.Ordinal));
         Assert.Contains("ApplicationStarted.Register", program);
+        var project = File.ReadAllText(Path.Combine(dir.FullName, "Anguloso.Server", "Anguloso.Server.csproj"));
+        Assert.Contains("seed\\exercise-images-curated.jsonl", project);
     }
 }
