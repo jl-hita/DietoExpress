@@ -46,6 +46,8 @@ Si una de las sesiones recientes no contiene una prescripción estructurada vál
 
 La propuesta se muestra al profesional con el motivo y los ejercicios candidatos. La aprobación requiere seleccionar explícitamente los IDs de ejercicio que se van a adaptar. El ajustador cambia una serie solo en esos IDs estables y durante un máximo de las tres próximas exposiciones futuras planificadas por ejercicio; después se necesita nuevo feedback y una nueva revisión. No modifica ejercicios parecidos por nombre, sesiones ya registradas, planes inactivos ni el historial completado. Sin evidencia suficiente o sin selección no se aplica ningún recorte.
 
+La restauración de una serie retirada previamente también requiere evidencia positiva: las tres exposiciones recientes deben estar completadas, registrar todas las series de trabajo, conservar la dosis original y mostrar un RIR medio igual o superior al objetivo en cada exposición. La ausencia de RIR no equivale a haber cumplido el esfuerzo previsto y nunca autoriza restaurar volumen. La restauración se limita a recuperar una sola serie hasta la dosis original, con aprobación profesional.
+
 Los dos de tres registros, la diferencia de 1 RIR y la reducción máxima de una serie son heurísticas operativas conservadoras, no umbrales clínicos ni prescripciones de ACSM. La decisión sigue requiriendo revisión profesional.
 ## Accesorios opcionales — motor 0.8.0
 
