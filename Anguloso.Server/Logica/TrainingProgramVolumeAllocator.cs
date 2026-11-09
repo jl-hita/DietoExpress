@@ -10,7 +10,7 @@ public static class TrainingProgramVolumeAllocator
     // All constants below are internal product limits (not guideline figures).
     private const int MinimumSetsPerExercise = 1;
     private const int MaximumSetsPerExercise = 5;
-    private const int MaximumSetsPerExerciseForStrength = 4;
+    private const int MaximumSetsPerExerciseForStrength = 3;
     // Duration model: reps x 2.5 s + rest between sets + 45 s transition per exercise + 5 min
     // session overhead (warm-up). It decides how many extra sets fit in a session.
     private const decimal SecondsPerRepEstimate = 2.5m;
@@ -49,9 +49,9 @@ public static class TrainingProgramVolumeAllocator
             ? 1m
             : DefaultVolumeTimeFactor(sessionsPerWeek, maximumSessionDurationMinutes);
         var targets = BuildTargets(goal, experience, preferences, sessionsPerWeek, maximumSessionDurationMinutes);
-        // Product ceiling (not an ACSM figure; ACSM 2009 cited 2–4 sets). Keep the automatic
-        // strength prescription inside that range; hypertrophy/general-fitness retain the
-        // existing product ceiling and report any remaining weekly dose deficit transparently.
+        // Product ceiling aligned with the ACSM 2026 practical summary of 2–3 sets per exercise
+        // for strength. It is a ceiling, not a mandatory dose; remaining weekly deficits stay
+        // visible as warnings instead of concentrating more sets on one lift.
         var maximumSetsPerExercise = goal == TrainingGoal.Strength
             ? MaximumSetsPerExerciseForStrength
             : MaximumSetsPerExercise;

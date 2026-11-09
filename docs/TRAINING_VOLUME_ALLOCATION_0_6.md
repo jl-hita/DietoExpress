@@ -46,6 +46,8 @@ Si una de las sesiones recientes no contiene una prescripción estructurada vál
 
 La propuesta se muestra al profesional con el motivo y los ejercicios candidatos. La aprobación requiere seleccionar explícitamente los IDs de ejercicio que se van a adaptar. El ajustador cambia una serie solo en esos IDs estables y durante un máximo de las tres próximas exposiciones futuras planificadas por ejercicio; después se necesita nuevo feedback y una nueva revisión. No modifica ejercicios parecidos por nombre, sesiones ya registradas, planes inactivos ni el historial completado. Sin evidencia suficiente o sin selección no se aplica ningún recorte.
 
+La restauración de una serie retirada previamente también requiere evidencia positiva: las tres exposiciones recientes deben estar completadas, registrar todas las series de trabajo, conservar la dosis original y mostrar un RIR medio igual o superior al objetivo en cada exposición. La ausencia de RIR no equivale a haber cumplido el esfuerzo previsto y nunca autoriza restaurar volumen. La restauración se limita a recuperar una sola serie hasta la dosis original, con aprobación profesional.
+
 Los dos de tres registros, la diferencia de 1 RIR y la reducción máxima de una serie son heurísticas operativas conservadoras, no umbrales clínicos ni prescripciones de ACSM. La decisión sigue requiriendo revisión profesional.
 ## Accesorios opcionales — motor 0.8.0
 
@@ -141,9 +143,25 @@ La corrección no afirma que estos ejercicios falten físicamente en la fuente R
 
 ## Guardas adicionales de calidad — auditoría ACSM 2026
 
-- En el objetivo de fuerza, el asignador automático limita cada ejercicio a un máximo de **4 series** (techo de producto). El límite aplica por ejercicio, no por grupo muscular; si el objetivo semanal no puede alcanzarse sin superar ese techo, se conserva el déficit como advertencia en vez de concentrar cinco o más series en un solo movimiento. No es una cifra prescrita por ACSM 2026 (no verificada); ACSM 2009 citaba 2–4 series.
+- En el objetivo de fuerza, el asignador automático limita cada ejercicio a un máximo de **3 series** (techo de producto alineado con el resumen práctico oficial de ACSM 2026: cargas ≥80 % 1RM para 2–3 series por ejercicio). El límite aplica por ejercicio, no por grupo muscular; si el objetivo semanal no puede alcanzarse sin superar ese techo, se conserva el déficit como advertencia en vez de concentrar más series en un solo movimiento. Es un techo operativo, no una obligación de prescribir siempre tres series.
 - El informe de calidad señala cuando un grupo muscular principal recibe estímulo efectivo en menos de dos días de la semana para un plan de fuerza. Es una advertencia revisable, no un bloqueo de generación; ayuda a detectar splits torso/pierna de dos días o push/pull/legs de tres días que dejan cada grupo en una sola exposición.
 - Una sesión con más de 30 series de trabajo genera una advertencia de densidad para revisión profesional. **30 no es un umbral fisiológico ni una regla de ACSM**: es un control interno para hacer visibles sesiones muy cargadas, revisar fatiga intra-sesión y considerar redistribuir trabajo. No se recortan series automáticamente por esta alerta.
 - No se introduce una descarga por calendario. La descarga sigue siendo explícita y conservadora; estas guardas no cambian la progresión ni la recuperación.
+
+### Corrección de prioridad de sentadilla — 09/11/2026
+
+La evaluación real del catálogo curado de 97 candidatos (405 escenarios: cinco perfiles de equipamiento × 81 combinaciones de objetivo, experiencia, días y duración) detectó una selección poco adecuada en el perfil FullGym: `goblet-squat` aparecía en los 81 escenarios aunque también había sentadilla con barra y prensa/hack squat compatibles. La causa era una regla textual que asignaba prioridad 96 al goblet squat y solo 85 a la sentadilla con barra; el desempate por ID mantenía esa preferencia.
+
+Se corrige la jerarquía sin excluir variantes:
+- Sentadilla trasera/frontal con barra: prioridad superior cuando la experiencia y el material las permiten.
+- Prensa y hack squat: prioridad alta por estabilidad y progresión de carga.
+- Goblet squat: sigue siendo una opción válida y cargable, pero no debe desplazar sistemáticamente a los básicos más escalables en un gimnasio completo.
+- Las variantes de peso corporal y bandas siguen disponibles cuando son las opciones compatibles o responden mejor al contexto.
+
+La regresión verifica que sentadilla con barra y prensa superan al goblet squat en prioridad, y que el goblet squat conserva prioridad sobre una sentadilla sin carga. Esta corrección de ranking no sustituye la auditoría anatómica individual del catálogo PostgreSQL completo.
+
+### Ajuste de series para fuerza — 09/11/2026
+
+El techo por ejercicio se reduce de cuatro a tres series. El resumen oficial de ACSM 2026 indica 2–3 series por ejercicio para fuerza con cargas ≥80 % 1RM. El asignador puede dejar un déficit semanal visible si no hay capacidad compatible para repartir más trabajo; no debe compensarlo concentrando cuatro o cinco series en un solo ejercicio. El volumen total por grupo sigue siendo una decisión individualizada y no se deriva de un mínimo universal para cada músculo.
 
 Referencia práctica ACSM 2026: [5 Things to Know About Creating an Effective Resistance Training Plan](https://www.acsm.org/effective-resistance-training-program-infographic/).

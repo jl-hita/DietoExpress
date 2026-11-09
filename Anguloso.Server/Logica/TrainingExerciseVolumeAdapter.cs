@@ -79,8 +79,13 @@ public static class TrainingExerciseVolumeAdapter
             // reserve was met, propose giving back ONE set (never above the original dose).
             // Internal product rule; requires professional approval like any volume change.
             var latestExposure = recent[^1];
+            bool HasMetTargetEffortReserve(TrainingExerciseVolumeExposure item) =>
+                item.TargetRir.HasValue && item.ActualAverageRir.HasValue &&
+                item.ActualAverageRir.Value >= item.TargetRir.Value;
+
             if (recent.All(item => item.OriginalPlannedSets is { } original && original > item.PlannedWorkingSets &&
                                    item.SessionCompleted && !HasFatigueSignal(item) &&
+                                   HasMetTargetEffortReserve(item) &&
                                    item.CompletedWorkingSets >= item.PlannedWorkingSets) &&
                 latestExposure.OriginalPlannedSets > latestExposure.PlannedWorkingSets)
             {
