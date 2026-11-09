@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, firstValueFrom, forkJoin, of, Subscription, timeout } from 'rxjs';
 import { DateInputDirective } from '../../directives/date-input.directive';
+import { MacroChartMesocycle, MacroChartPhase, MacroChartWeek, MacrocycleChartComponent } from './macrocycle-chart.component';
 
 interface TrainingProfile {
   id: number; clientId: number; enabled: boolean; primaryGoal: string; experienceLevel: string; managementMode: 'none' | 'self' | 'collaboration'; notes?: string | null; canManage?: boolean;
@@ -129,7 +130,7 @@ interface RepDbExercise {
 @Component({
   selector: 'app-training-periodization',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, DateInputDirective],
+  imports: [CommonModule, FormsModule, RouterLink, DateInputDirective, MacrocycleChartComponent],
   template: `
     <main class="training-page">
       <a *ngIf="clientId > 0" class="back-link" [routerLink]="['/clients', clientId]">← Volver al expediente</a>
@@ -327,141 +328,142 @@ interface RepDbExercise {
             </form>
             <nav class="training-workspace-nav" aria-label="Secciones de planificación">
               <button type="button" [class.is-active]="!activePlanWorkspace[plan.id] || activePlanWorkspace[plan.id] === 'overview'" (click)="setPlanWorkspace(plan.id, 'overview')">Resumen</button>
-              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'macrocycle'" (click)="setPlanWorkspace(plan.id, 'macrocycle')">Macrociclo <span>{{ macrocyclePhases(plan).length }}</span></button>
-              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'mesocycles'" (click)="setPlanWorkspace(plan.id, 'mesocycles')">Mesociclos <span>{{ mesocycles[plan.id]?.length || 0 }}</span></button>
-              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'routines'" (click)="setPlanWorkspace(plan.id, 'routines')">Rutinas <span>{{ sessions[plan.id]?.length || 0 }}</span></button>
+              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'macrocycle'" (click)="setPlanWorkspace(plan.id, 'macrocycle')"><i class="step-num" aria-hidden="true">1</i>Macrociclo <span>{{ macrocyclePhases(plan).length }}</span></button>
+              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'mesocycles'" (click)="setPlanWorkspace(plan.id, 'mesocycles')"><i class="step-num" aria-hidden="true">2</i>Mesociclos <span>{{ mesocycles[plan.id]?.length || 0 }}</span></button>
+              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'routines'" (click)="setPlanWorkspace(plan.id, 'routines')"><i class="step-num" aria-hidden="true">3</i>Rutinas <span>{{ sessions[plan.id]?.length || 0 }}</span></button>
             </nav>
             <section *ngIf="!activePlanWorkspace[plan.id] || activePlanWorkspace[plan.id] === 'overview'" class="training-assignment-overview">
-              <div><strong>Planificación asignada</strong><p>{{ macrocyclePhases(plan).length ? 'Macrociclo con ' + macrocyclePhases(plan).length + ' fases' : 'Sin macrociclo definido' }}</p></div>
-              <div><strong>{{ mesocycles[plan.id]?.length || 0 }}</strong><small>mesociclos</small></div>
-              <div><strong>{{ sessions[plan.id]?.length || 0 }}</strong><small>sesiones / rutinas</small></div>
-              <p class="muted">Elige qué parte quieres consultar o gestionar. Cada herramienta tiene ahora su propio espacio para evitar mezclar la planificación global con el trabajo semanal y las sesiones.</p>
-            </section>
-                        <ng-container *ngIf="activePlanWorkspace[plan.id] === 'macrocycle'"><section class="macro-generator" *ngIf="current.canManage">
-              <div class="macro-generator-heading"><div><span class="macro-kicker">PLANIFICACIÓN GLOBAL</span><h4>Diseña tu macrociclo</h4><p>La estructura y las fechas se guardan de forma independiente de los mesociclos, microciclos y sesiones.</p></div><span class="macro-generator-icon">✦</span></div>
-              <div class="macro-generator-controls"><label>Duración total (semanas)<input type="number" min="3" max="52" [name]="'macroWeeks' + plan.id" [ngModel]="macroProposalWeeks[plan.id] || 12" (ngModelChange)="macroProposalWeeks[plan.id] = $event" /></label><label class="macro-deload-option"><input type="checkbox" [name]="'macroDeload' + plan.id" [(ngModel)]="macroIncludeDeload" /> Incluir semanas de descarga</label><label *ngIf="macroIncludeDeload">Cada (semanas de entrenamiento, 4–8)<input type="number" min="4" max="8" [name]="'macroDeloadEvery' + plan.id" [(ngModel)]="macroDeloadEvery" /></label><button type="button" (click)="generateMacrocycleProposal(plan)" [disabled]="saving">✦ Generar propuesta de macrociclo</button><button *ngIf="macrocyclePlans[plan.id]?.phases?.length" type="button" class="secondary" (click)="editMacrocycle(plan)" [disabled]="saving">Editar macrociclo guardado</button></div>
-              <div *ngIf="macroProposals[plan.id] as proposal" class="macro-proposal-editor">
-                <div class="macro-proposal-top"><strong>Propuesta editable · {{ proposal.length }} fases</strong><span>Independiente de las rutinas</span></div>
-                <article class="macro-proposal-phase" *ngFor="let phase of proposal; let phaseIndex = index">
-                  <span class="macro-phase-number">{{ phase.sequence | number:'2.0' }}</span>
-                  <div class="macro-proposal-fields">
-                    <label>Nombre de la fase<input [name]="'macroPhaseName' + plan.id + phaseIndex" [ngModel]="viewName(phase, 'macroProposals.phaseEditor')" (ngModelChange)="updateName(phase, $event, 'macroProposals.phaseEditor')" maxlength="160" required /></label>
-                    <label>Objetivo<input [name]="'macroPhaseObjective' + plan.id + phaseIndex" [(ngModel)]="phase.objective" maxlength="500" /></label>
-                    <label>Tipo de fase<select [name]="'macroPhaseType' + plan.id + phaseIndex" [(ngModel)]="phase.phaseType"><option value="accumulation">Acumulación</option><option value="intensification">Intensificación</option><option value="deload">Descarga / recuperación</option><option value="realization">Realización / puesta a punto</option><option value="general">General / personalizada</option></select></label>
-                    <label>Inicio<input type="date" [name]="'macroPhaseStart' + plan.id + phaseIndex" [(ngModel)]="phase.startDate" required /></label>
-                    <label>Fin<input type="date" [name]="'macroPhaseEnd' + plan.id + phaseIndex" [(ngModel)]="phase.endDate" required /></label>
-                  </div>
-                  <button type="button" class="secondary macro-remove-phase" (click)="removeMacroPhase(plan.id, phaseIndex)" [disabled]="proposal.length <= 1 || saving" aria-label="Eliminar fase">×</button>
-                </article>
-                <div class="macro-proposal-actions"><button type="button" class="secondary" (click)="addMacroPhase(plan)" [disabled]="saving || proposal.length >= 24">＋ Añadir fase</button><button type="button" (click)="saveMacrocycleProposal(plan)" [disabled]="saving || !proposal.length">Guardar macrociclo</button><button type="button" class="secondary" (click)="macroProposals[plan.id] = []" [disabled]="saving">Descartar</button></div>
-                <p class="macro-footnote">Guardar aquí no crea rutinas ni modifica mesociclos existentes. Los bloques de trabajo se planifican en su sección y las sesiones se generan después.</p>
+              <div class="overview-stats">
+                <div><strong>Planificación asignada</strong><p>{{ macrocyclePhases(plan).length ? 'Macrociclo con ' + macrocyclePhases(plan).length + ' fases' : 'Sin macrociclo definido' }}</p></div>
+                <div><strong>{{ mesocycles[plan.id]?.length || 0 }}</strong><small>mesociclos</small></div>
+                <div><strong>{{ sessions[plan.id]?.length || 0 }}</strong><small>sesiones / rutinas</small></div>
               </div>
+              <div *ngIf="planNextStep(plan) as next" class="next-step-card" role="note">
+                <div><span class="macro-kicker">SIGUIENTE PASO</span><strong>{{ next.title }}</strong><p>{{ next.text }}</p></div>
+                <button *ngIf="current.canManage" type="button" (click)="setPlanWorkspace(plan.id, next.workspace)">{{ next.action }} →</button>
+              </div>
+              <section *ngIf="macroChartModel(plan) as overviewChart" class="macro-chart-card">
+                <div *ngIf="overviewChart.weeks.length; else overviewNoChart">
+                  <div class="macro-overview-heading"><div><span class="macro-kicker">CARGA Y FASES</span><h4>Vista general del macrociclo</h4><p>Pulsa una fase para abrir su detalle semanal.</p></div></div>
+                  <app-macrocycle-chart [phases]="overviewChart.phases" [weeks]="overviewChart.weeks" [mesocycles]="overviewChart.mesocycles" [selectedPhaseId]="selectedMacroPhaseId[plan.id] || null" (phaseSelect)="selectMacroPhase(plan.id, $event); setPlanWorkspace(plan.id, 'macrocycle')" />
+                </div>
+                <ng-template #overviewNoChart><p class="muted">Cuando definas el macrociclo verás aquí la gráfica de carga y fases.</p></ng-template>
+              </section>
+              <p class="muted flow-hint">El flujo recomendado es <strong>1 · Macrociclo</strong> (fases de la temporada) → <strong>2 · Mesociclos</strong> (bloques de semanas) → <strong>3 · Rutinas</strong> (sesiones del día a día). Cada paso tiene su propio espacio.</p>
             </section>
-            <section class="macro-overview" *ngIf="macrocyclePhases(plan).length">
-              <div class="macro-overview-heading"><div><span class="macro-kicker">VISTA GLOBAL</span><h4>{{ macrocyclePlans[plan.id]?.name || 'Tu macrociclo' }}</h4><p>Fases de periodización independientes de los bloques de sesiones.</p></div><span class="macro-total">{{ macrocyclePhases(plan).length }} fases</span></div>
-              <div class="macro-timeline" role="list" aria-label="Fases del macrociclo"><button type="button" class="macro-phase macro-phase-select" role="listitem" *ngFor="let phase of macrocyclePhases(plan)" [class.is-selected]="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-' + macroPhaseKind(phase)" (click)="selectMacroPhase(plan.id, phase.id)" [attr.aria-pressed]="isMacroPhaseSelected(plan.id, phase)">
-                <span class="macro-phase-number">{{ phase.sequenceNumber | number:'2.0' }}</span><div class="macro-phase-content"><strong>{{ viewName(phase, 'macroProposals.timeline') }}</strong><p>{{ phase.objective || 'Objetivo por definir' }}</p><small>{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ phase.endDate | date:'dd/MM/yyyy' }}</small><span class="macro-phase-duration">{{ macroPhaseDurationWeeks(phase) }} semanas</span></div>
-              </button></div>
-              <section class="macro-load-dashboard" style="margin-top:18px;padding:18px;border:1px solid var(--border-color,#dfe9e4);border-radius:16px;background:var(--surface-container,#f8fbf9)">
-                <div class="macro-overview-heading"><div><span class="macro-kicker">CARGA DEL MACROCICLO</span><h4>Distribución semanal y por mesociclo</h4><p>Datos calculados a partir de las sesiones y prescripciones guardadas. Los datos ausentes se muestran como N/D.</p></div></div>
-                <div *ngIf="macrocycleLoadWeeks(plan).length" style="display:flex;gap:10px;overflow-x:auto;padding:10px 0">
-                  <article *ngFor="let week of macrocycleLoadWeeks(plan)" style="flex:1 0 112px;min-width:112px;padding:12px;border:1px solid var(--border-color,#e2ebe6);border-radius:12px;background:var(--surface-color,#fff)">
-                    <strong style="font-size:.82rem">Semana {{ week.weekNumber }}</strong>
-                    <small style="display:block;color:var(--secondary-text-color,#687385)">{{ week.startDate | date:'dd/MM' }} – {{ week.endDate | date:'dd/MM' }}</small>
-                    <div style="margin-top:10px;font-size:.75rem">Volumen <strong style="float:right">{{ week.sets === null ? 'N/D' : week.sets + ' series' }}</strong></div>
-                    <div style="height:7px;background:var(--surface-container,#edf2ef);border-radius:8px;overflow:hidden"><span style="display:block;height:100%;background:#16845b" [style.width.%]="week.volumePct"></span></div>
-                    <div style="margin-top:8px;font-size:.75rem">Frecuencia <strong style="float:right">{{ week.sessions }}</strong></div>
-                    <div style="height:7px;background:var(--surface-container,#edf2ef);border-radius:8px;overflow:hidden"><span style="display:block;height:100%;background:#438fca" [style.width.%]="week.frequencyPct"></span></div>
-                    <div style="margin-top:8px;font-size:.75rem">Intensidad <strong style="float:right">{{ week.intensityLabel }}</strong></div>
-                    <div style="height:7px;background:var(--surface-container,#edf2ef);border-radius:8px;overflow:hidden"><span style="display:block;height:100%;background:#df9d43" [style.width.%]="week.intensityPct"></span></div>
-                  </article>
-                </div>
-                <p *ngIf="!macrocycleLoadWeeks(plan).length" class="muted">Todavía no hay semanas suficientes para calcular la carga.</p>
-                <section *ngIf="macrocycleVolumeChart(plan) as volumeChart" class="macro-volume-chart" style="margin-top:22px;padding:16px;border:1px solid var(--border-color,#dfe9e4);border-radius:14px;background:var(--surface-color,#fff)">
-                  <div class="macro-overview-heading"><div><span class="macro-kicker">VOLUMEN SEMANAL</span><h5 style="margin:4px 0">Series por semana y fase</h5><p>Una barra por semana, agrupada por fase. El volumen corresponde a las series de las rutinas generadas y guardadas.</p></div><strong>{{ volumeChart.hasVolume ? volumeChart.totalSets + ' series' : 'Sin datos' }}</strong></div>
-                  <div *ngIf="volumeChart.hasVolume" role="img" aria-label="Gráfica de barras verticales del volumen semanal, agrupado por fase" style="display:flex;align-items:stretch;gap:14px;overflow-x:auto;padding:16px 4px 4px">
-                    <section *ngFor="let phase of volumeChart.phases" style="flex:0 0 auto;min-width:0;padding:0 10px;border-left:1px solid var(--border-color,#dfe9e4)">
-                      <strong style="display:block;font-size:.82rem;margin-bottom:12px">{{ phase.name }}</strong>
-                      <div style="display:flex;align-items:stretch;gap:8px;height:190px">
-                        <div *ngFor="let week of phase.weeks" style="width:48px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">
-                          <strong style="font-size:.72rem;margin-bottom:5px">{{ week.sets === null ? 'N/D' : week.sets }}</strong>
-                          <div style="height:140px;width:26px;display:flex;align-items:flex-end;background:var(--surface-container,#edf2ef);border-radius:6px 6px 0 0;overflow:hidden">
-                            <span [style.height.%]="week.sets === null ? 0 : (week.sets / volumeChart.maxSets * 100)" style="display:block;width:100%;min-height:0;background:#16845b;border-radius:5px 5px 0 0" [title]="phase.name + ' · Semana ' + week.weekNumber + ': ' + (week.sets === null ? 'sin datos' : week.sets + ' series')"></span>
-                          </div>
-                          <small style="font-size:.68rem;margin-top:7px">S{{ week.weekNumber }}</small>
-                          <small style="font-size:.62rem;color:var(--secondary-text-color,#687385)">{{ week.startDate | date:'dd/MM' }}</small>
-                        </div>
+            <ng-container *ngIf="activePlanWorkspace[plan.id] === 'macrocycle'">
+              <ng-template #macroDesigner>
+                <section class="macro-generator" *ngIf="current.canManage">
+                  <div class="macro-generator-heading"><div><span class="macro-kicker">PASO 1 · PLANIFICACIÓN GLOBAL</span><h4>{{ macrocyclePhases(plan).length ? 'Rediseñar el macrociclo' : 'Diseña tu macrociclo' }}</h4><p>Indica la duración y obtén una propuesta de fases editable. Las fechas se guardan de forma independiente de los mesociclos, microciclos y sesiones.</p></div><span class="macro-generator-icon">✦</span></div>
+                  <div class="macro-generator-controls"><label>Duración total (semanas)<input type="number" min="3" max="52" [name]="'macroWeeks' + plan.id" [ngModel]="macroProposalWeeks[plan.id] || 12" (ngModelChange)="macroProposalWeeks[plan.id] = $event" /></label><label class="macro-deload-option"><input type="checkbox" [name]="'macroDeload' + plan.id" [(ngModel)]="macroIncludeDeload" /> Incluir semanas de descarga</label><label *ngIf="macroIncludeDeload">Cada (semanas de entrenamiento, 4–8)<input type="number" min="4" max="8" [name]="'macroDeloadEvery' + plan.id" [(ngModel)]="macroDeloadEvery" /></label><button type="button" (click)="generateMacrocycleProposal(plan)" [disabled]="saving">✦ Generar propuesta de macrociclo</button><button *ngIf="macrocyclePlans[plan.id]?.phases?.length" type="button" class="secondary" (click)="editMacrocycle(plan)" [disabled]="saving">Editar macrociclo guardado</button></div>
+                  <div *ngIf="macroProposals[plan.id] as proposal" class="macro-proposal-editor">
+                    <div class="macro-proposal-top"><strong>Propuesta editable · {{ proposal.length }} fases</strong><span>Independiente de las rutinas</span></div>
+                    <article class="macro-proposal-phase" *ngFor="let phase of proposal; let phaseIndex = index" [ngClass]="'phase-' + phase.phaseType">
+                      <span class="macro-phase-number">{{ phase.sequence | number:'2.0' }}</span>
+                      <div class="macro-proposal-fields">
+                        <label>Nombre de la fase<input [name]="'macroPhaseName' + plan.id + phaseIndex" [ngModel]="viewName(phase, 'macroProposals.phaseEditor')" (ngModelChange)="updateName(phase, $event, 'macroProposals.phaseEditor')" maxlength="160" required /></label>
+                        <label>Objetivo<input [name]="'macroPhaseObjective' + plan.id + phaseIndex" [(ngModel)]="phase.objective" maxlength="500" /></label>
+                        <label>Tipo de fase<select [name]="'macroPhaseType' + plan.id + phaseIndex" [(ngModel)]="phase.phaseType"><option value="accumulation">Acumulación</option><option value="intensification">Intensificación</option><option value="deload">Descarga / recuperación</option><option value="realization">Realización / puesta a punto</option><option value="general">General / personalizada</option></select></label>
+                        <label>Inicio<input type="date" [name]="'macroPhaseStart' + plan.id + phaseIndex" [(ngModel)]="phase.startDate" required /></label>
+                        <label>Fin<input type="date" [name]="'macroPhaseEnd' + plan.id + phaseIndex" [(ngModel)]="phase.endDate" required /></label>
                       </div>
-                    </section>
+                      <button type="button" class="secondary macro-remove-phase" (click)="removeMacroPhase(plan.id, phaseIndex)" [disabled]="proposal.length <= 1 || saving" aria-label="Eliminar fase">×</button>
+                    </article>
+                    <div class="macro-proposal-actions"><button type="button" class="secondary" (click)="addMacroPhase(plan)" [disabled]="saving || proposal.length >= 24">＋ Añadir fase</button><button type="button" (click)="saveMacrocycleProposal(plan)" [disabled]="saving || !proposal.length">Guardar macrociclo</button><button type="button" class="secondary" (click)="macroProposals[plan.id] = []" [disabled]="saving">Descartar</button></div>
+                    <p class="macro-footnote">Guardar aquí no crea rutinas ni modifica mesociclos existentes. Los bloques de trabajo se planifican en su sección y las sesiones se generan después.</p>
                   </div>
-                  <p *ngIf="!volumeChart.hasVolume" class="muted">La gráfica aparecerá cuando las rutinas generadas incluyan prescripciones de series.</p>
                 </section>
-                <h5 style="margin:18px 0 10px">Resumen por mesociclo</h5>
-                <div *ngIf="mesocycleLoadSummary(plan).length" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px">
-                  <article *ngFor="let meso of mesocycleLoadSummary(plan)" style="padding:13px;border:1px solid var(--border-color,#e2ebe6);border-radius:12px;background:var(--surface-color,#fff)">
-                    <strong>{{ meso.name }}</strong><small style="display:block;color:var(--secondary-text-color,#687385)">{{ meso.startDate | date:'dd/MM/yyyy' }} – {{ meso.endDate | date:'dd/MM/yyyy' }}</small>
-                    <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:.78rem"><span>Volumen</span><strong>{{ meso.sets === null ? 'N/D' : meso.sets + ' series' }}</strong></div>
-                    <div style="height:8px;background:var(--surface-container,#edf2ef);border-radius:8px;overflow:hidden"><span style="display:block;height:100%;background:#16845b" [style.width.%]="meso.volumePct"></span></div>
-                    <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:.78rem"><span>Sesiones</span><strong>{{ meso.sessions }}</strong></div>
-                    <div style="height:8px;background:var(--surface-container,#edf2ef);border-radius:8px;overflow:hidden"><span style="display:block;height:100%;background:#438fca" [style.width.%]="meso.frequencyPct"></span></div>
-                    <small style="display:block;margin-top:8px;color:var(--secondary-text-color,#687385)">{{ meso.completedSessions }} realizadas · {{ meso.plannedMinutes }} min planificados</small>
-                  </article>
-                </div>
-                <p *ngIf="!mesocycleLoadSummary(plan).length" class="muted">Los mesociclos aparecerán aquí cuando se hayan creado.</p>
-              </section>
-              <section *ngIf="current.canManage" style="margin-top:16px;padding:16px;border:1px solid var(--border-color,#dfe9e4);border-radius:14px">
-                <div class="macro-overview-heading"><div><span class="macro-kicker">PASO 2</span><h4>Generar mesociclos y rutinas</h4><p>Usa las fases guardadas como bloques. Puedes generar todo el macrociclo de una vez o trabajar fase por fase.</p></div></div>
-                <div class="form-grid">
-                  <label>Objetivo<select name="macroAutoGoal{{plan.id}}" [(ngModel)]="autoGoal" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
-                  <label>Nivel<select name="macroAutoExperience{{plan.id}}" [(ngModel)]="autoExperience" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
-                  <label>Distribución semanal<select name="macroAutoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>Se aplicará a las rutinas de las fases que todavía no tengan planificación.</small></label>
-                  <label>Duración máxima por sesión<input type="number" name="macroAutoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" (ngModelChange)="invalidateSplitReplacement(plan)" min="35" max="180" /></label>
-                  <label>Material disponible (opcional)<input name="macroAutoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" (ngModelChange)="invalidateSplitReplacement(plan)" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Lista separada por comas. Guiones y guiones bajos son equivalentes; «machine» incluye máquinas específicas. Para restringir, usa «leg-press-machine», «hack-squat-machine» o «smith-machine». Vacío = todo el material.</small></label>
-                  <fieldset class="auto-day-picker full"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'macroAutoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
-                </div>
-                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                  <button type="button" (click)="generateAllMacrocycleMesocycles(plan)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]">Generar todos los mesociclos y rutinas</button>
-                  <span *ngIf="bulkGenerationProgress[plan.id]" role="status">Generando {{ bulkGenerationProgress[plan.id].completed }}/{{ bulkGenerationProgress[plan.id].total }} · {{ bulkGenerationProgress[plan.id].phaseName }}</span>
-                </div>
-                <p *ngIf="generationErrors[plan.id]" class="error" role="alert">{{ generationErrors[plan.id] }}</p>
-                <p class="macro-footnote">Cada mesociclo se guarda con sus microciclos y sesiones en una operación transaccional. Si uno falla, se conserva lo ya generado y podrás reanudar sin duplicarlo.</p>
-              </section>
-              <ng-container *ngFor="let phase of macrocyclePhases(plan)">
-                <section class="macro-phase-detail" *ngIf="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-detail-' + macroPhaseKind(phase)">
-                  <div class="macro-detail-heading"><div><span class="macro-kicker">FASE {{ phase.sequenceNumber | number:'2.0' }} · DETALLE DE CARGA</span><h5>{{ viewName(phase, 'macroProposals.detail') }}</h5><p>{{ phase.objective || 'Objetivo pendiente de definir' }}</p></div><span class="macro-detail-dates">{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ phase.endDate | date:'dd/MM/yyyy' }}</span></div>
-                  <div class="macro-load-legend"><span><i class="load-dot volume-dot"></i>Volumen: series prescritas</span><span><i class="load-dot frequency-dot"></i>Frecuencia: sesiones</span><span><i class="load-dot intensity-dot"></i>Intensidad: RPE si está disponible</span></div>
-                  <div class="macro-phase-actions" *ngIf="current.canManage"><button type="button" (click)="generateMacrocyclePhaseMesocycle(plan, phase)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]">Generar este mesociclo y sus rutinas</button><button type="button" class="secondary" (click)="preparePhaseRoutineBlock(plan, phase)" [disabled]="saving">Preparar bloque vacío</button></div>
-                  <div class="macro-microcycle-grid">
-                    <article class="macro-microcycle" *ngFor="let week of macroPhaseWeeks(plan, phase)" [class.week-deload]="week.isDeload">
-                      <div class="macro-microcycle-top"><strong>Microciclo {{ week.weekNumber }}</strong><span>{{ week.sessions }} sesiones</span></div>
-                      <small>{{ week.startDate | date:'dd/MM' }} — {{ week.endDate | date:'dd/MM' }}</small>
-                      <div class="macro-load-row"><span>Volumen</span><strong>{{ week.sets === null ? 'N/D' : week.sets + ' series' }}</strong></div><div class="macro-load-track"><span class="macro-load-bar volume-bar" [style.width.%]="week.volumePct"></span></div>
-                      <div class="macro-load-row"><span>Frecuencia</span><strong>{{ week.sessions }} sesiones</strong></div><div class="macro-load-track"><span class="macro-load-bar frequency-bar" [style.width.%]="week.frequencyPct"></span></div>
-                      <div class="macro-load-row"><span>Intensidad</span><strong>{{ week.intensityLabel }}</strong></div><div class="macro-load-track"><span class="macro-load-bar intensity-bar" [style.width.%]="week.intensityPct"></span></div>
-                      <p class="macro-microcycle-note">{{ week.completedSessions }} realizadas · {{ week.plannedMinutes }} min planificados</p>
+              </ng-template>
+
+              <ng-container *ngIf="!macrocyclePhases(plan).length"><ng-container *ngTemplateOutlet="macroDesigner"></ng-container></ng-container>
+
+              <section class="macro-overview" *ngIf="macrocyclePhases(plan).length">
+                <div class="macro-overview-heading"><div><span class="macro-kicker">VISTA GLOBAL</span><h4>{{ macrocyclePlans[plan.id]?.name || 'Tu macrociclo' }}</h4><p>Fases de periodización independientes de los bloques de sesiones.</p></div><span class="macro-total">{{ macrocyclePhases(plan).length }} fases</span></div>
+                <section class="macro-load-dashboard">
+                  <div class="macro-overview-heading"><div><span class="macro-kicker">CARGA DEL MACROCICLO</span><h4>Distribución semanal y por mesociclo</h4><p>Datos calculados a partir de las sesiones y prescripciones guardadas. Los datos ausentes se muestran como N/D.</p></div></div>
+                  <section *ngIf="macroChartModel(plan) as chart" class="macro-volume-chart">
+                    <div class="macro-overview-heading"><div><h5>Series por semana y fase</h5><p>Cada barra es una semana, coloreada por fase; la línea muestra el RPE medio. Pasa el cursor sobre una semana para ver el detalle.</p></div></div>
+                    <app-macrocycle-chart [phases]="chart.phases" [weeks]="chart.weeks" [mesocycles]="chart.mesocycles" [selectedPhaseId]="selectedMacroPhaseId[plan.id] || null" (phaseSelect)="selectMacroPhase(plan.id, $event)" />
+                  </section>
+                  <h5 class="meso-summary-title">Resumen por mesociclo</h5>
+                  <div *ngIf="mesocycleLoadSummary(plan).length" class="meso-sum-grid">
+                    <article *ngFor="let meso of mesocycleLoadSummary(plan)" class="meso-sum-card">
+                      <strong>{{ meso.name }}</strong><small>{{ meso.startDate | date:'dd/MM/yyyy' }} – {{ meso.endDate | date:'dd/MM/yyyy' }}</small>
+                      <div class="macro-load-row"><span>Volumen</span><strong>{{ meso.sets === null ? 'N/D' : meso.sets + ' series' }}</strong></div><div class="macro-load-track"><span class="macro-load-bar volume-bar" [style.width.%]="meso.volumePct"></span></div>
+                      <div class="macro-load-row"><span>Sesiones</span><strong>{{ meso.sessions }}</strong></div><div class="macro-load-track"><span class="macro-load-bar frequency-bar" [style.width.%]="meso.frequencyPct"></span></div>
+                      <small class="meso-sum-foot">{{ meso.completedSessions }} realizadas · {{ meso.plannedMinutes }} min planificados</small>
                     </article>
                   </div>
-                  <p class="macro-footnote">La carga se calcula con las sesiones programadas dentro de las fechas de cada microciclo. «N/D» indica que la prescripción no contiene datos suficientes; no se inventan valores. Las barras se normalizan dentro de la fase.</p>
+                  <p *ngIf="!mesocycleLoadSummary(plan).length" class="muted">Los mesociclos aparecerán aquí cuando se hayan creado.</p>
                 </section>
-              </ng-container>
-            </section>
+
+                <div class="macro-timeline" role="list" aria-label="Fases del macrociclo"><button type="button" class="macro-phase macro-phase-select" role="listitem" *ngFor="let phase of macrocyclePhases(plan)" [class.is-selected]="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-' + macroPhaseKind(phase)" (click)="selectMacroPhase(plan.id, phase.id)" [attr.aria-pressed]="isMacroPhaseSelected(plan.id, phase)">
+                  <span class="macro-phase-number">{{ phase.sequenceNumber | number:'2.0' }}</span><div class="macro-phase-content"><strong>{{ viewName(phase, 'macroProposals.timeline') }}</strong><p>{{ phase.objective || 'Objetivo por definir' }}</p><small>{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ phase.endDate | date:'dd/MM/yyyy' }}</small><span class="macro-phase-duration">{{ macroPhaseDurationWeeks(phase) }} semanas</span></div>
+                </button></div>
+
+                <ng-container *ngFor="let phase of macrocyclePhases(plan)">
+                  <section class="macro-phase-detail" *ngIf="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-detail-' + macroPhaseKind(phase)">
+                    <div class="macro-detail-heading"><div><span class="macro-kicker">FASE {{ phase.sequenceNumber | number:'2.0' }} · DETALLE DE CARGA</span><h5>{{ viewName(phase, 'macroProposals.detail') }}</h5><p>{{ phase.objective || 'Objetivo pendiente de definir' }}</p></div><span class="macro-detail-dates">{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ phase.endDate | date:'dd/MM/yyyy' }}</span></div>
+                    <div class="macro-load-legend"><span><i class="load-dot volume-dot"></i>Volumen: series prescritas</span><span><i class="load-dot frequency-dot"></i>Frecuencia: sesiones</span><span><i class="load-dot intensity-dot"></i>Intensidad: RPE si está disponible</span></div>
+                    <div class="macro-microcycle-grid">
+                      <article class="macro-microcycle" *ngFor="let week of macroPhaseWeeks(plan, phase)" [class.week-deload]="week.isDeload">
+                        <div class="macro-microcycle-top"><strong>Microciclo {{ week.weekNumber }}</strong><span>{{ week.sessions }} sesiones</span></div>
+                        <small>{{ week.startDate | date:'dd/MM' }} — {{ week.endDate | date:'dd/MM' }}</small>
+                        <div class="macro-load-row"><span>Volumen</span><strong>{{ week.sets === null ? 'N/D' : week.sets + ' series' }}</strong></div><div class="macro-load-track"><span class="macro-load-bar volume-bar" [style.width.%]="week.volumePct"></span></div>
+                        <div class="macro-load-row"><span>Frecuencia</span><strong>{{ week.sessions }} sesiones</strong></div><div class="macro-load-track"><span class="macro-load-bar frequency-bar" [style.width.%]="week.frequencyPct"></span></div>
+                        <div class="macro-load-row"><span>Intensidad</span><strong>{{ week.intensityLabel }}</strong></div><div class="macro-load-track"><span class="macro-load-bar intensity-bar" [style.width.%]="week.intensityPct"></span></div>
+                        <p class="macro-microcycle-note">{{ week.completedSessions }} realizadas · {{ week.plannedMinutes }} min planificados</p>
+                      </article>
+                    </div>
+                    <div class="macro-phase-actions" *ngIf="current.canManage"><button type="button" (click)="generateMacrocyclePhaseMesocycle(plan, phase)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]">Generar este mesociclo y sus rutinas</button><button type="button" class="secondary" (click)="preparePhaseRoutineBlock(plan, phase)" [disabled]="saving">Preparar bloque vacío</button></div>
+                    <p class="macro-footnote">La carga se calcula con las sesiones programadas dentro de las fechas de cada microciclo. «N/D» indica que la prescripción no contiene datos suficientes; no se inventan valores. Las barras se normalizan dentro de la fase.</p>
+                  </section>
+                </ng-container>
+
+                <section *ngIf="current.canManage" class="macro-step">
+                  <div class="macro-overview-heading"><div><span class="macro-kicker">PASO 2 · BLOQUES Y SESIONES</span><h4>Generar mesociclos y rutinas</h4><p>Usa las fases guardadas como bloques. Puedes generar todo el macrociclo de una vez o trabajar fase por fase desde su detalle.</p></div></div>
+                  <div class="form-grid">
+                    <label>Objetivo<select name="macroAutoGoal{{plan.id}}" [(ngModel)]="autoGoal" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
+                    <label>Nivel<select name="macroAutoExperience{{plan.id}}" [(ngModel)]="autoExperience" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+                    <label>Distribución semanal<select name="macroAutoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>Se aplicará a las rutinas de las fases que todavía no tengan planificación.</small></label>
+                    <label>Duración máxima por sesión<input type="number" name="macroAutoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" (ngModelChange)="invalidateSplitReplacement(plan)" min="35" max="180" /></label>
+                    <label>Material disponible (opcional)<input name="macroAutoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" (ngModelChange)="invalidateSplitReplacement(plan)" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Lista separada por comas. Guiones y guiones bajos son equivalentes; «machine» incluye máquinas específicas. Para restringir, usa «leg-press-machine», «hack-squat-machine» o «smith-machine». Vacío = todo el material.</small></label>
+                    <fieldset class="auto-day-picker full"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'macroAutoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
+                  </div>
+                  <div class="macro-step-actions">
+                    <button type="button" (click)="generateAllMacrocycleMesocycles(plan)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]">Generar todos los mesociclos y rutinas</button>
+                    <span *ngIf="bulkGenerationProgress[plan.id]" role="status">Generando {{ bulkGenerationProgress[plan.id].completed }}/{{ bulkGenerationProgress[plan.id].total }} · {{ bulkGenerationProgress[plan.id].phaseName }}</span>
+                  </div>
+                  <div *ngIf="bulkGenerationProgress[plan.id] as progress" class="macro-progress" role="progressbar" aria-label="Progreso de generación" [attr.aria-valuenow]="progress.completed" aria-valuemin="0" [attr.aria-valuemax]="progress.total"><span [style.width.%]="progress.total ? progress.completed / progress.total * 100 : 0"></span></div>
+                  <p *ngIf="generationErrors[plan.id]" class="error" role="alert">{{ generationErrors[plan.id] }}</p>
+                  <p class="macro-footnote">Cada mesociclo se guarda con sus microciclos y sesiones en una operación transaccional. Si uno falla, se conserva lo ya generado y podrás reanudar sin duplicarlo.</p>
+                </section>
+
+                <div *ngIf="current.canManage" class="macro-designer-fold">
+                  <button type="button" class="secondary" (click)="macroDesignerOpen[plan.id] = !macroDesignerOpen[plan.id]" [attr.aria-expanded]="!!macroDesignerOpen[plan.id] || !!macroProposals[plan.id]?.length">{{ (macroDesignerOpen[plan.id] || macroProposals[plan.id]?.length) ? '▾ Ocultar el diseñador de fases' : '▸ Rediseñar las fases del macrociclo' }}</button>
+                  <ng-container *ngIf="macroDesignerOpen[plan.id] || macroProposals[plan.id]?.length"><ng-container *ngTemplateOutlet="macroDesigner"></ng-container></ng-container>
+                </div>
+              </section>
             </ng-container>
             <ng-container *ngIf="activePlanWorkspace[plan.id] === 'mesocycles'"><section *ngIf="current.canManage" class="auto-generator-panel">
-              <div class="auto-generator-heading"><span class="auto-generator-icon">✦</span><div><h4>Atajo: crear mesociclo y rutinas</h4><p>Este flujo genera el bloque, sus semanas y las sesiones de entrenamiento en una sola operación, con una vista previa antes de guardar.</p><small>¿Quieres planificar primero sin crear rutinas? Usa los formularios de mesociclos y microciclos de abajo; después podrás trabajar las sesiones por separado.</small></div></div>
+              <div class="auto-generator-heading"><span class="auto-generator-icon">✦</span><div><span class="macro-kicker">PASO 2 · BLOQUES</span><h4>Crear un mesociclo con el asistente</h4><p>Genera el bloque, sus semanas y las sesiones en una sola operación, con vista previa antes de guardar.</p><small>¿Prefieres definir solo la estructura, sin rutinas? Usa «Añadir mesociclo manualmente» más abajo.</small></div></div>
               <div class="form-grid">
+                <h5 class="full form-subtitle"><i>1</i>¿Dónde se crea el bloque?</h5>
                 <label>Destino de las rutinas<select name="autoRoutineTarget{{plan.id}}" [ngModel]="autoTargetMesocycleIds[plan.id] ?? null" (ngModelChange)="selectRoutineTarget(plan, $event)"><option [ngValue]="null">Crear un mesociclo nuevo</option><option *ngFor="let target of mesocycles[plan.id]" [ngValue]="target.id" [disabled]="(microcycles[target.id]?.length || 0) > 0">{{ target.sequenceNumber }}. {{ viewName(target, 'mesocycles.routineTarget') }} · {{ target.startDate | date:'dd/MM/yyyy' }} — {{ (target.endDate || target.startDate) | date:'dd/MM/yyyy' }}</option></select><small>Elige un bloque vacío para generar sus microciclos y sesiones sin crear otro mesociclo.</small></label>
                 <label>Nombre del bloque (opcional)<input name="autoMesoName{{plan.id}}" [(ngModel)]="autoMesoNames[plan.id]" maxlength="160" placeholder="Ej. Hipertrofia · bloque 1" [disabled]="autoTargetMesocycleIds[plan.id] != null" /><small *ngIf="autoTargetMesocycleIds[plan.id] == null">Si lo dejas vacío, se asignará un nombre automáticamente.</small><small *ngIf="autoTargetMesocycleIds[plan.id] != null">Se conservará el nombre del mesociclo seleccionado.</small></label>
+                <h5 class="full form-subtitle"><i>2</i>Objetivo y duración</h5>
                 <label>Objetivo<select name="autoGoal{{plan.id}}" [(ngModel)]="autoGoal" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
                 <label>Nivel<select name="autoExperience{{plan.id}}" [(ngModel)]="autoExperience" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
                 <label>Inicio del mesociclo<input type="date" name="autoStartDate{{plan.id}}" [ngModel]="autoStartDates[plan.id] || nextMesocycleStart(plan)" (ngModelChange)="autoStartDates[plan.id] = $event" required /></label>
                 <label>Duración (semanas)<input type="number" name="autoWeeks{{plan.id}}" [(ngModel)]="autoDurationWeeks" min="1" max="52" required /></label>
                 <label class="auto-deload-option"><span><input type="checkbox" name="autoIsDeload{{plan.id}}" [(ngModel)]="autoIsDeload" /> Generar este bloque como descarga activa</span><small>Úsalo para un bloque/fase de descarga, preferentemente de una semana. Reduce las series aproximadamente un 40–50 % y deja más RIR.</small></label>
+                <h5 class="full form-subtitle"><i>3</i>Distribución y días de entrenamiento</h5>
                 <label>Distribución semanal<select name="autoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>La distribución se elige independientemente del calendario, con combinaciones equilibradas: cuerpo completo 2–4 días, torso/pierna 2 o 4 y PPL 3, 5 o 6.</small></label>
                 <label>Rotación de ejercicios (opcional)<input type="number" name="autoRotation{{plan.id}}" [(ngModel)]="autoRotationIndex" min="0" max="20" step="1" placeholder="Automática" /><small>Vacío = el sistema rota entre los mejores ejercicios de cada patrón al crear un mesociclo nuevo. 0 = los mejor valorados; 1, 2… = alternativas igual de adecuadas.</small></label>
                 <fieldset class="auto-day-picker full"><legend>¿Qué días entrenará?</legend><p>Elige entre 2 y 6 días. La combinación debe ser compatible con la distribución elegida.</p><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'autoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
                 <details class="auto-advanced-settings full"><summary>Opciones avanzadas de la sesión</summary><div class="auto-advanced-grid"><label>Duración máxima por sesión<input type="number" name="autoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" (ngModelChange)="invalidateSplitReplacement(plan)" min="35" max="180" required /><small>Entre 35 y 180 minutos.</small></label><label>Material disponible (opcional)<input name="autoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" (ngModelChange)="invalidateSplitReplacement(plan)" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Guiones y guiones bajos son equivalentes. «machine» incluye máquinas específicas; puedes usar «leg-press-machine» o «smith-machine» para restringir. Vacío = todo el material.</small></label></div></details>
-                <section class="muscle-preference-editor full">
-                  <h5>Prioridades musculares (opcional)</h5>
+                <details class="muscle-preference-editor full">
+                  <summary>Prioridades musculares (opcional)</summary>
                   <p>Personaliza la dosis semanal de series efectivas estimadas. Se cuentan las contribuciones musculares relevantes de cada ejercicio, no solo la etiqueta primaria del catálogo. El objetivo explícito prevalece sobre la prioridad.</p>
                   <div class="muscle-preference-list">
                     <div *ngFor="let muscle of autoMusclePreferences" class="muscle-preference-row">
@@ -471,7 +473,7 @@ interface RepDbExercise {
                     </div>
                   </div>
                   <small>La prioridad añade dos series al objetivo central por nivel (máximo predeterminado 20). Para hipertrofia (grupos principales): principiante 8–12, intermedio 10–16 y avanzado 12–20. Los isquiotibiales tienen una dosis predeterminada secundaria (mitad del objetivo base, mínimo dos series), que puedes elevar con prioridad u objetivo explícito. Los objetivos priorizados o explícitos usan ±2 y los explícitos admiten 1–30 series. Si el tiempo o el catálogo no permiten alcanzar el rango, el motor informa del déficit.</small>
-                </section>
+                </details>
                 <div class="full auto-generate-action"><button type="button" aria-label="Generar mesociclo automático" (click)="previewGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan">{{ generatingPlan ? 'Preparando propuesta…' : '✦ Generar propuesta de entrenamiento' }}</button><small>Se crearán {{ autoDurationWeeks }} semanas. Podrás revisar las sesiones y la cobertura muscular antes de guardar.</small></div>
               </div>
               <p *ngIf="generationErrors[plan.id]" class="error" role="alert">{{ generationErrors[plan.id] }}</p>
@@ -533,8 +535,8 @@ interface RepDbExercise {
               <button type="submit" class="secondary" [disabled]="saving">Guardar como plantilla</button>
             </form>
             <section class="cycle-section">
-              <h4>Mesociclos</h4>
-              <form *ngIf="current.canManage && mesocycleDrafts[plan.id]" class="cycle-form" (ngSubmit)="createMesocycle(plan)">
+              <div class="cycle-toolbar"><div><span class="macro-kicker">ESTRUCTURA DEL PLAN</span><h4>Mesociclos</h4></div><button *ngIf="current.canManage" type="button" class="secondary" (click)="manualMesoOpen[plan.id] = !manualMesoOpen[plan.id]" [attr.aria-expanded]="!!manualMesoOpen[plan.id]">{{ manualMesoOpen[plan.id] ? 'Cerrar formulario' : '＋ Añadir mesociclo manualmente' }}</button></div>
+              <form *ngIf="current.canManage && mesocycleDrafts[plan.id] && (manualMesoOpen[plan.id] || !mesocycles[plan.id]?.length)" class="cycle-form" (ngSubmit)="createMesocycle(plan)">
                 <label>Nombre<input name="mesoName{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].name" required maxlength="160" /></label>
                 <label>N.º<input type="number" name="mesoSeq{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].sequence" required min="1" /></label>
                 <label>Inicio<input type="text" appDateInput name="mesoStart{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].startDate" required /></label>
@@ -542,7 +544,7 @@ interface RepDbExercise {
                 <label class="cycle-wide">Objetivo<input name="mesoObj{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].objective" maxlength="500" /></label>
                 <button type="submit" [disabled]="saving">Añadir mesociclo</button>
               </form>
-              <p *ngIf="!mesocycles[plan.id]?.length" class="muted">Organiza el plan en bloques de varias semanas.</p>
+              <p *ngIf="!mesocycles[plan.id]?.length" class="muted">Organiza el plan en bloques de varias semanas: usa el asistente de arriba o añade uno manualmente.</p>
               <article *ngFor="let meso of mesocycles[plan.id]" class="mesocycle-card">
                 <ng-container *ngIf="editingMesocycleId !== meso.id; else editMesocycleForm">
                   <div class="section-heading"><strong>{{ meso.sequenceNumber }}. {{ viewName(meso, 'mesocycles.card') }}</strong><div class="cycle-actions" *ngIf="current.canManage">
@@ -551,7 +553,7 @@ interface RepDbExercise {
                     <button type="button" class="secondary" (click)="beginEditMesocycle(meso)" [disabled]="saving">Editar</button>
                     <button type="button" class="secondary" (click)="deleteMesocycle(meso)" [disabled]="saving">Eliminar</button>
                   </div></div>
-                  <p>{{ meso.startDate | date:'mediumDate' }} <span *ngIf="meso.endDate">— {{ meso.endDate | date:'mediumDate' }}</span></p>
+                  <p class="meso-meta"><span class="meso-chip">{{ macroPhaseDurationWeeks(meso) }} sem.</span><span class="meso-chip">{{ microcycles[meso.id]?.length || 0 }} microciclos</span>{{ meso.startDate | date:'mediumDate' }} <span *ngIf="meso.endDate">— {{ meso.endDate | date:'mediumDate' }}</span></p>
                   <p *ngIf="meso.objective">{{ meso.objective }}</p>
                 </ng-container>
                 <ng-template #editMesocycleForm>
@@ -986,6 +988,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   autoExperience = 0;
   autoDurationWeeks = 4;
   autoSplit = 0;
+  macroDesignerOpen: Record<number, boolean> = {};
+  manualMesoOpen: Record<number, boolean> = {};
   macroIncludeDeload = false;
   macroDeloadEvery = 4;
   // Optional manual override. Empty = the server rotates automatically with the mesocycle number.
@@ -2066,7 +2070,22 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return Math.max(1, Math.ceil((end - start + 86400000) / (7 * 86400000)));
   }
 
+  private memoStore: Record<string, { deps: unknown[]; value: unknown }> = {};
+  /** Cachea cálculos derivados mientras no cambien las colecciones (que siempre se reemplazan, nunca se mutan). */
+  private memo<T>(key: string, deps: unknown[], compute: () => T): T {
+    const hit = this.memoStore[key];
+    if (hit && hit.deps.length === deps.length && hit.deps.every((dep, index) => dep === deps[index])) return hit.value as T;
+    const value = compute();
+    this.memoStore[key] = { deps, value };
+    return value;
+  }
+
   macroPhaseWeeks(plan: TrainingPlan, phase: TrainingMesocycle | MacrocyclePhase): MacroPhaseLoadWeek[] {
+    return this.memo(`weeks:${plan.id}:${phase.id}:${phase.startDate}:${phase.endDate}:${this.macroPhaseKind(phase)}`,
+      [this.sessions[plan.id]], () => this.computeMacroPhaseWeeks(plan, phase));
+  }
+
+  private computeMacroPhaseWeeks(plan: TrainingPlan, phase: TrainingMesocycle | MacrocyclePhase): MacroPhaseLoadWeek[] {
     const weeks = this.macroPhaseDurationWeeks(phase);
     const phaseStart = phase.startDate.slice(0, 10);
     const phaseEnd = (phase.endDate || phase.startDate).slice(0, 10);
@@ -3629,6 +3648,45 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Datos de la gráfica de carga: semanas reales de cada fase, en orden, más los mesociclos como carril aparte. */
+  macroChartModel(plan: TrainingPlan): { phases: MacroChartPhase[]; weeks: MacroChartWeek[]; mesocycles: MacroChartMesocycle[] } {
+    return this.memo(`chart:${plan.id}`, [this.macrocyclePlans[plan.id], this.mesocycles[plan.id], this.sessions[plan.id]], () => {
+      const phases = this.macrocyclePhases(plan);
+      const weeks: MacroChartWeek[] = [];
+      for (const phase of phases) {
+        for (const week of this.macroPhaseWeeks(plan, phase)) {
+          weeks.push({
+            phaseId: phase.id, weekInPhase: week.weekNumber, startDate: week.startDate, endDate: week.endDate,
+            sessions: week.sessions, completedSessions: week.completedSessions, plannedMinutes: week.plannedMinutes,
+            sets: week.sets, rpe: week.intensityLabel === 'N/D' ? null : week.intensityPct / 10, isDeload: week.isDeload
+          });
+        }
+      }
+      const hasStoredMacrocycle = !!this.macrocyclePlans[plan.id]?.phases?.length;
+      return {
+        phases: phases.map(phase => ({
+          id: phase.id, name: phase.name, sequenceNumber: phase.sequenceNumber, kind: this.macroPhaseKind(phase),
+          startDate: phase.startDate, endDate: phase.endDate
+        })),
+        weeks,
+        mesocycles: hasStoredMacrocycle
+          ? (this.mesocycles[plan.id] || []).map(meso => ({ id: meso.id, name: meso.name, startDate: meso.startDate, endDate: meso.endDate || meso.startDate }))
+          : []
+      };
+    });
+  }
+
+  /** Siguiente paso recomendado del flujo macrociclo → mesociclos → rutinas. */
+  planNextStep(plan: TrainingPlan): { workspace: 'macrocycle' | 'mesocycles' | 'routines'; title: string; text: string; action: string } | null {
+    const hasMacro = !!this.macrocyclePlans[plan.id]?.phases?.length;
+    const mesoCount = this.mesocycles[plan.id]?.length || 0;
+    const sessionCount = this.sessions[plan.id]?.length || 0;
+    if (!hasMacro && !mesoCount && !sessionCount) return { workspace: 'macrocycle', title: 'Empieza por el macrociclo', text: 'Define las fases de la temporada; después podrás generar los bloques y las rutinas automáticamente.', action: 'Diseñar macrociclo' };
+    if (hasMacro && !mesoCount) return { workspace: 'macrocycle', title: 'Genera los mesociclos y rutinas', text: 'El macrociclo ya tiene fases. Conviértelas en bloques con sus semanas y sesiones.', action: 'Generar bloques' };
+    if (mesoCount && !sessionCount) return { workspace: 'routines', title: 'Añade sesiones a tus bloques', text: 'Hay mesociclos sin rutinas. Crea sesiones o genera una propuesta.', action: 'Ir a rutinas' };
+    return null;
+  }
+
   macrocycleLoadWeeks(plan: TrainingPlan): MacroPhaseLoadWeek[] {
     const phases = this.macrocyclePhases(plan);
     if (!phases.length) return [];
@@ -3661,6 +3719,14 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   }
 
   mesocycleLoadSummary(plan: TrainingPlan): Array<{
+    id: number; name: string; startDate: string; endDate: string; sessions: number;
+    completedSessions: number; plannedMinutes: number; sets: number | null;
+    volumePct: number; frequencyPct: number;
+  }> {
+    return this.memo(`mesoSummary:${plan.id}`, [this.mesocycles[plan.id], this.sessions[plan.id]], () => this.computeMesocycleLoadSummary(plan));
+  }
+
+  private computeMesocycleLoadSummary(plan: TrainingPlan): Array<{
     id: number; name: string; startDate: string; endDate: string; sessions: number;
     completedSessions: number; plannedMinutes: number; sets: number | null;
     volumePct: number; frequencyPct: number;

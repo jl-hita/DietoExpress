@@ -32,3 +32,49 @@
  .training-page .split-reorganization-panel .session-editor-grid{grid-template-columns:1fr}
  .training-page .split-reorganization-panel .auto-day-options{gap:4px}
 }
+
+/* ── Flujo macrociclo → mesociclos → rutinas ───────────────────────────── */
+.training-page .training-workspace-nav button .step-num{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--border-color,#d8dee8);color:var(--text-color,#334155);font-size:.72rem;font-style:normal;font-weight:800}
+.training-page .training-workspace-nav button.is-active .step-num{background:var(--primary-color,#0d766e);color:#fff}
+.training-page .training-assignment-overview{display:block;padding:18px}
+.training-page .training-assignment-overview>div.overview-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:0;background:transparent;border-radius:0}
+.training-page .training-assignment-overview .overview-stats>div{display:grid;gap:4px;padding:12px;border-radius:12px;background:var(--surface-container,#f7f8fa)}
+.training-page .training-assignment-overview .overview-stats strong{font-size:1.25rem}
+.training-page .training-assignment-overview .overview-stats small,.training-page .training-assignment-overview .overview-stats p{margin:0;color:var(--secondary-text-color,#687385)}
+.training-page .training-assignment-overview>div.next-step-card{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:14px;padding:14px 16px;border:1px solid #b7dfcb;border-left:4px solid #16845b;border-radius:12px;background:#f1faf5}
+.training-page .next-step-card strong{display:block;font-size:1rem}
+.training-page .next-step-card p{margin:3px 0 0;font-size:.85rem;color:var(--secondary-text-color,#596579)}
+.training-page .macro-chart-card{margin-top:16px;padding:16px;border:1px solid var(--border-color,#dfe9e4);border-radius:16px;background:var(--surface-color,#fff)}
+.training-page .macro-chart-card .macro-overview-heading,.training-page .macro-volume-chart .macro-overview-heading{margin-bottom:12px}
+.training-page .macro-chart-card h4,.training-page .macro-volume-chart h5{margin:2px 0 3px}
+.training-page .macro-chart-card p,.training-page .macro-volume-chart p{margin:0}
+.training-page .flow-hint{margin:14px 0 0;font-size:.85rem}
+.training-page .macro-load-dashboard{margin-top:6px;padding:18px;border:1px solid var(--border-color,#dfe9e4);border-radius:16px;background:var(--surface-container,#f8fbf9)}
+.training-page .macro-volume-chart{margin-top:14px;padding:16px;border:1px solid var(--border-color,#dfe9e4);border-radius:14px;background:var(--surface-color,#fff)}
+.training-page .meso-summary-title{margin:20px 0 10px}
+.training-page .meso-sum-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.training-page .meso-sum-card{display:grid;gap:2px;padding:13px;border:1px solid var(--border-color,#e2ebe6);border-radius:12px;background:var(--surface-color,#fff)}
+.training-page .meso-sum-card small{color:var(--secondary-text-color,#687385)}
+.training-page .meso-sum-foot{margin-top:8px}
+.training-page .macro-overview .macro-timeline{margin-top:18px}
+.training-page .macro-step{margin-top:18px;padding:18px;border:1px solid var(--border-color,#dfe9e4);border-left:4px solid #16845b;border-radius:14px;background:var(--surface-color,#fff)}
+.training-page .macro-step-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.training-page .macro-progress{height:8px;margin-top:12px;border-radius:999px;background:var(--border-color,#e2e8f0);overflow:hidden}
+.training-page .macro-progress span{display:block;height:100%;border-radius:inherit;background:#16845b;transition:width .3s ease}
+.training-page .macro-phase-detail .macro-phase-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.training-page .macro-designer-fold{margin-top:18px;padding-top:14px;border-top:1px dashed var(--border-color,#cbd5e1)}
+.training-page .form-subtitle{display:flex;align-items:center;gap:8px;grid-column:1/-1;margin:8px 0 0;padding-bottom:6px;border-bottom:1px solid var(--border-color,#e2e8f0);font-size:.95rem}
+.training-page .form-subtitle i{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--primary-color,#0d766e);color:#fff;font-size:.75rem;font-style:normal;font-weight:800}
+.training-page .auto-generator-panel .form-subtitle:first-child{margin-top:0}
+.training-page details.muscle-preference-editor{padding:12px 14px;border:1px solid var(--border-color,#dfe3ea);border-radius:12px;background:var(--surface-color,#fff)}
+.training-page details.muscle-preference-editor>summary{cursor:pointer;font-weight:700}
+.training-page details.muscle-preference-editor[open]>summary{margin-bottom:10px}
+.training-page .cycle-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.training-page .cycle-toolbar h4{margin:0}
+.training-page .meso-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0;color:var(--secondary-text-color,#596579);font-size:.88rem}
+.training-page .meso-chip{padding:2px 9px;border-radius:999px;background:#e2f3e9;color:#176b52;font-size:.74rem;font-weight:750}
+.training-page .macro-proposal-phase{border-left:4px solid var(--phase-color,#64748b)}
+@media(max-width:700px){
+  .training-page .training-assignment-overview>div.overview-stats{grid-template-columns:1fr}
+  .training-page .macro-load-dashboard,.training-page .macro-volume-chart,.training-page .macro-chart-card,.training-page .macro-step{padding:12px}
+}
