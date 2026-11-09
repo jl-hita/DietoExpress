@@ -390,6 +390,15 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.True(
             Priority("machine-leg-extension", "Extensión de cuádriceps en máquina", "Accessory") >
             Priority("bodyweight-lateral-raise", "Elevación lateral sin carga", "Accessory"));
+        Assert.True(
+            Priority("squat", "Sentadilla trasera con barra", "Squat") >
+            Priority("goblet-squat", "Sentadilla goblet", "Squat"));
+        Assert.True(
+            Priority("leg-press", "Prensa de piernas", "Squat") >
+            Priority("goblet-squat", "Sentadilla goblet", "Squat"));
+        Assert.True(
+            Priority("goblet-squat", "Sentadilla goblet", "Squat") >
+            Priority("bodyweight-squat", "Sentadilla sin carga", "Squat"));
     }
 
     [Fact]
