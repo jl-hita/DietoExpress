@@ -136,6 +136,11 @@ public static class TrainingProgramGenerator
                     request, catalog, equipment, excluded, sessions,
                     prescriptions, week, days[dayIndex], sessionTemplate.Title, days.Length);
 
+                // Reorder only after selection is complete. The first template lift remains fixed;
+                // the orderer is deterministic and never changes exercise selection, sets or volume.
+                prescriptions = TrainingSessionExerciseOrderer.Reorder(
+                    prescriptions, catalog, request.MuscleVolumeTargets).ToList();
+
                 // Final duration is calculated after weekly sets have been allocated.
                 sessions.Add(new TrainingSessionPrescription(
                     week,
