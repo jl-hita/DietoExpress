@@ -84,7 +84,8 @@ public sealed class ExerciseImageSeedTests
     public void CuratedSvgSeedIsAcceptedButUnsafeSvgIsRejected()
     {
         var safe = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\"/></svg>"u8.ToArray();
-        var row = new ExerciseImageService.SeedRow("db-fly", 0, "custom", "",
+        var safeHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(safe));
+        var row = new ExerciseImageService.SeedRow("db-fly", 0, "custom", safeHash,
             Convert.ToBase64String(safe));
         Assert.True(ExerciseImageService.TryParseSeedLine(System.Text.Json.JsonSerializer.Serialize(row), out _, out var parsed));
         Assert.Equal(safe, parsed);
