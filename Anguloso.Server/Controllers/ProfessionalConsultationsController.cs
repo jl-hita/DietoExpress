@@ -19,6 +19,19 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         "anamnesis", "summary", "evolution", "checkin", "goals", "training", "diet", "education", "tasks", "next_appointment", "close"
     };
 
+    private static readonly string[] FirstConsultationSteps =
+        ["anamnesis", "evolution", "checkin", "goals", "training", "diet", "education", "tasks", "next_appointment", "close"];
+
+    private static readonly string[] FollowUpSteps =
+        ["summary", "evolution", "checkin", "goals", "training", "diet", "education", "tasks", "next_appointment", "close"];
+
+    /// <summary>Pasos aplicables al tipo de consulta que no se han recorrido (p. ej. en consulta rápida).</summary>
+    public static string[] ComputeSkippedSteps(string consultationType, IEnumerable<string> completedSteps)
+    {
+        var done = new HashSet<string>(completedSteps, StringComparer.OrdinalIgnoreCase);
+        return (consultationType == "first" ? FirstConsultationSteps : FollowUpSteps).Where(step => !done.Contains(step)).ToArray();
+    }
+
     private static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "first", "follow_up", "quick"
@@ -89,6 +102,9 @@ public sealed class ProfessionalConsultationsController : ControllerBase
 
         // El resumen y el tipo "seguimiento" dependen de que exista una consulta guiada CERRADA
         // anterior, no de una cita marcada como completada desde la agenda sin pasar por la consulta.
+        // Criterio deliberado: "primera consulta" significa que el paciente aún no tiene NINGUNA consulta cerrada
+        // (HasCompletedConsultationAsync no filtra por fecha). El resumen histórico, en cambio, solo usa la consulta
+        // cerrada ANTERIOR en el tiempo; si se atendió fuera de orden, la consulta es de seguimiento pero sin resumen previo.
         var previousAppointment = await ReadPreviousCompletedConsultationAsync(
             appointment.TenantId, appointment.ClientId, appointmentId, appointment.StartsAt);
         var previousConsultationExists = previousAppointment != null
@@ -367,9 +383,14 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await using var command = new NpgsqlCommand("""
             UPDATE professional_consultations
             SET status='completed', current_step='close',
-                completed_steps=CASE WHEN consultation_type='first'
-                    THEN '["anamnesis","evolution","checkin","goals","training","diet","education","tasks","next_appointment","close"]'::jsonb
-                    ELSE '["summary","evolution","checkin","goals","training","diet","education","tasks","next_appointment","close"]'::jsonb END,
+                -- Solo los pasos realmente recorridos (más el cierre): una consulta rápida no figura como completa.
+                -- El resumen de datos previos no existe en una primera consulta.
+                completed_steps=(
+                    SELECT COALESCE(jsonb_agg(d.step), '[]'::jsonb) FROM (
+                        SELECT DISTINCT x.step FROM (
+                            SELECT jsonb_array_elements_text(professional_consultations.completed_steps) AS step
+                            UNION ALL SELECT 'close') x
+                        WHERE NOT (professional_consultations.consultation_type='first' AND x.step='summary')) d),
                 completed_at=NOW(), updated_at=NOW()
             WHERE tenant_id=@tenant AND appointment_id=@appointment AND status='in_progress';
             """, connection, transaction);
@@ -544,12 +565,16 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await using var reader = await command.ExecuteReaderAsync();
         if (!await reader.ReadAsync()) return null;
 
+        var storedCompleted = JsonSerializer.Deserialize<string[]>(reader.GetFieldValue<string>(7)) ?? Array.Empty<string>();
+        var storedStatus = reader.GetString(4);
         return new
         {
             id = reader.GetInt64(0), clientId = reader.GetInt32(1), professionalId = reader.GetInt32(2),
-            consultationType = reader.GetString(3), status = reader.GetString(4), currentStep = reader.GetString(5),
+            consultationType = reader.GetString(3), status = storedStatus, currentStep = reader.GetString(5),
             progress = JsonSerializer.Deserialize<object>(reader.GetFieldValue<string>(6)) ?? new { },
-            completedSteps = JsonSerializer.Deserialize<string[]>(reader.GetFieldValue<string>(7)) ?? Array.Empty<string>(),
+            completedSteps = storedCompleted,
+            // Solo tiene sentido en consultas cerradas: distingue "no realizado" de "pendiente".
+            skippedSteps = storedStatus == "completed" ? ComputeSkippedSteps(reader.GetString(3), storedCompleted) : Array.Empty<string>(),
             decisionSummary = reader.IsDBNull(8) ? null : reader.GetString(8),
             actionsSummary = reader.IsDBNull(9) ? null : reader.GetString(9),
             nextConsultationPlan = reader.IsDBNull(10) ? null : reader.GetString(10),
