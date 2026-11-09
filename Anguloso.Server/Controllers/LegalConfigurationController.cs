@@ -33,6 +33,10 @@ public sealed class LegalConfigurationController : ControllerBase
 
     public LegalConfigurationController(IConfiguration configuration) => _configuration = configuration;
 
+    /// <summary>Valores recomendados (solo los deducibles de la aplicación); no se guardan.</summary>
+    [HttpGet("defaults")]
+    public IActionResult Defaults() => Ok(Anguloso.Server.Logica.LegalDefaults.Professional());
+
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {

@@ -1,12 +1,12 @@
 # Acuerdo de encargo del tratamiento (art. 28 RGPD)
 
-**Responsable:** {{professional.legal_name}} (NIF/CIF {{professional.tax_id}}), domicilio {{professional.address}}, contacto {{professional.privacy_email}}.
+**Responsable:** el profesional o la clínica que contrata DietoExpress, identificado con los datos de su cuenta y de su configuración legal en el momento de aceptar los términos y condiciones.
 
 **Encargado:** {{platform.legal_name}} (NIF/CIF {{platform.tax_id}}), domicilio {{platform.address}}, contacto {{platform.privacy_email}}.
 
 ## 1. Objeto y duración
 
-El Encargado tratará datos personales por cuenta del Responsable para prestar las funcionalidades de DietoExpress contratadas. El acuerdo dura lo que dure la prestación del servicio. Duración y condiciones específicas: {{professional.dpa_duration}}.
+El Encargado tratará datos personales por cuenta del Responsable para prestar las funcionalidades de DietoExpress contratadas. El acuerdo entra en vigor al contratar el servicio y dura mientras se preste, más el tiempo necesario para devolver o suprimir los datos conforme al apartado 9.
 
 ## 2. Naturaleza y finalidad
 
@@ -45,7 +45,7 @@ El Encargado ayudará al Responsable a cumplir las obligaciones de seguridad (ar
 
 ## 9. Devolución y supresión
 
-Al terminar el servicio, el Encargado devolverá o permitirá exportar los datos y los suprimirá según indique el Responsable, salvo obligación legal de conservación. Condiciones: {{professional.dpa_end_of_service_summary}}.
+Al terminar el servicio, el Encargado devolverá o permitirá exportar los datos y los suprimirá según indique el Responsable, salvo obligación legal de conservación. Tras la terminación, los datos permanecen disponibles para su exportación durante 30 días; transcurrido ese plazo se suprimen, salvo obligación legal de conservación.
 
 ## 10. Auditoría
 
@@ -57,4 +57,4 @@ Cada parte responde ante los interesados y las autoridades conforme al art. 82 R
 
 ## 12. Aceptación
 
-Este acuerdo se entiende aceptado cuando el Responsable acepta los términos y condiciones de DietoExpress, de los que forma parte. La aceptación queda registrada con su fecha, versión e identificación.
+Este acuerdo se entiende aceptado cuando el Responsable acepta los términos y condiciones de DietoExpress, de los que forma parte. La aceptación queda registrada con su fecha, versión, identificación del aceptante e integridad del documento (huella SHA-256).

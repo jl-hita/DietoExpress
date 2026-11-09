@@ -27,19 +27,19 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
     };
 
     private static readonly HashSet<string> PlatformTemplates =
-    ["01-aviso-legal","02-privacidad-dietoexpress","03-terminos-saas","04-politica-cookies","09-rat-minimo","10-matriz-conservacion","11-analisis-riesgos-eipd"];
+    ["01-aviso-legal","02-privacidad-dietoexpress","03-terminos-saas","04-politica-cookies","05-dpa-encargo-tratamiento","09-rat-minimo","10-matriz-conservacion","11-analisis-riesgos-eipd"];
 
     // Solo estos documentos de plataforma se publican en el catálogo público (/api/legal-documents/current,
     // anónimo). RAT, matriz de conservación y análisis de riesgos son documentos internos.
     private static readonly HashSet<string> PublishablePlatformTemplates =
-    ["01-aviso-legal","02-privacidad-dietoexpress","03-terminos-saas","04-politica-cookies"];
+    ["01-aviso-legal","02-privacidad-dietoexpress","03-terminos-saas","04-politica-cookies","05-dpa-encargo-tratamiento"];
 
     // El alta de cuenta y la facturación exigen la clave histórica 'saas_terms'.
     internal static string PublishedKey(string templateKey) =>
         string.Equals(templateKey, "03-terminos-saas", StringComparison.OrdinalIgnoreCase) ? "saas_terms" : templateKey;
 
     private static readonly HashSet<string> ProfessionalTemplates =
-    ["05-dpa-encargo-tratamiento","08-condiciones-economicas","12-rat-profesional","13-protocolo-brechas","14-procedimiento-derechos"];
+    ["08-condiciones-economicas","12-rat-profesional","13-protocolo-brechas","14-procedimiento-derechos"];
 
     [HttpPost("{templateKey}")]
     public async Task<IActionResult> Generate(string templateKey, CancellationToken ct)
