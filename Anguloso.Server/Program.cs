@@ -254,7 +254,7 @@ builder.Services.AddScoped<SupportEnhancementService>();
                 try
                 {
                     var imageService = scope.ServiceProvider.GetRequiredService<ExerciseImageService>();
-                    var seedPath = builder.Configuration["ExerciseImages:SeedPath"] ?? Path.Combine(app.Environment.ContentRootPath, "seed", "exercise-images-seed.jsonl.gz");
+                    var seedPath = builder.Configuration["ExerciseImages:SeedPath"] ?? Path.Combine(app.Environment.ContentRootPath, "seed", "exercise-images-curated.jsonl");
                     var (seeded, seedSkipped) = await imageService.ImportSeedAsync(seedPath);
                     if (seeded + seedSkipped > 0) logger.LogInformation("Semilla de imágenes de ejercicios: {Imported} importadas, {Skipped} omitidas.", seeded, seedSkipped);
                     app.Lifetime.ApplicationStarted.Register(() => _ = Task.Run(async () =>

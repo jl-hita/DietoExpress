@@ -171,7 +171,20 @@ public sealed class ExerciseImageService
         return null;
     }
 
-    // ---- Deployment seed (a file OUTSIDE git that carries our stored pictures to any server) ----
+    // Curated SVG is accepted only from the trusted deployment seed, never from user uploads.
+    private static bool IsSafeCuratedSvg(ReadOnlySpan<byte> data)
+    {
+        try
+        {
+            var svg = System.Text.Encoding.UTF8.GetString(data);
+            return svg.StartsWith("<svg ", StringComparison.Ordinal) &&
+                svg.Contains("xmlns=\"http://www.w3.org/2000/svg\"", StringComparison.Ordinal) &&
+                !Regex.IsMatch(svg, @"<\s*(script|foreignObject|iframe|object|embed)\b|\bon[a-z]+\s*=|(?:href|src)\s*=|url\s*\(|javascript:|<!DOCTYPE|<!ENTITY", RegexOptions.IgnoreCase);
+        }
+        catch { return false; }
+    }
+
+    // ---- Deployment seed (curated illustrations are versioned; RepDB bulk exports remain excluded) ----
 
     public sealed record SeedRow(string ExerciseId, int Slot, string Source, string Sha256, string DataBase64);
 
@@ -187,9 +200,12 @@ public sealed class ExerciseImageService
                 parsed.Slot is < 0 or > MaximumSlot || parsed.Source is not ("repdb-free" or "custom"))
                 return false;
             var bytes = Convert.FromBase64String(parsed.DataBase64);
-            if (bytes.Length == 0 || bytes.Length > MaximumImageBytes || DetectImageContentType(bytes) is null) return false;
-            if (!string.Equals(Convert.ToHexString(SHA256.HashData(bytes)), parsed.Sha256, StringComparison.OrdinalIgnoreCase))
-                return false;
+            if (bytes.Length == 0 || bytes.Length > MaximumImageBytes) return false;
+            var isRaster = DetectImageContentType(bytes) is not null;
+            var isSafeSvg = IsSafeCuratedSvg(bytes);
+            if (!isRaster && !isSafeSvg) return false;
+            var actualHash = Convert.ToHexString(SHA256.HashData(bytes));
+            if (!string.Equals(actualHash, parsed.Sha256, StringComparison.OrdinalIgnoreCase)) return false;
             row = parsed;
             data = bytes;
             return true;
@@ -198,8 +214,8 @@ public sealed class ExerciseImageService
     }
 
     /// <summary>
-    /// Loads a gzip JSON-lines seed produced by <see cref="ExportSeedAsync"/>. Existing rows are never
-    /// overwritten (custom uploads win), invalid lines are skipped and counted. Missing file = no-op.
+    /// Imports a deployment seed (gzip or plain JSONL). Curated custom rows are upserted only over
+    /// previous seed-managed custom rows; RepDB cache rows and professional uploads are immutable here.
     /// </summary>
     public async Task<(int Imported, int Skipped)> ImportSeedAsync(string path, CancellationToken cancellationToken = default)
     {
@@ -207,25 +223,53 @@ public sealed class ExerciseImageService
         await EnsureSchemaAsync(cancellationToken);
         int imported = 0, skipped = 0;
         await using var file = File.OpenRead(path);
-        await using var gzip = new System.IO.Compression.GZipStream(file, System.IO.Compression.CompressionMode.Decompress);
-        using var reader = new StreamReader(gzip);
+        Stream input = file;
+        if (file.Length >= 2)
+        {
+            var header = new byte[2];
+            _ = await file.ReadAsync(header, cancellationToken);
+            file.Position = 0;
+            if (header[0] == 0x1f && header[1] == 0x8b)
+                input = new System.IO.Compression.GZipStream(file, System.IO.Compression.CompressionMode.Decompress);
+        }
+        using var reader = new StreamReader(input);
         string? line;
         while ((line = await reader.ReadLineAsync(cancellationToken)) is not null)
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
-            if (!TryParseSeedLine(line, out var row, out var bytes) || row is null) { skipped++; continue; }
-            var type = DetectImageContentType(bytes)!;
-            var exists = false;
+            if (!TryParseSeedLine(line, out var row, out var bytes) || row is null || row.Source != "custom") { skipped++; continue; }
+            var type = DetectImageContentType(bytes) ?? "image/svg+xml";
+            var catalogApproved = false;
             await WithConnectionAsync(async connection =>
             {
-                await using var check = new NpgsqlCommand("SELECT 1 FROM exercise_images WHERE exercise_id = @id AND slot = @slot", connection);
+                await using var check = new NpgsqlCommand(
+                    "SELECT EXISTS (SELECT 1 FROM exercise_catalog WHERE exercise_id = @id AND review_status = 'approved')", connection);
                 check.Parameters.AddWithValue("id", row.ExerciseId);
-                check.Parameters.AddWithValue("slot", (short)row.Slot);
-                exists = await check.ExecuteScalarAsync(cancellationToken) is not null;
+                catalogApproved = (bool)(await check.ExecuteScalarAsync(cancellationToken) ?? false);
             });
-            if (exists) continue;
-            await StoreAsync(row.ExerciseId, row.Slot, bytes, type, row.Source, null, overwrite: false, cancellationToken);
-            imported++;
+            if (!catalogApproved) { skipped++; continue; }
+            var changed = false;
+            await WithConnectionAsync(async connection =>
+            {
+                await using var command = new NpgsqlCommand("""
+                    INSERT INTO exercise_images(exercise_id, slot, content_type, data, byte_size, sha256, source, uploaded_by_user_id)
+                    VALUES (@id, @slot, @type, @data, @size, @hash, 'custom', NULL)
+                    ON CONFLICT (exercise_id, slot) DO UPDATE SET
+                        content_type = EXCLUDED.content_type, data = EXCLUDED.data, byte_size = EXCLUDED.byte_size,
+                        sha256 = EXCLUDED.sha256, source = 'custom', uploaded_by_user_id = NULL, created_at = NOW()
+                    WHERE exercise_images.source = 'custom'
+                      AND exercise_images.uploaded_by_user_id IS NULL
+                      AND exercise_images.sha256 <> EXCLUDED.sha256
+                    """, connection);
+                command.Parameters.AddWithValue("id", row.ExerciseId);
+                command.Parameters.AddWithValue("slot", (short)row.Slot);
+                command.Parameters.AddWithValue("type", type);
+                command.Parameters.AddWithValue("data", bytes);
+                command.Parameters.AddWithValue("size", bytes.Length);
+                command.Parameters.AddWithValue("hash", Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant());
+                changed = await command.ExecuteNonQueryAsync(cancellationToken) > 0;
+            });
+            if (changed) imported++;
         }
         return (imported, skipped);
     }
