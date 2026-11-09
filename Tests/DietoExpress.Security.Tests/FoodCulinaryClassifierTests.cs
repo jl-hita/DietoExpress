@@ -38,6 +38,15 @@ public sealed class FoodCulinaryClassifierTests
         Assert.Equal(state, profile.State);
     }
 
+    [Theory]
+    [InlineData("protein", 200.0, 10.0, 20.0, 5.0, null)]
+    [InlineData("protein", 200.0, 10.0, 20.0, 50.0, "energia_no_coincide_con_macros")]
+    [InlineData("protein", 200.0, null, 40.0, 4.0, "macronutrientes_incompletos")]
+    [InlineData("protein", 0.0, 10.0, 20.0, 5.0, "sin_energia")]
+    [InlineData("protein", 200.0, -1.0, 20.0, 5.0, "macronutrientes_negativos")]
+    public void MacroIntegrity_AppliesToCurrentMacros_EvenForPersistedProfiles(string role, double kcal, double? p, double? c, double? f, string? expected)
+        => Assert.Equal(expected, FoodCulinaryClassifier.GetMacroIntegrityIssue(role, kcal, p, c, f));
+
     [Fact]
     public void Classify_AcceptsOilsWithMissingProteinButNotOtherFoods()
     {

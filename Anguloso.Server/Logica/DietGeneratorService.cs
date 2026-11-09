@@ -271,6 +271,8 @@ public class DietGeneratorService
             if (!storedProfiles.TryGetValue(f.id, out var profile))
                 profile = FoodCulinaryClassifier.Classify(f.name, f.category, f.kcal, f.protein, f.carbs, f.fat);
             if (profile == null || !profile.IsUsable) continue;
+            // Un perfil persistido (auto o manual) no exime de validar los macros actuales del alimento.
+            if (FoodCulinaryClassifier.GetMacroIntegrityIssue(profile.Role, f.kcal, f.protein, f.carbs, f.fat) != null) continue;
             if (!string.IsNullOrWhiteSpace(f.brands) && !string.Equals(f.source, "bedca", StringComparison.OrdinalIgnoreCase)) continue;
             if (IsBlocked(f, exclusionMatcher)) continue;
             if (!HasKnownAllergenDataForClient(f, client)) continue;
