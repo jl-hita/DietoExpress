@@ -205,9 +205,7 @@ public sealed class ExerciseImageService
             var isSafeSvg = IsSafeCuratedSvg(bytes);
             if (!isRaster && !isSafeSvg) return false;
             var actualHash = Convert.ToHexString(SHA256.HashData(bytes));
-            if (!string.IsNullOrWhiteSpace(parsed.Sha256) &&
-                !string.Equals(actualHash, parsed.Sha256, StringComparison.OrdinalIgnoreCase)) return false;
-            if (string.IsNullOrWhiteSpace(parsed.Sha256) && !isSafeSvg) return false;
+            if (!string.Equals(actualHash, parsed.Sha256, StringComparison.OrdinalIgnoreCase)) return false;
             row = parsed;
             data = bytes;
             return true;
