@@ -174,10 +174,17 @@ internal static class RepDbExerciseAutoReviewer
 
         // Explicit product curation: stable, measurable basics win over assisted or lightly
         // loadable variants when both satisfy the same pattern, goal, experience and equipment.
+        // A barbell squat/front squat or a leg-press/hack-squat must not lose to a goblet squat
+        // merely because "goblet squat" matched a broad text rule. Goblet squats remain eligible
+        // and useful when equipment, experience or user preference makes them the better fit.
+        if (string.Equals(id, "squat", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(id, "front-squat", StringComparison.OrdinalIgnoreCase) ||
+            Has(text, "barbell squat", "back squat", "front squat", "sentadilla con barra",
+                "sentadilla trasera", "sentadilla frontal")) return 100;
+        if (Has(text, "leg press", "prensa de piernas", "hack squat")) return 98;
         if (Has(text, "bodyweight", "banded", "resistance band", "trx", "ring", "assisted")) return 62;
         if (Has(text, "bench press", "press de banca", "lat pulldown", "jalon al pecho",
-            "seated cable row", "remo sentado en polea", "leg press", "prensa de piernas",
-            "hack squat", "goblet squat", "sentadilla goblet", "romanian deadlift",
+            "seated cable row", "remo sentado en polea", "romanian deadlift",
             "peso muerto rumano", "deadlift", "peso muerto", "hip thrust",
             "machine shoulder press", "press de hombros en maquina")) return 96;
 
