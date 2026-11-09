@@ -104,6 +104,8 @@ public class FoodPreferencesDto
     public string? PreferredFoods { get; set; }
     public string? DislikedFoods { get; set; }
     public string? Allergies { get; set; }
+    /// <summary>null = no modificar (clientes antiguos que no envían el campo).</summary>
+    public bool? ExcludeBread { get; set; }
 }
 
 public class LifestyleHistoryDto

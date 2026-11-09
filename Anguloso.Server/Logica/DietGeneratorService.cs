@@ -263,6 +263,8 @@ public class DietGeneratorService
         // los alimentos que lo superan (y tienen perfil culinario) pueden llegar al generador.
         var exclusionMatcher = new DietaryRestrictionRules.ExclusionMatcher(exclusions);
         var engineFoods = new List<EngineFood>();
+        // Elección explícita de esta generación; si no la hay, la preferencia guardada en la ficha del paciente.
+        var excludeBread = request.ExcludeBread ?? client?.food_preferences?.exclude_bread ?? false;
         foreach (var f in allFoods)
         {
             if (structuredSpecializationExclusions.Contains(f.id)) continue;
@@ -271,7 +273,7 @@ public class DietGeneratorService
             if (!storedProfiles.TryGetValue(f.id, out var profile))
                 profile = FoodCulinaryClassifier.Classify(f.name, f.category, f.kcal, f.protein, f.carbs, f.fat);
             if (profile == null || !profile.IsUsable) continue;
-            if (request.ExcludeBread && profile.Role == FoodProfileData.RoleBread) continue;
+            if (excludeBread && profile.Role == FoodProfileData.RoleBread) continue;
             if (!string.IsNullOrWhiteSpace(f.brands) && !string.Equals(f.source, "bedca", StringComparison.OrdinalIgnoreCase)) continue;
             if (IsBlocked(f, exclusionMatcher)) continue;
             if (!HasKnownAllergenDataForClient(f, client)) continue;

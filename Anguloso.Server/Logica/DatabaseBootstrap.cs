@@ -1151,6 +1151,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             ALTER TABLE users ADD COLUMN IF NOT EXISTS email_confirmation_expires_at TIMESTAMPTZ;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1;
             ALTER TABLE clients ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+            ALTER TABLE food_preferences ADD COLUMN IF NOT EXISTS exclude_bread BOOLEAN NOT NULL DEFAULT FALSE;
             ALTER TABLE clients ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMPTZ;
             ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_token_version INTEGER NOT NULL DEFAULT 1;
             ALTER TABLE clients ADD COLUMN IF NOT EXISTS lifecycle_status VARCHAR(40) NOT NULL DEFAULT 'pending_info';

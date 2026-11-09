@@ -16,5 +16,8 @@ public partial class food_preferences
 
     public string allergies { get; set; }
 
+    /// <summary>El paciente no quiere pan ni tostadas: valor por defecto al generar sus dietas.</summary>
+    public bool exclude_bread { get; set; }
+
     public virtual clients client { get; set; }
 }

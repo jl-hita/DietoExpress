@@ -242,6 +242,15 @@ export class DietGeneratorDialogComponent implements OnInit {
 
   // Si el diálogo recibe un paciente sin unas kcal explícitas, consulta sus biometrías para evitar usar silenciosamente el valor genérico.
   ngOnInit(): void {
+    // La preferencia "sin pan" guardada en la ficha del paciente es el valor por defecto; se puede cambiar para esta generación.
+    if (this.data.clientId) {
+      this.clientService.getClient(this.data.clientId).subscribe({
+        next: client => {
+          if (client?.foodPreferences?.excludeBread) this.form.patchValue({ excludeBread: true });
+        },
+        error: () => { /* sin ficha disponible: se mantiene la opción manual */ }
+      });
+    }
     // Si tenemos clientId y no tenemos defaultKcal, intentamos calcular sus requerimientos
     if (this.data.clientId && (!this.data.defaultKcal || this.data.defaultKcal === 2000)) {
       this.clientService.getEnergyRequirements(this.data.clientId).subscribe({

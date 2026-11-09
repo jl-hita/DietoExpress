@@ -319,4 +319,30 @@ public sealed class DietMenuEngineQualityTests
             .Select(f => f.id).ToHashSet();
         Assert.Contains(Items(diet), i => i.FoodId.HasValue && breadIds.Contains(i.FoodId.Value));
     }
+
+    private static HashSet<int> BreadIds(angulosodbContext context) => context.foods.AsEnumerable()
+        .Where(f => FoodCulinaryClassifier.Classify(f.name, f.category, f.kcal, f.protein, f.carbs, f.fat)?.Role == FoodProfileData.RoleBread)
+        .Select(f => f.id).ToHashSet();
+
+    [Fact]
+    public async Task PatientPreferenceExcludesBreadByDefaultAndAnExplicitChoiceOverridesIt()
+    {
+        var (context, generator) = await CreateAsync(seed: ctx => ctx.clients.Add(new clients
+        {
+            id = 1, full_name = "Paciente", food_preferences = new food_preferences { id = 1, client_id = 1, allergies = "", exclude_bread = true }
+        }));
+        await using var _ = context;
+        var bread = BreadIds(context);
+        Assert.NotEmpty(bread);
+
+        // Sin elección explícita (null) manda la preferencia guardada en la ficha.
+        var saved = await generator.GenerateDietAsync(Request(2000, "Equilibrada", 7, 5, 1), null, 1, false);
+        Assert.DoesNotContain(Items(saved), i => i.FoodId.HasValue && bread.Contains(i.FoodId.Value));
+
+        // Una elección explícita para esta generación (false) prevalece sobre la ficha.
+        var request = Request(2000, "Equilibrada", 7, 5, 1);
+        request.ExcludeBread = false;
+        var overridden = await generator.GenerateDietAsync(request, null, 1, false);
+        Assert.Contains(Items(overridden), i => i.FoodId.HasValue && bread.Contains(i.FoodId.Value));
+    }
 }

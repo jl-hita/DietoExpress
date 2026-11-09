@@ -197,7 +197,8 @@ public class ClientsController : ControllerBase
                 Id = client.food_preferences.id,
                 PreferredFoods = client.food_preferences.preferred_foods,
                 DislikedFoods = client.food_preferences.disliked_foods,
-                Allergies = client.food_preferences.allergies
+                Allergies = client.food_preferences.allergies,
+                ExcludeBread = client.food_preferences.exclude_bread
             };
         }
 
@@ -338,7 +339,8 @@ public class ClientsController : ControllerBase
         {
             preferred_foods = dto.FoodPreferences?.PreferredFoods ?? "",
             disliked_foods = dto.FoodPreferences?.DislikedFoods ?? "",
-            allergies = dto.FoodPreferences?.Allergies ?? ""
+            allergies = dto.FoodPreferences?.Allergies ?? "",
+            exclude_bread = dto.FoodPreferences?.ExcludeBread ?? false
         };
 
         client.lifestyle_history = new lifestyle_history
@@ -530,6 +532,7 @@ public class ClientsController : ControllerBase
             client.food_preferences.preferred_foods = dto.FoodPreferences.PreferredFoods ?? "";
             client.food_preferences.disliked_foods = dto.FoodPreferences.DislikedFoods ?? "";
             client.food_preferences.allergies = dto.FoodPreferences.Allergies ?? "";
+            if (dto.FoodPreferences.ExcludeBread.HasValue) client.food_preferences.exclude_bread = dto.FoodPreferences.ExcludeBread.Value;
         }
 
         // Update lifestyle history

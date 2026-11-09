@@ -253,7 +253,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       foodPreferences: this.fb.group({
         preferredFoods: [''],
         dislikedFoods: [''],
-        allergies: ['']
+        allergies: [''],
+        excludeBread: [false]
       }),
       lifestyleHistory: this.fb.group({
         workSchedule: [''],
