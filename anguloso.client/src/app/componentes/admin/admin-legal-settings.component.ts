@@ -131,7 +131,8 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
         </div>
       </section>
 
-      <div class="actions"><button mat-raised-button color="primary" (click)="save()" [disabled]="saving"><mat-icon>save</mat-icon>{{ saving ? 'Guardando...' : 'Guardar configuración legal' }}</button></div>
+      <div class="actions"><button mat-stroked-button type="button" (click)="loadDefaults()"><mat-icon>auto_fix_high</mat-icon>Cargar valores recomendados</button>
+        <button mat-raised-button color="primary" (click)="save()" [disabled]="saving"><mat-icon>save</mat-icon>{{ saving ? 'Guardando...' : 'Guardar configuración legal' }}</button></div>
     </main>
   `,
   styles: [`
@@ -273,6 +274,20 @@ export class AdminLegalSettingsComponent implements OnInit {
         this.generating = false;
         this.snack.open('No se pudo generar el borrador.', 'Cerrar', { duration: 4000 });
       }
+    });
+  }
+
+  loadDefaults(): void {
+    this.legal.getPlatformDefaults().subscribe({
+      next: defaults => {
+        let filled = 0;
+        Object.entries(defaults).forEach(([key, value]) => {
+          const control = this.form.get(key);
+          if (control && !String(control.value ?? '').trim()) { control.setValue(value); filled++; }
+        });
+        this.snack.open(filled ? `Se han rellenado ${filled} campos vacíos. Revísalos y guarda.` : 'No había campos vacíos que rellenar.', 'Cerrar', { duration: 5000 });
+      },
+      error: () => this.snack.open('No se pudieron cargar los valores recomendados.', 'Cerrar', { duration: 4000 })
     });
   }
 

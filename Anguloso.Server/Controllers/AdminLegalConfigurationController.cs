@@ -33,6 +33,10 @@ public sealed class AdminLegalConfigurationController : ControllerBase
 
     public AdminLegalConfigurationController(IConfiguration configuration) => _configuration = configuration;
 
+    /// <summary>Valores recomendados (solo los deducibles de la aplicación); no se guardan.</summary>
+    [HttpGet("defaults")]
+    public IActionResult Defaults() => Ok(Anguloso.Server.Logica.LegalDefaults.Platform());
+
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {

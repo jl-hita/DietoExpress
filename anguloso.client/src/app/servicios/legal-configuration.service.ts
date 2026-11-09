@@ -22,6 +22,14 @@ export class LegalConfigurationService {
     return this.http.put<void>(`${this.base}/legal-configuration`, { values });
   }
 
+  getProfessionalDefaults(): Observable<Record<string, string>> {
+    return this.http.get<Record<string, string>>(`${this.base}/legal-configuration/defaults`);
+  }
+
+  getPlatformDefaults(): Observable<Record<string, string>> {
+    return this.http.get<Record<string, string>>(`${this.base}/admin/legal-configuration/defaults`);
+  }
+
   getPlatform(): Observable<LegalSetting[]> {
     return this.http.get<LegalSetting[]>(`${this.base}/admin/legal-configuration`);
   }

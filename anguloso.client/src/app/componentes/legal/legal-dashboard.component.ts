@@ -151,7 +151,7 @@ export class LegalDashboardComponent implements OnInit {
     this.loadDocuments();
     this.generator.getTemplates().subscribe({next: templates => this.templates=templates});
     this.config.getProfessional().subscribe({next: settings => {
-      const required=['legal_name','tax_id','address','contact_email','privacy_email','professional_title','professional_college','professional_collegiate_number','patient_privacy_legal_basis','patient_special_categories_summary','patient_recipients_summary','patient_retention_summary','patient_international_transfers_summary','patient_additional_purposes','consultation_description','consultation_limits','consultation_risks','dpa_duration'];
+      const required=['legal_name','tax_id','address','contact_email','privacy_email','professional_title','professional_college','professional_collegiate_number','patient_privacy_legal_basis','patient_special_categories_summary','patient_recipients_summary','patient_retention_summary','patient_international_transfers_summary','patient_additional_purposes','consultation_description','consultation_limits','consultation_risks'];
       const values=new Map(settings.map(s=>[s.key,(s.value||'').trim()]));
       this.configMissing=required.filter(k=>!values.get(k)).length;
       this.updateStatus();
