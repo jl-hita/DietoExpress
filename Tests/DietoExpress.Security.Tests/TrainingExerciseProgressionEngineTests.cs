@@ -351,4 +351,28 @@ public sealed class TrainingExerciseProgressionEngineTests
 
         Assert.Equal(TrainingExerciseProgressionAction.InsufficientData, result.Action);
     }
+
+    [Theory]
+    [InlineData(TrainingExerciseProgressionAction.IncreaseLoad)]
+    [InlineData(TrainingExerciseProgressionAction.AddRepetitions)]
+    [InlineData(TrainingExerciseProgressionAction.ConfirmTopOfRange)]
+    public void ActiveHold_BlocksEveryProgressiveRecommendation(TrainingExerciseProgressionAction action)
+    {
+        var original = new TrainingExerciseProgressionRecommendation(action, "x", 62.5m, 2.5m, [11, 11, 11], 5m);
+
+        var held = TrainingProgressionHold.Apply(original, holdActive: true);
+
+        Assert.Equal(TrainingExerciseProgressionAction.HoldAndReview, held.Action);
+        Assert.Null(held.SuggestedLoadKg);
+        Assert.Null(held.LoadIncreaseKg);
+        Assert.Same(original, TrainingProgressionHold.Apply(original, holdActive: false));
+    }
+
+    [Fact]
+    public void ActiveHold_DoesNotBlockLoadReduction()
+    {
+        var reduce = new TrainingExerciseProgressionRecommendation(TrainingExerciseProgressionAction.ReduceLoad, "x", 55m, null, null, null);
+
+        Assert.Same(reduce, TrainingProgressionHold.Apply(reduce, holdActive: true));
+    }
 }

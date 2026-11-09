@@ -339,3 +339,24 @@ public sealed record TrainingExerciseProgressionRecommendation(
     decimal? LoadIncreaseKg,
     IReadOnlyList<int>? SuggestedRepetitionsBySet,
     decimal? MaximumLoadIncreasePercent);
+
+/// <summary>
+/// Turns an active progression hold (set by the automatic adaptation on future sessions) into an effective
+/// constraint: no recommendation that increases load or repetitions survives while it is active. Reductions and
+/// non-progressive outcomes are kept, because a hold must never block a safety-driven decrease.
+/// </summary>
+public static class TrainingProgressionHold
+{
+    public static TrainingExerciseProgressionRecommendation Apply(TrainingExerciseProgressionRecommendation result, bool holdActive)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        if (!holdActive) return result;
+        return result.Action is TrainingExerciseProgressionAction.IncreaseLoad
+            or TrainingExerciseProgressionAction.AddRepetitions
+            or TrainingExerciseProgressionAction.ConfirmTopOfRange
+            ? new(TrainingExerciseProgressionAction.HoldAndReview,
+                "Progresión en pausa: se mantiene la carga y las repeticiones actuales hasta una nueva evaluación.",
+                null, null, null, null)
+            : result;
+    }
+}
