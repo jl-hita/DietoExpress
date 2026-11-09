@@ -179,6 +179,28 @@ public sealed class ExerciseCatalogController : ControllerBase
         Ok((await _images.GetExercisesWithoutImagesAsync(cancellationToken))
             .Select(item => new { exerciseId = item.ExerciseId, name = item.Name, source = item.Source }));
 
+    // TEMPORARY: one-time bootstrap upload for the seven curated exercises missing artwork.
+    // Remove this action immediately after the images have been uploaded and verified.
+    [HttpPut("images/bootstrap/{id}")]
+    [AllowAnonymous]
+    [RequestSizeLimit(ExerciseImageService.MaximumImageBytes + 1024)]
+    public async Task<IActionResult> BootstrapExerciseImage(string id, CancellationToken cancellationToken)
+    {
+        var allowedIds = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "close-grip-bench-press", "dumbbell-curl", "lying-leg-raise",
+            "parallel-bar-dips", "plank", "sumo-deadlift", "walking-lunge"
+        };
+        if (!allowedIds.Contains(id)) return NotFound();
+        if ((await _images.GetAvailableSlotsAsync(id, cancellationToken)).Count > 0)
+            return Conflict(new { error = "Este ejercicio ya tiene imágenes; no se permite sobrescribirlas." });
+
+        using var buffer = new MemoryStream();
+        await Request.Body.CopyToAsync(buffer, cancellationToken);
+        var error = await _images.SaveCustomImageAsync(id, 0, buffer.ToArray(), 0, cancellationToken);
+        return error is null ? NoContent() : BadRequest(new { error });
+    }
+
     [HttpGet("{id}/images/{slot:int}")]
     public async Task<IActionResult> GetImage(string id, int slot, CancellationToken cancellationToken)
     {
