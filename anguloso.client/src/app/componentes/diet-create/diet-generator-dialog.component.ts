@@ -131,6 +131,10 @@ type KcalSource = 'default' | 'biometrics' | 'error';
             <mat-label>Palabras clave a excluir (separadas por comas)</mat-label>
             <input matInput formControlName="excludedKeywords" placeholder="Ej: cerdo, marisco, champiñones" />
           </mat-form-field>
+
+          <mat-checkbox formControlName="excludeBread" data-testid="exclude-bread">
+            Sin pan (el paciente no quiere pan ni tostadas en ninguna comida)
+          </mat-checkbox>
         </form>
 
         <div *ngIf="generating" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 10px;">
@@ -231,12 +235,22 @@ export class DietGeneratorDialogComponent implements OnInit {
       dietType: ['Equilibrada', Validators.required],
       mealsPerDay: [5, Validators.required],
       numberOfDays: [7, Validators.required],
-      excludedKeywords: ['']
+      excludedKeywords: [''],
+      excludeBread: [false]
     });
   }
 
   // Si el diálogo recibe un paciente sin unas kcal explícitas, consulta sus biometrías para evitar usar silenciosamente el valor genérico.
   ngOnInit(): void {
+    // La preferencia "sin pan" guardada en la ficha del paciente es el valor por defecto; se puede cambiar para esta generación.
+    if (this.data.clientId) {
+      this.clientService.getClient(this.data.clientId).subscribe({
+        next: client => {
+          if (client?.foodPreferences?.excludeBread) this.form.patchValue({ excludeBread: true });
+        },
+        error: () => { /* sin ficha disponible: se mantiene la opción manual */ }
+      });
+    }
     // Si tenemos clientId y no tenemos defaultKcal, intentamos calcular sus requerimientos
     if (this.data.clientId && (!this.data.defaultKcal || this.data.defaultKcal === 2000)) {
       this.clientService.getEnergyRequirements(this.data.clientId).subscribe({
@@ -277,7 +291,8 @@ export class DietGeneratorDialogComponent implements OnInit {
       mealsPerDay: raw.mealsPerDay,
       numberOfDays: raw.numberOfDays,
       clientId: this.data.clientId || null,
-      excludedFoodKeywords: excluded
+      excludedFoodKeywords: excluded,
+      excludeBread: !!raw.excludeBread
     };
 
     this.dietService.generateDiet(payload).subscribe({

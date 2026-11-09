@@ -99,6 +99,7 @@ export interface FoodPreferences {
   preferredFoods?: string;
   dislikedFoods?: string;
   allergies?: string;
+  excludeBread?: boolean;
 }
 
 export interface LifestyleHistory {

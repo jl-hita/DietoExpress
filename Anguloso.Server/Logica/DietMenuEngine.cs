@@ -470,7 +470,9 @@ public sealed class DietMenuEngine
         if (!_keto)
         {
             var bases = Pool(FoodProfileData.RoleBread).Concat(Pool(FoodProfileData.RoleCereal)).Where(f => InSlot(f, "B")).ToList();
-            bread = Pick(bases, a, used, null, f => f.P.Role == FoodProfileData.RoleBread ? 1.5 : 1.0);
+            // Sin pan en el catálogo disponible (p. ej. paciente que no lo quiere) quedan pocos cereales: la base es opcional
+            // para no forzar repeticiones por encima del máximo semanal.
+            bread = Pick(bases, a, used, null, f => f.P.Role == FoodProfileData.RoleBread ? 1.5 : 1.0, optional: Pool(FoodProfileData.RoleBread).Count == 0);
             Add(slots, a, name, m, "Base desayuno", bread, used);
             if (bread != null && bread.P.Role == FoodProfileData.RoleBread && a.Rnd.NextDouble() < 0.6)
                 Add(slots, a, name, m, "Aliño / Cocinado", Pick(Pool(FoodProfileData.RoleOil), a, used, f => InSlot(f, "B"), null, true), used);
@@ -506,7 +508,7 @@ public sealed class DietMenuEngine
         if (!_keto)
         {
             var bases = Pool(FoodProfileData.RoleBread).Concat(Pool(FoodProfileData.RoleCereal)).Where(f => InSlot(f, "S")).ToList();
-            Add(slots, a, name, m, "Base merienda", Pick(bases, a, used), used);
+            Add(slots, a, name, m, "Base merienda", Pick(bases, a, used, null, null, optional: Pool(FoodProfileData.RoleBread).Count == 0), used);
         }
         var protein = Pool(FoodProfileData.RoleCold).Concat(Pool(FoodProfileData.RoleDairy).Where(f => !f.P.HasTag("milk") && DairyOk(f))).Concat(Pool(FoodProfileData.RoleNut)).Where(f => InSlot(f, "S")).ToList();
         Add(slots, a, name, m, "Acompañamiento proteico", Pick(protein, a, used, f => !_vegetarian || DietSemanticValidationService.IsFoodCompatibleWithDietType(f.Food.name, "Vegetariana", f.Food.category, f.Food.carbs, f.Food.fat, foodId: f.Food.id)), used);

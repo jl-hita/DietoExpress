@@ -137,6 +137,7 @@ interface GuidedConsultationResponse {
                 <label>Síntomas digestivos y observaciones<textarea rows="3" [(ngModel)]="profile.digestiveHealth!.notes" (blur)="savePatientClinicalProfile()" placeholder="Hinchazón, reflujo, dolor, síntomas y circunstancias…"></textarea></label>
                 <label>Alimentos preferidos<textarea rows="2" [(ngModel)]="profile.foodPreferences!.preferredFoods" (blur)="savePatientClinicalProfile()" placeholder="Alimentos que le gustan y quiere incluir…"></textarea></label>
                 <label>Alimentos rechazados<textarea rows="2" [(ngModel)]="profile.foodPreferences!.dislikedFoods" (blur)="savePatientClinicalProfile()" placeholder="Alimentos que no consume o desea excluir…"></textarea></label>
+                <label class="check-field"><input type="checkbox" [(ngModel)]="profile.foodPreferences!.excludeBread" (change)="savePatientClinicalProfile()"> Sin pan (no quiere pan ni tostadas)</label>
               </div>
               <div class="clinical-section">
                 <h3>Hábitos y contexto</h3>
@@ -895,7 +896,7 @@ export class GuidedConsultationComponent implements OnInit {
           ...client,
           medicalHistory: { diabetes: false, hypertension: false, hypothyroidism: false, surgeries: '', routineMedication: '', otherPathologies: '', ...(client.medicalHistory || {}) },
           digestiveHealth: { intestinalHabits: '', bloating: false, heartburn: false, glutenIntolerance: false, lactoseIntolerance: false, fodmapsIntolerance: false, otherIntolerances: '', notes: '', ...(client.digestiveHealth || {}) },
-          foodPreferences: { preferredFoods: '', dislikedFoods: '', allergies: '', ...(client.foodPreferences || {}) },
+          foodPreferences: { preferredFoods: '', dislikedFoods: '', allergies: '', excludeBread: false, ...(client.foodPreferences || {}) },
           lifestyleHistory: { workSchedule: '', sleepHabits: '', waterConsumption: '', alcoholConsumption: '', tobaccoConsumption: '', ...(client.lifestyleHistory || {}) }
         };
         this.patientProfileLoading = false;

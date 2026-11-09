@@ -278,6 +278,8 @@ public class DietGeneratorService
         // los alimentos que lo superan (y tienen perfil culinario) pueden llegar al generador.
         var exclusionMatcher = new DietaryRestrictionRules.ExclusionMatcher(exclusions);
         var engineFoods = new List<EngineFood>();
+        // Elección explícita de esta generación; si no la hay, la preferencia guardada en la ficha del paciente.
+        var excludeBread = request.ExcludeBread ?? client?.food_preferences?.exclude_bread ?? false;
         foreach (var f in allFoods)
         {
             if (structuredSpecializationExclusions.Contains(f.id)) continue;
@@ -289,6 +291,7 @@ public class DietGeneratorService
             if (profile == null || !profile.IsUsable) continue;
             // Un perfil persistido (auto o manual) no exime de validar los macros actuales del alimento.
             if (FoodCulinaryClassifier.GetMacroIntegrityIssue(profile.Role, f.kcal, f.protein, f.carbs, f.fat) != null) continue;
+            if (excludeBread && profile.Role == FoodProfileData.RoleBread) continue;
             // Se descartan productos de marca (importados de bases comerciales); solo se admiten genéricos y BEDCA. Criterio de producto.
             if (!string.IsNullOrWhiteSpace(f.brands) && !string.Equals(f.source, "bedca", StringComparison.OrdinalIgnoreCase)) continue;
             if (IsBlocked(f, exclusionMatcher)) continue;
