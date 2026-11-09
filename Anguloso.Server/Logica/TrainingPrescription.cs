@@ -10,7 +10,17 @@ public sealed record TrainingProgramPrescription(
     DateOnly StartDate,
     int DurationWeeks,
     IReadOnlyList<TrainingSessionPrescription> Sessions,
-    TrainingProgramQualityReport? QualityReport = null);
+    TrainingProgramQualityReport? QualityReport = null,
+    TrainingProgramHistory? History = null);
+
+/// <summary>Comparison with the previous block of the same plan (only filled by the server on previews/generation).</summary>
+public sealed record TrainingProgramHistory(
+    int PreviousBlockExerciseCount,
+    bool ContinuesPreviousBlock,
+    IReadOnlyList<TrainingHistoryExercise> Exercises);
+
+/// <summary>Status is "kept" (also in the previous block), "new" (not used before) or "dropped" (used before, not now).</summary>
+public sealed record TrainingHistoryExercise(string ExerciseId, string Name, string Status);
 
 public sealed record TrainingSessionPrescription(
     int WeekNumber,

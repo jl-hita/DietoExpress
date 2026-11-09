@@ -502,7 +502,7 @@
         <span class="eyebrow">Rutina{{ plan.version > 1 ? ' · revisión ' + plan.version : '' }}</span>
         <h3>{{ plan.name }}</h3>
         <p *ngIf="plan.reviewRequest" class="muted" role="status">{{ trainingReviewStatusLabel(plan.reviewRequest.status) }} ({{ (plan.reviewRequest.resolvedAt || plan.reviewRequest.createdAt) | date:'dd/MM/yyyy' }})</p>
-        <p *ngIf="plan.reviewRequest?.resolutionNotes" class="muted">Nota de tu entrenador: {{ plan.reviewRequest?.resolutionNotes }}</p>
+        <p *ngIf="plan.reviewRequest?.resolutionNotes" class="muted">Nota de tu entrenador: {{ plan.reviewRequest.resolutionNotes }}</p>
         <button type="button" class="btn-portal-primary" *ngIf="trainingReviewOpenPlanId !== plan.planId && plan.reviewRequest?.status !== 'pending'" (click)="openTrainingReview(plan)" [attr.aria-label]="'Solicitar revisión manual de ' + plan.name + ' a mi entrenador'"><mat-icon>rate_review</mat-icon> Solicitar revisión manual</button>
         <div *ngIf="trainingReviewOpenPlanId === plan.planId" class="form-group" style="margin-top:10px">
           <label [for]="'training-review-note-' + plan.planId">¿Qué te gustaría que revisara? (opcional)</label>

@@ -304,9 +304,9 @@ public sealed class TrainingPortalController : ControllerBase
         if (string.IsNullOrEmpty(note)) note = null;
 
         // Ownership + eligibility in one query: own plan, sports module enabled, professional-managed, has sessions.
-        int? tenantId; int? professionalUserId; string planName;
+        string planName; int? tenantId;
         await using (var check = Command("""
-            SELECT c.tenant_id, c.user_id, p.name
+            SELECT p.name, COALESCE(c.tenant_id, (SELECT u.tenant_id FROM users u WHERE u.id = c.user_id))
             FROM training_plans p
             JOIN training_profiles f ON f.id = p.profile_id
             JOIN clients c ON c.id = f.client_id
@@ -319,63 +319,36 @@ public sealed class TrainingPortalController : ControllerBase
         {
             if (!await reader.ReadAsync(cancellationToken))
                 return NotFound(new { message = "No se encontró una rutina que puedas enviar a revisión." });
-            tenantId = reader.IsDBNull(0) ? null : reader.GetInt32(0);
-            professionalUserId = reader.IsDBNull(1) ? null : reader.GetInt32(1);
-            planName = reader.GetString(2);
+            planName = reader.GetString(0);
+            tenantId = reader.IsDBNull(1) ? null : reader.GetInt32(1);
         }
 
+        // La solicitud y su aviso (email con reintentos, campana, tarea y push) se confirman en la misma transacción:
+        // la outbox transaccional entrega al menos una vez y deja el estado/errores trazables en integration_outbox.
         long requestId;
-        await using (var insert = Command("""
-            INSERT INTO training_review_requests(client_id, plan_id, note)
-            VALUES (@clientId, @planId, @note)
-            ON CONFLICT (plan_id) WHERE status = 'pending' DO NOTHING
-            RETURNING id
-            """, ("clientId", clientId.Value), ("planId", planId), ("note", note)))
+        await using (var transaction = await _context.Database.BeginTransactionAsync(cancellationToken))
         {
-            var inserted = await insert.ExecuteScalarAsync(cancellationToken);
-            if (inserted is null or DBNull)
-                return Conflict(new { message = "Ya tienes una solicitud de revisión pendiente para esta rutina." });
-            requestId = Convert.ToInt64(inserted);
+            await using (var insert = Command("""
+                INSERT INTO training_review_requests(client_id, plan_id, note)
+                VALUES (@clientId, @planId, @note)
+                ON CONFLICT (plan_id) WHERE status = 'pending' DO NOTHING
+                RETURNING id
+                """, ("clientId", clientId.Value), ("planId", planId), ("note", note)))
+            {
+                var inserted = await insert.ExecuteScalarAsync(cancellationToken);
+                if (inserted is null or DBNull)
+                    return Conflict(new { message = "Ya tienes una solicitud de revisión pendiente para esta rutina." });
+                requestId = Convert.ToInt64(inserted);
+            }
+            if (tenantId.HasValue)
+                await Anguloso.Server.Logica.TransactionalOutbox.EnqueueAsync(
+                    _context, tenantId.Value, "training_review_request_created",
+                    new { ClientId = clientId.Value, RequestId = requestId, PlanId = planId, PlanName = planName, Note = note },
+                    $"training-review-request:{requestId}", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
 
-        await NotifyProfessionalAsync(tenantId, professionalUserId, clientId.Value, requestId, planName, cancellationToken);
         return Ok(new { id = requestId, status = "pending", message = "Solicitud enviada. Tu entrenador revisará la rutina; no se modifica nada hasta que lo haga." });
-    }
-
-    private async Task NotifyProfessionalAsync(
-        int? tenantId, int? userId, int clientId, long requestId, string planName, CancellationToken cancellationToken)
-    {
-        if (tenantId is null) return;
-        var title = "Solicitud de revisión de rutina";
-        try
-        {
-            await using var task = Command("""
-                INSERT INTO professional_tasks(tenant_id, client_id, assigned_user_id, title, description, priority, status, source, idempotency_key)
-                VALUES (@tenant, @client, @user, @title, @description, 'normal', 'open', 'training_review_request', @key)
-                ON CONFLICT (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
-                """, ("tenant", tenantId.Value), ("client", clientId), ("user", userId), ("title", title),
-                ("description", $"Un cliente solicita revisión manual de la rutina «{planName}». Revísala en Planificación deportiva."),
-                ("key", $"training-review-request:{requestId}"));
-            await task.ExecuteNonQueryAsync(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            HttpContext.RequestServices.GetRequiredService<ILogger<TrainingPortalController>>()
-                .LogWarning(ex, "No se pudo crear la tarea de la solicitud de revisión {RequestId}.", requestId);
-        }
-        if (userId is null) return;
-        try
-        {
-            var push = HttpContext.RequestServices.GetService<Anguloso.Server.Logica.ProfessionalPushService>();
-            if (push is not null)
-                await push.SendNotificationAsync(tenantId.Value, userId.Value, title,
-                    "Un cliente ha solicitado la revisión manual de su rutina.", "/clients/" + clientId + "/training", cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            HttpContext.RequestServices.GetRequiredService<ILogger<TrainingPortalController>>()
-                .LogWarning(ex, "No se pudo enviar el push de la solicitud de revisión {RequestId}.", requestId);
-        }
     }
 
     private async Task<bool> PortalFeatureAllowedAsync(int clientId)

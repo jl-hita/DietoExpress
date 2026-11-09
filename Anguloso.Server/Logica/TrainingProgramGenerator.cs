@@ -106,7 +106,7 @@ public static class TrainingProgramGenerator
                     // Prefer a different exercise elsewhere in this week's plan when possible.
                     // Never penalize an exercise for being selected in previous weeks: continuity
                     // across a mesocycle supports progression and performance tracking.
-                    var candidate = RotateCuratedPool(compatibleCandidates, request.RotationIndex ?? 0)
+                    var candidate = RotateCuratedPool(compatibleCandidates, request.RotationIndex ?? 0, request.PreviousBlockExerciseIds, request.IsDeload)
                         .FirstOrDefault(x => !selectedThisWeek.Contains(x.ExerciseId))
                         ?? compatibleCandidates.FirstOrDefault();
 
@@ -155,7 +155,7 @@ public static class TrainingProgramGenerator
         var sessionsWithWarmups = ApplyLoadReferences(AddWarmupGuidance(allocation.Sessions), request.LoadReferences);
         var prescribedSessions = request.IsDeload
             ? ApplyConservativeDeload(sessionsWithWarmups)
-            : ApplyIntraBlockProgression(sessionsWithWarmups, request.DurationWeeks);
+            : ApplyIntraBlockProgression(sessionsWithWarmups, request.DurationWeeks, request.ContinuesPreviousBlock);
         var plan = new TrainingProgramPrescription(
             "0.9.0",
             request.Goal.ToString(),
@@ -197,14 +197,18 @@ public static class TrainingProgramGenerator
     /// It is never a deload and never reduces any exercise below two sets.
     /// </summary>
     private static IReadOnlyList<TrainingSessionPrescription> ApplyIntraBlockProgression(
-        IReadOnlyList<TrainingSessionPrescription> sessions, int durationWeeks)
+        IReadOnlyList<TrainingSessionPrescription> sessions, int durationWeeks, bool continuesPreviousBlock = false)
     {
         if (durationWeeks < 3) return sessions;
         return sessions.Select(session =>
         {
-            var rirOffset = session.WeekNumber == 1 ? 1m
+            // A block that directly continues a training block is already adapted: no set trimming and
+            // a smaller reserve bump, instead of repeating the full "introduction" week (sawtooth volume).
+            var rirOffset = continuesPreviousBlock
+                ? (session.WeekNumber == 1 ? 0.5m : 0m)
+                : session.WeekNumber == 1 ? 1m
                 : session.WeekNumber == 2 && durationWeeks >= 5 ? 0.5m : 0m;
-            var trimSet = session.WeekNumber == 1 && durationWeeks >= 4;
+            var trimSet = !continuesPreviousBlock && session.WeekNumber == 1 && durationWeeks >= 4;
             if (rirOffset == 0m && !trimSet) return session;
             return session with
             {
@@ -236,12 +240,23 @@ public static class TrainingProgramGenerator
     /// Candidates outside the pool keep their order after the pool, as a fallback only.
     /// </summary>
     private static IReadOnlyList<TrainingExerciseCandidate> RotateCuratedPool(
-        IReadOnlyList<TrainingExerciseCandidate> orderedByPriority, int rotationIndex)
+        IReadOnlyList<TrainingExerciseCandidate> orderedByPriority, int rotationIndex,
+        IReadOnlyList<string>? previousBlockExerciseIds = null, bool isDeload = false)
     {
-        if (orderedByPriority.Count < 2 || rotationIndex <= 0) return orderedByPriority;
+        if (orderedByPriority.Count < 2) return orderedByPriority;
         var best = orderedByPriority[0].SelectionPriority;
         var pool = orderedByPriority.Take(RotationPoolSize)
             .Where(candidate => best - candidate.SelectionPriority <= PoolPriorityWindow).ToList();
+        if (previousBlockExerciseIds is { Count: > 0 })
+        {
+            // History-aware rotation: what the previous block really used decides, not the block number
+            // (a one-week deload would otherwise shift the rotation). A training block moves to an equally
+            // suitable exercise it did not use; a deload keeps the previous block's exercises.
+            var used = previousBlockExerciseIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var ordered = pool.OrderBy(candidate => used.Contains(candidate.ExerciseId) == isDeload ? 0 : 1).ToList();
+            return ordered.Concat(orderedByPriority.Skip(pool.Count)).ToArray();
+        }
+        if (rotationIndex <= 0) return orderedByPriority;
         var offset = rotationIndex % pool.Count;
         return pool.Skip(offset).Concat(pool.Take(offset)).Concat(orderedByPriority.Skip(pool.Count)).ToArray();
     }
@@ -860,7 +875,11 @@ public sealed record TrainingProgramGenerationRequest(
     bool IsDeload = false,
     TrainingProgramSplit Split = TrainingProgramSplit.Automatic,
     int? RotationIndex = null,
-    IReadOnlyList<TrainingLoadReference>? LoadReferences = null);
+    IReadOnlyList<TrainingLoadReference>? LoadReferences = null,
+    // History of the previous block of the same plan (filled by the server, never trusted for safety):
+    // exercises it used, and whether this block directly continues a non-deload block.
+    IReadOnlyList<string>? PreviousBlockExerciseIds = null,
+    bool ContinuesPreviousBlock = false);
 
 public sealed record TrainingExerciseCandidate(
     string ExerciseId,

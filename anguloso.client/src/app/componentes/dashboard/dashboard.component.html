@@ -64,6 +64,20 @@
         </mat-card-content>
       </mat-card>
 
+      <mat-card *ngIf="data.trainingReviewRequests?.length" class="attention-card" aria-labelledby="training-review-title">
+        <mat-card-header>
+          <mat-card-title id="training-review-title">Solicitudes de revisión de rutina</mat-card-title>
+          <button mat-button type="button" class="header-action" (click)="openTrainingInbox()">Ver todos los pendientes</button>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="row" *ngFor="let item of data.trainingReviewRequests">
+            <div><strong>{{item.clientName}}</strong><span>{{item.planName}}{{item.planVersion > 1 ? ' · revisión ' + item.planVersion : ''}} · {{item.createdAt|date:'dd/MM HH:mm'}}</span></div>
+            <span class="status overdue">Pendiente</span>
+            <button mat-button type="button" (click)="openTrainingReview(item)" [attr.aria-label]="'Revisar la rutina de ' + item.clientName">Revisar</button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
       <mat-card>
         <mat-card-header>
           <mat-card-title>Tareas que requieren atención</mat-card-title>

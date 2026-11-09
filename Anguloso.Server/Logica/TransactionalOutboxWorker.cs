@@ -277,6 +277,19 @@ public sealed class TransactionalOutboxWorker : BackgroundService
                     $"Nuevo mensaje de {patientName}", body.Length > 180 ? body[..180] + "…" : body, "/messages", cancellationToken);
                 return;
             }
+            case "training_review_request_created":
+            {
+                var clientId = payload.RootElement.GetProperty("ClientId").GetInt32();
+                var requestId = payload.RootElement.GetProperty("RequestId").GetInt64();
+                var planName = payload.RootElement.GetProperty("PlanName").GetString() ?? "rutina";
+                int? planIdValue = payload.RootElement.TryGetProperty("PlanId", out var planIdElement) && planIdElement.ValueKind == JsonValueKind.Number ? planIdElement.GetInt32() : null;
+                var noteElement = payload.RootElement.GetProperty("Note");
+                var note = noteElement.ValueKind == JsonValueKind.Null ? null : noteElement.GetString();
+                using var scope = _scopeFactory.CreateScope();
+                var notifications = scope.ServiceProvider.GetRequiredService<ProfessionalNotificationService>();
+                await notifications.DeliverTrainingReviewRequestAsync(clientId, requestId, planName, note, planIdValue, cancellationToken);
+                return;
+            }
             default:
                 throw new InvalidOperationException($"Tipo de evento outbox no soportado: {job.EventType}");
         }

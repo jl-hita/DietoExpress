@@ -34,15 +34,27 @@ public sealed class TrainingPeriodizationController : ControllerBase
 
 
     [HttpPost("generate-preview")]
-    public async Task<IActionResult> GeneratePreview([FromBody] TrainingProgramGenerationRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> GeneratePreview([FromBody] TrainingProgramGenerationRequest request, [FromQuery] int? planId, CancellationToken cancellationToken)
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId is null) return Unauthorized();
+        // With a plan, the preview uses the same history as the saved result (previous blocks, performance).
+        (TrainingProgramGenerationRequest Request, PreviousBlock? Previous) historyForPreview = (request, null);
+        if (planId.HasValue)
+        {
+            if (!await CanManagePlan(planId.Value, cancellationToken)) return NotFound();
+            historyForPreview = await WithHistoryAsync(planId.Value, request, null, cancellationToken);
+            request = historyForPreview.Request;
+        }
         try
         {
             var candidates = await _exerciseCatalog.LoadGeneratorCandidatesAsync(userId.Value, cancellationToken);
             var result = TrainingProgramGenerator.Generate(request, candidates);
-            return result.Succeeded ? Ok(result.Prescription) : UnprocessableEntity(new { errors = result.Errors });
+            if (!result.Succeeded) return UnprocessableEntity(new { errors = result.Errors });
+            return Ok(historyForPreview.Previous is null ? result.Prescription : result.Prescription! with
+            {
+                History = BuildHistory(result.Prescription!, historyForPreview.Request, historyForPreview.Previous)
+            });
         }
         catch (Exception)
         {
@@ -448,6 +460,108 @@ public sealed class TrainingPeriodizationController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Makes a generation request history-aware without extra input from the professional:
+    ///  - starting loads come from the client's last recorded performance;
+    ///  - the previous block of the plan (by date) tells which exercises it used, so a new training block
+    ///    rotates to equally suitable ones and a deload keeps them;
+    ///  - a block that directly follows a non-deload block skips the full "introduction week".
+    /// Explicit values sent by the professional (rotation, load references) are respected.
+    /// </summary>
+    private async Task<(TrainingProgramGenerationRequest Request, PreviousBlock? Previous)> WithHistoryAsync(
+        int planId, TrainingProgramGenerationRequest generation, int? sequenceNumber, CancellationToken cancellationToken)
+    {
+        if (generation.RotationIndex is null && sequenceNumber.HasValue)
+            generation = generation with { RotationIndex = Math.Max(0, sequenceNumber.Value - 1) };
+        if (generation.LoadReferences is null)
+        {
+            var clientId = await _context.Database.SqlQueryRaw<int?>(
+                """SELECT f.client_id AS "Value" FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id WHERE p.id = {0}""", planId)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (clientId.HasValue)
+                generation = generation with
+                {
+                    LoadReferences = await new TrainingExerciseProgressionService(_context)
+                        .GetLoadReferencesAsync(clientId.Value, cancellationToken)
+                };
+        }
+
+        var previous = await GetPreviousBlockAsync(planId, generation.StartDate, cancellationToken);
+        if (previous is null) return (generation, null);
+        generation = generation with
+        {
+            PreviousBlockExerciseIds = generation.PreviousBlockExerciseIds is { Count: > 0 } ? generation.PreviousBlockExerciseIds : previous.ExerciseIds,
+            ContinuesPreviousBlock = !generation.IsDeload && !previous.WasDeload && previous.GapDays <= 7
+        };
+        return (generation, previous);
+    }
+
+    private sealed record PreviousBlock(IReadOnlyList<string> ExerciseIds, bool WasDeload, int GapDays,
+        IReadOnlyDictionary<string, string> Names);
+
+    private static TrainingProgramHistory BuildHistory(TrainingProgramPrescription prescription,
+        TrainingProgramGenerationRequest request, PreviousBlock previous)
+    {
+        var used = previous.ExerciseIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var current = prescription.Sessions.SelectMany(session => session.Exercises)
+            .GroupBy(exercise => exercise.ExerciseId, StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToList();
+        var items = current.Select(exercise => new TrainingHistoryExercise(
+            exercise.ExerciseId, exercise.ExerciseNameSnapshot, used.Contains(exercise.ExerciseId) ? "kept" : "new")).ToList();
+        var now = current.Select(exercise => exercise.ExerciseId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        items.AddRange(previous.ExerciseIds.Where(id => !now.Contains(id)).Select(id =>
+            new TrainingHistoryExercise(id, previous.Names.TryGetValue(id, out var name) ? name : id, "dropped")));
+        return new TrainingProgramHistory(previous.ExerciseIds.Count, request.ContinuesPreviousBlock, items);
+    }
+
+    /// <summary>Exercises of the latest mesocycle that ends before <paramref name="start"/> (structured prescriptions only).</summary>
+    private async Task<PreviousBlock?> GetPreviousBlockAsync(int planId, DateOnly start, CancellationToken cancellationToken)
+    {
+        DateOnly blockStart, blockEnd;
+        await using (var meso = Command("""
+            SELECT start_date, COALESCE(end_date, start_date) FROM training_mesocycles
+            WHERE plan_id = @planId AND COALESCE(end_date, start_date) < @start
+            ORDER BY COALESCE(end_date, start_date) DESC, sequence_number DESC LIMIT 1
+            """, ("planId", planId), ("start", start)))
+        await using (var reader = await meso.ExecuteReaderAsync(cancellationToken))
+        {
+            if (!await reader.ReadAsync(cancellationToken)) return null;
+            blockStart = reader.GetFieldValue<DateOnly>(0);
+            blockEnd = reader.GetFieldValue<DateOnly>(1);
+        }
+
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var wasDeload = false;
+        await using (var sessions = Command("""
+            SELECT exercise_prescription_data::text FROM training_sessions
+            WHERE plan_id = @planId AND scheduled_date BETWEEN @blockStart AND @blockEnd
+              AND exercise_prescription_data IS NOT NULL
+            """, ("planId", planId), ("blockStart", blockStart), ("blockEnd", blockEnd)))
+        await using (var reader = await sessions.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                try
+                {
+                    using var document = JsonDocument.Parse(reader.GetString(0));
+                    if (!document.RootElement.TryGetProperty("exercises", out var exercises) || exercises.ValueKind != JsonValueKind.Array) continue;
+                    foreach (var exercise in exercises.EnumerateArray())
+                    {
+                        if (exercise.TryGetProperty("exerciseId", out var id) && id.ValueKind == JsonValueKind.String)
+                        {
+                            ids.Add(id.GetString()!);
+                            if (exercise.TryGetProperty("exerciseNameSnapshot", out var nm) && nm.ValueKind == JsonValueKind.String) names[id.GetString()!] = nm.GetString()!;
+                        }
+                        if (exercise.TryGetProperty("selectionRationale", out var why) && why.ValueKind == JsonValueKind.String &&
+                            why.GetString()!.Contains("Descarga activa", StringComparison.Ordinal)) wasDeload = true;
+                    }
+                }
+                catch (JsonException) { /* a corrupt prescription simply gives no history */ }
+            }
+        }
+        return ids.Count == 0 ? null : new PreviousBlock(ids.ToArray(), wasDeload, start.DayNumber - blockEnd.DayNumber - 1, names);
+    }
+
     [HttpPost("plans/{planId:int}/generate-mesocycle")]
     public async Task<IActionResult> GenerateAndSaveMesocycle(
         int planId,
@@ -465,26 +579,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
             return BadRequest(new { message = "Las notas admiten hasta 4000 caracteres." });
 
         var candidates = await _exerciseCatalog.LoadGeneratorCandidatesAsync(userId.Value, cancellationToken);
-        // Defaults that make the generator history-aware without extra client input:
-        //  - rotation index follows the mesocycle number (each new block rotates within the curated
-        //    pool), unless the professional set it explicitly;
-        //  - starting loads come from the client's last recorded performance, when there is any.
-        var generation = request.Generation with
-        {
-            RotationIndex = request.Generation.RotationIndex ?? Math.Max(0, request.SequenceNumber - 1)
-        };
-        if (generation.LoadReferences is null)
-        {
-            var clientId = await _context.Database.SqlQueryRaw<int?>(
-                """SELECT f.client_id AS "Value" FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id WHERE p.id = {0}""", planId)
-                .SingleOrDefaultAsync(cancellationToken);
-            if (clientId.HasValue)
-                generation = generation with
-                {
-                    LoadReferences = await new TrainingExerciseProgressionService(_context)
-                        .GetLoadReferencesAsync(clientId.Value, cancellationToken)
-                };
-        }
+        var history = await WithHistoryAsync(planId, request.Generation, request.SequenceNumber, cancellationToken);
+        var generation = history.Request;
         var generated = TrainingProgramGenerator.Generate(generation, candidates);
         if (!generated.Succeeded)
             return UnprocessableEntity(new { errors = generated.Errors });
@@ -574,8 +670,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 await using var command = connection.CreateCommand();
                 command.Transaction = transaction;
                 command.CommandText = """
-                    INSERT INTO training_mesocycles(plan_id, name, sequence_number, start_date, end_date, objective, notes)
-                    VALUES (@planId, @name, @sequence, @startDate, @endDate, @objective, @notes)
+                    INSERT INTO training_mesocycles(plan_id, name, sequence_number, start_date, end_date, objective, notes, review_status)
+                    VALUES (@planId, @name, @sequence, @startDate, @endDate, @objective, @notes, 'draft')
                     RETURNING id
                     """;
                 command.Parameters.AddWithValue("planId", planId);
@@ -586,6 +682,15 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 command.Parameters.AddWithValue("objective", prescription.Goal);
                 command.Parameters.AddWithValue("notes", (object?)request.Notes?.Trim() ?? DBNull.Value);
                 mesocycleId = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+            }
+
+            // Todo bloque generado queda como borrador hasta que el profesional lo marque como revisado.
+            await using (var draftCommand = connection.CreateCommand())
+            {
+                draftCommand.Transaction = transaction;
+                draftCommand.CommandText = "UPDATE training_mesocycles SET review_status = 'draft', updated_at = NOW() WHERE id = @id";
+                draftCommand.Parameters.AddWithValue("id", mesocycleId);
+                await draftCommand.ExecuteNonQueryAsync(cancellationToken);
             }
 
             for (var week = 1; week <= prescription.DurationWeeks; week++)
@@ -656,7 +761,13 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 sessionsCreated = prescription.Sessions.Count,
                 engineVersion = prescription.EngineVersion,
                 requiresProfessionalReview = true,
-                addedToExistingMesocycle = request.ExistingMesocycleId.HasValue
+                addedToExistingMesocycle = request.ExistingMesocycleId.HasValue,
+                history = new
+                {
+                    previousBlockExercises = history.Previous?.ExerciseIds.Count ?? 0,
+                    continuesPreviousBlock = generation.ContinuesPreviousBlock,
+                    loadReferences = generation.LoadReferences?.Count ?? 0
+                }
             });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -1754,12 +1865,138 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return await GetMacrocycle(planId, cancellationToken);
     }
 
+    [HttpPost("mesocycles/{mesocycleId:int}/review-status")]
+    public async Task<IActionResult> SetMesocycleReviewStatus(
+        int mesocycleId, [FromBody] SetMesocycleReviewStatusRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Status is not ("draft" or "reviewed"))
+            return BadRequest(new { message = "El estado debe ser draft o reviewed." });
+        var planId = await GetMesocyclePlanId(mesocycleId, cancellationToken);
+        if (!planId.HasValue || !await CanManagePlan(planId.Value, cancellationToken)) return NotFound();
+        await using var command = Command(
+            "UPDATE training_mesocycles SET review_status = @status, updated_at = NOW() WHERE id = @id",
+            ("status", request.Status), ("id", mesocycleId));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        return Ok(new { id = mesocycleId, reviewStatus = request.Status });
+    }
+
+    /// <summary>
+    /// Vacía los bloques FUTUROS que siguen siendo borradores intactos para poder regenerarlos con el generador.
+    /// Nunca toca bloques revisados, empezados, con registros del paciente ni con sesiones editadas a mano
+    /// (se detectan por updated_at/estado/instrucciones). Con dryRun solo informa de qué se vaciaría.
+    /// </summary>
+    [HttpPost("plans/{planId:int}/mesocycles/clear-future-drafts")]
+    public async Task<IActionResult> ClearFutureDraftMesocycles(int planId, [FromQuery] bool dryRun, CancellationToken cancellationToken)
+    {
+        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var clearable = new List<object>();
+            var kept = new List<object>();
+            var clearIds = new List<int>();
+            await using (var list = CreateCommand("""
+                SELECT m.id, m.name, m.start_date, COALESCE(m.end_date, m.start_date), m.review_status,
+                       (SELECT COUNT(*) FROM training_sessions s WHERE s.plan_id = m.plan_id AND s.scheduled_date BETWEEN m.start_date AND COALESCE(m.end_date, m.start_date)) AS sessions,
+                       (SELECT COUNT(*) FROM training_sessions s
+                          WHERE s.plan_id = m.plan_id AND s.scheduled_date BETWEEN m.start_date AND COALESCE(m.end_date, m.start_date)
+                            AND (s.status <> 'planned'
+                                 OR s.updated_at > s.created_at + INTERVAL '2 seconds'
+                                 OR COALESCE(s.instructions, '') NOT LIKE 'Borrador generado por el motor%'
+                                 OR EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id))) AS protected_sessions
+                FROM training_mesocycles m
+                WHERE m.plan_id = @planId AND m.start_date > CURRENT_DATE
+                ORDER BY m.sequence_number
+                FOR UPDATE OF m
+                """, transaction, ("planId", planId)))
+            await using (var reader = await list.ExecuteReaderAsync(cancellationToken))
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var id = reader.GetInt32(0);
+                    var isDraft = reader.GetString(4) == "draft";
+                    var sessions = reader.GetInt64(5);
+                    var protectedSessions = reader.GetInt64(6);
+                    var item = new { id, name = reader.GetString(1), startDate = reader.GetFieldValue<DateOnly>(2), sessions };
+                    if (isDraft && protectedSessions == 0) { clearable.Add(item); clearIds.Add(id); }
+                    else kept.Add(new { item.id, item.name, item.startDate, reason = !isDraft ? "revisado" : "sesiones editadas, registradas o no planificadas" });
+                }
+
+            if (!dryRun && clearIds.Count > 0)
+            {
+                await using var clear = CreateCommand("""
+                    DELETE FROM training_sessions s USING training_mesocycles m
+                    WHERE m.id = ANY(@ids) AND s.plan_id = m.plan_id
+                      AND s.scheduled_date BETWEEN m.start_date AND COALESCE(m.end_date, m.start_date);
+                    DELETE FROM training_microcycles WHERE mesocycle_id = ANY(@ids);
+                    """, transaction, ("ids", clearIds.ToArray()));
+                await clear.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+            return Ok(new { dryRun, cleared = clearable, kept });
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+    }
+
+    /// <summary>Todo lo que espera al profesional en entrenamientos, en todos sus clientes.</summary>
+    [HttpGet("pending-reviews")]
+    public async Task<IActionResult> GetPendingReviews(CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        var superAdmin = User.IsInRole("superadmin");
+        var clinicAdmin = User.IsInRole("clinic_admin");
+        const string access = """
+            (@superAdmin OR (
+                cl.tenant_id = (SELECT u.tenant_id FROM users u WHERE u.id = @userId)
+                AND (@clinicAdmin OR cl.user_id = @userId
+                     OR EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id = cl.id AND a.nutritionist_id = @userId AND a.is_active))))
+            """;
+        await using var command = Command($"""
+            SELECT 'review_request' AS kind, r.id, cl.id, cl.full_name, p.id, p.name, r.created_at, r.note
+            FROM training_review_requests r
+            JOIN training_plans p ON p.id = r.plan_id
+            JOIN clients cl ON cl.id = r.client_id AND cl.archived_at IS NULL
+            WHERE r.status = 'pending' AND {access}
+            UNION ALL
+            SELECT 'adaptation', a.id, cl.id, cl.full_name, p.id, p.name, a.created_at, a.action
+            FROM training_adaptation_proposals a
+            JOIN training_plans p ON p.id = a.plan_id
+            JOIN clients cl ON cl.id = a.client_id AND cl.archived_at IS NULL
+            WHERE a.status = 'pending' AND {access}
+            UNION ALL
+            SELECT 'draft_block', m.id, cl.id, cl.full_name, p.id, p.name, m.created_at, m.name
+            FROM training_mesocycles m
+            JOIN training_plans p ON p.id = m.plan_id AND p.status IN ('active','draft','paused')
+            JOIN training_profiles f ON f.id = p.profile_id
+            JOIN clients cl ON cl.id = f.client_id AND cl.archived_at IS NULL
+            WHERE m.review_status = 'draft' AND m.start_date <= CURRENT_DATE + 14 AND COALESCE(m.end_date, m.start_date) >= CURRENT_DATE AND {access}
+            ORDER BY 7 DESC
+            LIMIT 200
+            """, ("userId", userId.Value), ("superAdmin", superAdmin), ("clinicAdmin", clinicAdmin));
+        var items = new List<object>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            items.Add(new
+            {
+                kind = reader.GetString(0), id = reader.GetInt64(1), clientId = reader.GetInt32(2),
+                clientName = reader.IsDBNull(3) ? "Cliente" : reader.GetString(3), planId = reader.GetInt32(4),
+                planName = reader.GetString(5), createdAt = reader.GetDateTime(6), detail = reader.IsDBNull(7) ? null : reader.GetString(7)
+            });
+        return Ok(items);
+    }
+
     [HttpGet("plans/{planId:int}/mesocycles")]
     public async Task<IActionResult> GetMesocycles(int planId, CancellationToken cancellationToken)
     {
         if (!await CanAccessPlan(planId, cancellationToken)) return NotFound();
         await using var command = Command("""
-            SELECT id, plan_id, name, sequence_number, start_date, end_date, objective, notes
+            SELECT id, plan_id, name, sequence_number, start_date, end_date, objective, notes, review_status
             FROM training_mesocycles WHERE plan_id = @planId
             ORDER BY sequence_number, start_date, id
             """, ("planId", planId));
@@ -1768,7 +2005,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
         while (await reader.ReadAsync(cancellationToken))
             items.Add(new TrainingMesocycleDto(reader.GetInt32(0), reader.GetInt32(1), reader.GetString(2), reader.GetInt32(3),
                 reader.GetFieldValue<DateOnly>(4), reader.IsDBNull(5) ? null : reader.GetFieldValue<DateOnly>(5),
-                reader.IsDBNull(6) ? null : reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetString(7)));
+                reader.IsDBNull(6) ? null : reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetString(7), reader.GetString(8)));
         return Ok(items);
     }
 
@@ -2530,7 +2767,8 @@ public sealed record SaveTrainingMacrocyclePhaseRequest(string Name, int Sequenc
 
 public sealed record CreateTrainingMesocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
 public sealed record GenerateTrainingMesocycleRequest(string Name, int SequenceNumber, TrainingProgramGenerationRequest Generation, string? Notes = null, int? ExistingMesocycleId = null);
-public sealed record TrainingMesocycleDto(int Id, int PlanId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
+public sealed record TrainingMesocycleDto(int Id, int PlanId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes, string ReviewStatus = "reviewed");
+public sealed record SetMesocycleReviewStatusRequest(string Status);
 public sealed record CreateTrainingMicrocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
 public sealed record ReorderTrainingCyclesRequest(int[] OrderedIds);
 public sealed record SaveTrainingTemplateRequest(string Name);

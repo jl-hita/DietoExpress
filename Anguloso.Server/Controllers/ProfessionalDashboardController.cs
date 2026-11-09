@@ -84,6 +84,30 @@ public sealed class ProfessionalDashboardController : ControllerBase
         }
 
         await using (var command = new NpgsqlCommand("""
+            SELECT r.id, r.client_id, cl.full_name, p.name, p.version, r.created_at
+            FROM training_review_requests r
+            JOIN training_plans p ON p.id=r.plan_id
+            JOIN clients cl ON cl.id=r.client_id
+            WHERE r.status='pending' AND cl.archived_at IS NULL
+              AND COALESCE(cl.tenant_id,(SELECT u.tenant_id FROM users u WHERE u.id=cl.user_id))=@tenant
+              AND (cl.user_id=@user OR EXISTS (SELECT 1 FROM client_nutritionist_assignments a
+                          WHERE a.client_id=cl.id AND a.nutritionist_id=@user AND a.is_active))
+            ORDER BY r.created_at
+            LIMIT 20;
+            """, connection))
+        {
+            command.Parameters.AddWithValue("tenant", tenantId.Value);
+            command.Parameters.AddWithValue("user", userId.Value);
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                result.TrainingReviewRequests.Add(new DashboardTrainingReviewDto
+                {
+                    Id = reader.GetInt64(0), ClientId = reader.GetInt32(1), ClientName = reader.GetString(2),
+                    PlanName = reader.GetString(3), PlanVersion = reader.GetInt32(4), CreatedAt = reader.GetDateTime(5)
+                });
+        }
+
+        await using (var command = new NpgsqlCommand("""
             SELECT COUNT(*)::int
             FROM patient_conversations c
             JOIN clients cl ON cl.id=c.client_id
@@ -429,11 +453,22 @@ public sealed class ProfessionalDashboardDto
     public int DocumentProvisioningIncompleteCount { get; set; }
     public List<DashboardDocumentProvisioningDto> DocumentProvisioningIssues { get; set; } = [];
     public List<DashboardTaskDto> OpenTasks { get; set; } = [];
+    public List<DashboardTrainingReviewDto> TrainingReviewRequests { get; set; } = [];
     public List<DashboardAppointmentDto> TodayAppointments { get; set; } = [];
     public List<DashboardAppointmentDto> UpcomingAppointments { get; set; } = [];
     public List<DashboardCheckinDto> PendingCheckins { get; set; } = [];
     public List<DashboardPendingClientDto> PendingDocuments { get; set; } = [];
     public List<DashboardPendingDataClientDto> PendingPatientData { get; set; } = [];
+}
+
+public sealed class DashboardTrainingReviewDto
+{
+    public long Id { get; set; }
+    public int ClientId { get; set; }
+    public string ClientName { get; set; } = "";
+    public string PlanName { get; set; } = "";
+    public int PlanVersion { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public sealed class DashboardTaskDto

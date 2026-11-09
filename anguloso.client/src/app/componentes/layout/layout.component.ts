@@ -5,12 +5,13 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { ProfessionalNotificationBellComponent } from './professional-notification-bell.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, MatToolbarModule, MatIconModule, MatButtonModule],
+  imports: [RouterOutlet, SidebarComponent, MatToolbarModule, MatIconModule, MatButtonModule, ProfessionalNotificationBellComponent],
   templateUrl: './layout.component.html',
   styleUrls: ['./layout.component.css']
 })

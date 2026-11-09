@@ -9,6 +9,7 @@ export interface DashboardPendingClient { clientId:number; clientName:string; pe
 export interface DashboardPendingDataClient { clientId:number; clientName:string; missingFields:string; }
 export interface DashboardDocumentProvisioning { clientId:number; clientName:string; status:string; attempts:number; maxAttempts:number; lastError:string|null; updatedAt:string; }
 export interface DashboardTask { id:number; clientId:number|null; clientName:string; title:string; dueAt:string|null; priority:string; status:string; }
+export interface DashboardTrainingReview { id:number; clientId:number; clientName:string; planName:string; planVersion:number; createdAt:string; }
 export interface ProfessionalDashboard {
   openTaskCount:number;
   overdueTaskCount:number;
@@ -21,6 +22,7 @@ export interface ProfessionalDashboard {
   documentProvisioningIncompleteCount:number;
   documentProvisioningIssues:DashboardDocumentProvisioning[];
   openTasks:DashboardTask[];
+  trainingReviewRequests?:DashboardTrainingReview[];
   todayAppointments:DashboardAppointment[];
   upcomingAppointments:DashboardAppointment[];
   pendingCheckins:DashboardCheckin[];

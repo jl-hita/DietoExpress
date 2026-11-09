@@ -58,6 +58,7 @@ public class Program
         builder.Services.AddSingleton<EmailServ>(sp => new EmailServ(sp.GetRequiredService<ConfigServ>(), sp.GetRequiredService<LogServ>(), sp.GetRequiredService<IHttpContextAccessor>()));
         builder.Services.AddSingleton<NotificationService>();
         builder.Services.AddSingleton<ProfessionalPushService>();
+        builder.Services.AddScoped<ProfessionalNotificationService>();
         builder.Services.AddSingleton<MaintenanceNoticeService>();
         builder.Services.AddScoped<RecipeNutritionService>();
         builder.Services.AddScoped<ExerciseCatalogService>();

@@ -46,6 +46,11 @@
       </a>
     </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+      <a mat-list-item routerLink="/training-inbox" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>rate_review</mat-icon><span>Pendientes de entrenamiento</span>
+      </a>
+    </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
       <a mat-list-item routerLink="/exercise-contributions" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>playlist_add</mat-icon><span>Proponer ejercicios</span>
       </a>

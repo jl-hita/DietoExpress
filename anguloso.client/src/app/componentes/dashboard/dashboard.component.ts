@@ -76,6 +76,8 @@ export class DashboardComponent implements OnInit {
   }
   openMessages():void{this.router.navigate(['/messages']);}
   openTasks():void{this.router.navigate(['/automations']);}
+  openTrainingInbox():void{this.router.navigate(['/training-inbox']);}
+  openTrainingReview(item:{clientId:number}):void{this.router.navigate(['/clients',item.clientId,'training']);}
   openCheckins():void{this.router.navigate(['/clients']);}
   openCheckin(checkin:{clientId:number}):void{this.openClient(checkin.clientId);}
   openTask(task:DashboardTask):void {

@@ -3460,8 +3460,36 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 ON training_review_requests(plan_id) WHERE status = 'pending';
             CREATE INDEX IF NOT EXISTS idx_training_review_requests_client_status
                 ON training_review_requests(client_id, status, created_at DESC);
+            CREATE TABLE IF NOT EXISTS professional_notifications (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                type VARCHAR(60) NOT NULL,
+                title VARCHAR(200) NOT NULL,
+                message VARCHAR(1000) NOT NULL,
+                action_url VARCHAR(300) NULL,
+                idempotency_key VARCHAR(200) NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                read_at TIMESTAMPTZ NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_professional_notifications_idempotency
+                ON professional_notifications(user_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_professional_notifications_user_unread
+                ON professional_notifications(user_id, read_at, created_at DESC);
             INSERT INTO schema_migrations(id) VALUES ('training-review-requests-v1') ON CONFLICT (id) DO NOTHING;
         ");
+        // Estado de revisión de cada bloque: los generados nacen como borrador hasta que el profesional los revisa.
+        if (context.Database.SqlQueryRaw<bool>("SELECT to_regclass('training_mesocycles') IS NOT NULL AS \"Value\"").Single())
+            context.Database.ExecuteSqlRaw(@"
+                ALTER TABLE training_mesocycles ADD COLUMN IF NOT EXISTS review_status VARCHAR(20) NOT NULL DEFAULT 'reviewed';
+                DO $training_meso_review$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_training_mesocycles_review_status') THEN
+                        ALTER TABLE training_mesocycles ADD CONSTRAINT ck_training_mesocycles_review_status
+                            CHECK (review_status IN ('draft','reviewed'));
+                    END IF;
+                END $training_meso_review$;
+            ");
         logger.LogInformation("Solicitudes de revisión manual de rutinas inicializadas.");
     }
 
@@ -3627,7 +3655,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',
                     'billing_coupon_campaigns','billing_coupons','billing_coupon_redemptions',
                     'patient_commercial_communication_preferences',
-                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals','training_review_requests','food_dietary_profile','food_culinary_profile'
+                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals','training_review_requests','professional_notifications','food_dietary_profile','food_culinary_profile'
                 ]) AS required_table
             ) required
             WHERE NOT EXISTS (

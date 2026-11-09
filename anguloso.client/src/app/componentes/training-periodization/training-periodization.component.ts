@@ -5,132 +5,45 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, firstValueFrom, forkJoin, of, Subscription, timeout } from 'rxjs';
 import { DateInputDirective } from '../../directives/date-input.directive';
+import { TrainingReviewRequestsPanelComponent } from './training-review-requests-panel.component';
 import { MacroChartMesocycle, MacroChartPhase, MacroChartWeek, MacrocycleChartComponent } from './macrocycle-chart.component';
 
-interface TrainingProfile {
-  id: number; clientId: number; enabled: boolean; primaryGoal: string; experienceLevel: string; managementMode: 'none' | 'self' | 'collaboration'; notes?: string | null; canManage?: boolean;
-}
-interface TrainingPlan {
-  id: number; name: string; periodizationModel: string; startDate: string; endDate?: string | null; status: string; version: number; notes?: string | null;
-}
-interface GeneratedExercise {
-  exerciseId: string; catalogVersion: string; exerciseNameSnapshot: string; order: number;
-  sets: number; minRepetitions: number; maxRepetitions: number; targetRepetitionsInReserve?: number | null;
-  restSeconds: number; progressionRule: string | number; selectionRationale: string;
-  primaryMuscleGroups?: Array<string | number>; secondaryMuscleGroups?: Array<string | number>;
-  smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null;
-  warmupSets?: number | null; warmupNote?: string | null; targetLoadKg?: number | null; loadBasis?: string | null; adaptationOriginalSets?: number | null;
-}
-interface GeneratedSession {
-  weekNumber: number; day: number; title: string; estimatedDurationMinutes: number; exercises: GeneratedExercise[];
-}
-interface TrainingExerciseCatalogItem {
-  id: string; name: string; muscles: string; goal: string; equipment: string; equipmentLabel: string;
-  instructions: string; prescription: string; imageUrl?: string; source?: string;
-}
-interface GeneratedProgram {
-  engineVersion: string; goal: string; startDate: string; durationWeeks: number; sessions: GeneratedSession[];
-  qualityReport?: {
-    methodology: string;
-    weeklyMuscleVolumes: Array<{ weekNumber: number; muscles: Array<{ muscleGroup: string; primarySets: number; secondarySets: number; primaryFrequencySessions: number; secondaryFrequencySessions: number; estimatedEffectiveSets: number }> }>;
-    warnings: string[];
-    sessionVolumes?: Array<{ weekNumber: number; day: number; title: string; muscles: Array<{ muscleGroup: string; estimatedEffectiveSets: number }> }>;
-  } | null;
-}
-interface GenerationRequest {
-  goal: number; experience: number; startDate: string; durationWeeks: number; trainingDays: number[]; split: number;
-  maximumSessionDurationMinutes: number; availableEquipment: string[]; excludedExerciseIds: string[];
-  muscleVolumeTargets?: Array<{ muscleGroup: string; priority: number; targetWeeklyPrimarySets?: number | null }>;
-  isDeload?: boolean; rotationIndex?: number;
-}
-interface ManualVolumePreview {
-  qualityReport: NonNullable<GeneratedProgram['qualityReport']>;
-  unclassifiedExerciseNames: string[];
-  sessionReports: Array<{
-    weekNumber: number; day: number; title: string;
-    qualityReport: NonNullable<GeneratedProgram['qualityReport']>;
-    unclassifiedExerciseNames: string[];
-  }>;
-}
-interface MuscleVolumePreferenceDraft {
-  muscleGroup: string; label: string; enabled: boolean; priority: number; targetWeeklyPrimarySets: number | null;
-}
-interface TrainingExerciseVolumeRecommendation {
-  exerciseId: string; action: string; explanation: string; suggestedWorkingSets?: number | null; exposuresAnalyzed: number;
-}
-interface TrainingAdaptationProposal {
-  id: number; clientId: number; planId: number; sourceSessionId: number; sourceRecordId: number;
-  action: string; explanation: string; status: string; createdAt: string; reviewNotes?: string | null;
-  appliedFutureSessions: number; sessionDate: string; sessionTitle: string;
-  exerciseVolumeRecommendations?: TrainingExerciseVolumeRecommendation[];
-}
-interface TrainingSession {
-  id: number; planId: number; scheduledDate: string; title: string; sessionType: string; durationMinutes?: number | null;
-  intensityTarget?: string | null; instructions?: string | null; status: string; completedAt?: string | null;
-  actualDurationMinutes?: number | null; sessionRpe?: number | null; recordNotes?: string | null; exercisePrescription?: string | null; exercisePrescriptionData?: Record<string, unknown> | null;
-}
-interface StructuredExerciseDraft {
-  exerciseName: string; originalExerciseName?: string; sets: number; repetitions: string; rir: number | null; restSeconds: number; notes: string;
-  exerciseId?: string; catalogVersion?: string; progressionRule?: string | number;
-  primaryMuscleGroups?: Array<string | number>; secondaryMuscleGroups?: Array<string | number>;
-  smallestLoadIncrementKg?: number | null; maximumLoadIncreasePercent?: number | null; selectionRationale?: string;
-  warmupSets?: number | null; warmupNote?: string | null; targetLoadKg?: number | null; loadBasis?: string | null; adaptationOriginalSets?: number | null;
-}
-interface WeeklySessionDraft {
-  date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string;
-  exercises: StructuredExerciseDraft[];
-}
-interface SplitReorganizationMove { sessionId: number; title: string; oldDate: string; scheduledDate: string; }
-interface SplitReorganizationDraft { splitType: number; trainingDays: number[]; moves: SplitReorganizationMove[] | null; error: string; }
-interface SplitReplacementSession {
-  scheduledDate: string; title: string; sessionType: string; durationMinutes: number;
-  intensityTarget: string | null; instructions: string | null; exercisePrescription: string;
-  exercisePrescriptionData: Record<string, unknown> | null;
-}
-interface SplitReplacementPreview {
-  replaceFromDate: string; replaceThroughDate: string; sessions: SplitReplacementSession[];
-  volumePreview: ManualVolumePreview;
-  preservedManualEdits: number; retainedCustomExercises: number; warnings: string[];
-}
-interface TrainingLoadWeek { weekStart: string; completedSessions: number; plannedMinutes: number; actualMinutes: number; loadScore: number; }
-interface TrainingMesocycle { id: number; planId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; objective?: string | null; notes?: string | null; }
-interface MacrocyclePhase { id: number; name: string; sequenceNumber: number; startDate: string; endDate: string; objective?: string | null; phaseType: 'accumulation' | 'intensification' | 'deload' | 'realization' | 'general'; }
-interface MacroPhaseLoadWeek { weekNumber: number; startDate: string; endDate: string; sessions: number; completedSessions: number; plannedMinutes: number; sets: number | null; intensityLabel: string; intensityPct: number; volumePct: number; frequencyPct: number; isDeload: boolean; }
-interface MacrocyclePlan { id: number; planId: number; name: string; periodizationModel: string; startDate: string; endDate?: string | null; notes?: string | null; phases: MacrocyclePhase[]; }
-interface TrainingMicrocycle { id: number; mesocycleId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; focus?: string | null; notes?: string | null; }
-interface TrainingCollaboration {
-  id: number; professionalUserId?: number; professionalName?: string; email?: string; accessScope: string;
-  status: string; createdAt: string; acceptedAt?: string | null; revokedAt?: string | null;
-}
-interface TrainingInvitation {
-  id: number; clientId: number; clientName: string; accessScope: string; createdAt: string; invitedBy: string;
-}
-interface TrainingTemplate {
-  id: number; name: string; periodizationModel: string; notes?: string | null; createdAt: string; sessionCount: number;
-}
-interface TrainingSessionTemplate {
-  id: number; name: string; sessionType: string; durationMinutes?: number | null; intensityTarget?: string | null;
-  instructions?: string | null; exercisePrescription?: string | null; exercisePrescriptionData?: Record<string, unknown> | null; createdAt?: string;
-}
-interface RepDbExercise {
-  id: string;
-  nameEs?: string;
-  nameEn: string;
-  equipment?: string;
-  bodyPart?: string;
-  category?: string;
-  goals?: string[];
-  primaryMuscles?: string[];
-  secondaryMuscles?: string[];
-  instructionsEs?: string[];
-  descriptionEs?: string;
-  images?: { flat?: { start?: string; main?: string; peak?: string } };
-}
+import {
+  TrainingProfile,
+  TrainingPlan,
+  GeneratedExercise,
+  GeneratedSession,
+  TrainingExerciseCatalogItem,
+  GeneratedProgram,
+  GenerationRequest,
+  ManualVolumePreview,
+  MuscleVolumePreferenceDraft,
+  TrainingExerciseVolumeRecommendation,
+  TrainingAdaptationProposal,
+  TrainingSession,
+  StructuredExerciseDraft,
+  WeeklySessionDraft,
+  SplitReorganizationMove,
+  SplitReorganizationDraft,
+  SplitReplacementSession,
+  SplitReplacementPreview,
+  TrainingLoadWeek,
+  TrainingMesocycle,
+  MacrocyclePhase,
+  MacroPhaseLoadWeek,
+  MacrocyclePlan,
+  TrainingMicrocycle,
+  TrainingCollaboration,
+  TrainingInvitation,
+  TrainingTemplate,
+  TrainingSessionTemplate,
+  RepDbExercise
+} from './training-periodization.models';
 
 @Component({
   selector: 'app-training-periodization',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, DateInputDirective, MacrocycleChartComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DateInputDirective, MacrocycleChartComponent, TrainingReviewRequestsPanelComponent],
   template: `
     <main class="training-page">
       <a *ngIf="clientId > 0" class="back-link" [routerLink]="['/clients', clientId]">← Volver al expediente</a>
@@ -138,22 +51,8 @@ interface RepDbExercise {
       <p *ngIf="loading" role="status">{{ clientId > 0 ? 'Cargando planificación…' : 'Cargando invitaciones…' }}</p>
       <p *ngIf="error" class="error" role="alert">{{ error }}</p>
             <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
-      <section class="panel review-requests-panel" *ngIf="clientId > 0 && profile?.enabled && profile.canManage && !loading" aria-labelledby="review-requests-title">
-        <div class="section-heading"><div><h2 id="review-requests-title">Solicitudes de revisión manual</h2><p>El cliente pide que revises su rutina. La solicitud no cambia el plan por sí sola y las sesiones pasadas nunca se modifican.</p></div><span class="status">{{ reviewRequests.length }} pendientes</span></div>
-        <p *ngIf="!reviewRequests.length" class="muted">No hay solicitudes pendientes.</p>
-        <article *ngFor="let item of reviewRequests" class="template-row">
-          <div class="adaptation-proposal-content">
-            <strong>{{ item.planName }}{{ item.planVersion > 1 ? ' · revisión ' + item.planVersion : '' }}</strong>
-            <p>Solicitada el {{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
-            <p *ngIf="item.note">{{ item.note }}</p>
-            <label>Nota de respuesta (opcional)<textarea [name]="'reviewRequestNotes' + item.id" [(ngModel)]="reviewRequestNotes[item.id]" rows="2" maxlength="2000"></textarea></label>
-          </div>
-          <div class="cycle-actions">
-            <button type="button" (click)="resolveReviewRequest(item, 'attended')" [disabled]="saving">Marcar como atendida</button>
-            <button type="button" class="secondary" (click)="resolveReviewRequest(item, 'rejected')" [disabled]="saving">Rechazar</button>
-          </div>
-        </article>
-      </section>
+      <app-training-review-requests-panel *ngIf="clientId > 0 && profile?.enabled && profile.canManage && !loading"
+        [clientId]="clientId" [highlightRequestId]="deepLinkRequestId" (openPlan)="openPlanFromRequest($event)"></app-training-review-requests-panel>
       <section class="panel adaptation-review-panel" *ngIf="clientId > 0 && profile?.enabled && profile.canManage && !loading">
         <div class="section-heading"><div><h2>Revisión de adaptación por feedback</h2><p>Las recomendaciones del paciente no cambian el plan hasta que las revises. Las sesiones pasadas nunca se modifican.</p></div><span class="status">{{ adaptationProposals.length }} pendientes</span></div>
         <p *ngIf="!adaptationProposals.length" class="muted">No hay propuestas pendientes. Cuando el paciente registre feedback relevante, aparecerá aquí para su revisión.</p>
@@ -326,7 +225,7 @@ interface RepDbExercise {
             <div class="full"><button type="submit" [disabled]="saving || trainingManagementMode !== 'self' || !quickRoutineName.trim() || !quickRoutineDate || quickRoutineDuration < 1">Crear y asignar rutina</button><button type="button" class="secondary" (click)="showQuickRoutineForm = false" [disabled]="saving">Cancelar</button></div>
           </form>
           <p *ngIf="plans.length === 0" class="muted">Todavía no hay planes de entrenamiento.</p>
-          <article *ngFor="let plan of plans" class="plan-card">
+          <article *ngFor="let plan of plans" class="plan-card" [id]="'training-plan-' + plan.id">
             <div class="section-heading"><div><h3>{{ viewName(plan, 'plans.card') }}</h3><p>{{ plan.startDate | date:'mediumDate' }} <span *ngIf="plan.endDate">— {{ plan.endDate | date:'mediumDate' }}</span> · {{ modelLabel(plan.periodizationModel) }}</p></div><span class="status">{{ plan.status }}</span></div>
             <p *ngIf="plan.notes">{{ plan.notes }}</p>
             <div class="plan-card-actions" *ngIf="current.canManage">
@@ -431,6 +330,7 @@ interface RepDbExercise {
                         <p class="macro-microcycle-note">{{ week.completedSessions }} realizadas · {{ week.plannedMinutes }} min planificados</p>
                       </article>
                     </div>
+                    <div class="macro-phase-actions" *ngIf="current.canManage && phaseMesocycle(plan, phase) as block"><span [attr.style]="blockToneStyle(blockStatus(block).tone)">{{ blockStatus(block).label }}</span> <button type="button" class="secondary" *ngIf="block.reviewStatus === 'draft'" (click)="setMesocycleReviewStatus(block, 'reviewed')" [disabled]="saving">Marcar como revisado</button></div>
                     <div class="macro-phase-actions" *ngIf="current.canManage"><button type="button" (click)="generateMacrocyclePhaseMesocycle(plan, phase)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]">Generar este mesociclo y sus rutinas</button><button type="button" class="secondary" (click)="preparePhaseRoutineBlock(plan, phase)" [disabled]="saving">Preparar bloque vacío</button></div>
                     <p class="macro-footnote">La carga se calcula con las sesiones programadas dentro de las fechas de cada microciclo. «N/D» indica que la prescripción no contiene datos suficientes; no se inventan valores. Las barras se normalizan dentro de la fase.</p>
                   </section>
@@ -448,6 +348,7 @@ interface RepDbExercise {
                   </div>
                   <div class="macro-step-actions">
                     <button type="button" (click)="generateAllMacrocycleMesocycles(plan)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]">Generar todos los mesociclos y rutinas</button>
+                    <button type="button" class="secondary" (click)="regenerateFutureDrafts(plan)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]" title="Vacía y vuelve a generar solo los bloques futuros que siguen siendo borradores intactos">Regenerar fases futuras (borradores)</button>
                     <span *ngIf="bulkGenerationProgress[plan.id]" role="status">Generando {{ bulkGenerationProgress[plan.id].completed }}/{{ bulkGenerationProgress[plan.id].total }} · {{ bulkGenerationProgress[plan.id].phaseName }}</span>
                   </div>
                   <div *ngIf="bulkGenerationProgress[plan.id] as progress" class="macro-progress" role="progressbar" aria-label="Progreso de generación" [attr.aria-valuenow]="progress.completed" aria-valuemin="0" [attr.aria-valuemax]="progress.total"><span [style.width.%]="progress.total ? progress.completed / progress.total * 100 : 0"></span></div>
@@ -506,6 +407,14 @@ interface RepDbExercise {
                   </article></div>
                   <p class="load-disclaimer">El índice combina series, sesiones y RIR cuando está definido. Compara semanas de esta propuesta; no sustituye al tonelaje real ni a la valoración profesional.</p>
                 </section>
+                <section *ngIf="generated.history as history" class="quality-report" aria-label="Cambios respecto al bloque anterior">
+                  <strong>Cambios respecto al bloque anterior</strong>
+                  <p class="muted">{{ history.continuesPreviousBlock ? 'Este bloque continúa directamente al anterior: no se repite la semana de introducción completa.' : 'Este bloque no sigue directamente a otro de entrenamiento, así que empieza con su semana de introducción.' }}</p>
+                  <p><span *ngFor="let item of historyExercises(generated, 'kept')" [attr.style]="historyBadgeStyle('kept')">{{ item.name }}</span></p>
+                  <p *ngIf="historyExercises(generated, 'new').length"><strong>{{ historyLabel('new') }}:</strong> <span *ngFor="let item of historyExercises(generated, 'new')" [attr.style]="historyBadgeStyle('new')">{{ item.name }}</span></p>
+                  <p *ngIf="historyExercises(generated, 'dropped').length"><strong>{{ historyLabel('dropped') }}:</strong> <span *ngFor="let item of historyExercises(generated, 'dropped')" [attr.style]="historyBadgeStyle('dropped')">{{ item.name }}</span></p>
+                  <p class="muted">Un bloque de entrenamiento rota a ejercicios igual de adecuados; una descarga mantiene los del bloque anterior.</p>
+                </section>
                 <section *ngIf="generated.qualityReport" class="quality-report">
                   <strong>Chequeos orientativos de volumen y cobertura</strong>
                   <p class="muted">{{ generated.qualityReport.methodology }}</p>
@@ -563,7 +472,8 @@ interface RepDbExercise {
               <p *ngIf="!mesocycles[plan.id]?.length" class="muted">Organiza el plan en bloques de varias semanas: usa el asistente de arriba o añade uno manualmente.</p>
               <article *ngFor="let meso of mesocycles[plan.id]" class="mesocycle-card">
                 <ng-container *ngIf="editingMesocycleId !== meso.id; else editMesocycleForm">
-                  <div class="section-heading"><strong>{{ meso.sequenceNumber }}. {{ viewName(meso, 'mesocycles.card') }}</strong><div class="cycle-actions" *ngIf="current.canManage">
+                  <div class="section-heading"><strong>{{ meso.sequenceNumber }}. {{ viewName(meso, 'mesocycles.card') }}<span [attr.style]="blockToneStyle(blockStatus(meso).tone)">{{ blockStatus(meso).label }}</span></strong><div class="cycle-actions" *ngIf="current.canManage">
+                    <button type="button" *ngIf="meso.reviewStatus === 'draft'" (click)="setMesocycleReviewStatus(meso, 'reviewed')" [disabled]="saving">Marcar como revisado</button>
                     <button type="button" class="secondary" (click)="moveMesocycle(plan, meso, -1)" [disabled]="saving || mesocycles[plan.id]?.[0]?.id === meso.id" aria-label="Subir mesociclo">↑</button>
                     <button type="button" class="secondary" (click)="moveMesocycle(plan, meso, 1)" [disabled]="saving || mesocycles[plan.id]?.[mesocycles[plan.id].length - 1]?.id === meso.id" aria-label="Bajar mesociclo">↓</button>
                     <button type="button" class="secondary" (click)="beginEditMesocycle(meso)" [disabled]="saving">Editar</button>
@@ -970,8 +880,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   sessionEditDraft: { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string; exercisePrescriptionData: Record<string, unknown> | null } | null = null;
   recordDrafts: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
   adaptationProposals: TrainingAdaptationProposal[] = [];
-  reviewRequests: { id: number; planId: number; planName: string; planVersion: number; note?: string | null; status: string; createdAt: string }[] = [];
-  reviewRequestNotes: Record<number, string> = {};
+  deepLinkRequestId: number | null = null;
+  private deepLinkApplied = false;
   adaptationReviewNotes: Record<number, string> = {};
   adaptationTargetExercises: Record<number, string[]> = {};
   collaborations: TrainingCollaboration[] = [];
@@ -1838,8 +1748,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         }
 
         this.trainingManagementMode = profile.managementMode ?? (profile.enabled ? 'self' : 'none');
-        if (profile.enabled && profile.canManage) { this.loadAdaptationProposals(); this.loadReviewRequests(); }
-        else { this.adaptationProposals = []; this.reviewRequests = []; }
+        if (profile.enabled && profile.canManage) this.loadAdaptationProposals();
+        else this.adaptationProposals = [];
         if (profile.enabled && this.trainingManagementMode === 'collaboration') this.loadCollaborations();
         else this.collaborations = [];
 
@@ -1893,6 +1803,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
             // independently and must never keep the entire screen behind the loading message.
             this.loading = false;
             this.changeDetector.detectChanges();
+            this.applyDeepLink();
           }
 
           try {
@@ -1912,26 +1823,99 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadReviewRequests(): void {
-    this.http.get<typeof this.reviewRequests>('/api/training/clients/' + this.clientId + '/review-requests')
-      .pipe(catchError(() => of([] as typeof this.reviewRequests)))
-      .subscribe(items => {
-        this.reviewRequests = Array.isArray(items) ? items.filter(item => !!item && Number.isInteger(item.id)) : [];
-        for (const item of this.reviewRequests) this.reviewRequestNotes[item.id] = this.reviewRequestNotes[item.id] ?? '';
-        this.changeDetector.markForCheck();
-      });
+  /** Abre la rutina de una solicitud (o enlace profundo ?plan=) en el espacio de rutinas y la centra en pantalla. */
+  openPlanFromRequest(planId: number): void {
+    if (!this.plans.some(plan => plan.id === planId)) return;
+    this.setPlanWorkspace(planId, 'routines');
+    setTimeout(() => document.getElementById('training-plan-' + planId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
-  resolveReviewRequest(item: { id: number }, decision: 'attended' | 'rejected'): void {
-    if (!confirm('¿Quieres marcar esta solicitud como ' + (decision === 'attended' ? 'atendida' : 'rechazada') + '? No se modificará ninguna sesión.')) return;
+  private applyDeepLink(): void {
+    if (this.deepLinkApplied) return;
+    this.deepLinkApplied = true;
+    const params = this.route.snapshot.queryParamMap;
+    const request = Number(params.get('request'));
+    this.deepLinkRequestId = Number.isInteger(request) && request > 0 ? request : null;
+    const planId = Number(params.get('plan'));
+    if (Number.isInteger(planId) && planId > 0) this.openPlanFromRequest(planId);
+  }
+
+  // ---- Estado de revisión de los bloques ----
+  blockStatus(meso: TrainingMesocycle): { label: string; tone: 'draft' | 'upcoming' | 'running' | 'done' } {
+    if (meso.reviewStatus === 'draft') return { label: 'Borrador sin revisar', tone: 'draft' };
+    const today = this.localDateInputValue();
+    const start = meso.startDate.slice(0, 10);
+    const end = (meso.endDate || meso.startDate).slice(0, 10);
+    if (today < start) return { label: 'Revisado · programado', tone: 'upcoming' };
+    if (today > end) return { label: 'Completado', tone: 'done' };
+    return { label: 'En curso', tone: 'running' };
+  }
+
+  blockToneStyle(tone: string): string {
+    const colors: Record<string, string> = {
+      draft: 'background:#fef3c7;color:#92400e', upcoming: 'background:#e0e7ff;color:#3730a3',
+      running: 'background:#ccfbf1;color:#115e59', done: 'background:#e2e8f0;color:#334155'
+    };
+    return 'display:inline-block;padding:2px 9px;border-radius:999px;font-size:.78rem;font-weight:600;margin-left:8px;' + (colors[tone] ?? colors['done']);
+  }
+
+  phaseMesocycle(plan: TrainingPlan, phase: MacrocyclePhase): TrainingMesocycle | undefined {
+    const start = phase.startDate.slice(0, 10);
+    return (this.mesocycles[plan.id] || []).find(meso => meso.startDate.slice(0, 10) <= start && (meso.endDate || meso.startDate).slice(0, 10) >= start);
+  }
+
+  setMesocycleReviewStatus(meso: TrainingMesocycle, status: 'draft' | 'reviewed'): void {
     this.saving = true;
-    this.error = '';
-    this.http.post<{ message?: string }>('/api/training/review-requests/' + item.id + '/resolve', {
-      decision, notes: this.reviewRequestNotes[item.id] ?? ''
-    }).subscribe({
-      next: result => { this.notice = result.message ?? 'Solicitud actualizada.'; this.saving = false; this.loadReviewRequests(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo actualizar la solicitud.'; this.saving = false; this.loadReviewRequests(); }
+    this.http.post(`/api/training/mesocycles/${meso.id}/review-status`, { status }).subscribe({
+      next: () => {
+        meso.reviewStatus = status;
+        this.notice = status === 'reviewed' ? 'Bloque «' + meso.name + '» marcado como revisado.' : 'Bloque «' + meso.name + '» devuelto a borrador.';
+        this.saving = false;
+        this.changeDetector.detectChanges();
+      },
+      error: e => { this.error = e?.error?.message || 'No se pudo cambiar el estado de revisión del bloque.'; this.saving = false; this.changeDetector.detectChanges(); }
     });
+  }
+
+  /** Vacía los borradores futuros intactos y vuelve a generarlos; lo revisado, empezado o editado a mano se conserva. */
+  async regenerateFutureDrafts(plan: TrainingPlan): Promise<void> {
+    if (this.saving || this.generatingPlan || this.bulkGenerationProgress[plan.id]) return;
+    type Summary = { cleared: Array<{ id: number; name: string; startDate: string; sessions: number }>; kept: Array<{ id: number; name: string; reason: string }> };
+    try {
+      const preview = await firstValueFrom(this.http.post<Summary>(`/api/training/plans/${plan.id}/mesocycles/clear-future-drafts?dryRun=true`, {}));
+      if (!preview.cleared.length) {
+        this.notice = 'No hay bloques futuros en borrador que se puedan regenerar' + (preview.kept.length ? ' (' + preview.kept.length + ' se conservan por estar revisados, empezados o editados).' : '.');
+        return;
+      }
+      const sessions = preview.cleared.reduce((total, item) => total + item.sessions, 0);
+      if (!confirm('Se vaciarán ' + preview.cleared.length + ' bloque(s) futuro(s) en borrador (' + sessions + ' sesiones) y se volverán a generar con el historial actual.' +
+        (preview.kept.length ? '\n\nSe conservarán ' + preview.kept.length + ' bloque(s): revisados, empezados o con ediciones manuales.' : '') + '\n\n¿Continuar?')) return;
+      const result = await firstValueFrom(this.http.post<Summary>(`/api/training/plans/${plan.id}/mesocycles/clear-future-drafts`, {}));
+      for (const item of result.cleared) {
+        this.microcycles[item.id] = [];
+        const start = item.startDate.slice(0, 10);
+        const meso = (this.mesocycles[plan.id] || []).find(entry => entry.id === item.id);
+        const end = (meso?.endDate || meso?.startDate || start).slice(0, 10);
+        this.sessions[plan.id] = (this.sessions[plan.id] || []).filter(session => session.scheduledDate.slice(0, 10) < start || session.scheduledDate.slice(0, 10) > end);
+      }
+      await this.generateAllMacrocycleMesocycles(plan, true);
+    } catch (error: any) {
+      this.generationErrors[plan.id] = error?.error?.message || error?.message || 'No se pudieron regenerar los bloques futuros.';
+      this.changeDetector.detectChanges();
+    }
+  }
+
+  historyLabel(status: string): string {
+    return status === 'kept' ? 'Se mantiene' : status === 'new' ? 'Nuevo en este bloque' : 'Sale en este bloque';
+  }
+
+  historyBadgeStyle(status: string): string {
+    const colors: Record<string, string> = { kept: 'background:#e2e8f0;color:#334155', new: 'background:#ccfbf1;color:#115e59', dropped: 'background:#fee2e2;color:#991b1b' };
+    return 'display:inline-block;padding:2px 8px;border-radius:999px;font-size:.76rem;margin:2px 4px 2px 0;' + (colors[status] ?? colors['kept']);
+  }
+
+  historyExercises(program: GeneratedProgram, status: string): Array<{ exerciseId: string; name: string; status: string }> {
+    return (program.history?.exercises ?? []).filter(item => item.status === status);
   }
 
   loadAdaptationProposals(): void {
@@ -2350,7 +2334,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.volumeDeficitAcknowledged[plan.id] = false;
     this.generationErrors[plan.id] = '';
     this.generationRequests[plan.id] = request;
-    this.http.post<GeneratedProgram>('/api/training/generate-preview', request).pipe(
+    this.http.post<GeneratedProgram>('/api/training/generate-preview?planId=' + plan.id, request).pipe(
       timeout({ first: 30000 }),
       catchError(error => {
         this.generationErrors[plan.id] = error?.error?.errors?.join?.(' ') || error?.error?.message || 'No se pudo generar la vista previa. Comprueba que haya ejercicios revisados compatibles.';
@@ -3792,7 +3776,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     }));
   }
 
-  async generateAllMacrocycleMesocycles(plan: TrainingPlan): Promise<void> {
+  async generateAllMacrocycleMesocycles(plan: TrainingPlan, skipConfirm = false): Promise<void> {
     const phases = this.macrocyclePhases(plan).slice().sort((a, b) => a.sequenceNumber - b.sequenceNumber);
     if (!phases.length || this.saving || this.generatingPlan || this.bulkGenerationProgress[plan.id]) return;
     const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
@@ -3800,7 +3784,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.generationErrors[plan.id] = 'Revisa los días compatibles con la distribución elegida (2–6 días) y la duración máxima de 35 a 180 minutos.';
       return;
     }
-    if (!confirm('Se generarán mesociclos, microciclos y sesiones para todas las fases del macrociclo que todavía no tengan planificación. Los bloques existentes con contenido se conservarán. ¿Continuar?')) return;
+    if (!skipConfirm && !confirm('Se generarán mesociclos, microciclos y sesiones para todas las fases del macrociclo que todavía no tengan planificación. Los bloques existentes con contenido se conservarán. ¿Continuar?')) return;
     this.generationErrors[plan.id] = '';
     this.generatingPlan = true;
     this.bulkGenerationProgress[plan.id] = { completed: 0, total: phases.length, phaseName: 'Preparando…' };
