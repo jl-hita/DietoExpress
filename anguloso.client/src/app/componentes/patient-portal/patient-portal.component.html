@@ -498,6 +498,22 @@
         <p>{{ trainingAdaptationRecommendation.explanation }}</p>
         <p class="muted">Es una orientación informativa; no modifica por sí sola tu plan. Consulta con tu profesional antes de cambiar el entrenamiento.</p>
       </section>
+      <section class="summary-card training-review-card" *ngFor="let plan of trainingReviewPlans" style="display:block;margin-bottom:14px;padding:18px;" [attr.aria-label]="'Revisión manual de la rutina ' + plan.name">
+        <span class="eyebrow">Rutina{{ plan.version > 1 ? ' · revisión ' + plan.version : '' }}</span>
+        <h3>{{ plan.name }}</h3>
+        <p *ngIf="plan.reviewRequest" class="muted" role="status">{{ trainingReviewStatusLabel(plan.reviewRequest.status) }} ({{ (plan.reviewRequest.resolvedAt || plan.reviewRequest.createdAt) | date:'dd/MM/yyyy' }})</p>
+        <p *ngIf="plan.reviewRequest?.resolutionNotes" class="muted">Nota de tu entrenador: {{ plan.reviewRequest?.resolutionNotes }}</p>
+        <button type="button" class="btn-portal-primary" *ngIf="trainingReviewOpenPlanId !== plan.planId && plan.reviewRequest?.status !== 'pending'" (click)="openTrainingReview(plan)" [attr.aria-label]="'Solicitar revisión manual de ' + plan.name + ' a mi entrenador'"><mat-icon>rate_review</mat-icon> Solicitar revisión manual</button>
+        <div *ngIf="trainingReviewOpenPlanId === plan.planId" class="form-group" style="margin-top:10px">
+          <label [for]="'training-review-note-' + plan.planId">¿Qué te gustaría que revisara? (opcional)</label>
+          <textarea [id]="'training-review-note-' + plan.planId" rows="3" maxlength="1000" [(ngModel)]="trainingReviewNote" placeholder="Por ejemplo: me cuesta el volumen de piernas o tengo molestias en el hombro"></textarea>
+          <p class="muted">Tu entrenador recibirá un aviso. Tu rutina no cambia hasta que la revise y las sesiones ya realizadas no se modifican.</p>
+          <div class="portal-inline-error" *ngIf="trainingReviewError" role="alert"><mat-icon>error_outline</mat-icon><span>{{ trainingReviewError }}</span></div>
+          <button type="button" class="btn-portal-primary" (click)="sendTrainingReview(plan)" [disabled]="trainingReviewSending">{{ trainingReviewSending ? 'Enviando…' : 'Enviar solicitud' }}</button>
+          <button type="button" class="btn-portal-secondary" (click)="cancelTrainingReview()" [disabled]="trainingReviewSending">Cancelar</button>
+        </div>
+      </section>
+      <p class="muted" *ngIf="trainingReviewMessage" role="status" aria-live="polite">{{ trainingReviewMessage }}</p>
       <div class="loading-screen" *ngIf="trainingLoading"><mat-spinner diameter="36"></mat-spinner><p>Cargando entrenamientos…</p></div>
       <div class="empty-state" *ngIf="!trainingLoading && trainingSessions.length === 0"><mat-icon>event_busy</mat-icon><h3>No hay sesiones programadas</h3><p>Cuando tu profesional añada sesiones, aparecerán aquí.</p></div>
       <article class="summary-card" *ngFor="let session of trainingSessions" style="display:block;margin-bottom:14px;padding:18px;">

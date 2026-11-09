@@ -19,6 +19,9 @@ import { PatientShoppingCategory, PatientShoppingComponent } from './patient-sho
 import { PatientHeaderComponent } from './patient-header/patient-header.component';
 import { PatientDocumentsComponent } from './patient-documents/patient-documents.component';
 
+interface TrainingReviewRequestState { id: number; status: 'pending' | 'attended' | 'rejected'; createdAt: string; resolvedAt?: string | null; resolutionNotes?: string | null; }
+interface TrainingReviewPlan { planId: number; name: string; version: number; planStatus: string; reviewRequest: TrainingReviewRequestState | null; }
+
 interface TrainingPortalSession {
   id: number;
   planId: number;
@@ -89,6 +92,12 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   trainingSaving = false;
   trainingError = '';
   trainingSessions: TrainingPortalSession[] = [];
+  trainingReviewPlans: TrainingReviewPlan[] = [];
+  trainingReviewOpenPlanId: number | null = null;
+  trainingReviewNote = '';
+  trainingReviewSending = false;
+  trainingReviewMessage = '';
+  trainingReviewError = '';
   trainingAdaptationRecommendation: TrainingAdaptationRecommendation | null = null;
   trainingInputs: Record<number, {
     duration: number | null;
@@ -1275,7 +1284,59 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
         };
       }
       this.trainingLoading = false;
+      if (this.trainingEnabled) this.loadTrainingReviewPlans();
     });
+  }
+
+  /** Rutinas (original o revisiones) sobre las que el cliente puede pedir una revisión manual a su entrenador. */
+  loadTrainingReviewPlans(): void {
+    this.http.get<{ plans: TrainingReviewPlan[] }>('/api/portal/training/review-requests').pipe(
+      catchError(() => of({ plans: [] as TrainingReviewPlan[] }))
+    ).subscribe(result => { this.trainingReviewPlans = Array.isArray(result?.plans) ? result.plans : []; });
+  }
+
+  openTrainingReview(plan: TrainingReviewPlan): void {
+    this.trainingReviewOpenPlanId = plan.planId;
+    this.trainingReviewNote = '';
+    this.trainingReviewError = '';
+    this.trainingReviewMessage = '';
+  }
+
+  cancelTrainingReview(): void {
+    this.trainingReviewOpenPlanId = null;
+    this.trainingReviewNote = '';
+    this.trainingReviewError = '';
+  }
+
+  sendTrainingReview(plan: TrainingReviewPlan): void {
+    if (this.trainingReviewSending) return;
+    this.trainingReviewSending = true;
+    this.trainingReviewError = '';
+    this.http.post<{ message?: string }>('/api/portal/training/plans/' + plan.planId + '/review-request', {
+      note: this.trainingReviewNote.trim() || null
+    }).subscribe({
+      next: result => {
+        this.trainingReviewSending = false;
+        this.trainingReviewOpenPlanId = null;
+        this.trainingReviewNote = '';
+        this.trainingReviewMessage = result?.message || 'Solicitud enviada a tu entrenador.';
+        this.loadTrainingReviewPlans();
+      },
+      error: error => {
+        this.trainingReviewSending = false;
+        this.trainingReviewError = error?.status === 409
+          ? (error?.error?.message || 'Ya tienes una solicitud pendiente para esta rutina.')
+          : error?.status === 0 ? 'No hay conexión. Inténtalo de nuevo cuando vuelvas a estar en línea.'
+          : (error?.error?.message || 'No se pudo enviar la solicitud. Inténtalo de nuevo en unos minutos.');
+        if (error?.status === 409) { this.trainingReviewOpenPlanId = null; this.loadTrainingReviewPlans(); }
+      }
+    });
+  }
+
+  trainingReviewStatusLabel(status: string): string {
+    return status === 'pending' ? 'Solicitud enviada · pendiente de revisión'
+      : status === 'attended' ? 'Revisión atendida por tu entrenador'
+      : status === 'rejected' ? 'Tu entrenador ha respondido sin cambios' : '';
   }
 
   recordTrainingSession(session: TrainingPortalSession): void {

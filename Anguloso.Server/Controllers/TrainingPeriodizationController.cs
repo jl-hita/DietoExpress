@@ -1360,6 +1360,64 @@ public sealed class TrainingPeriodizationController : ControllerBase
         }
     }
 
+    /// <summary>Pending manual review requests raised by the client. They never change the plan by themselves.</summary>
+    [HttpGet("clients/{clientId:int}/review-requests")]
+    public async Task<IActionResult> GetReviewRequests(int clientId, CancellationToken cancellationToken)
+    {
+        if (!await CanManageClient(clientId, cancellationToken)) return NotFound();
+        await using var command = CreateCommand("""
+            SELECT r.id, r.plan_id, p.name, p.version, r.note, r.status, r.created_at
+            FROM training_review_requests r
+            JOIN training_plans p ON p.id = r.plan_id
+            WHERE r.client_id = @clientId AND r.status = 'pending'
+            ORDER BY r.created_at DESC, r.id DESC
+            LIMIT 100
+            """, null, ("clientId", clientId));
+        var items = new List<object>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            items.Add(new
+            {
+                id = reader.GetInt64(0), planId = reader.GetInt32(1), planName = reader.GetString(2),
+                planVersion = reader.GetInt32(3), note = reader.IsDBNull(4) ? null : reader.GetString(4),
+                status = reader.GetString(5), createdAt = reader.GetDateTime(6)
+            });
+        return Ok(items);
+    }
+
+    /// <summary>Marks a request as attended or rejected. Never touches sessions or the plan.</summary>
+    [HttpPost("review-requests/{requestId:long}/resolve")]
+    public async Task<IActionResult> ResolveReviewRequest(
+        long requestId, [FromBody] ResolveTrainingReviewRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Decision is not ("attended" or "rejected"))
+            return BadRequest(new { message = "La decisión debe ser attended o rejected." });
+        if (request.Notes?.Length > 2000)
+            return BadRequest(new { message = "La nota no puede superar los 2000 caracteres." });
+        var clientId = await _context.Database.SqlQueryRaw<int?>(
+            """SELECT client_id AS "Value" FROM training_review_requests WHERE id = {0}""", requestId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (!clientId.HasValue || !await CanManageClient(clientId.Value, cancellationToken)) return NotFound();
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+
+        await using var update = CreateCommand("""
+            UPDATE training_review_requests
+            SET status = @status, resolved_by_user_id = @userId, resolved_at = NOW(), resolution_notes = @notes
+            WHERE id = @id AND status = 'pending'
+            """, null, ("status", request.Decision), ("userId", userId.Value),
+            ("notes", string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()), ("id", requestId));
+        if (await update.ExecuteNonQueryAsync(cancellationToken) == 0)
+            return Conflict(new { message = "Esta solicitud ya ha sido atendida o rechazada." });
+        return Ok(new
+        {
+            status = request.Decision,
+            message = request.Decision == "attended"
+                ? "Solicitud marcada como atendida. No se ha modificado ninguna sesión."
+                : "Solicitud rechazada. No se ha modificado ninguna sesión."
+        });
+    }
+
     [HttpGet("plans/{planId:int}/load-trend")]
     public async Task<IActionResult> GetLoadTrend(int planId, CancellationToken cancellationToken)
     {
@@ -2488,3 +2546,5 @@ public sealed record TrainingTemplateMicrocycle(string Name, int SequenceNumber,
     string? Focus, string? Notes);
 
 public sealed record TrainingMicrocycleDto(int Id, int MesocycleId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
+
+public sealed record ResolveTrainingReviewRequest(string Decision, string? Notes);

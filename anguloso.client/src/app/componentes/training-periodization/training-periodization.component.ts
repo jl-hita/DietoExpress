@@ -138,6 +138,22 @@ interface RepDbExercise {
       <p *ngIf="loading" role="status">{{ clientId > 0 ? 'Cargando planificación…' : 'Cargando invitaciones…' }}</p>
       <p *ngIf="error" class="error" role="alert">{{ error }}</p>
             <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
+      <section class="panel review-requests-panel" *ngIf="clientId > 0 && profile?.enabled && profile.canManage && !loading" aria-labelledby="review-requests-title">
+        <div class="section-heading"><div><h2 id="review-requests-title">Solicitudes de revisión manual</h2><p>El cliente pide que revises su rutina. La solicitud no cambia el plan por sí sola y las sesiones pasadas nunca se modifican.</p></div><span class="status">{{ reviewRequests.length }} pendientes</span></div>
+        <p *ngIf="!reviewRequests.length" class="muted">No hay solicitudes pendientes.</p>
+        <article *ngFor="let item of reviewRequests" class="template-row">
+          <div class="adaptation-proposal-content">
+            <strong>{{ item.planName }}{{ item.planVersion > 1 ? ' · revisión ' + item.planVersion : '' }}</strong>
+            <p>Solicitada el {{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
+            <p *ngIf="item.note">{{ item.note }}</p>
+            <label>Nota de respuesta (opcional)<textarea [name]="'reviewRequestNotes' + item.id" [(ngModel)]="reviewRequestNotes[item.id]" rows="2" maxlength="2000"></textarea></label>
+          </div>
+          <div class="cycle-actions">
+            <button type="button" (click)="resolveReviewRequest(item, 'attended')" [disabled]="saving">Marcar como atendida</button>
+            <button type="button" class="secondary" (click)="resolveReviewRequest(item, 'rejected')" [disabled]="saving">Rechazar</button>
+          </div>
+        </article>
+      </section>
       <section class="panel adaptation-review-panel" *ngIf="clientId > 0 && profile?.enabled && profile.canManage && !loading">
         <div class="section-heading"><div><h2>Revisión de adaptación por feedback</h2><p>Las recomendaciones del paciente no cambian el plan hasta que las revises. Las sesiones pasadas nunca se modifican.</p></div><span class="status">{{ adaptationProposals.length }} pendientes</span></div>
         <p *ngIf="!adaptationProposals.length" class="muted">No hay propuestas pendientes. Cuando el paciente registre feedback relevante, aparecerá aquí para su revisión.</p>
@@ -954,6 +970,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   sessionEditDraft: { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string; exercisePrescriptionData: Record<string, unknown> | null } | null = null;
   recordDrafts: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
   adaptationProposals: TrainingAdaptationProposal[] = [];
+  reviewRequests: { id: number; planId: number; planName: string; planVersion: number; note?: string | null; status: string; createdAt: string }[] = [];
+  reviewRequestNotes: Record<number, string> = {};
   adaptationReviewNotes: Record<number, string> = {};
   adaptationTargetExercises: Record<number, string[]> = {};
   collaborations: TrainingCollaboration[] = [];
@@ -1820,8 +1838,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         }
 
         this.trainingManagementMode = profile.managementMode ?? (profile.enabled ? 'self' : 'none');
-        if (profile.enabled && profile.canManage) this.loadAdaptationProposals();
-        else this.adaptationProposals = [];
+        if (profile.enabled && profile.canManage) { this.loadAdaptationProposals(); this.loadReviewRequests(); }
+        else { this.adaptationProposals = []; this.reviewRequests = []; }
         if (profile.enabled && this.trainingManagementMode === 'collaboration') this.loadCollaborations();
         else this.collaborations = [];
 
@@ -1891,6 +1909,28 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.loading = false;
         this.changeDetector.detectChanges();
       }
+    });
+  }
+
+  loadReviewRequests(): void {
+    this.http.get<typeof this.reviewRequests>('/api/training/clients/' + this.clientId + '/review-requests')
+      .pipe(catchError(() => of([] as typeof this.reviewRequests)))
+      .subscribe(items => {
+        this.reviewRequests = Array.isArray(items) ? items.filter(item => !!item && Number.isInteger(item.id)) : [];
+        for (const item of this.reviewRequests) this.reviewRequestNotes[item.id] = this.reviewRequestNotes[item.id] ?? '';
+        this.changeDetector.markForCheck();
+      });
+  }
+
+  resolveReviewRequest(item: { id: number }, decision: 'attended' | 'rejected'): void {
+    if (!confirm('¿Quieres marcar esta solicitud como ' + (decision === 'attended' ? 'atendida' : 'rechazada') + '? No se modificará ninguna sesión.')) return;
+    this.saving = true;
+    this.error = '';
+    this.http.post<{ message?: string }>('/api/training/review-requests/' + item.id + '/resolve', {
+      decision, notes: this.reviewRequestNotes[item.id] ?? ''
+    }).subscribe({
+      next: result => { this.notice = result.message ?? 'Solicitud actualizada.'; this.saving = false; this.loadReviewRequests(); },
+      error: e => { this.error = e?.error?.message || 'No se pudo actualizar la solicitud.'; this.saving = false; this.loadReviewRequests(); }
     });
   }
 

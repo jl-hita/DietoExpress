@@ -921,6 +921,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UpgradeTrainingPeriodizationSchemaV8(context, logger);
             UpgradeTrainingPeriodizationSchemaV9(context, logger);
             UpgradeTrainingPeriodizationSchemaV10(context, logger);
+            UpgradeTrainingReviewRequestsSchema(context, logger);
             UpgradeFoodCulinaryProfileSchema(context, logger);
             UpgradeFoodDietaryProfileSchema(context, logger);
             TrainingMacrocycleSchema.Initialize(context);
@@ -3434,6 +3435,36 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         logger.LogInformation("Prescripción estructurada en plantillas de sesión inicializada.");
     }
 
+    /// <summary>
+    /// Solicitudes de revisión manual de una rutina por parte del cliente. Tabla propia (no reutiliza
+    /// training_adaptation_proposals, que exige sesión y registro de origen): la solicitud nunca modifica el plan.
+    /// </summary>
+    public static void UpgradeTrainingReviewRequestsSchema(angulosodbContext context, ILogger logger)
+    {
+        if (!context.Database.SqlQueryRaw<bool>("SELECT to_regclass('training_plans') IS NOT NULL AS \"Value\"").Single())
+            return;
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS training_review_requests (
+                id BIGSERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                plan_id INTEGER NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
+                note VARCHAR(1000) NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                resolved_by_user_id INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+                resolved_at TIMESTAMPTZ NULL,
+                resolution_notes VARCHAR(2000) NULL,
+                CONSTRAINT ck_training_review_requests_status CHECK (status IN ('pending','attended','rejected'))
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_training_review_requests_one_pending
+                ON training_review_requests(plan_id) WHERE status = 'pending';
+            CREATE INDEX IF NOT EXISTS idx_training_review_requests_client_status
+                ON training_review_requests(client_id, status, created_at DESC);
+            INSERT INTO schema_migrations(id) VALUES ('training-review-requests-v1') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Solicitudes de revisión manual de rutinas inicializadas.");
+    }
+
     /// <summary>Stores professional review decisions for feedback-driven future-session adaptations.</summary>
     public static void UpgradeTrainingPeriodizationSchemaV8(angulosodbContext context, ILogger logger)
     {
@@ -3596,7 +3627,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',
                     'billing_coupon_campaigns','billing_coupons','billing_coupon_redemptions',
                     'patient_commercial_communication_preferences',
-                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals','food_dietary_profile','food_culinary_profile'
+                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals','training_review_requests','food_dietary_profile','food_culinary_profile'
                 ]) AS required_table
             ) required
             WHERE NOT EXISTS (

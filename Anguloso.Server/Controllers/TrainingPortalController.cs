@@ -22,13 +22,16 @@ public sealed class TrainingPortalController : ControllerBase
     private readonly Anguloso.Server.Logica.ExerciseCatalogService _catalog;
     private readonly Anguloso.Server.Logica.ExerciseImageService _images;
     private readonly Anguloso.Server.Logica.TrainingAutoAdaptationApplier _autoAdaptation;
+    private readonly Anguloso.Server.Logica.ILicenseService _licenseService;
 
     public TrainingPortalController(
         angulosodbContext context,
         Anguloso.Server.Logica.ExerciseCatalogService catalog,
         Anguloso.Server.Logica.ExerciseImageService images,
-        Anguloso.Server.Logica.TrainingAutoAdaptationApplier autoAdaptation)
+        Anguloso.Server.Logica.TrainingAutoAdaptationApplier autoAdaptation,
+        Anguloso.Server.Logica.ILicenseService licenseService)
     {
+        _licenseService = licenseService;
         _context = context;
         _catalog = catalog;
         _images = images;
@@ -241,6 +244,145 @@ public sealed class TrainingPortalController : ControllerBase
         if (await update.ExecuteNonQueryAsync(cancellationToken) == 0)
             return Conflict(new { message = "La sesión ya no admite cambios (registrada, pasada o modificada)." });
         return Ok(new { exerciseId = replacement.ExerciseId, exercisePrescriptionData = JsonSerializer.Deserialize<JsonElement>(updatedJson) });
+    }
+
+    // ---- Manual review requests (the patient asks the professional to review a routine) ----
+
+    /// <summary>
+    /// Plans the patient can ask to have reviewed (original or later revision) with the latest request of each.
+    /// The request never changes the plan; it only notifies the professional.
+    /// </summary>
+    [HttpGet("review-requests")]
+    public async Task<IActionResult> GetReviewRequests(CancellationToken cancellationToken)
+    {
+        var clientId = await GetValidatedClientIdAsync(cancellationToken);
+        if (clientId is null) return Unauthorized();
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
+        var plans = new List<object>();
+        await using var command = Command("""
+            SELECT p.id, p.name, p.version, p.status,
+                   r.id, r.status, r.created_at, r.resolved_at, r.resolution_notes
+            FROM training_plans p
+            JOIN training_profiles f ON f.id = p.profile_id
+            LEFT JOIN LATERAL (
+                SELECT id, status, created_at, resolved_at, resolution_notes FROM training_review_requests
+                WHERE plan_id = p.id AND client_id = @clientId ORDER BY created_at DESC, id DESC LIMIT 1
+            ) r ON TRUE
+            WHERE f.client_id = @clientId AND f.enabled = TRUE AND f.management_mode <> 'none'
+              AND p.status IN ('active','draft','paused')
+              AND EXISTS (SELECT 1 FROM training_sessions s WHERE s.plan_id = p.id)
+            ORDER BY p.start_date DESC, p.id DESC
+            """, ("clientId", clientId.Value));
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            plans.Add(new
+            {
+                planId = reader.GetInt32(0), name = reader.GetString(1), version = reader.GetInt32(2),
+                planStatus = reader.GetString(3),
+                reviewRequest = reader.IsDBNull(4) ? null : new
+                {
+                    id = reader.GetInt64(4), status = reader.GetString(5), createdAt = reader.GetDateTime(6),
+                    resolvedAt = reader.IsDBNull(7) ? (DateTime?)null : reader.GetDateTime(7),
+                    resolutionNotes = reader.IsDBNull(8) ? null : reader.GetString(8)
+                }
+            });
+        }
+        return Ok(new { plans });
+    }
+
+    [HttpPost("plans/{planId:int}/review-request")]
+    public async Task<IActionResult> RequestPlanReview(
+        int planId, [FromBody] PatientTrainingReviewRequest? request, CancellationToken cancellationToken)
+    {
+        var clientId = await GetValidatedClientIdAsync(cancellationToken);
+        if (clientId is null) return Unauthorized();
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
+        var note = request?.Note?.Trim();
+        if (note?.Length > 1000)
+            return BadRequest(new { message = "La nota no puede superar los 1000 caracteres." });
+        if (string.IsNullOrEmpty(note)) note = null;
+
+        // Ownership + eligibility in one query: own plan, sports module enabled, professional-managed, has sessions.
+        int? tenantId; int? professionalUserId; string planName;
+        await using (var check = Command("""
+            SELECT c.tenant_id, c.user_id, p.name
+            FROM training_plans p
+            JOIN training_profiles f ON f.id = p.profile_id
+            JOIN clients c ON c.id = f.client_id
+            WHERE p.id = @planId AND f.client_id = @clientId AND c.archived_at IS NULL
+              AND f.enabled = TRUE AND f.management_mode <> 'none'
+              AND p.status IN ('active','draft','paused')
+              AND EXISTS (SELECT 1 FROM training_sessions s WHERE s.plan_id = p.id)
+            """, ("planId", planId), ("clientId", clientId.Value)))
+        await using (var reader = await check.ExecuteReaderAsync(cancellationToken))
+        {
+            if (!await reader.ReadAsync(cancellationToken))
+                return NotFound(new { message = "No se encontró una rutina que puedas enviar a revisión." });
+            tenantId = reader.IsDBNull(0) ? null : reader.GetInt32(0);
+            professionalUserId = reader.IsDBNull(1) ? null : reader.GetInt32(1);
+            planName = reader.GetString(2);
+        }
+
+        long requestId;
+        await using (var insert = Command("""
+            INSERT INTO training_review_requests(client_id, plan_id, note)
+            VALUES (@clientId, @planId, @note)
+            ON CONFLICT (plan_id) WHERE status = 'pending' DO NOTHING
+            RETURNING id
+            """, ("clientId", clientId.Value), ("planId", planId), ("note", note)))
+        {
+            var inserted = await insert.ExecuteScalarAsync(cancellationToken);
+            if (inserted is null or DBNull)
+                return Conflict(new { message = "Ya tienes una solicitud de revisión pendiente para esta rutina." });
+            requestId = Convert.ToInt64(inserted);
+        }
+
+        await NotifyProfessionalAsync(tenantId, professionalUserId, clientId.Value, requestId, planName, cancellationToken);
+        return Ok(new { id = requestId, status = "pending", message = "Solicitud enviada. Tu entrenador revisará la rutina; no se modifica nada hasta que lo haga." });
+    }
+
+    private async Task NotifyProfessionalAsync(
+        int? tenantId, int? userId, int clientId, long requestId, string planName, CancellationToken cancellationToken)
+    {
+        if (tenantId is null) return;
+        var title = "Solicitud de revisión de rutina";
+        try
+        {
+            await using var task = Command("""
+                INSERT INTO professional_tasks(tenant_id, client_id, assigned_user_id, title, description, priority, status, source, idempotency_key)
+                VALUES (@tenant, @client, @user, @title, @description, 'normal', 'open', 'training_review_request', @key)
+                ON CONFLICT (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
+                """, ("tenant", tenantId.Value), ("client", clientId), ("user", userId), ("title", title),
+                ("description", $"Un cliente solicita revisión manual de la rutina «{planName}». Revísala en Planificación deportiva."),
+                ("key", $"training-review-request:{requestId}"));
+            await task.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<TrainingPortalController>>()
+                .LogWarning(ex, "No se pudo crear la tarea de la solicitud de revisión {RequestId}.", requestId);
+        }
+        if (userId is null) return;
+        try
+        {
+            var push = HttpContext.RequestServices.GetService<Anguloso.Server.Logica.ProfessionalPushService>();
+            if (push is not null)
+                await push.SendNotificationAsync(tenantId.Value, userId.Value, title,
+                    "Un cliente ha solicitado la revisión manual de su rutina.", "/clients/" + clientId + "/training", cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<TrainingPortalController>>()
+                .LogWarning(ex, "No se pudo enviar el push de la solicitud de revisión {RequestId}.", requestId);
+        }
+    }
+
+    private async Task<bool> PortalFeatureAllowedAsync(int clientId)
+    {
+        var tenantId = await _context.clients.AsNoTracking().Where(c => c.id == clientId && c.archived_at == null)
+            .Select(c => c.tenant_id ?? c.user!.tenant_id).FirstOrDefaultAsync();
+        return await _licenseService.CanUseFeatureAsync(tenantId, "CLIENT_PORTAL");
     }
 
     private async Task<int?> GetValidatedClientIdAsync(CancellationToken cancellationToken)
@@ -891,3 +1033,5 @@ public sealed record PatientTrainingRecordRequest(
     List<PatientTrainingExerciseFeedback>? ExerciseFeedback = null);
 
 public sealed record PatientTrainingSwapRequest(string ReplacementExerciseId);
+
+public sealed record PatientTrainingReviewRequest(string? Note);
