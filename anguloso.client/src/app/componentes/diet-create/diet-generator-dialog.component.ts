@@ -131,6 +131,10 @@ type KcalSource = 'default' | 'biometrics' | 'error';
             <mat-label>Palabras clave a excluir (separadas por comas)</mat-label>
             <input matInput formControlName="excludedKeywords" placeholder="Ej: cerdo, marisco, champiñones" />
           </mat-form-field>
+
+          <mat-checkbox formControlName="excludeBread" data-testid="exclude-bread">
+            Sin pan (el paciente no quiere pan ni tostadas en ninguna comida)
+          </mat-checkbox>
         </form>
 
         <div *ngIf="generating" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 10px;">
@@ -231,7 +235,8 @@ export class DietGeneratorDialogComponent implements OnInit {
       dietType: ['Equilibrada', Validators.required],
       mealsPerDay: [5, Validators.required],
       numberOfDays: [7, Validators.required],
-      excludedKeywords: ['']
+      excludedKeywords: [''],
+      excludeBread: [false]
     });
   }
 
@@ -277,7 +282,8 @@ export class DietGeneratorDialogComponent implements OnInit {
       mealsPerDay: raw.mealsPerDay,
       numberOfDays: raw.numberOfDays,
       clientId: this.data.clientId || null,
-      excludedFoodKeywords: excluded
+      excludedFoodKeywords: excluded,
+      excludeBread: !!raw.excludeBread
     };
 
     this.dietService.generateDiet(payload).subscribe({

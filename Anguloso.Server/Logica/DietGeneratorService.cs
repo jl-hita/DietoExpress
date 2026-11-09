@@ -271,6 +271,7 @@ public class DietGeneratorService
             if (!storedProfiles.TryGetValue(f.id, out var profile))
                 profile = FoodCulinaryClassifier.Classify(f.name, f.category, f.kcal, f.protein, f.carbs, f.fat);
             if (profile == null || !profile.IsUsable) continue;
+            if (request.ExcludeBread && profile.Role == FoodProfileData.RoleBread) continue;
             if (!string.IsNullOrWhiteSpace(f.brands) && !string.Equals(f.source, "bedca", StringComparison.OrdinalIgnoreCase)) continue;
             if (IsBlocked(f, exclusionMatcher)) continue;
             if (!HasKnownAllergenDataForClient(f, client)) continue;

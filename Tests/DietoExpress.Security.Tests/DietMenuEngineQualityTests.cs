@@ -280,4 +280,43 @@ public sealed class DietMenuEngineQualityTests
         Assert.True(IsStaple("Sal"));
         await Task.CompletedTask;
     }
+
+    [Theory]
+    [InlineData("Equilibrada", 5)]
+    [InlineData("Equilibrada", 3)]
+    [InlineData("AltaProteina", 4)]
+    [InlineData("Vegetariana", 5)]
+    public async Task ExcludeBread_ProducesAValidWeekWithoutAnyBread(string type, int meals)
+    {
+        var (context, generator) = await CreateAsync();
+        await using var _ = context;
+        var request = Request(2000, type, 7, meals);
+        request.ExcludeBread = true;
+
+        var diet = await generator.GenerateDietAsync(request, null, 1, false);
+
+        var breadIds = context.foods.AsEnumerable()
+            .Where(f => FoodCulinaryClassifier.Classify(f.name, f.category, f.kcal, f.protein, f.carbs, f.fat)?.Role == FoodProfileData.RoleBread)
+            .Select(f => f.id).ToHashSet();
+        Assert.NotEmpty(breadIds); // el catálogo de prueba sí contiene pan: la exclusión es real
+        Assert.DoesNotContain(Items(diet), i => i.FoodId.HasValue && breadIds.Contains(i.FoodId.Value));
+        Assert.Equal(7, diet.Days.Count);
+        foreach (var day in diet.Days)
+        {
+            var k = day.Meals.SelectMany(m => m.Items).Sum(i => (double)(i.Kcal ?? 0));
+            Assert.InRange(Math.Abs(k - 2000) / 2000, 0, 0.06);
+        }
+    }
+
+    [Fact]
+    public async Task WithoutTheFlagBreadIsStillGenerated()
+    {
+        var (context, generator) = await CreateAsync();
+        await using var _ = context;
+        var diet = await generator.GenerateDietAsync(Request(), null, 1, false);
+        var breadIds = context.foods.AsEnumerable()
+            .Where(f => FoodCulinaryClassifier.Classify(f.name, f.category, f.kcal, f.protein, f.carbs, f.fat)?.Role == FoodProfileData.RoleBread)
+            .Select(f => f.id).ToHashSet();
+        Assert.Contains(Items(diet), i => i.FoodId.HasValue && breadIds.Contains(i.FoodId.Value));
+    }
 }
