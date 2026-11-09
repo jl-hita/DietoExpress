@@ -194,10 +194,13 @@ public sealed class DietMenuEngine
                 var slots = ComposeDay(day, attempt);
                 var solveScore = SolveDay(slots, out var acceptable);
                 var variety = VarietyPenalty(slots);
+                // Superar el máximo semanal de repetición solo es tolerable si no existe alternativa: la selección lo relaja
+                // cuando no hay candidatos, pero la validación final lo rechaza, así que se prefiere otra composición del día.
+                var capViolations = WeeklyCapViolations(slots);
                 // Un día que repite una comida completa ya usada dos veces solo vale si no hay alternativa.
-                // Pesos de la puntuación (0.05 variedad, +1 si no cumple tolerancias): criterio de producto. Menor es mejor.
-                var score = solveScore + variety * 0.05 + (acceptable ? 0 : 1);
-                if (score < best.Score) { best = (slots, score, attempt); bestAcceptable = acceptable && variety < 1; }
+                // Pesos de la puntuación (0.05 variedad, +1 si no cumple tolerancias, +1 por alimento que excede el máximo semanal): criterio de producto. Menor es mejor.
+                var score = solveScore + variety * 0.05 + (acceptable ? 0 : 1) + capViolations;
+                if (score < best.Score) { best = (slots, score, attempt); bestAcceptable = acceptable && variety < 1 && capViolations == 0; }
                 if (t + 1 >= minTries && bestAcceptable) break;
                 if (t > 0) result.DayRetries++;
             }
@@ -206,6 +209,15 @@ public sealed class DietMenuEngine
         }
         result.Warnings.AddRange(_warnings);
         return result;
+    }
+
+    /// <summary>Alimentos no básicos que, con esta composición del día, superarían el máximo semanal de repetición.</summary>
+    private int WeeklyCapViolations(List<Slot> slots)
+    {
+        var cap = Math.Max(1, _o.MaxWeeklyRepetitions);
+        return slots.Where(s => !s.Food.P.IsStaple)
+            .GroupBy(s => s.Food.Id)
+            .Count(g => _weeklyUse.GetValueOrDefault(g.Key) + g.Count() > cap);
     }
 
     private readonly Dictionary<string, int> _mealSignatures = new(StringComparer.Ordinal);
