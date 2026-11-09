@@ -66,7 +66,7 @@ interface GuidedConsultationResponse {
           <span class="status" [class.completed]="consultation?.status === 'completed'">
             {{ consultation?.status === 'completed' ? 'Completada' : 'En curso' }}
           </span>
-          <button mat-stroked-button type="button" (click)="backToAgenda()"><mat-icon>arrow_back</mat-icon> Agenda</button>
+          <button mat-stroked-button type="button" (click)="leaveToAgenda()"><mat-icon>arrow_back</mat-icon> Agenda</button>
         </div>
       </header>
 
@@ -91,7 +91,7 @@ interface GuidedConsultationResponse {
               <h3><mat-icon>fitness_center</mat-icon> Gestión del entrenamiento</h3>
               <p>Decide si este expediente incluirá planificación deportiva. Puedes cambiarlo más adelante desde el expediente del cliente.</p>
               <label>¿Cómo se gestionará el entrenamiento?
-                <select [(ngModel)]="trainingManagementMode" (ngModelChange)="saveTrainingManagementMode()" [disabled]="trainingModeSaving">
+                <select [(ngModel)]="trainingManagementMode" (ngModelChange)="saveTrainingManagementMode()" [disabled]="trainingModeSaving || isReviewMode">
                   <option value="none">No, solo seguimiento nutricional</option>
                   <option value="self">Sí, llevaré yo su planificación deportiva</option>
                   <option value="collaboration">Sí, en colaboración con otro profesional</option>
@@ -262,7 +262,7 @@ interface GuidedConsultationResponse {
             </div>
             <ng-template #noCheckin><div class="empty"><mat-icon>assignment_late</mat-icon><span>No hay check-in registrado.</span></div></ng-template>
             <div class="actions" *ngIf="data.latestCheckin">
-              <button mat-stroked-button type="button" *ngIf="!data.latestCheckin.reviewed_at" (click)="reviewCheckin()"><mat-icon>done</mat-icon> Marcar revisado</button>
+              <button mat-stroked-button type="button" *ngIf="!data.latestCheckin.reviewed_at" (click)="reviewCheckin()" [disabled]="isReviewMode"><mat-icon>done</mat-icon> Marcar revisado</button>
               <span class="reviewed" *ngIf="data.latestCheckin.reviewed_at"><mat-icon>check_circle</mat-icon> Revisado</span>
             </div>
           </section>
@@ -292,7 +292,7 @@ interface GuidedConsultationResponse {
               <h3>¿Quieres incorporar entrenamiento?</h3>
               <p>Es totalmente opcional. Puedes activar la gestión deportiva para preparar una rutina ahora o dejar la consulta centrada en nutrición.</p>
               <label>Gestión del entrenamiento
-                <select [(ngModel)]="trainingManagementMode" name="consultationTrainingManagementMode" (ngModelChange)="saveTrainingManagementMode()" [disabled]="trainingModeSaving">
+                <select [(ngModel)]="trainingManagementMode" name="consultationTrainingManagementMode" (ngModelChange)="saveTrainingManagementMode()" [disabled]="trainingModeSaving || isReviewMode">
                   <option value="none">No, continuar solo con nutrición</option>
                   <option value="self">Sí, prepararé yo el entrenamiento</option>
                   <option value="collaboration">Sí, lo gestionará otro profesional</option>
@@ -319,7 +319,7 @@ interface GuidedConsultationResponse {
                 <label>Intensidad objetivo<input name="consultationRoutineIntensity" [(ngModel)]="trainingRoutineIntensity" maxlength="120" placeholder="Ej. Moderada · RPE 6–7" /></label>
                 <label class="full">Ejercicios y prescripción<textarea name="consultationRoutineExercises" [(ngModel)]="trainingRoutineExercises" rows="4" maxlength="6000" placeholder="Sentadilla · 3 × 8–12 · 90 s&#10;Press de banca · 3 × 8–10 · 2 min"></textarea></label>
                 <label class="full">Indicaciones<textarea name="consultationRoutineInstructions" [(ngModel)]="trainingRoutineInstructions" rows="3" maxlength="4000" placeholder="Calentamiento, técnica, descansos o adaptaciones…"></textarea></label>
-                <div class="full training-routine-actions"><button mat-flat-button color="primary" type="submit" [disabled]="trainingRoutineSaving || trainingModeSaving || trainingModeSaveState === 'error' || !trainingRoutineName.trim() || !trainingRoutineDate || trainingRoutineDuration < 1">{{ trainingRoutineSaving ? 'Creando rutina…' : 'Crear y asignar rutina' }}</button><button mat-stroked-button type="button" (click)="openAdvancedTraining()" [disabled]="trainingRoutineSaving">Abrir planificación avanzada</button></div>
+                <div class="full training-routine-actions"><button mat-flat-button color="primary" type="submit" [disabled]="isReviewMode || trainingRoutineSaving || trainingModeSaving || trainingModeSaveState === 'error' || !trainingRoutineName.trim() || !trainingRoutineDate || trainingRoutineDuration < 1">{{ trainingRoutineSaving ? 'Creando rutina…' : 'Crear y asignar rutina' }}</button><button mat-stroked-button type="button" (click)="openAdvancedTraining()" [disabled]="trainingRoutineSaving">Abrir planificación avanzada</button></div>
               </form>
               <p class="helper" *ngIf="trainingRoutineError" role="alert">{{ trainingRoutineError }}</p>
             </div>
@@ -352,7 +352,7 @@ interface GuidedConsultationResponse {
                 <label>Carbohidratos (g)<input type="number" [(ngModel)]="quickDietCarbs"></label>
                 <label>Grasa (g)<input type="number" [(ngModel)]="quickDietFat"></label>
               </div>
-              <button mat-flat-button color="primary" type="button" (click)="createQuickDiet()" [disabled]="!quickDietName.trim() || creatingDiet">
+              <button mat-flat-button color="primary" type="button" (click)="createQuickDiet()" [disabled]="isReviewMode || !quickDietName.trim() || creatingDiet">
                 <mat-icon>add</mat-icon>{{ creatingDiet ? 'Creando…' : 'Crear y abrir dieta' }}
               </button>
             </div>
@@ -427,7 +427,7 @@ interface GuidedConsultationResponse {
                 <mat-icon>event_available</mat-icon>{{ bookingAppointment ? 'Programando…' : 'Confirmar próxima cita' }}
               </button>
             </div>
-            <button mat-stroked-button type="button" (click)="backToAgenda()"><mat-icon>calendar_month</mat-icon> Abrir agenda</button>
+            <button mat-stroked-button type="button" (click)="leaveToAgenda()"><mat-icon>calendar_month</mat-icon> Abrir agenda</button>
           </section>
 
           <section class="card close-card" *ngIf="currentStep === 'close'">
@@ -823,6 +823,7 @@ export class GuidedConsultationComponent implements OnInit {
   }
 
   createConsultationRoutine(): void {
+    if (this.blockedInReview()) return;
     const clientId = this.data?.appointment.clientId;
     if (!clientId || this.trainingManagementMode !== 'self' || this.trainingModeSaving || this.trainingModeSaveState === 'error' || this.trainingRoutineSaving ||
         !this.trainingRoutineName.trim() || !this.trainingRoutineDate || this.trainingRoutineDuration < 1) return;
@@ -851,12 +852,13 @@ export class GuidedConsultationComponent implements OnInit {
 
   openAdvancedTraining(): void {
     const clientId = this.data?.appointment.clientId;
-    if (clientId) this.router.navigate(['/clients', clientId, 'training']);
+    if (clientId) this.leaveAfterSaving(() => this.router.navigate(['/clients', clientId, 'training']));
   }
 
   saveTrainingManagementMode(): void {
     const clientId = this.data?.appointment.clientId;
     if (!clientId || this.trainingModeSaving) return;
+    if (this.blockedInReview()) { this.trainingManagementMode = this.savedTrainingManagementMode; return; }
     const previousMode = this.savedTrainingManagementMode;
     const requestedMode = this.trainingManagementMode;
     this.trainingModeSaving = true;
@@ -1016,7 +1018,11 @@ export class GuidedConsultationComponent implements OnInit {
 
   saveClinicalProgress(onSaved?: () => void): void {
     if (onSaved) this.clinicalSaveCallbacks.push(onSaved);
-    if (!this.consultation || !this.data) return;
+    if (!this.consultation || !this.data) {
+      // Sin consulta cargada no hay nada que guardar: se liberan los callbacks para no dejar la navegación colgada.
+      this.clinicalSaveCallbacks.splice(0).forEach(callback => callback());
+      return;
+    }
     if (this.consultation.status === 'completed') {
       // Una consulta cerrada no admite cambios: se libera la navegación en lugar de dejar el callback colgado.
       const callbacks = this.clinicalSaveCallbacks.splice(0);
@@ -1078,10 +1084,10 @@ export class GuidedConsultationComponent implements OnInit {
     if (index < 0 || this.savingProgress || this.navigationPending) return;
     this.navigationPending = true;
     this.savePatientClinicalProfile(() => this.saveClinicalProgress(() => {
-      this.stepIndex = index;
-      this.currentStep = this.visibleSteps[index].key;
+      // El paso de origen se fija ANTES de mutar la pantalla para que un guardado fallido pueda revertirla.
+      const origin = this.currentStep;
       this.navigationPending = false;
-      this.saveProgress();
+      this.persistProgress(this.visibleSteps[index].key, this.consultation?.completedSteps || [], origin);
       if (step === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
     }));
   }
@@ -1103,10 +1109,10 @@ export class GuidedConsultationComponent implements OnInit {
     if (this.stepIndex <= 0 || this.savingProgress || this.navigationPending) return;
     this.navigationPending = true;
     this.savePatientClinicalProfile(() => this.saveClinicalProgress(() => {
-      this.stepIndex--;
-      this.currentStep = this.visibleSteps[this.stepIndex].key;
+      const origin = this.currentStep;
+      const target = this.visibleSteps[Math.max(0, this.stepIndex - 1)].key;
       this.navigationPending = false;
-      this.saveProgress();
+      this.persistProgress(target, this.consultation?.completedSteps || [], origin);
     }));
   }
 
@@ -1114,7 +1120,8 @@ export class GuidedConsultationComponent implements OnInit {
     this.persistProgress(this.currentStep, this.consultation?.completedSteps || []);
   }
 
-  private persistProgress(step: string, completedSteps: string[]): void {
+  /** @param revertTo Paso al que volver si el servidor rechaza el guardado (por defecto, el actual antes de navegar). */
+  private persistProgress(step: string, completedSteps: string[], revertTo?: string): void {
     if (!this.consultation || !this.data || this.savingProgress) return;
     if (this.consultation.status === 'completed') {
       // Revisión de una consulta cerrada: solo se cambia de paso en pantalla (el servidor responde 409 a cualquier guardado).
@@ -1122,7 +1129,7 @@ export class GuidedConsultationComponent implements OnInit {
       this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === step));
       return;
     }
-    const previousStep = this.currentStep;
+    const previousStep = revertTo ?? this.currentStep;
     this.savingProgress = true;
     // Navegación optimista: la interfaz responde inmediatamente, pero revierte el paso
     // si el servidor rechaza el guardado y muestra el error al profesional.
@@ -1159,7 +1166,17 @@ export class GuidedConsultationComponent implements OnInit {
     return labels[key] ?? key;
   }
 
+  /** Revisión histórica: una consulta cerrada no admite acciones que modifiquen datos clínicos. */
+  get isReviewMode(): boolean { return this.consultation?.status === 'completed'; }
+
+  private blockedInReview(): boolean {
+    if (!this.isReviewMode) return false;
+    this.snack.open('La consulta está cerrada: esta acción solo está disponible durante la consulta.', 'Cerrar', { duration: 3000 });
+    return true;
+  }
+
   reviewCheckin(): void {
+    if (this.blockedInReview()) return;
     const checkin = this.data?.latestCheckin;
     if (!checkin) return;
     this.portalService.reviewCheckin(checkin.id).subscribe({
@@ -1249,6 +1266,7 @@ export class GuidedConsultationComponent implements OnInit {
   }
 
   createQuickDiet(): void {
+    if (this.blockedInReview()) return;
     const clientId = this.data?.appointment.clientId;
     if (!clientId || !this.quickDietName.trim() || this.creatingDiet) return;
     this.creatingDiet = true;
@@ -1344,26 +1362,42 @@ export class GuidedConsultationComponent implements OnInit {
 
   openPatient(): void {
     const clientId = this.data?.appointment.clientId;
-    if (!clientId || this.savingProgress || this.navigationPending) return;
-    this.navigationPending = true;
-    this.savePatientClinicalProfile(() => {
-      this.saveClinicalProgress(() => {
-        this.navigationPending = false;
-        this.router.navigate(['/clients', clientId]);
-      });
-    });
+    if (clientId) this.leaveAfterSaving(() => this.router.navigate(['/clients', clientId]));
   }
 
   openPatientMessages(): void {
     const clientId = this.data?.appointment.clientId;
-    if (clientId) this.router.navigate(['/clients', clientId, 'messages']);
+    if (clientId) this.leaveAfterSaving(() => this.router.navigate(['/clients', clientId, 'messages']));
   }
 
   openPatientDiet(): void {
-    this.router.navigate(['/diets'], { queryParams: { clientId: this.data?.appointment.clientId } });
+    this.leaveAfterSaving(() => this.router.navigate(['/diets'], { queryParams: { clientId: this.data?.appointment.clientId } }));
   }
 
+  /** Salida directa a la agenda (también usada cuando la consulta no puede iniciarse: no espera guardados). */
   backToAgenda(): void {
     this.router.navigate(['/appointments']);
+  }
+
+  /** Salida iniciada por el profesional: guarda antes de salir y nunca lo deja atrapado si el guardado falla. */
+  leaveToAgenda(): void {
+    this.leaveAfterSaving(() => this.backToAgenda());
+  }
+
+  /**
+   * Punto único de salida de la consulta. Espera a los guardados pendientes (perfil clínico y progreso);
+   * si el guardado ya falló y el profesional insiste, permite salir tras una confirmación explícita.
+   */
+  private leaveAfterSaving(navigate: () => void): void {
+    if (this.savingProgress || this.navigationPending) return;
+    if ((this.clinicalSaveState === 'error' || this.patientProfileSaveState === 'error') && this.consultation?.status !== 'completed') {
+      if (window.confirm('No se han podido guardar los últimos cambios de la consulta. ¿Salir de todas formas y perderlos?')) navigate();
+      return;
+    }
+    this.navigationPending = true;
+    this.savePatientClinicalProfile(() => this.saveClinicalProgress(() => {
+      this.navigationPending = false;
+      navigate();
+    }));
   }
 }

@@ -54,7 +54,7 @@ public sealed class GuidedConsultationFlowRegressionTests
         Assert.Contains("InitialStepFor(consultationType)", s);
 
         var complete = s[s.IndexOf("public async Task<IActionResult> Complete", StringComparison.Ordinal)..];
-        Assert.Contains("WHEN consultation_type='first'", complete);
+        Assert.Contains("consultation_type='first' AND x.step='summary'", complete);
     }
 
     [Fact]
@@ -92,5 +92,45 @@ public sealed class GuidedConsultationFlowRegressionTests
         Assert.Contains("this.backToAgenda()", start[..200]);
         Assert.Contains("this.refreshBiometrics()", c);
         Assert.Contains("private refreshBiometrics()", c);
+    }
+
+    [Fact]
+    public void CompletingDoesNotMarkEveryStepAsDone()
+    {
+        var complete = Read(Controller);
+        complete = complete[complete.IndexOf("public async Task<IActionResult> Complete", StringComparison.Ordinal)..];
+        // Antes se escribía la lista fija de todos los pasos, aunque la consulta rápida omitiera varios.
+        Assert.DoesNotContain("'[\"summary\",\"evolution\",\"checkin\"", complete);
+        Assert.Contains("jsonb_array_elements_text(professional_consultations.completed_steps)", complete);
+    }
+
+    [Theory]
+    [InlineData("follow_up", new[] { "summary", "goals", "training", "diet", "tasks", "close" }, new[] { "evolution", "checkin", "education", "next_appointment" })]
+    [InlineData("first", new[] { "anamnesis", "goals", "close" }, new[] { "evolution", "checkin", "training", "diet", "education", "tasks", "next_appointment" })]
+    [InlineData("follow_up", new[] { "summary", "evolution", "checkin", "goals", "training", "diet", "education", "tasks", "next_appointment", "close" }, new string[0])]
+    public void SkippedStepsAreTheApplicableStepsNotDone(string type, string[] completed, string[] expectedSkipped)
+        => Assert.Equal(expectedSkipped,
+            Anguloso.Server.Controllers.ProfessionalConsultationsController.ComputeSkippedSteps(type, completed));
+
+    [Fact]
+    public void LeavingTheConsultationAlwaysGoesThroughTheSavingExitPoint()
+    {
+        var s = Read(Component);
+        foreach (var method in new[] { "openPatientMessages", "openPatientDiet", "openAdvancedTraining", "openPatient()", "leaveToAgenda" })
+        {
+            var start = s.IndexOf($"  {method}", StringComparison.Ordinal);
+            Assert.True(start >= 0, method);
+            Assert.Contains("leaveAfterSaving", s.Substring(start, 400));
+        }
+        Assert.DoesNotContain("(click)=\"backToAgenda()\"", s);
+    }
+
+    [Fact]
+    public void ClosedConsultationBlocksActionsThatModifyClinicalData()
+    {
+        var s = Read(Component);
+        foreach (var method in new[] { "reviewCheckin(): void {", "createQuickDiet(): void {", "createConsultationRoutine(): void {" })
+            Assert.Contains("blockedInReview()", s.Substring(s.IndexOf(method, StringComparison.Ordinal), 250));
+        Assert.Contains("previousStep = revertTo ?? this.currentStep", s);
     }
 }
