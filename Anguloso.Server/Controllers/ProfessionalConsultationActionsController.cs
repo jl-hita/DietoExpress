@@ -17,23 +17,23 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
     private readonly AppointmentEmailService _appointmentEmailService;
     private readonly ITenantContextService _tenantContext;
     private readonly GoogleCalendarService _googleCalendar;
-    private readonly AutomationService _automation;
     private readonly IVideoMeetingProvider _videoMeetings;
+    private readonly AppointmentConcurrencyService _appointmentConcurrency;
 
     public ProfessionalConsultationActionsController(
         angulosodbContext db,
         AppointmentEmailService appointmentEmailService,
         ITenantContextService tenantContext,
         GoogleCalendarService googleCalendar,
-        AutomationService automation,
-        IVideoMeetingProvider videoMeetings)
+        IVideoMeetingProvider videoMeetings,
+        AppointmentConcurrencyService appointmentConcurrency)
     {
         _db = db;
         _appointmentEmailService = appointmentEmailService;
         _tenantContext = tenantContext;
         _googleCalendar = googleCalendar;
-        _automation = automation;
         _videoMeetings = videoMeetings;
+        _appointmentConcurrency = appointmentConcurrency;
     }
 
     [HttpGet("slots")]
@@ -107,70 +107,63 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
             return BadRequest(new { message = "La fecha debe ser futura y estar expresada en UTC." });
 
         var endsAt = request.StartsAt.AddMinutes(request.DurationMinutes);
-        // La disponibilidad semanal limita las reservas públicas, no la agenda privada del profesional.
-        // Las citas manuales pueden pactarse fuera de horario, pero nunca solaparse con otra cita.
-        if (await HasAppointmentOverlapAsync(context, request.StartsAt, endsAt))
-            return Conflict(new { message = "Ese horario ya está ocupado por otra cita." });
-        if (await _googleCalendar.IsBlockedAsync(context.NutritionistId, context.TenantId, request.StartsAt, endsAt))
-            return Conflict(new { message = "Ese horario está ocupado en el calendario externo." });
-
         VideoMeetingRoom? videoRoom = null;
-        if (modality == "online")
+        patient_appointments appointment;
+        await using (var transaction = await _db.Database.BeginTransactionAsync(HttpContext.RequestAborted))
         {
             try
             {
-                videoRoom = await _videoMeetings.CreatePrivateRoomAsync(
-                    $"appointment-pending-{Guid.NewGuid():N}",
-                    request.StartsAt,
-                    endsAt,
-                    HttpContext.RequestAborted);
-            }
-            catch (InvalidOperationException ex)
-            {
-                HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationActionsController>>()
-                    .LogError(ex, "El proveedor de vídeo no está disponible al crear una cita online para el cliente {ClientId} del tenant {TenantId}.", request.ClientId, context.TenantId);
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Las consultas online no están disponibles en este momento. Puedes elegir modalidad presencial o intentarlo más tarde.", code = "VIDEO_PROVIDER_UNAVAILABLE", reportable = true });
-            }
-            catch (HttpRequestException ex)
-            {
-                HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationActionsController>>()
-                    .LogError(ex, "Falló la petición al proveedor de vídeo al crear una cita online para el cliente {ClientId} del tenant {TenantId}.", request.ClientId, context.TenantId);
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "No se ha podido preparar la sala de la consulta online. Puedes elegir modalidad presencial o intentarlo más tarde.", code = "VIDEO_PROVIDER_UNAVAILABLE", reportable = true });
-            }
-        }
+                // Misma barrera de concurrencia que las reservas del portal y del directorio.
+                await _appointmentConcurrency.LockAsync(context.TenantId, context.NutritionistId, HttpContext.RequestAborted);
+                if (await HasAppointmentOverlapAsync(context, request.StartsAt, endsAt))
+                    return Conflict(new { message = "Ese horario ya está ocupado por otra cita." });
+                if (await _googleCalendar.IsBlockedAsync(context.NutritionistId, context.TenantId, request.StartsAt, endsAt))
+                    return Conflict(new { message = "Ese horario está ocupado en el calendario externo." });
 
-        var appointment = new patient_appointments
-        {
-            tenant_id = context.TenantId,
-            client_id = request.ClientId,
-            nutritionist_id = context.NutritionistId,
-            starts_at = request.StartsAt,
-            ends_at = endsAt,
-            status = "confirmed",
-            modality = modality,
-            video_provider = videoRoom?.Provider,
-            video_room_name = videoRoom?.RoomName,
-            video_room_url = videoRoom?.RoomUrl,
-            video_expires_at = videoRoom?.ExpiresAtUtc,
-            patient_notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
-        };
-        _db.patient_appointments.Add(appointment);
-        await _db.SaveChangesAsync();
+                if (modality == "online")
+                {
+                    try
+                    {
+                        videoRoom = await _videoMeetings.CreatePrivateRoomAsync(
+                            $"appointment-pending-{Guid.NewGuid():N}", request.StartsAt, endsAt, HttpContext.RequestAborted);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationActionsController>>()
+                            .LogError(ex, "El proveedor de vídeo no está disponible al crear una cita online para el cliente {ClientId} del tenant {TenantId}.", request.ClientId, context.TenantId);
+                        return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Las consultas online no están disponibles en este momento. Puedes elegir modalidad presencial o intentarlo más tarde.", code = "VIDEO_PROVIDER_UNAVAILABLE", reportable = true });
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationActionsController>>()
+                            .LogError(ex, "Falló la petición al proveedor de vídeo al crear una cita online para el cliente {ClientId} del tenant {TenantId}.", request.ClientId, context.TenantId);
+                        return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "No se ha podido preparar la sala de la consulta online. Puedes elegir modalidad presencial o intentarlo más tarde.", code = "VIDEO_PROVIDER_UNAVAILABLE", reportable = true });
+                    }
+                }
 
-        try
-        {
-            await _automation.PublishEventAsync(
-                appointment.tenant_id,
-                "appointment.confirmed",
-                "appointment",
-                appointment.id.ToString(),
-                new AutomationService.AppointmentStatusPayload(appointment.id, appointment.client_id, appointment.nutritionist_id, appointment.starts_at, appointment.modality),
-                $"appointment:{appointment.id}:confirmed");
-        }
-        catch (Exception ex)
-        {
-            HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationActionsController>>()
-                .LogError(ex, "No se pudo registrar la automatización de confirmación de la cita {AppointmentId}.", appointment.id);
+                appointment = new patient_appointments
+                {
+                    tenant_id = context.TenantId, client_id = request.ClientId, nutritionist_id = context.NutritionistId,
+                    starts_at = request.StartsAt, ends_at = endsAt, status = "confirmed", modality = modality,
+                    video_provider = videoRoom?.Provider, video_room_name = videoRoom?.RoomName,
+                    video_room_url = videoRoom?.RoomUrl, video_expires_at = videoRoom?.ExpiresAtUtc,
+                    patient_notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
+                };
+                _db.patient_appointments.Add(appointment);
+                await _db.SaveChangesAsync(HttpContext.RequestAborted);
+                await TransactionalOutbox.EnqueueAsync(
+                    _db, appointment.tenant_id, "appointment_confirmed",
+                    new AutomationService.AppointmentStatusPayload(
+                        appointment.id, appointment.client_id, appointment.nutritionist_id, appointment.starts_at, appointment.modality),
+                    $"appointment:{appointment.id}:confirmed", HttpContext.RequestAborted);
+                await transaction.CommitAsync(HttpContext.RequestAborted);
+            }
+            catch
+            {
+                if (videoRoom != null)
+                    await _videoMeetings.DeleteRoomAsync(videoRoom.RoomName, CancellationToken.None);
+                throw;
+            }
         }
 
         // Las citas creadas manualmente nacen confirmadas; se envía el mismo email

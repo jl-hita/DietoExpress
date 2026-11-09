@@ -27,6 +27,25 @@ VALUES
     ({tenantId}, {eventType}, CAST({json} AS jsonb), {idempotencyKey}, 'pending', 0, 10, NOW(), NOW())
 ON CONFLICT (tenant_id, idempotency_key) DO NOTHING;", cancellationToken);
     }
+
+    public static async Task EnqueueAsync(
+        NpgsqlConnection connection, NpgsqlTransaction transaction, int tenantId,
+        string eventType, object payload, string idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        var json = JsonSerializer.Serialize(payload);
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO integration_outbox
+                (tenant_id, event_type, payload, idempotency_key, status, attempts, max_attempts, available_at, created_at)
+            VALUES (@tenant, @eventType, CAST(@payload AS jsonb), @key, 'pending', 0, 10, NOW(), NOW())
+            ON CONFLICT (tenant_id, idempotency_key) DO NOTHING;
+            """, connection, transaction);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("eventType", eventType);
+        command.Parameters.AddWithValue("payload", json);
+        command.Parameters.AddWithValue("key", idempotencyKey);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
 }
 
 public sealed class TransactionalOutboxWorker : BackgroundService
@@ -154,6 +173,37 @@ public sealed class TransactionalOutboxWorker : BackgroundService
         using var payload = JsonDocument.Parse(job.Payload);
         switch (job.EventType)
         {
+            case "appointment_confirmed":
+            {
+                var appointmentId = payload.RootElement.GetProperty("AppointmentId").GetInt32();
+                var clientId = payload.RootElement.GetProperty("ClientId").GetInt32();
+                var nutritionistElement = payload.RootElement.GetProperty("NutritionistId");
+                int? nutritionistId = nutritionistElement.ValueKind == JsonValueKind.Null ? null : nutritionistElement.GetInt32();
+                var startsAt = payload.RootElement.GetProperty("StartsAtUtc").GetDateTime();
+                var modalityElement = payload.RootElement.GetProperty("Modality");
+                var modality = modalityElement.ValueKind == JsonValueKind.Null ? null : modalityElement.GetString();
+                using var scope = _scopeFactory.CreateScope();
+                var automation = scope.ServiceProvider.GetRequiredService<AutomationService>();
+                await automation.PublishEventAsync(
+                    job.TenantId, "appointment.confirmed", "appointment", appointmentId.ToString(),
+                    new AutomationService.AppointmentStatusPayload(appointmentId, clientId, nutritionistId, startsAt, modality),
+                    $"appointment:{appointmentId}:confirmed", cancellationToken);
+                return;
+            }
+            case "appointment_completed":
+            {
+                var appointmentId = payload.RootElement.GetProperty("AppointmentId").GetInt32();
+                var clientId = payload.RootElement.GetProperty("ClientId").GetInt32();
+                var nutritionistElement = payload.RootElement.GetProperty("NutritionistId");
+                int? nutritionistId = nutritionistElement.ValueKind == JsonValueKind.Null ? null : nutritionistElement.GetInt32();
+                using var scope = _scopeFactory.CreateScope();
+                var automation = scope.ServiceProvider.GetRequiredService<AutomationService>();
+                await automation.PublishEventAsync(
+                    job.TenantId, "appointment.completed", "appointment", appointmentId.ToString(),
+                    new AutomationService.AppointmentCompletedPayload(appointmentId, clientId, nutritionistId),
+                    $"appointment:{appointmentId}:completed", cancellationToken);
+                return;
+            }
             case "patient_checkin_submitted":
             {
                 var clientId = payload.RootElement.GetProperty("ClientId").GetInt32();

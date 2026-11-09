@@ -473,26 +473,12 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         appointmentCommand.Parameters.AddWithValue("tenant", appointment.TenantId);
         await appointmentCommand.ExecuteNonQueryAsync();
 
+        await TransactionalOutbox.EnqueueAsync(
+            connection, transaction, appointment.TenantId, "appointment_completed",
+            new AutomationService.AppointmentCompletedPayload(
+                appointment.Id, appointment.ClientId, appointment.NutritionistId),
+            $"appointment:{appointment.Id}:completed");
         await transaction.CommitAsync();
-
-        try
-        {
-            await _automationService.PublishEventAsync(
-                appointment.TenantId,
-                "appointment.completed",
-                "appointment",
-                appointment.Id.ToString(),
-                new AutomationService.AppointmentCompletedPayload(
-                    appointment.Id,
-                    appointment.ClientId,
-                    appointment.NutritionistId),
-                $"appointment:{appointment.Id}:completed");
-        }
-        catch (Exception ex)
-        {
-            HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationsController>>()
-                .LogError(ex, "No se pudo registrar la automatización de la cita completada {AppointmentId}.", appointment.Id);
-        }
 
         await _auditLogService.LogAccessAsync(
             "CONSULTATION_COMPLETE", "professional_consultations", appointmentId.ToString(), appointment.ClientId,
