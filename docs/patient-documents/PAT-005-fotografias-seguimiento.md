@@ -1,26 +1,25 @@
-# PAT-005 — Consentimiento para fotografías de seguimiento
+# Consentimiento para fotografías de seguimiento
 
-**Versión:** {{professional.document_version}}  
-**Paciente:** {{patient.full_name}}
+**Versión:** {{professional.document_version}} · **Fecha de emisión:** {{acceptance.date}}  
+**Paciente:** {{patient.full_name}}  
+**Responsable:** {{professional.legal_name}} · {{professional.privacy_email}}
 
-## 1. Finalidad
+## 1. Para qué
 
-Las fotografías podrán utilizarse para documentar y valorar la evolución del paciente dentro del seguimiento nutricional cuando sean necesarias para la finalidad indicada.
+Con tu permiso, tomaremos fotografías para documentar y valorar tu evolución dentro del seguimiento nutricional. Las fotografías son datos de salud y se protegen igual que el resto de tu historial.
 
-## 2. Uso limitado
+## 2. Qué no haremos
 
-Las fotografías no podrán utilizarse para publicaciones, redes sociales, publicidad, formación o cualquier finalidad distinta de la indicada sin una base jurídica y autorización que lo permita.
+No las usaremos para publicaciones, redes sociales, publicidad ni formación. Cualquiera de esos usos requeriría un consentimiento distinto e independiente.
 
-## 3. Voluntariedad
+## 3. Es voluntario
 
-La negativa a facilitar fotografías no deberá impedir el acceso al servicio cuando estas no sean imprescindibles para la prestación.
+No tienes que facilitar fotografías para recibir el servicio, salvo que sean imprescindibles y te lo expliquemos. Si no las das, no habrá ninguna consecuencia negativa para ti.
 
-## 4. Conservación y acceso
+## 4. Conservación y retirada
 
-Las fotografías deberán conservarse y protegerse con las mismas garantías aplicables al resto de documentación sensible, durante el plazo correspondiente.
+Se conservarán el tiempo indicado en la información de privacidad. **Puedes retirar tu consentimiento en cualquier momento** escribiendo a {{professional.privacy_email}}; dejaremos de tomar fotografías y las eliminaremos cuando no sea obligatorio conservarlas.
 
 ## 5. Aceptación
 
-☐ **Acepto que se utilicen fotografías para el seguimiento nutricional en los términos indicados.**
-
-> El uso publicitario o divulgativo debe documentarse mediante un consentimiento independiente. Requiere revisión jurídica.
+Al pulsar «Aceptar» consientes que se utilicen fotografías para tu seguimiento nutricional en los términos descritos.

@@ -1,57 +1,60 @@
-# Acuerdo de encargo del tratamiento
+# Acuerdo de encargo del tratamiento (art. 28 RGPD)
 
-**Responsable:** {{professional.legal_name}} (NIF/CIF {{professional.tax_id}}), {{professional.address}}.  
-**Encargado:** {{platform.legal_name}} (NIF/CIF {{platform.tax_id}}), {{platform.address}}.
+**Responsable:** {{professional.legal_name}} (NIF/CIF {{professional.tax_id}}), domicilio {{professional.address}}, contacto {{professional.privacy_email}}.
 
-## 1. Objeto, duración y ámbito
+**Encargado:** {{platform.legal_name}} (NIF/CIF {{platform.tax_id}}), domicilio {{platform.address}}, contacto {{platform.privacy_email}}.
 
-El Encargado tratará datos personales por cuenta del Responsable para prestar las funcionalidades de DietoExpress contratadas.
+## 1. Objeto y duración
 
-**Duración:** {{professional.dpa_duration}}  
-**Naturaleza y finalidad:** gestión de pacientes, dietas, documentación, agenda, comunicaciones y demás funcionalidades activadas por el Responsable.
+El Encargado tratará datos personales por cuenta del Responsable para prestar las funcionalidades de DietoExpress contratadas. El acuerdo dura lo que dure la prestación del servicio. Duración y condiciones específicas: {{professional.dpa_duration}}.
 
-## 2. Categorías de interesados y datos
+## 2. Naturaleza y finalidad
 
-Interesados: pacientes/clientes, profesionales y personal autorizado cuando resulte necesario.
+Alojamiento, almacenamiento, organización, consulta y transmisión de datos necesarios para la gestión de pacientes, dietas, documentación, agenda, comunicaciones y demás funcionalidades que active el Responsable.
 
-Datos: identificativos y de contacto, información de cita y gestión y, cuando el Responsable los registre, datos relativos a salud o nutrición y demás categorías indicadas en sus actividades de tratamiento.
+## 3. Interesados y datos
 
-## 3. Instrucciones y uso de los datos
+**Interesados:** pacientes o clientes del Responsable y personas de contacto designadas por ellos.
 
-El Encargado tratará los datos únicamente siguiendo instrucciones documentadas del Responsable, salvo obligación legal aplicable. No utilizará los datos para finalidades propias incompatibles con el encargo.
+**Datos:** identificativos y de contacto, datos de citas y gestión y los datos de salud y nutrición que el Responsable decida registrar, incluidas categorías especiales (art. 9 RGPD). Los datos de las cuentas de los profesionales no se tratan por cuenta del Responsable: DietoExpress los trata como responsable conforme a su política de privacidad.
 
-## 4. Personas autorizadas y confidencialidad
+## 4. Obligaciones del Encargado
 
-El acceso quedará limitado a personas autorizadas que estén sujetas a un deber de confidencialidad y necesiten acceder para prestar el servicio.
+1. Tratar los datos solo siguiendo instrucciones documentadas del Responsable, incluidas las transferencias internacionales, salvo obligación legal, en cuyo caso informará al Responsable antes del tratamiento si la ley lo permite. Informará si considera que una instrucción infringe la normativa.
+2. Garantizar que las personas autorizadas a tratar los datos se han comprometido a la confidencialidad.
+3. Aplicar las medidas de seguridad del art. 32 RGPD apropiadas al riesgo y a datos de salud.
+4. No tratar los datos para fines propios.
 
-## 5. Medidas de seguridad
+## 5. Subencargados
 
-El Encargado aplicará medidas técnicas y organizativas apropiadas al riesgo. Las medidas y garantías aplicables se documentarán y actualizarán cuando corresponda.
+El Responsable autoriza con carácter general al Encargado a recurrir a subencargados. Los vigentes son: {{platform.subprocessors_summary}}.
 
-## 6. Subencargados
+El Encargado informará al Responsable de cualquier incorporación o sustitución con un preaviso mínimo de 30 días, para que pueda oponerse; si la oposición es fundada y no se resuelve, el Responsable podrá resolver el contrato. El Encargado impondrá a cada subencargado las mismas obligaciones de protección de datos que este acuerdo y **seguirá siendo plenamente responsable** ante el Responsable del cumplimiento de aquel.
 
-Subencargados y procedimiento de autorización: {{platform.subprocessors_summary}}.
+## 6. Derechos de los interesados
 
-El Responsable dispondrá del mecanismo de información y oposición que corresponda ante cambios de subencargados.
+El Encargado asistirá al Responsable, con medidas técnicas y organizativas apropiadas, en la atención de las solicitudes de derechos. Si un interesado se dirige directamente al Encargado, se lo trasladará en un plazo máximo de cinco días hábiles sin responder por sí mismo.
 
-## 7. Asistencia al Responsable
+## 7. Brechas de seguridad
 
-El Encargado asistirá al Responsable, dentro del alcance del servicio y de sus posibilidades, en la atención de derechos, seguridad, brechas, evaluaciones de impacto y consultas previas cuando resulte aplicable.
+El Encargado notificará al Responsable cualquier violación de la seguridad de los datos personales **sin dilación indebida y, en todo caso, en un máximo de 48 horas** desde que tenga conocimiento, con la información de que disponga para que el Responsable cumpla los arts. 33 y 34 RGPD.
 
-## 8. Violaciones de seguridad
+## 8. Asistencia
 
-Procedimiento y canal de notificación al Responsable: {{platform.breach_notification_summary}}.
+El Encargado ayudará al Responsable a cumplir las obligaciones de seguridad (art. 32), notificación de brechas (arts. 33 y 34), evaluaciones de impacto y consulta previa a la autoridad (arts. 35 y 36), teniendo en cuenta la naturaleza del tratamiento y la información de que disponga.
 
-## 9. Transferencias internacionales
+## 9. Devolución y supresión
 
-Situación y garantías aplicables: {{platform.international_transfers_summary}}.
+Al terminar el servicio, el Encargado devolverá o permitirá exportar los datos y los suprimirá según indique el Responsable, salvo obligación legal de conservación. Condiciones: {{professional.dpa_end_of_service_summary}}.
 
-## 10. Devolución y supresión
+## 10. Auditoría
 
-Al finalizar el servicio, el Responsable decidirá entre devolución, exportación y supresión, salvo conservación exigida por una obligación legal. Plazos y excepciones: {{professional.dpa_end_of_service_summary}}.
+El Encargado pondrá a disposición del Responsable la información necesaria para demostrar el cumplimiento y permitirá y contribuirá a auditorías, incluidas inspecciones, realizadas por el Responsable o por un auditor designado por él, con preaviso razonable y sin perturbar el servicio.
 
-## 11. Auditoría y acreditación
+## 11. Responsabilidad
 
-El Encargado facilitará la información razonablemente necesaria para demostrar el cumplimiento de las obligaciones aplicables y colaborará en auditorías dentro de límites razonables y de seguridad.
+Cada parte responde ante los interesados y las autoridades conforme al art. 82 RGPD.
 
-**Nota interna:** plantilla contractual. Debe completarse con proveedores, transferencias, medidas, duración y procedimiento de fin de servicio reales y revisarse jurídicamente antes de utilizarse.
+## 12. Aceptación
+
+Este acuerdo se entiende aceptado cuando el Responsable acepta los términos y condiciones de DietoExpress, de los que forma parte. La aceptación queda registrada con su fecha, versión e identificación.

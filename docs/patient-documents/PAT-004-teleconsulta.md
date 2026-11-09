@@ -1,27 +1,23 @@
-# PAT-004 — Información y consentimiento para teleconsulta
+# Consentimiento para teleconsulta
 
-**Versión:** {{professional.document_version}}  
+**Versión:** {{professional.document_version}} · **Fecha de emisión:** {{acceptance.date}}  
 **Paciente:** {{patient.full_name}}  
-**Fecha:** {{acceptance.date}}
+**Profesional o centro:** {{professional.legal_name}}
 
-## 1. Modalidad
+## 1. Cómo se realizará
 
-La consulta podrá realizarse mediante el sistema de comunicación indicado por el profesional: {{professional.teleconsultation_platform}}.
+La consulta se hará por videollamada a través de la plataforma de DietoExpress, que utiliza un proveedor de comunicaciones en tiempo real. La videollamada **no se graba** salvo que se te informe y lo autorices expresamente.
 
-## 2. Condiciones
+## 2. Qué debes tener en cuenta
 
-El paciente deberá procurar realizar la consulta desde un entorno razonablemente privado y con una conexión suficiente.
+- Conéctate desde un lugar razonablemente privado y con conexión suficiente.
+- La teleconsulta tiene limitaciones frente a la consulta presencial, sobre todo si hace falta una exploración física. Si es necesario, se te recomendará atención presencial o médica.
+- El profesional puede suspender la teleconsulta o proponerte otra modalidad por motivos técnicos, clínicos u organizativos.
 
-El profesional podrá suspender o cambiar la modalidad cuando existan circunstancias técnicas, clínicas u organizativas que lo hagan necesario.
+## 3. Tus derechos
 
-## 3. Limitaciones
-
-La teleconsulta puede presentar limitaciones respecto de una consulta presencial, especialmente cuando sea necesaria una exploración física u otra actuación que no pueda realizarse a distancia.
-
-Cuando proceda, se recomendará atención presencial o médica.
+Es voluntaria: puedes elegir consulta presencial cuando esté disponible y **retirar este consentimiento en cualquier momento**. Tus datos se tratan según la información de privacidad que ya has recibido.
 
 ## 4. Aceptación
 
-☐ **Acepto realizar la consulta mediante teleconsulta en las condiciones informadas.**
-
-> Documento aplicable solo cuando el profesional utilice teleconsulta. Requiere revisión jurídica y adaptación al servicio y tecnología utilizados.
+Al pulsar «Aceptar» consientes realizar la consulta por teleconsulta en las condiciones descritas.

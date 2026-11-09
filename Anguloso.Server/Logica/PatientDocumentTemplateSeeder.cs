@@ -1,9 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using Npgsql;
-using QuestPDF.Fluent;
-using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
 
 namespace Anguloso.Server.Logica;
 
@@ -33,15 +30,19 @@ public sealed class PatientDocumentTemplateSeeder
         new("PAT-003", "Autorización y preferencias de comunicaciones", "PAT-003-comunicaciones.md", "communications", true, false, true),
         new("PAT-004", "Consentimiento para teleconsulta", "PAT-004-teleconsulta.md", "teleconsultation", false, true, true),
         new("PAT-005", "Consentimiento para fotografías de seguimiento", "PAT-005-fotografias-seguimiento.md", "photography", false, false, true),
-        new("PAT-006", "Declaración de información sanitaria y responsabilidad del paciente", "PAT-006-declaracion-informacion-sanitaria.md", "health_information", true, false, true),
         new("PAT-007", "Representación de menores o personas representadas", "PAT-007-menores-representacion.md", "representation", false, false, true),
         new("PAT-008", "Consentimiento para comunicaciones comerciales", "PAT-008-comunicaciones-comerciales.md", "commercial_communications", false, false, true),
         new("PAT-009", "Anamnesis y antecedentes nutricionales", "PAT-009-anamnesis-y-antecedentes-nutricionales.md", "anamnesis", false, false, false),
         new("PAT-010", "Registro de seguimiento y evolución", "PAT-010-seguimiento-y-evolucion.md", "follow_up", false, false, false),
         new("PAT-011", "Autorización para intercambio de información asistencial", "PAT-011-autorizacion-intercambio-informacion.md", "information_sharing", false, false, true),
         new("PAT-012", "Acceso al portal y comunicaciones digitales", "PAT-012-acceso-portal-y-comunicaciones-digitales.md", "portal", false, false, true),
-        new("PAT-013", "Persona de contacto autorizada", "PAT-013-persona-de-contacto.md", "authorized_contact", false, false, true),
-        new("PAT-014", "Constancia de entrega y recepción de documentación", "PAT-014-entrega-y-recepcion-documentacion.md", "delivery", false, false, false)
+        new("PAT-013", "Persona de contacto autorizada", "PAT-013-persona-de-contacto.md", "authorized_contact", false, false, true)
+    ];
+
+    private static readonly string[] RetiredNames =
+    [
+        "declaración de información sanitaria y responsabilidad del paciente",
+        "constancia de entrega y recepción de documentación"
     ];
 
     public PatientDocumentTemplateSeeder(IConfiguration configuration, IWebHostEnvironment environment)
@@ -72,16 +73,32 @@ public sealed class PatientDocumentTemplateSeeder
         var createdFiles = new List<string>();
         try
         {
+            // Documentos retirados del catálogo (duplicados o redundantes): se desactivan.
+            await using (var retire = new NpgsqlCommand("""
+                UPDATE document_templates SET is_active=false, is_required_on_client_creation=false,
+                       is_required_before_consultation=false, updated_at=NOW()
+                WHERE tenant_id=@tenant AND is_active=true AND version=1
+                  AND LOWER(name) = ANY(@names);
+                """, connection, transaction))
+            {
+                retire.Parameters.AddWithValue("tenant", tenantId);
+                retire.Parameters.AddWithValue("names", RetiredNames);
+                await retire.ExecuteNonQueryAsync(cancellationToken);
+            }
+
             foreach (var definition in Definitions)
             {
                 var source = Path.Combine(sourceRoot, definition.FileName);
                 if (!File.Exists(source))
                     continue;
 
-                // Actualiza flags de las plantillas ya sembradas para corregir tenants existentes.
+                var markdown = await File.ReadAllTextAsync(source, Encoding.UTF8, cancellationToken);
+
+                // Actualiza flags y texto de las plantillas ya sembradas para corregir tenants existentes.
                 await using var updateExisting = new NpgsqlCommand("""
                     UPDATE document_templates
-                    SET is_required_on_client_creation=@requiredCreation,
+                    SET content_html=@content,
+                        is_required_on_client_creation=@requiredCreation,
                         requires_signature=@requires,
                         is_required_before_consultation=@requiredConsultation,
                         updated_at=NOW()
@@ -91,6 +108,7 @@ public sealed class PatientDocumentTemplateSeeder
                     """, connection, transaction);
                 updateExisting.Parameters.AddWithValue("tenant", tenantId);
                 updateExisting.Parameters.AddWithValue("name", definition.Name);
+                updateExisting.Parameters.AddWithValue("content", markdown);
                 updateExisting.Parameters.AddWithValue("requiredCreation", definition.RequiredOnCreation);
                 updateExisting.Parameters.AddWithValue("requires", definition.RequiresSignature);
                 updateExisting.Parameters.AddWithValue("requiredConsultation", definition.RequiredBeforeConsultation);
@@ -102,8 +120,7 @@ public sealed class PatientDocumentTemplateSeeder
                 var destination = Path.Combine(root, storageKey.Replace('/', Path.DirectorySeparatorChar));
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
 
-                var markdown = await File.ReadAllTextAsync(source, Encoding.UTF8, cancellationToken);
-                GeneratePdf(markdown, destination);
+                PatientDocumentRenderer.GeneratePdf(markdown, destination, "Plantilla base · revisar antes de uso real · página ");
                 createdFiles.Add(destination);
 
                 var fileInfo = new FileInfo(destination);
@@ -174,62 +191,6 @@ public sealed class PatientDocumentTemplateSeeder
         configured ??= "/var/lib/dietoexpress/documents";
         Directory.CreateDirectory(configured);
         return Path.GetFullPath(configured);
-    }
-
-    private static void GeneratePdf(string markdown, string destination)
-    {
-        QuestPDF.Settings.License = LicenseType.Community;
-
-        var lines = markdown.Replace("\r\n", "\n").Split('\n');
-        var document = Document.Create(container =>
-        {
-            container.Page(page =>
-            {
-                page.Size(PageSizes.A4);
-                page.Margin(42);
-                page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(10));
-
-                page.Header().AlignRight().Text("DietoExpress · Documento de paciente")
-                    .FontSize(8).FontColor("#777777");
-
-                page.Content().Column(column =>
-                {
-                    column.Spacing(7);
-                    foreach (var rawLine in lines)
-                    {
-                        var line = rawLine.Trim();
-                        if (string.IsNullOrWhiteSpace(line))
-                        {
-                            column.Item().Height(4);
-                            continue;
-                        }
-
-                        if (line.StartsWith("# "))
-                            column.Item().Text(line[2..]).Bold().FontSize(18);
-                        else if (line.StartsWith("## "))
-                            column.Item().PaddingTop(6).Text(line[3..]).Bold().FontSize(13);
-                        else if (line.StartsWith("### "))
-                            column.Item().PaddingTop(4).Text(line[4..]).Bold().FontSize(11);
-                        else if (line.StartsWith("- "))
-                            column.Item().PaddingLeft(12).Text("• " + line[2..]);
-                        else if (line.StartsWith("> "))
-                            column.Item().PaddingLeft(10).Text(line[2..]).Italic().FontColor("#555555");
-                        else if (line.StartsWith("|"))
-                            column.Item().Text(line.Replace("|", " ").Trim()).FontSize(8);
-                        else
-                            column.Item().Text(line);
-                    }
-                });
-
-                page.Footer().AlignCenter().Text(text =>
-                {
-                    text.Span("Plantilla base · revisar antes de uso real · página ");
-                    text.CurrentPageNumber();
-                });
-            });
-        });
-
-        document.GeneratePdf(destination);
     }
 
     private static async Task<string> ComputeSha256Async(string path, CancellationToken cancellationToken)

@@ -1,39 +1,27 @@
-# PAT-011 — Autorización para intercambio de información asistencial
+# Autorización para compartir información asistencial
 
-> Plantilla funcional de DietoExpress. No debe utilizarse como autorización general. Requiere revisión jurídica y profesional antes de uso.
+**Versión:** {{professional.document_version}} · **Fecha de emisión:** {{acceptance.date}}  
+**Paciente:** {{patient.full_name}}  
+**Profesional o centro:** {{professional.legal_name}}
 
-## 1. Finalidad
+## 1. Qué autorizas
 
-El paciente puede autorizar, cuando resulte apropiado y legalmente procedente, el intercambio de información asistencial concreta con el profesional o entidad indicada a continuación para una finalidad determinada.
+Autorizo a {{professional.legal_name}} a comunicar la información indicada a continuación a la persona o entidad indicada, solo para la finalidad señalada.
 
-## 2. Destinatario autorizado
+- **Destinatario:** {{third_party.name}} ({{third_party.role}})
+- **Contacto:** {{third_party.contact}}
+- **Información que puede comunicarse:** {{third_party.authorized_information}}
+- **Finalidad:** {{third_party.purpose}}
+- **Duración de la autorización:** {{third_party.duration}}
 
-- Nombre / entidad: {{third_party.name}}
-- Profesional / cargo: {{third_party.role}}
-- Medio de contacto: {{third_party.contact}}
+## 2. Límites
 
-## 3. Información que puede comunicarse
+Esta autorización se limita al destinatario, la información, la finalidad y el plazo indicados. No es una autorización general para compartir tus datos de salud con terceros.
 
-{{third_party.authorized_information}}
+## 3. Retirada
 
-## 4. Finalidad concreta
+Puedes retirarla en cualquier momento escribiendo a {{professional.privacy_email}}. La retirada no afecta a las comunicaciones ya realizadas legítimamente.
 
-{{third_party.purpose}}
+## 4. Aceptación
 
-## 5. Duración / límite temporal
-
-{{third_party.duration}}
-
-## 6. Límites
-
-La autorización se limita a la información, destinatario, finalidad y periodo indicados. No constituye una autorización general para divulgar información sanitaria a terceros.
-
-El paciente podrá retirar la autorización cuando proceda. La retirada no afecta a los intercambios realizados legítimamente antes de que sea efectiva.
-
-## 7. Aceptación
-
-- Paciente: {{patient.full_name}}
-- Fecha y hora: {{document.accepted_at}}
-- Profesional: {{professional.full_name}}
-
-> Antes de activar este documento en producción debe comprobarse la base jurídica aplicable y la forma adecuada de documentar la autorización o consentimiento según el caso.
+Al pulsar «Aceptar» otorgo esta autorización.

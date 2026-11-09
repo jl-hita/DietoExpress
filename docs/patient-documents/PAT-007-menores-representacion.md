@@ -1,32 +1,27 @@
-# PAT-007 — Representación de menores o personas representadas
+# Representación de menores o personas representadas
 
-**Versión:** {{professional.document_version}}  
+**Versión:** {{professional.document_version}} · **Fecha de emisión:** {{acceptance.date}}  
 **Paciente:** {{patient.full_name}}  
-**Representante:** {{representative.full_name}}  
-**Relación:** {{representative.relationship}}
+**Representante:** {{representative.full_name}} · **Relación:** {{representative.relationship}}  
+**Profesional o centro:** {{professional.legal_name}}
 
-## 1. Representación
+## 1. Declaración del representante
 
-La persona que firma declara actuar como representante del paciente y manifiesta disponer de la legitimación necesaria para hacerlo.
+Declaro que actúo como representante legal del paciente (madre, padre, tutor u otra figura legalmente reconocida) y que estoy legitimado para prestar los consentimientos y recibir la información en su nombre. Si el paciente tiene dos progenitores o tutores con la patria potestad, declaro que cuento con la conformidad del otro o que puedo decidir solo conforme a la ley.
 
-## 2. Identificación
+## 2. Datos de identificación
 
-Datos del representante: {{representative.identification_summary}}.
+Representante: {{representative.identification_summary}}  
+Paciente: {{patient.identification_summary}}
 
-Datos del paciente: {{patient.identification_summary}}.
+## 3. Opinión del paciente
 
-## 3. Información
+El paciente menor será informado y escuchado en función de su edad y madurez. A partir de los 12 años se tendrá especialmente en cuenta su opinión, y con 16 años cumplidos podrá decidir por sí mismo en los términos que establece la ley sanitaria.
 
-El representante declara haber recibido la información correspondiente al servicio y al tratamiento de datos aplicable al paciente.
+## 4. Documentación
 
-Cuando la normativa o las circunstancias del paciente requieran intervención, información o consentimiento adicional del propio paciente, deberá respetarse.
-
-## 4. Documentación acreditativa
-
-Cuando resulte necesario, deberá aportarse y conservarse la documentación que acredite la representación.
+Podrá pedirse documentación que acredite la representación (libro de familia, resolución judicial o similar), que se conservará con la historia del paciente.
 
 ## 5. Aceptación
 
-☐ **Declaro que la información facilitada sobre mi representación es correcta y que actúo con legitimación suficiente.**
-
-> Requiere adaptación a la edad, capacidad, representación y normativa aplicable. No debe activarse automáticamente para todos los pacientes.
+Al pulsar «Aceptar» declaro que los datos son ciertos y que actúo con legitimación suficiente.

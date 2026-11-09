@@ -1,36 +1,25 @@
-# PAT-012 — Acceso al portal y comunicaciones digitales
+# Condiciones de uso del portal del paciente
 
-> Plantilla funcional de DietoExpress. Requiere revisión jurídica y técnica antes de uso.
+**Versión:** {{professional.document_version}} · **Fecha de emisión:** {{acceptance.date}}  
+**Paciente:** {{patient.full_name}}  
+**Profesional o centro:** {{professional.legal_name}}
 
-## 1. Finalidad
+## 1. Para qué sirve
 
-El portal de DietoExpress permite al paciente consultar documentación, recibir indicaciones relacionadas con el servicio y, cuando esté habilitado, completar procesos de aceptación o firma.
+El portal te permite consultar tus documentos, planes y citas, recibir indicaciones del servicio y aceptar documentación.
 
-## 2. Cuenta y acceso
+## 2. Tu acceso es personal
 
-El acceso es personal. El paciente debe mantener bajo su control los mecanismos de acceso y comunicar al profesional cualquier sospecha de acceso no autorizado.
+Mantén bajo tu control los medios de acceso (por ejemplo, el enlace o código que recibes por correo) y no los compartas. Avísanos si sospechas que alguien ha accedido sin permiso escribiendo a {{professional.privacy_email}}.
 
-- Paciente: {{patient.full_name}}
-- Identificador de acceso: {{patient.portal_identifier}}
-- Fecha de alta del acceso: {{document.date}}
+## 3. Uso adecuado
 
-## 3. Uso del portal
-
-El paciente se compromete a facilitar información veraz, mantener actualizados sus datos de contacto y utilizar el portal únicamente para las finalidades relacionadas con el servicio.
-
-El portal no sustituye los canales de emergencia ni debe utilizarse para comunicar una urgencia sanitaria.
+Facilita información veraz, mantén actualizados tus datos de contacto y usa el portal solo para fines relacionados con el servicio. **El portal no es un canal de urgencias:** ante una urgencia sanitaria llama al 112.
 
 ## 4. Comunicaciones
 
-Las comunicaciones necesarias para prestar el servicio pueden incluir avisos de citas, respuestas del profesional, documentación pendiente e incidencias del servicio. Las comunicaciones comerciales se gestionan separadamente.
+A través del portal recibirás avisos de citas, respuestas del profesional y documentación pendiente. Las comunicaciones comerciales se gestionan aparte y solo con tu consentimiento.
 
-## 5. Incidencias de acceso
+## 5. Aceptación
 
-{{portal.access_instructions}}
-
-## 6. Aceptación
-
-- Paciente: {{patient.full_name}}
-- Fecha y hora: {{document.accepted_at}}
-
-> Este documento no convierte por sí mismo una comunicación en comercial ni modifica las bases jurídicas aplicables a cada tratamiento de datos.
+Al pulsar «Aceptar» confirmas que has leído y aceptas estas condiciones.

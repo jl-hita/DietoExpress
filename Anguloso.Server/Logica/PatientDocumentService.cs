@@ -20,9 +20,52 @@ public sealed class PatientDocumentService
             ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
     }
 
+    /// <summary>
+    /// Datos legales mínimos del responsable (centro o profesional) sin los que no se puede emitir
+    /// documentación al paciente: aparecerían en blanco en los documentos que el paciente acepta.
+    /// </summary>
+    public static readonly string[] RequiredLegalSettings =
+    [
+        "legal_name", "tax_id", "address", "contact_email", "privacy_email",
+        "professional_title", "professional_college", "professional_collegiate_number",
+        "patient_privacy_legal_basis", "patient_special_categories_summary",
+        "patient_recipients_summary", "patient_retention_summary",
+        "patient_international_transfers_summary", "patient_additional_purposes",
+        "consultation_description", "consultation_limits", "consultation_risks"
+    ];
+
+    /// <summary>Claves legales obligatorias que faltan (centro + profesional). Vacío = configuración completa.</summary>
+    public async Task<IReadOnlyList<string>> GetMissingLegalSettingsAsync(int tenantId, int? userId, CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        await using var cmd = new NpgsqlCommand("""
+            SELECT setting_key, setting_value, scope_type FROM legal_configuration
+            WHERE (scope_type='tenant' AND scope_id=@tenant) OR (scope_type='user' AND scope_id=@user)
+            ORDER BY CASE scope_type WHEN 'tenant' THEN 0 ELSE 1 END;
+            """, connection);
+        cmd.Parameters.AddWithValue("tenant", tenantId);
+        cmd.Parameters.AddWithValue("user", userId ?? -1);
+        await using var rd = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await rd.ReadAsync(cancellationToken))
+        {
+            var value = rd.GetString(1);
+            // El valor del profesional sustituye al del centro solo si no está vacío.
+            if (!string.IsNullOrWhiteSpace(value) || !values.ContainsKey(rd.GetString(0)))
+                values[rd.GetString(0)] = value;
+        }
+        return RequiredLegalSettings.Where(k => !values.TryGetValue(k, out var v) || string.IsNullOrWhiteSpace(v)).ToList();
+    }
+
     public async Task<int> CreateRequiredDocumentsAsync(int tenantId, int clientId, int? userId, bool forClientCreation = true, bool includeAllRequired = false, CancellationToken cancellationToken = default)
     {
         var created = 0;
+
+        // Bloqueo: sin configuración legal completa no se emite documentación al paciente.
+        if ((await GetMissingLegalSettingsAsync(tenantId, userId, cancellationToken)).Count > 0)
+            return 0;
+
         var root = GetStorageRoot();
         var copiedFiles = new List<string>();
 
@@ -44,7 +87,7 @@ public sealed class PatientDocumentService
         {
             await using var templatesCommand = new NpgsqlCommand("""
                 SELECT DISTINCT ON (LOWER(name))
-                       id, name, document_type, version, requires_signature, storage_key, file_name, mime_type, file_size
+                       id, name, document_type, version, requires_signature, storage_key, file_name, mime_type, file_size, content_html
                 FROM document_templates
                 WHERE tenant_id=@tenant AND is_active=true
                   AND storage_key IS NOT NULL
@@ -62,10 +105,12 @@ public sealed class PatientDocumentService
                 templates.Add(new TemplateRow(
                     reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetInt32(3),
                     reader.GetBoolean(4), reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6),
-                    reader.IsDBNull(7) ? "application/pdf" : reader.GetString(7), reader.GetInt64(8)));
+                    reader.IsDBNull(7) ? "application/pdf" : reader.GetString(7), reader.GetInt64(8),
+                    reader.IsDBNull(9) ? null : reader.GetString(9)));
             }
             await reader.DisposeAsync();
 
+            Dictionary<string, string>? values = null;
             foreach (var template in templates)
             {
                 if (template.FileSize <= 0 || template.FileSize > MaxFileSize) continue;
@@ -77,7 +122,20 @@ public sealed class PatientDocumentService
                 if (destination == null) continue;
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
 
-                File.Copy(source, destination, overwrite: false);
+                if (!string.IsNullOrWhiteSpace(template.ContentMarkdown)
+                    && string.Equals(template.MimeType, "application/pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Plantilla markdown: se personaliza por paciente (variables resueltas, sin notas internas).
+                    values ??= await LoadTemplateValuesAsync(connection, transaction, tenantId, clientId, userId, template.Version, cancellationToken);
+                    values["professional.document_version"] = template.Version.ToString();
+                    var rendered = PatientDocumentRenderer.Render(template.ContentMarkdown, values);
+                    PatientDocumentRenderer.GeneratePdf(rendered, destination, "DietoExpress · página ");
+                }
+                else
+                {
+                    // Plantillas subidas manualmente como PDF: se copian tal cual.
+                    File.Copy(source, destination, overwrite: false);
+                }
                 copiedFiles.Add(destination);
                 var hash = await ComputeSha256Async(destination, cancellationToken);
 
@@ -289,5 +347,54 @@ public sealed class PatientDocumentService
     }
 
     private sealed record TemplateRow(long Id, string Name, string DocumentType, int Version, bool RequiresSignature,
-        string StorageKey, string? FileName, string MimeType, long FileSize);
+        string StorageKey, string? FileName, string MimeType, long FileSize, string? ContentMarkdown);
+
+    /// <summary>
+    /// Valores para resolver las variables de las plantillas: configuración legal de plataforma,
+    /// del centro y del profesional, más los datos del paciente.
+    /// </summary>
+    private static async Task<Dictionary<string, string>> LoadTemplateValuesAsync(
+        NpgsqlConnection connection, NpgsqlTransaction transaction,
+        int tenantId, int clientId, int? userId, int templateVersion, CancellationToken cancellationToken)
+    {
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        async Task LoadScope(string scopeType, int scopeId, string prefix)
+        {
+            await using var cmd = new NpgsqlCommand(
+                "SELECT setting_key, setting_value FROM legal_configuration WHERE scope_type=@t AND scope_id=@i;",
+                connection, transaction);
+            cmd.Parameters.AddWithValue("t", scopeType);
+            cmd.Parameters.AddWithValue("i", scopeId);
+            await using var rd = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await rd.ReadAsync(cancellationToken))
+                values[$"{prefix}.{rd.GetString(0)}"] = rd.GetString(1);
+        }
+
+        await LoadScope("platform", 1, "platform");
+        await LoadScope("tenant", tenantId, "professional");
+        if (userId.HasValue) await LoadScope("user", userId.Value, "professional");
+
+        await using (var cmd = new NpgsqlCommand(
+            "SELECT full_name FROM clients WHERE id=@c AND tenant_id=@t;", connection, transaction))
+        {
+            cmd.Parameters.AddWithValue("c", clientId);
+            cmd.Parameters.AddWithValue("t", tenantId);
+            if (await cmd.ExecuteScalarAsync(cancellationToken) is string name)
+                values["patient.full_name"] = name;
+        }
+
+        var today = DateTime.UtcNow.ToString("dd/MM/yyyy");
+        values["acceptance.date"] = today;
+        values["document.date"] = today;
+        values["professional.document_version"] = templateVersion.ToString();
+
+        // Alias de contacto: si no hay uno específico se usa el correo de privacidad configurado.
+        if (values.TryGetValue("professional.privacy_email", out var privacy))
+        {
+            values.TryAdd("professional.privacy_contact", privacy);
+            values.TryAdd("professional.rights_contact", privacy);
+        }
+        return values;
+    }
 }
