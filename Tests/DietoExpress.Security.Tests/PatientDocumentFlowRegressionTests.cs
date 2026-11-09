@@ -101,10 +101,12 @@ public sealed class PatientDocumentFlowRegressionTests
     {
         var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
 
-        Assert.Contains("PublishEventAsync(", source);
-        Assert.Contains("\"appointment.completed\"", source);
+        Assert.Contains("TransactionalOutbox.EnqueueAsync", source);
+        Assert.Contains("\"appointment_completed\"", source);
         Assert.Contains("AppointmentCompletedPayload", source);
         Assert.Contains("$\"appointment:{appointment.Id}:completed\"", source);
+        Assert.True(source.IndexOf("TransactionalOutbox.EnqueueAsync", StringComparison.Ordinal) <
+                    source.IndexOf("transaction.CommitAsync", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using System.Data;
 using Anguloso.Server.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 
 namespace Anguloso.Server.Logica;
@@ -94,40 +95,62 @@ public sealed class TrainingAutoAdaptationApplier
     /// </summary>
     public async Task<int> ApplyLoadSuggestionsAsync(int clientId, CancellationToken cancellationToken)
     {
-        var recommendations = await new TrainingExerciseProgressionService(_db).GetRecommendationsAsync(clientId, cancellationToken);
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken);
+
+        // La lectura de recomendaciones y todas sus escrituras comparten una única
+        // transacción. Si una sesión falla, no queda aplicada una parte del lote.
+        await using var efTransaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        var transaction = (NpgsqlTransaction)efTransaction.GetDbTransaction();
+        var recommendations = await new TrainingExerciseProgressionService(_db)
+            .GetRecommendationsAsync(clientId, cancellationToken);
         var changed = 0;
+
         foreach (var recommendation in recommendations.Where(item =>
-                     item.Action is "reduce_load" or "increase_load" && item.SuggestedLoadKg is > 0))
+                     (item.Action is "reduce_load" or "increase_load") && item.SuggestedLoadKg is > 0))
         {
             string? json;
+            // Bloquear la sesión evita que otra ejecución aplique simultáneamente
+            // una recomendación obsoleta sobre la misma prescripción.
             await using (var select = new NpgsqlCommand("""
-                SELECT s.exercise_prescription_data::text FROM training_sessions s
+                SELECT s.exercise_prescription_data::text
+                FROM training_sessions s
                 JOIN training_plans p ON p.id = s.plan_id
-                WHERE s.id = @id AND s.scheduled_date >= CURRENT_DATE AND s.status = 'planned' AND p.status = 'active'
+                WHERE s.id = @id AND s.scheduled_date > CURRENT_DATE
+                  AND s.status = 'planned' AND p.status = 'active'
                   AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
-                """, connection))
+                FOR UPDATE OF s
+                """, connection, transaction))
             {
                 select.Parameters.AddWithValue("id", recommendation.SessionId);
                 json = await select.ExecuteScalarAsync(cancellationToken) as string;
             }
             if (json is null) continue;
+
             var verb = recommendation.Action == "reduce_load" ? "reducida" : "aumentada";
             if (!TrainingAdaptationPrescriptionAdjuster.TrySetLoad(
                     json, recommendation.ExerciseId, recommendation.SuggestedLoadKg!.Value,
                     $"Carga {verb} automáticamente a partir de tu historial reciente.", out var updated, out var legacy))
                 continue;
+
             await using var update = new NpgsqlCommand("""
-                UPDATE training_sessions SET exercise_prescription_data = @json::jsonb, exercise_prescription = @text, updated_at = NOW()
-                WHERE id = @id AND status = 'planned'
-                  AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = training_sessions.id)
-                """, connection);
+                UPDATE training_sessions s
+                SET exercise_prescription_data = @json::jsonb,
+                    exercise_prescription = @text,
+                    updated_at = NOW()
+                WHERE s.id = @id
+                  AND s.scheduled_date > CURRENT_DATE
+                  AND s.status = 'planned'
+                  AND EXISTS (SELECT 1 FROM training_plans p WHERE p.id = s.plan_id AND p.status = 'active')
+                  AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
+                """, connection, transaction);
             update.Parameters.AddWithValue("json", updated);
             update.Parameters.AddWithValue("text", legacy);
             update.Parameters.AddWithValue("id", recommendation.SessionId);
             changed += await update.ExecuteNonQueryAsync(cancellationToken);
         }
+
+        await efTransaction.CommitAsync(cancellationToken);
         return changed;
     }
 
