@@ -143,7 +143,10 @@ public sealed class TrainingExerciseProgressionService
                                     }
                                 }
 
-                                var pain = sessionPain || JsonString(exercise, "skippedSetReason") == "pain";
+                                // Strong post-exercise discomfort is a pain signal too: completing every set must never
+                                // translate into a load increase when the lifter reported strong discomfort.
+                                var pain = sessionPain || JsonString(exercise, "skippedSetReason") == "pain" ||
+                                    string.Equals(JsonString(exercise, "discomfort"), "strong", StringComparison.OrdinalIgnoreCase);
                                 var key = (planId, exerciseId);
                                 if (!history.TryGetValue(key, out var exposures))
                                     history[key] = exposures = [];
@@ -231,6 +234,10 @@ public sealed class TrainingExerciseProgressionService
                         exposures is null ? Array.Empty<Anguloso.Server.Logica.TrainingExerciseExposure>() : exposures;
                     var result = Anguloso.Server.Logica.TrainingExerciseProgressionEngine.Evaluate(
                         prescription, exerciseHistory);
+                    // An active "hold progression" on this future session is a hard constraint, not just text.
+                    var holdActive = document.RootElement.TryGetProperty("progressionHold", out var holdElement) &&
+                        holdElement.ValueKind == JsonValueKind.True;
+                    result = Anguloso.Server.Logica.TrainingProgressionHold.Apply(result, holdActive);
                     recommendations.Add(new(
                         sessionId,
                         exerciseId,

@@ -234,10 +234,13 @@ public sealed class TrainingAutoAdaptationApplier
         await using var command = new NpgsqlCommand("""
             UPDATE training_sessions s
             SET intensity_target = 'Mantener la exigencia actual; sin progresión hasta nueva evaluación',
+                exercise_prescription_data = jsonb_set(exercise_prescription_data, '{progressionHold}', 'true'::jsonb),
                 instructions = CASE WHEN COALESCE(s.instructions, '') = '' THEN @note ELSE s.instructions || E'\n' || @note END,
                 updated_at = NOW()
             WHERE s.plan_id = @planId AND s.scheduled_date > CURRENT_DATE AND s.status = 'planned'
               AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
+              AND s.exercise_prescription_data IS NOT NULL
+              AND jsonb_typeof(s.exercise_prescription_data) = 'object'
               AND EXISTS (SELECT 1 FROM training_plans p WHERE p.id = s.plan_id AND p.status = 'active')
               AND s.id IN (SELECT id FROM training_sessions WHERE plan_id = @planId AND scheduled_date > CURRENT_DATE
                            AND status = 'planned' ORDER BY scheduled_date, id LIMIT 3)

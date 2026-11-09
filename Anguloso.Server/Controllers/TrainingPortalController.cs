@@ -689,8 +689,15 @@ public sealed class TrainingPortalController : ControllerBase
             .ToDictionary(pair => pair.Key.ToString(), pair => (int)pair.Value, StringComparer.Ordinal);
 
         var decisions = Anguloso.Server.Logica.TrainingMuscleFeedbackAdapter.Evaluate(exposures, plannedByMuscle, ceilings);
-        foreach (var decision in decisions.GroupBy(item => item.Action).Select(group => group.First()))
+        // One proposal per action and record (unique constraint), but it must carry EVERY affected exercise:
+        // dropping all but the first would silently lose strong-discomfort pauses or swaps.
+        foreach (var actionGroup in decisions.GroupBy(item => item.Action))
         {
+            var decision = actionGroup.First();
+            var all = actionGroup.ToList();
+            var explanation = string.Join(" ", all.Select(item => $"{item.Explanation} (ejercicio: {item.ExerciseId})"));
+            if (all.Count > 1 && decision.Action is Anguloso.Server.Logica.TrainingMuscleFeedbackAction.AddSet or Anguloso.Server.Logica.TrainingMuscleFeedbackAction.ReduceSet)
+                explanation += " Solo se aplica automáticamente el primer ajuste; el resto se reevalúa con las próximas sesiones.";
             var action = decision.Action switch
             {
                 Anguloso.Server.Logica.TrainingMuscleFeedbackAction.AddSet => "add_muscle_set",
@@ -704,7 +711,7 @@ public sealed class TrainingPortalController : ControllerBase
                 ON CONFLICT(source_record_id, action) DO NOTHING
                 RETURNING id
                 """, ("clientId", clientId), ("planId", planId), ("sessionId", sessionId), ("recordId", recordId),
-                ("action", action), ("explanation", $"{decision.Explanation} (ejercicio: {decision.ExerciseId})"));
+                ("action", action), ("explanation", explanation));
             var proposalId = await insert.ExecuteScalarAsync(cancellationToken);
             if (proposalId is not null && action is "add_muscle_set" or "reduce_muscle_set")
                 await _autoAdaptation.TryApplyAsync(Convert.ToInt64(proposalId), planId, action, [decision.ExerciseId], cancellationToken);
