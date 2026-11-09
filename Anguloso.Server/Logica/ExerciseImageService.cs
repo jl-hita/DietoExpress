@@ -239,7 +239,7 @@ public sealed class ExerciseImageService
         while ((line = await reader.ReadLineAsync(cancellationToken)) is not null)
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
-            if (!TryParseSeedLine(line, out var row, out var bytes) || row is null) { skipped++; continue; }
+            if (!TryParseSeedLine(line, out var row, out var bytes) || row is null || row.Source != "custom") { skipped++; continue; }
             var type = DetectImageContentType(bytes) ?? "image/svg+xml";
             var catalogApproved = false;
             await WithConnectionAsync(async connection =>
