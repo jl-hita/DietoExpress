@@ -185,3 +185,6 @@ DietoExpress sirve como proyecto práctico de desarrollo de una plataforma SaaS 
 ## Atribución del catálogo de ejercicios
 
 El catálogo de ejercicios y sus ilustraciones utilizan el dataset gratuito de RepDB. Su uso comercial dentro de DietoExpress está permitido con atribución visible; no se redistribuye el dataset como producto independiente. [Exercise data by RepDB (repdb.co)](https://repdb.co/). Consulta los términos completos en [LICENSE-DATA.md](https://github.com/RepDB/exercise-dataset/blob/main/LICENSE-DATA.md).
+
+## Manuales de uso
+- [Manual práctico para nutricionistas y clínicas](docs/MANUAL_NUTRICIONISTA.md): pacientes, agenda, consulta, dietas, entrenamiento, documentos, mensajería y automatizaciones paso a paso con ejemplos.
