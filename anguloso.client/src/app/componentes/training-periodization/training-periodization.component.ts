@@ -7,6 +7,7 @@ import { catchError, firstValueFrom, forkJoin, of, Subscription, timeout } from 
 import { DateInputDirective } from '../../directives/date-input.directive';
 import { TrainingReviewRequestsPanelComponent } from './training-review-requests-panel.component';
 import { TrainingPlannerWizardComponent } from './training-planner-wizard.component';
+import { PlannerWizardStateService } from './planner-wizard-state.service';
 import { MacroChartMesocycle, MacroChartPhase, MacroChartWeek, MacrocycleChartComponent } from './macrocycle-chart.component';
 
 import {
@@ -197,7 +198,7 @@ import {
         <section class="panel" *ngIf="current.enabled">
           <h2>Planes de entrenamiento</h2>
           <div class="training-create-actions" *ngIf="current.canManage">
-            <button type="button" class="secondary create-plan-toggle" (click)="showPlannerWizard = true; showCreatePlanForm = false; showQuickRoutineForm = false" [attr.aria-expanded]="showPlannerWizard">＋ Nueva planificación guiada</button>
+            <button type="button" class="secondary create-plan-toggle" (click)="openPlannerWizard()" [attr.aria-expanded]="showPlannerWizard">＋ Nueva planificación guiada</button>
             <button type="button" class="create-plan-toggle" (click)="showQuickRoutineForm = !showQuickRoutineForm; showCreatePlanForm = false" [attr.aria-expanded]="showQuickRoutineForm" [disabled]="trainingManagementMode !== 'self'">＋ Rutina sencilla</button>
           </div>
           <app-training-planner-wizard *ngIf="showPlannerWizard" [clientId]="clientId" (close)="showPlannerWizard = false" (completed)="onPlannerCompleted($event)"></app-training-planner-wizard>
@@ -1079,7 +1080,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   endDate = '';
   planNotes = '';
 
-  constructor(private route: ActivatedRoute, private http: HttpClient, private changeDetector: ChangeDetectorRef) {
+  constructor(private route: ActivatedRoute, private http: HttpClient, private changeDetector: ChangeDetectorRef, private plannerWizardState: PlannerWizardStateService) {
     this.quickRoutineDate = this.localDateInputValue();
     this.startDate = this.localDateInputValue();
   }
@@ -2060,6 +2061,12 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.changeDetector.detectChanges();
   }
 
+  openPlannerWizard(): void {
+    this.showPlannerWizard = true;
+    this.showCreatePlanForm = false;
+    this.showQuickRoutineForm = false;
+  }
+
   onPlannerCompleted(planId: number): void {
     this.showPlannerWizard = false;
     this.activePlanWorkspace[planId] = 'mesocycles';
@@ -2512,6 +2519,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.error = '';
     this.http.delete(`/api/training/plans/${plan.id}`).subscribe({
       next: () => {
+        this.plannerWizardState.clearIfPlanMatches(this.clientId, plan.id);
         this.plans = this.plans.filter(item => item.id !== plan.id);
         delete this.sessions[plan.id];
         delete this.mesocycles[plan.id];
