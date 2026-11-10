@@ -37,8 +37,8 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
           <p class="planner-intro">Elige el objetivo principal y el nivel de experiencia que debe orientar la propuesta.</p>
           <div class="planner-choice-grid">
             <label class="planner-choice" [class.selected]="draft.goal === 0"><input type="radio" name="plannerGoal" [value]="0" [(ngModel)]="draft.goal" (ngModelChange)="invalidateMacrocycle()" [disabled]="!!draft.serverPlanId"><span><strong>Forma física general</strong><small>Mejorar condición física y mantener una progresión equilibrada.</small></span></label>
-            <label class="planner-choice" [class.selected]="draft.goal === 1"><input type="radio" name="plannerGoal" [value]="1" [(ngModel)]="draft.goal" (ngModelChange)="persist()"><span><strong>Hipertrofia</strong><small>Priorizar el desarrollo de masa muscular.</small></span></label>
-            <label class="planner-choice" [class.selected]="draft.goal === 2"><input type="radio" name="plannerGoal" [value]="2" [(ngModel)]="draft.goal" (ngModelChange)="persist()"><span><strong>Fuerza</strong><small>Priorizar el rendimiento en ejercicios de fuerza.</small></span></label>
+            <label class="planner-choice" [class.selected]="draft.goal === 1"><input type="radio" name="plannerGoal" [value]="1" [(ngModel)]="draft.goal" (ngModelChange)="invalidateMacrocycle()"><span><strong>Hipertrofia</strong><small>Priorizar el desarrollo de masa muscular.</small></span></label>
+            <label class="planner-choice" [class.selected]="draft.goal === 2"><input type="radio" name="plannerGoal" [value]="2" [(ngModel)]="draft.goal" (ngModelChange)="invalidateMacrocycle()"><span><strong>Fuerza</strong><small>Priorizar el rendimiento en ejercicios de fuerza.</small></span></label>
           </div>
           <label class="planner-field">Experiencia
             <select [(ngModel)]="draft.experience" (ngModelChange)="invalidateMacrocycle()" [disabled]="!!draft.serverPlanId">
