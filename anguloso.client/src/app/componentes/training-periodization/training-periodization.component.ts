@@ -2060,7 +2060,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   onPlannerCompleted(planId: number): void {
     this.showPlannerWizard = false;
-    this.activePlanWorkspace[planId] = 'macrocycle';
+    this.activePlanWorkspace[planId] = 'mesocycles';
     this.notice = 'Planificación creada como borrador. No se ha enviado ninguna notificación al cliente.';
     this.load();
   }
