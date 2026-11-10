@@ -10,7 +10,7 @@ public static class TrainingProgramQualityAnalyzer
     // non-blocking and worded as "revisa", leaving the decision to the professional.
     private const int HighEffectiveSetReviewThreshold = 20;
     private const int HighSessionWorkingSetReviewThreshold = 30;
-    private static readonly TrainingMuscleGroup[] StrengthFrequencyReviewMuscles =
+    private static readonly TrainingMuscleGroup[] MajorMuscleFrequencyReviewMuscles =
     [
         TrainingMuscleGroup.Chest, TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack,
         TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Triceps,
@@ -194,16 +194,27 @@ public static class TrainingProgramQualityAnalyzer
                     warnings.Add($"Semana {week}: '{session.Title}' concentra {sessionWorkingSets} series de trabajo. Supera el umbral interno de revisión de {HighSessionWorkingSetReviewThreshold} series por sesión; no es un límite fisiológico ni una cifra prescrita por ACSM. Revisa la fatiga intra-sesión y la posible redistribución semanal.");
             }
 
-            if (plan.Goal is not null && (string.Equals(plan.Goal, "Strength", StringComparison.OrdinalIgnoreCase) || string.Equals(plan.Goal, "Hypertrophy", StringComparison.OrdinalIgnoreCase) || string.Equals(plan.Goal, "GeneralFitness", StringComparison.OrdinalIgnoreCase)))
+            var isStrengthGoal = string.Equals(plan.Goal, "Strength", StringComparison.OrdinalIgnoreCase);
+            var isGeneralFitnessGoal = string.Equals(plan.Goal, "GeneralFitness", StringComparison.OrdinalIgnoreCase);
+            // ACSM 2026 found higher frequency (>=2 RT days/week) favorable for strength and
+            // cites general recommendations to strengthen all major muscle groups on 2+ days.
+            // For hypertrophy, frequency itself did not affect growth when volume was compared;
+            // do not label a once-weekly exposure as a hypertrophy quality defect.
+            if (isStrengthGoal || isGeneralFitnessGoal)
             {
-                foreach (var muscle in StrengthFrequencyReviewMuscles)
+                foreach (var muscle in MajorMuscleFrequencyReviewMuscles)
                 {
                     var effectiveFrequency = sessions.Count(session => session.Exercises.Any(exercise =>
                         TrainingExerciseStimulus.GetEffectiveMuscles(
                             exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups)
                             .Contains(muscle)));
                     if (effectiveFrequency is > 0 and < 2)
-                        warnings.Add($"Semana {week}: {muscle} recibe estímulo efectivo en 1 sesión; trabajar cada grupo principal al menos dos días por semana es una pauta habitual en programas de fuerza e hipertrofia (aviso interno de producto; referencia no verificada). Revisa la distribución del split; la generación no se bloquea.");
+                    {
+                        var guidance = isStrengthGoal
+                            ? "ACSM 2026 identifica entrenar al menos dos días por semana como una variable favorable para fuerza; esta alerta revisa la exposición del músculo y no impone una dosis universal."
+                            : "Las recomendaciones generales de fortalecimiento incluyen los grupos musculares principales al menos dos días por semana; esta alerta es orientativa y no bloquea la generación.";
+                        warnings.Add($"Semana {week}: {muscle} recibe estímulo efectivo en 1 sesión. {guidance} Revisa la distribución del split.");
+                    }
                 }
             }
 

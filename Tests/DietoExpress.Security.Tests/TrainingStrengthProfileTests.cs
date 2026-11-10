@@ -53,11 +53,12 @@ public sealed class TrainingStrengthProfileTests
     }
 
     [Fact]
-    public void FiveDayPushPullLegsWarnsThatLegsAreTrainedOnlyOncePerWeek()
+    public void FiveDayPushPullLegsHypertrophyDoesNotFlagSingleWeeklyLegExposureAsAFrequencyDefect()
     {
         var plan = TrainingBlockProgressionTests.Generate(
             1, TrainingGoal.Hypertrophy, 5, 90, TrainingExperience.Intermediate, TrainingProgramSplit.PushPullLegs);
-        Assert.Contains(plan.QualityReport!.Warnings, warning =>
-            warning.Contains("Quadriceps", StringComparison.Ordinal) && warning.Contains("1 sesión", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(plan.QualityReport!.Warnings, warning =>
+            warning.Contains("Quadriceps recibe estímulo efectivo en 1 sesión", StringComparison.Ordinal));
     }
 }
