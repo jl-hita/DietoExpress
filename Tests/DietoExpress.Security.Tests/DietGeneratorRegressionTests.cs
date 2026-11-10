@@ -522,13 +522,16 @@ public sealed class DietGeneratorRegressionTests
             ["legumbre"] = 3,
             ["frutos_secos"] = 4
         };
+        // IDs reservados fuera del rango del catálogo BEDCA de pruebas (que empieza en 1).
+        // DietMenuEngineQualityTests sustituye en paralelo el catálogo estático de perfiles dietéticos;
+        // IDs sintéticos bajos podían colisionar y hacer esta prueba dependiente del orden de ejecución.
         var availableFoods = new[]
         {
-            FrequencyFood(1, "Manzana", "Fruta", 52, 0.3, 14, 0.2),
-            FrequencyFood(2, "Tomate", "Verduras", 18, 0.9, 3.9, 0.2),
-            FrequencyFood(3, "Garbanzos cocidos", "Legumbres", 164, 8.9, 27.4, 2.6),
-            FrequencyFood(4, "Almendras", "Frutos secos", 579, 21, 22, 50),
-            FrequencyFood(5, "Merluza", "Pescado", 86, 18, 0, 1.5)
+            FrequencyFood(9_999_991, "Manzana", "Fruta", 52, 0.3, 14, 0.2),
+            FrequencyFood(9_999_992, "Tomate", "Verduras", 18, 0.9, 3.9, 0.2),
+            FrequencyFood(9_999_993, "Garbanzos cocidos", "Legumbres", 164, 8.9, 27.4, 2.6),
+            FrequencyFood(9_999_994, "Almendras", "Frutos secos", 579, 21, 22, 50),
+            FrequencyFood(9_999_995, "Merluza", "Pescado", 86, 18, 0, 1.5)
         };
 
         double Penalty(string dietType, IEnumerable<foods> catalog) =>
