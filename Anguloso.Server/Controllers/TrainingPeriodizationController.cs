@@ -1049,7 +1049,6 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 await insertMicro.ExecuteNonQueryAsync(cancellationToken);
             }
         }
-        await NotifyTrainingPlanAssignedAsync(clientId, newPlanId, request.Name.Trim(), cancellationToken);
         return Ok(new { id = newPlanId, name = request.Name.Trim(), copiedSessions = template.Sessions.Count, copiedMesocycles = template.Mesocycles.Count });
     }
 
@@ -1152,8 +1151,75 @@ public sealed class TrainingPeriodizationController : ControllerBase
         var id = await command.ExecuteScalarAsync(cancellationToken);
         if (id is null) return Conflict(new { message = "Activa primero la planificación deportiva para este cliente." });
         var planId = Convert.ToInt32(id);
-        if (request.NotifyClient) await NotifyTrainingPlanAssignedAsync(clientId, planId, request.Name.Trim(), cancellationToken);
         return CreatedAtAction(nameof(GetPlans), new { clientId }, new { id = planId, request.Name, request.PeriodizationModel, request.StartDate, request.EndDate, status = "draft", version = 1 });
+    }
+
+    [HttpPost("plans/{planId:int}/publish")]
+    public async Task<IActionResult> PublishPlan(int planId, CancellationToken cancellationToken)
+    {
+        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+
+        int clientId;
+        string planName;
+        await using (var publish = Command("""
+            UPDATE training_plans p
+            SET status = 'active', version = version + 1, updated_at = NOW()
+            FROM training_profiles f
+            WHERE p.id = @planId AND p.profile_id = f.id AND f.enabled = TRUE
+              AND p.status = 'draft'
+              AND EXISTS (SELECT 1 FROM training_sessions s WHERE s.plan_id = p.id)
+              AND NOT EXISTS (
+                  SELECT 1 FROM training_mesocycles m
+                  WHERE m.plan_id = p.id AND m.review_status <> 'reviewed'
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM training_review_requests r
+                  WHERE r.plan_id = p.id AND r.status = 'pending'
+              )
+            RETURNING f.client_id, p.name
+            """, ("planId", planId)))
+        await using (var reader = await publish.ExecuteReaderAsync(cancellationToken))
+        {
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                clientId = reader.GetInt32(0);
+                planName = reader.GetString(1);
+            }
+            else
+            {
+                clientId = 0;
+                planName = string.Empty;
+            }
+        }
+
+        if (clientId > 0)
+        {
+            await NotifyTrainingPlanAssignedAsync(clientId, planId, planName, cancellationToken);
+            return Ok(new { id = planId, status = "active", alreadyPublished = false });
+        }
+
+        await using var state = Command("""
+            SELECT p.status, f.client_id, p.name,
+                   EXISTS (SELECT 1 FROM training_sessions s WHERE s.plan_id = p.id),
+                   EXISTS (SELECT 1 FROM training_mesocycles m WHERE m.plan_id = p.id AND m.review_status <> 'reviewed'),
+                   EXISTS (SELECT 1 FROM training_review_requests r WHERE r.plan_id = p.id AND r.status = 'pending')
+            FROM training_plans p
+            JOIN training_profiles f ON f.id = p.profile_id
+            WHERE p.id = @planId AND f.enabled = TRUE
+            """, ("planId", planId));
+        await using var stateReader = await state.ExecuteReaderAsync(cancellationToken);
+        if (!await stateReader.ReadAsync(cancellationToken)) return NotFound();
+        var status = stateReader.GetString(0);
+        if (status == "active") return Ok(new { id = planId, status, alreadyPublished = true });
+        if (status != "draft")
+            return Conflict(new { message = "Solo se pueden publicar planes que estén en borrador." });
+        if (!stateReader.GetBoolean(3))
+            return Conflict(new { message = "Añade al menos una sesión antes de publicar el plan." });
+        if (stateReader.GetBoolean(4))
+            return Conflict(new { message = "Todos los mesociclos deben estar revisados profesionalmente antes de publicar." });
+        if (stateReader.GetBoolean(5))
+            return Conflict(new { message = "Resuelve las solicitudes de revisión pendientes antes de publicar." });
+        return Conflict(new { message = "No se ha podido publicar el plan. Recarga la planificación e inténtalo de nuevo." });
     }
 
     [HttpPut("plans/{planId:int}")]
@@ -1254,7 +1320,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
         {
             await using var planCommand = CreateCommand("""
                 INSERT INTO training_plans(profile_id, name, periodization_model, start_date, end_date, status, notes, created_by_user_id)
-                SELECT f.id, @name, 'custom', @date, NULL, 'draft', 'Rutina creada desde la consulta guiada', @userId
+                SELECT f.id, @name, 'custom', @date, NULL, 'active', 'Rutina creada desde la consulta guiada', @userId
                 FROM training_profiles f
                 WHERE f.client_id = @clientId AND f.enabled = TRUE AND f.management_mode = 'self'
                 RETURNING id
@@ -2750,7 +2816,7 @@ public sealed record ReviewTrainingAdaptationProposalRequest(
     IReadOnlyList<string>? TargetExerciseIds = null);
 public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, string PrimaryGoal, string ExperienceLevel, string ManagementMode, string? Notes, DateTime CreatedAt, DateTime UpdatedAt, bool CanManage = true);
 public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, string? ManagementMode = null);
-public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes, bool NotifyClient = true);
+public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes);
 public sealed record UpdateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes, int Version);
 public sealed record CreateQuickTrainingRoutineRequest(string Name, DateOnly ScheduledDate, string SessionType, int DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription);
 public sealed record TrainingPlanDto(int Id, string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string Status, int Version, string? Notes);
