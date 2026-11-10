@@ -52,7 +52,15 @@ import {
       <header><div><p class="eyebrow">MÓDULO OPCIONAL</p><h1>{{ clientId > 0 ? 'Planificación deportiva' : 'Entrenamientos y colaboraciones' }}</h1><p *ngIf="clientId > 0">Actívala solo para clientes que quieran trabajar objetivos de actividad física o entrenamiento.</p><p *ngIf="clientId === 0">Gestiona las invitaciones de colaboración. Para crear o consultar un plan, entra en la ficha del cliente y abre su sección de planificación deportiva.</p></div></header>
       <p *ngIf="loading" role="status">{{ clientId > 0 ? 'Cargando planificación…' : 'Cargando invitaciones…' }}</p>
       <p *ngIf="error" class="error" role="alert">{{ error }}</p>
-            <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
+      <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
+      <section *ngIf="clientId === 0 && !loading" class="panel" aria-label="Herramientas de diagnóstico">
+        <div class="section-heading">
+          <div><h2>Diagnóstico de planificación</h2><p>Exporta la única planificación de pruebas completa para una revisión técnica. Solo disponible para superadministradores.</p></div>
+          <button type="button" (click)="exportUniqueTestPlan()" [disabled]="exportingTestPlan">
+            {{ exportingTestPlan ? 'Generando PDF…' : 'Descargar planificación completa (PDF)' }}
+          </button>
+        </div>
+      </section>
       <app-training-review-requests-panel *ngIf="clientId > 0 && profile?.enabled && profile.canManage && !loading"
         [clientId]="clientId" [highlightRequestId]="deepLinkRequestId" (openPlan)="openPlanFromRequest($event)"></app-training-review-requests-panel>
       <section class="panel adaptation-review-panel" *ngIf="clientId > 0 && profile?.enabled && profile.canManage && !loading">
@@ -979,6 +987,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   quickRoutineInstructions = '';
   quickRoutineExercises = '';
   plans: TrainingPlan[] = [];
+  exportingTestPlan = false;
   sessions: Record<number, TrainingSession[]> = {};
   loadTrends: Record<number, TrainingLoadWeek[]> = {};
   sessionViews: Record<number, 'week' | 'list'> = {};
@@ -2658,6 +2667,33 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       exercisePrescriptionData: this.buildStructuredPrescriptionData(draft.date, draft.duration, this.parseStructuredExerciseDrafts(draft.exercisePrescription)) }).subscribe({
       next: () => { draft.title = ''; draft.intensity = ''; draft.instructions = ''; draft.exercisePrescription = ''; this.saving = false; this.refreshSessions(plan.id); },
       error: e => { this.error = e?.error?.message || 'No se pudo crear la sesión.'; this.saving = false; }
+    });
+  }
+
+  exportUniqueTestPlan(): void {
+    if (this.exportingTestPlan) return;
+    this.exportingTestPlan = true;
+    this.error = '';
+    this.notice = '';
+    this.http.get('/api/training/diagnostics/test-plan.pdf', { responseType: 'blob' }).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'dietoexpress-planificacion-pruebas.pdf';
+        link.click();
+        URL.revokeObjectURL(url);
+        this.exportingTestPlan = false;
+        this.notice = 'PDF de diagnóstico generado. Adjunta el archivo a la conversación para revisar la planificación.';
+        this.changeDetector.detectChanges();
+      },
+      error: e => {
+        this.exportingTestPlan = false;
+        this.error = e?.status === 403
+          ? 'Esta exportación está reservada al superadministrador.'
+          : e?.error?.message || 'No se pudo exportar la planificación de pruebas.';
+        this.changeDetector.detectChanges();
+      }
     });
   }
 
