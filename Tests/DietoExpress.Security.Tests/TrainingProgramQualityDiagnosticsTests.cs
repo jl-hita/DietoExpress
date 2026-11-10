@@ -17,7 +17,7 @@ public sealed class TrainingProgramQualityDiagnosticsTests
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         Assert.All(result.Sessions.SelectMany(item => item.Exercises),
-            exercise => Assert.InRange(exercise.Sets, 1, 4));
+            exercise => Assert.InRange(exercise.Sets, 1, 3));
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class TrainingProgramQualityDiagnosticsTests
         Assert.Contains(report.Warnings, warning =>
             warning.Contains("Chest", StringComparison.Ordinal) &&
             warning.Contains("1 sesión", StringComparison.Ordinal) &&
-            warning.Contains("dos días por semana", StringComparison.Ordinal));
+            warning.Contains("dos sesiones semanales de entrenamiento de fuerza", StringComparison.Ordinal));
         Assert.Contains(report.Warnings, warning =>
             warning.Contains("Quadriceps", StringComparison.Ordinal) &&
             warning.Contains("1 sesión", StringComparison.Ordinal));
@@ -81,24 +81,23 @@ public sealed class TrainingProgramQualityDiagnosticsTests
     }
 
     [Fact]
-    public void HypertrophyAndGeneralFitnessAlsoWarnAboutSingleWeeklyExposure()
+    public void HypertrophyAndGeneralFitnessDoNotReceiveStrengthFrequencyWarnings()
     {
         var plan = Plan("Hypertrophy",
             Session(1, DayOfWeek.Monday, "Torso",
                 Exercise("bench-press", "Press banca", 2, [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps])));
 
-        var report = TrainingProgramQualityAnalyzer.Analyze(plan);
+        foreach (var goal in new[] { "Hypertrophy", "GeneralFitness" })
+        {
+            var report = TrainingProgramQualityAnalyzer.Analyze(Plan(goal, plan.Sessions.ToArray()));
+            Assert.DoesNotContain(report.Warnings, warning =>
+                warning.Contains("dos sesiones semanales de entrenamiento de fuerza", StringComparison.Ordinal));
+        }
 
-        Assert.Contains(report.Warnings, warning =>
-            warning.Contains("dos días por semana", StringComparison.Ordinal));
-
-        foreach (var goal in new[] { "GeneralFitness" })
-            Assert.Contains(TrainingProgramQualityAnalyzer.Analyze(Plan(goal, plan.Sessions.ToArray())).Warnings,
-                warning => warning.Contains("Chest", StringComparison.Ordinal) && warning.Contains("dos días por semana", StringComparison.Ordinal));
-
-        // Manual single-session previews must not be flagged: they only show one isolated session.
-        Assert.DoesNotContain(TrainingProgramQualityAnalyzer.Analyze(Plan("Manual", plan.Sessions.ToArray())).Warnings,
-            warning => warning.Contains("dos días por semana", StringComparison.Ordinal));
+        // Manual single-session previews must not be flagged either.
+        Assert.DoesNotContain(TrainingProgramQualityAnalyzer.Analyze(
+            Plan("Manual", plan.Sessions.ToArray())).Warnings,
+            warning => warning.Contains("dos sesiones semanales de entrenamiento de fuerza", StringComparison.Ordinal));
     }
 
     [Fact]
