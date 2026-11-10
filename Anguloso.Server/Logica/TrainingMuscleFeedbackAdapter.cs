@@ -8,9 +8,10 @@ namespace Anguloso.Server.Logica;
 ///  1. Strong discomfort in the latest exposure of an exercise -> <c>PauseExercise</c> (safety; a person reviews).
 ///  2. Mild discomfort in 2 of the last 3 exposures of an exercise -> <c>SuggestSwap</c> (informational).
 ///  3. Per muscle, over its last 2 sessions: stimulus LOW in both, always recovered, no discomfort, and
-///     the planned weekly sets still below the ceiling -> <c>AddSet</c> (+1 set to one exercise).
-///  4. Per muscle, over its last 3 sessions: stimulus HIGH in at least 2 and "still loaded" in at least 2
-///     -> <c>ReduceSet</c> (-1 set to one exercise that keeps at least 1).
+///     the planned weekly sets still below the ceiling -> <c>AddSet</c> (+1 set to an exercise rated LOW
+///     in the latest exposure).
+///  4. Per muscle, over its last 3 sessions: stimulus HIGH and "still loaded" coincide in at least 2,
+///     including the latest -> <c>ReduceSet</c> (-1 set to an exercise with both signals in that latest exposure).
 ///  5. Otherwise nothing: a plan that works is not touched. Missing answers never count as "adequate"
 ///     evidence for a change, and one session alone never decides.
 /// Decisions are per muscle (aggregating its exercises) so two exercises of the same muscle cannot
@@ -96,6 +97,10 @@ public static class TrainingMuscleFeedbackAdapter
 
 public enum TrainingMuscleFeedbackAction { AddSet, ReduceSet, SuggestSwap, PauseExercise }
 
+/// <param name="Date">Date of the completed exposure.</param>
+/// <param name="ExerciseId">Stable exercise catalog identifier.</param>
+/// <param name="PrimaryMuscles">Primary muscles attributed to this exercise.</param>
+/// <param name="Sets">Prescribed working sets for this exposure.</param>
 /// <param name="Stimulus">low | adequate | high (null = not answered).</param>
 /// <param name="Discomfort">none | mild | strong.</param>
 /// <param name="PreFatigue">recovered | loaded.</param>
