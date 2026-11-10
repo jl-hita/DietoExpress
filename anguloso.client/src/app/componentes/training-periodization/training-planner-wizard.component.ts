@@ -361,6 +361,9 @@ export class TrainingPlannerWizardComponent implements OnInit {
     this.currentPreview = null;
     this.previewPhaseKey = '';
     this.acknowledgeWarnings = false;
+    // This helper also runs after the asynchronous initial server refresh, after
+    // refreshServerMesocycles has already completed its own change-detection pass.
+    this.changeDetector.detectChanges();
   }
 
   async prepareMesocycleStep(): Promise<void> {
