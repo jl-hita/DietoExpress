@@ -8,6 +8,7 @@ export interface PlannerWizardDraft {
   trainingDays: number[];
   sessionMinutes: number;
   split: number;
+  availableEquipmentCsv: string;
   planName: string;
   startDate: string;
   durationWeeks: number;
@@ -43,6 +44,7 @@ export class PlannerWizardStateService {
       trainingDays: [1, 3, 5],
       sessionMinutes: 60,
       split: 0,
+      availableEquipmentCsv: '',
       planName: '',
       startDate: localDate,
       durationWeeks: 12,
