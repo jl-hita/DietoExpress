@@ -96,6 +96,24 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void TrainingPlanPublication_IsExplicitAndRequiresReviewedBlocks()
+    {
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+
+        Assert.Contains("[HttpPost(\"plans/{planId:int}/publish\")]", controller);
+        Assert.Contains("AND p.status = 'draft'", controller);
+        Assert.Contains("m.review_status <> 'reviewed'", controller);
+        Assert.Contains("r.status = 'pending'", controller);
+        Assert.Contains("await NotifyTrainingPlanAssignedAsync(clientId, planId, planName, cancellationToken)", controller);
+        Assert.DoesNotContain("if (request.NotifyClient)", controller);
+        Assert.DoesNotContain("NotifyTrainingPlanAssignedAsync(clientId, newPlanId", controller);
+        Assert.Contains("Publicar y notificar al cliente", ui);
+        Assert.Contains("canPublishPlan(plan)", ui);
+        Assert.Contains("publishPlan(plan)", ui);
+    }
+
+    [Fact]
     public void GeneratedMesocycle_IsPersistedAtomicallyAndRequiresProfessionalReview()
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
