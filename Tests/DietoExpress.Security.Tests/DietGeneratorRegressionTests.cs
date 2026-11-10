@@ -540,7 +540,7 @@ public sealed class DietGeneratorRegressionTests
         var balancedPenalty = Penalty("Equilibrada", availableFoods);
         var veganPenalty = Penalty("Vegana", availableFoods);
         var vegetarianPenalty = Penalty("Vegetariana", availableFoods);
-        var narrowCatalogPenalty = Penalty("Equilibrada", availableFoods.Where(food => food.id != 5));
+        var narrowCatalogPenalty = Penalty("Equilibrada", availableFoods.Where(food => !string.Equals(food.name, "Merluza", StringComparison.OrdinalIgnoreCase)));
 
         Assert.Equal(0d, veganPenalty);
         Assert.Equal(0d, vegetarianPenalty);
