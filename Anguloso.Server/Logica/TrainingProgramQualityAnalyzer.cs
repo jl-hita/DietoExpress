@@ -194,7 +194,7 @@ public static class TrainingProgramQualityAnalyzer
                     warnings.Add($"Semana {week}: '{session.Title}' concentra {sessionWorkingSets} series de trabajo. Supera el umbral interno de revisión de {HighSessionWorkingSetReviewThreshold} series por sesión; no es un límite fisiológico ni una cifra prescrita por ACSM. Revisa la fatiga intra-sesión y la posible redistribución semanal.");
             }
 
-            if (plan.Goal is not null && (string.Equals(plan.Goal, "Strength", StringComparison.OrdinalIgnoreCase) || string.Equals(plan.Goal, "Hypertrophy", StringComparison.OrdinalIgnoreCase) || string.Equals(plan.Goal, "GeneralFitness", StringComparison.OrdinalIgnoreCase)))
+            if (string.Equals(plan.Goal, "Strength", StringComparison.OrdinalIgnoreCase))
             {
                 foreach (var muscle in StrengthFrequencyReviewMuscles)
                 {
@@ -203,7 +203,7 @@ public static class TrainingProgramQualityAnalyzer
                             exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups)
                             .Contains(muscle)));
                     if (effectiveFrequency is > 0 and < 2)
-                        warnings.Add($"Semana {week}: {muscle} recibe estímulo efectivo en 1 sesión; trabajar cada grupo principal al menos dos días por semana es una pauta habitual en programas de fuerza e hipertrofia (aviso interno de producto; referencia no verificada). Revisa la distribución del split; la generación no se bloquea.");
+                        warnings.Add($"Semana {week}: {muscle} recibe estímulo efectivo en 1 sesión. ACSM 2026 destaca al menos dos sesiones semanales de entrenamiento de fuerza; aplicar esa frecuencia a cada grupo muscular es una heurística interna de revisión, no un mínimo universal ni una recomendación de frecuencia para hipertrofia. Revisa la distribución del split; la generación no se bloquea.");
                 }
             }
 
