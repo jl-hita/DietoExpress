@@ -17,7 +17,7 @@ public sealed class TrainingProgramQualityDiagnosticsTests
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         Assert.All(result.Sessions.SelectMany(item => item.Exercises),
-            exercise => Assert.InRange(exercise.Sets, 1, 4));
+            exercise => Assert.InRange(exercise.Sets, 1, 3));
     }
 
     [Fact]
@@ -81,24 +81,31 @@ public sealed class TrainingProgramQualityDiagnosticsTests
     }
 
     [Fact]
-    public void HypertrophyAndGeneralFitnessAlsoWarnAboutSingleWeeklyExposure()
+    public void FrequencyDiagnosticsFollowGoalSpecificAcsM2026Evidence()
     {
-        var plan = Plan("Hypertrophy",
-            Session(1, DayOfWeek.Monday, "Torso",
-                Exercise("bench-press", "Press banca", 2, [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps])));
+        var singleExposure = Session(1, DayOfWeek.Monday, "Torso",
+            Exercise("bench-press", "Press banca", 2, [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps]));
 
-        var report = TrainingProgramQualityAnalyzer.Analyze(plan);
+        var strengthWarnings = TrainingProgramQualityAnalyzer.Analyze(Plan("Strength", singleExposure)).Warnings;
+        Assert.Contains(strengthWarnings, warning =>
+            warning.Contains("Chest", StringComparison.Ordinal) &&
+            warning.Contains("1 sesión", StringComparison.Ordinal) &&
+            warning.Contains("ACSM 2026", StringComparison.Ordinal));
 
-        Assert.Contains(report.Warnings, warning =>
+        var generalFitnessWarnings = TrainingProgramQualityAnalyzer.Analyze(Plan("GeneralFitness", singleExposure)).Warnings;
+        Assert.Contains(generalFitnessWarnings, warning =>
+            warning.Contains("Chest", StringComparison.Ordinal) &&
             warning.Contains("dos días por semana", StringComparison.Ordinal));
 
-        foreach (var goal in new[] { "GeneralFitness" })
-            Assert.Contains(TrainingProgramQualityAnalyzer.Analyze(Plan(goal, plan.Sessions.ToArray())).Warnings,
-                warning => warning.Contains("Chest", StringComparison.Ordinal) && warning.Contains("dos días por semana", StringComparison.Ordinal));
+        // ACSM 2026 found frequency itself did not affect hypertrophy when volume was compared.
+        // A once-weekly split is not flagged as a hypertrophy defect by this diagnostic.
+        var hypertrophyWarnings = TrainingProgramQualityAnalyzer.Analyze(Plan("Hypertrophy", singleExposure)).Warnings;
+        Assert.DoesNotContain(hypertrophyWarnings, warning =>
+            warning.Contains("recibe estímulo efectivo en 1 sesión", StringComparison.Ordinal));
 
-        // Manual single-session previews must not be flagged: they only show one isolated session.
-        Assert.DoesNotContain(TrainingProgramQualityAnalyzer.Analyze(Plan("Manual", plan.Sessions.ToArray())).Warnings,
-            warning => warning.Contains("dos días por semana", StringComparison.Ordinal));
+        // Manual single-session previews only show one isolated session and must not be flagged.
+        Assert.DoesNotContain(TrainingProgramQualityAnalyzer.Analyze(Plan("Manual", singleExposure)).Warnings,
+            warning => warning.Contains("recibe estímulo efectivo en 1 sesión", StringComparison.Ordinal));
     }
 
     [Fact]
