@@ -219,6 +219,25 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void ExplicitProfessionalCorePriorityRestoresDirectCoreExercises()
+    {
+        var result = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                DurationWeeks = 1,
+                MuscleVolumeTargets =
+                [
+                    new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Abdominals, Priority: 3)
+                ]
+            },
+            Catalog());
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.Contains(result.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "exercise-core");
+    }
+
+    [Fact]
     public void ExcludedExerciseIsNeverSelected()
     {
         var result = TrainingProgramGenerator.Generate(
