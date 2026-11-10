@@ -8,9 +8,10 @@ namespace Anguloso.Server.Logica;
 ///  1. Strong discomfort in the latest exposure of an exercise -> <c>PauseExercise</c> (safety; a person reviews).
 ///  2. Mild discomfort in 2 of the last 3 exposures of an exercise -> <c>SuggestSwap</c> (informational).
 ///  3. Per muscle, over its last 2 sessions: stimulus LOW in both, always recovered, no discomfort, and
-///     the planned weekly sets still below the ceiling -> <c>AddSet</c> (+1 set to one exercise).
-///  4. Per muscle, over its last 3 sessions: stimulus HIGH in at least 2 and "still loaded" in at least 2
-///     -> <c>ReduceSet</c> (-1 set to one exercise that keeps at least 1).
+///     the planned weekly sets still below the ceiling -> <c>AddSet</c> (+1 set to an exercise rated LOW
+///     in the latest exposure).
+///  4. Per muscle, over its last 3 sessions: stimulus HIGH and "still loaded" coincide in at least 2,
+///     including the latest -> <c>ReduceSet</c> (-1 set to an exercise with both signals in that latest exposure).
 ///  5. Otherwise nothing: a plan that works is not touched. Missing answers never count as "adequate"
 ///     evidence for a change, and one session alone never decides.
 /// Decisions are per muscle (aggregating its exercises) so two exercises of the same muscle cannot
@@ -58,30 +59,36 @@ public static class TrainingMuscleFeedbackAdapter
             var ceiling = weeklyCeilingByMuscle.GetValueOrDefault(muscleGroup.Key);
 
             bool Low(TrainingMuscleFeedbackExposure[] day) => day.Any(x => x.Stimulus == "low") && !day.Any(x => x.Stimulus == "high");
-            bool High(TrainingMuscleFeedbackExposure[] day) => day.Any(x => x.Stimulus == "high");
-            bool Loaded(TrainingMuscleFeedbackExposure[] day) => day.Any(x => x.PreFatigue == "loaded");
+            bool HighAndLoaded(TrainingMuscleFeedbackExposure[] day) =>
+                day.Any(x => x.Stimulus == "high" && x.PreFatigue == "loaded");
             bool Recovered(TrainingMuscleFeedbackExposure[] day) => day.All(x => x.PreFatigue == "recovered");
             bool Discomfort(TrainingMuscleFeedbackExposure[] day) => day.Any(x => x.Discomfort is "mild" or "strong");
 
             var last2 = sessions.TakeLast(2).ToArray();
             if (last2.Length == 2 && last2.All(Low) && last2.All(Recovered) && !last2.Any(Discomfort) && planned < ceiling)
             {
-                var pick = last2[^1].Where(x => x.Sets < MaximumSetsPerExercise)
+                // The muscle-level signal can aggregate several exercises, but the extra set must
+                // go to an exercise that actually reported low stimulus in the latest exposure.
+                var pick = last2[^1].Where(x => x.Stimulus == "low" && x.Sets < MaximumSetsPerExercise)
                     .OrderBy(x => x.Sets).ThenBy(x => x.ExerciseId, StringComparer.Ordinal).FirstOrDefault();
                 if (pick is not null)
                     decisions.Add(new(TrainingMuscleFeedbackAction.AddSet, muscleGroup.Key, pick.ExerciseId,
-                        $"Dos sesiones seguidas con poco estímulo en {muscleGroup.Key}, bien recuperado y sin molestias, y el volumen semanal aún tiene margen. Se añade una serie."));
+                        $"Dos sesiones seguidas con poco estímulo en {muscleGroup.Key}, bien recuperado y sin molestias, y el volumen semanal aún tiene margen. Se añade una serie al ejercicio que registró poco estímulo."));
                 continue;
             }
 
             var last3 = sessions.TakeLast(3).ToArray();
-            if (last3.Length >= 2 && last3.Count(High) >= 2 && last3.Count(Loaded) >= 2)
+            // High stimulus and feeling still loaded must coincide in the same exposure. Require
+            // two such sessions and a continuing signal in the latest one; separate signals on
+            // different days are not enough to reduce an exercise.
+            if (last3.Length >= 2 && last3.Count(HighAndLoaded) >= 2 && HighAndLoaded(last3[^1]))
             {
-                var pick = last3[^1].Where(x => x.Sets > 1)
+                var pick = last3[^1]
+                    .Where(x => x.Stimulus == "high" && x.PreFatigue == "loaded" && x.Sets > 1)
                     .OrderByDescending(x => x.Sets).ThenBy(x => x.ExerciseId, StringComparer.Ordinal).FirstOrDefault();
                 if (pick is not null)
                     decisions.Add(new(TrainingMuscleFeedbackAction.ReduceSet, muscleGroup.Key, pick.ExerciseId,
-                        $"Estímulo alto y fatiga acumulada repetidos en {muscleGroup.Key}. Se quita una serie para recuperar mejor."));
+                        $"Estímulo alto y sensación de músculo aún cargado coinciden en al menos dos sesiones recientes de {muscleGroup.Key}, incluida la última. Se quita una serie al ejercicio que registró ambas señales."));
             }
         }
         return decisions;
@@ -90,6 +97,10 @@ public static class TrainingMuscleFeedbackAdapter
 
 public enum TrainingMuscleFeedbackAction { AddSet, ReduceSet, SuggestSwap, PauseExercise }
 
+/// <param name="Date">Date of the completed exposure.</param>
+/// <param name="ExerciseId">Stable exercise catalog identifier.</param>
+/// <param name="PrimaryMuscles">Primary muscles attributed to this exercise.</param>
+/// <param name="Sets">Prescribed working sets for this exposure.</param>
 /// <param name="Stimulus">low | adequate | high (null = not answered).</param>
 /// <param name="Discomfort">none | mild | strong.</param>
 /// <param name="PreFatigue">recovered | loaded.</param>
