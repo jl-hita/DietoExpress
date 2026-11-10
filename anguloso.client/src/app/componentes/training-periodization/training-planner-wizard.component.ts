@@ -222,7 +222,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
     this.draft = this.state.load(this.clientId);
     if (this.draft.creationInProgress) { this.draft.creationInProgress = false; this.draft.creationUncertain = true; }
     this.persist();
-    if (this.draft.serverPlanId) void this.refreshServerMesocycles().then(() => { if (this.draft.currentStep === 3) this.selectNextPendingPhase(); }).catch(error => { this.mesocycleError = error?.error?.message || 'No se pudo recuperar el estado de los mesociclos guardados.'; });
+    if (this.draft.serverPlanId) void this.refreshServerMesocycles().then(() => { if (this.draft.currentStep === 3) this.selectNextPendingPhase(); }).catch(error => { this.mesocycleError = error?.error?.message || 'No se pudo recuperar el estado de los mesociclos guardados.'; this.changeDetector.detectChanges(); });
   }
 
   get validSplitDays(): boolean {
@@ -343,6 +343,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
     }
     this.draft.generatedPhaseKeys = [...known];
     this.persist();
+    this.changeDetector.detectChanges();
   }
 
   selectPhase(index: number): void {
@@ -373,7 +374,10 @@ export class TrainingPlannerWizardComponent implements OnInit {
       this.persist();
     } catch (error: any) {
       this.saveError = error?.error?.message || error?.error?.errors?.join?.(' ') || error?.message || 'No se pudo preparar el plan. Puedes reintentar sin crear otro plan.';
-    } finally { this.saving = false; }
+    } finally {
+      this.saving = false;
+      this.changeDetector.detectChanges();
+    }
   }
 
   private async saveBasePlan(): Promise<void> {
@@ -441,7 +445,10 @@ export class TrainingPlannerWizardComponent implements OnInit {
       this.previewPhaseKey = this.phaseKey(phase);
     } catch (error: any) {
       this.mesocycleError = error?.error?.message || error?.error?.errors?.join?.(' ') || 'No se pudo calcular la vista previa de esta fase.';
-    } finally { this.previewLoading = false; }
+    } finally {
+      this.previewLoading = false;
+      this.changeDetector.detectChanges();
+    }
   }
 
   async generateCurrentPhase(): Promise<void> {
@@ -479,7 +486,10 @@ export class TrainingPlannerWizardComponent implements OnInit {
         }
       } catch { /* Keep the original actionable error. */ }
       this.mesocycleError = error?.error?.message || error?.error?.errors?.join?.(' ') || error?.message || 'No se pudo guardar el mesociclo. Revisa el estado antes de reintentar.';
-    } finally { this.generatingPhase = false; }
+    } finally {
+      this.generatingPhase = false;
+      this.changeDetector.detectChanges();
+    }
   }
 
   goToFinalReview(): void {
