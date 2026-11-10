@@ -19,6 +19,8 @@ export class PlannerWizardStateService {
   private readonly schemaVersion = 1;
 
   createDefault(): PlannerWizardDraft {
+    const now = new Date();
+    const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     return {
       schemaVersion: this.schemaVersion,
       currentStep: 0,
@@ -28,7 +30,7 @@ export class PlannerWizardStateService {
       sessionMinutes: 60,
       split: 0,
       planName: '',
-      startDate: new Date().toISOString().slice(0, 10),
+      startDate: localDate,
       durationWeeks: 12,
       includeDeload: true
     };
