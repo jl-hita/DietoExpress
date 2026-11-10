@@ -152,7 +152,16 @@ public static class TrainingProgramGenerator
         if (!allocation.Succeeded)
             return new(null, allocation.Errors);
 
-        var sessionsWithWarmups = ApplyLoadReferences(AddWarmupGuidance(allocation.Sessions), request.LoadReferences);
+        // Allocate volume before reordering. The allocator resolves exact ties by the current
+        // exercise order; sorting earlier would silently move sets between exercises even though
+        // the orderer itself only changes Order. Apply presentation/fatigue-aware ordering only
+        // after weekly set allocation is complete.
+        var orderedAllocatedSessions = allocation.Sessions.Select(session => session with
+        {
+            Exercises = TrainingSessionExerciseOrderer.Reorder(
+                session.Exercises, catalog, request.MuscleVolumeTargets)
+        }).ToArray();
+        var sessionsWithWarmups = ApplyLoadReferences(AddWarmupGuidance(orderedAllocatedSessions), request.LoadReferences);
         var prescribedSessions = request.IsDeload
             ? ApplyConservativeDeload(sessionsWithWarmups)
             : ApplyIntraBlockProgression(sessionsWithWarmups, request.DurationWeeks, request.ContinuesPreviousBlock);
