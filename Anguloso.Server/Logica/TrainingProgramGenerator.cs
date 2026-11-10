@@ -67,6 +67,13 @@ public static class TrainingProgramGenerator
                 for (var patternIndex = 0; patternIndex < requiredPatterns.Count; patternIndex++)
                 {
                     var pattern = requiredPatterns[patternIndex];
+                    // Core is already trained indirectly by the compound movements in this
+                    // product's default strength/hypertrophy routines. Direct core work is
+                    // intentionally opt-in, so skip this optional template pattern without
+                    // changing the remaining exercise-selection flow.
+                    if (pattern == TrainingMovementPattern.Core)
+                        continue;
+
                     var compatibleCandidates = catalog
                         .Where(x => (x.IsReviewed || x.IsOwnedByCurrentProfessional)
                             && x.MovementPattern == pattern
@@ -362,6 +369,12 @@ public static class TrainingProgramGenerator
             }).ToArray()
         }).ToArray();
 
+    // Exclude only exercises whose reviewed primary targets are the abdominal wall.
+    // Compounds that list abs/obliques as secondary muscles remain fully eligible.
+    private static bool IsDirectCoreExercise(TrainingExerciseCandidate candidate) =>
+        candidate.PrimaryMuscleGroups.Any(muscle =>
+            muscle is TrainingMuscleGroup.Abdominals or TrainingMuscleGroup.Obliques);
+
     internal static bool IsAccessoryGoalCompatible(
         TrainingExerciseCandidate candidate,
         TrainingGoal requestedGoal)
@@ -649,6 +662,7 @@ public static class TrainingProgramGenerator
 
             var candidates = catalogCandidates
                 .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory
+                    && !IsDirectCoreExercise(candidate)
                     && (candidate.IsReviewed || candidate.IsOwnedByCurrentProfessional)
                     && IsAccessoryGoalCompatible(candidate, request.Goal)
                     && (int)candidate.MinimumExperience <= (int)request.Experience
