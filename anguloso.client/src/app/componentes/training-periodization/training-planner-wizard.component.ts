@@ -106,7 +106,17 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
           <p class="planner-kicker">ETAPA 4 DE 5</p><h3>Previsualiza y genera cada mesociclo</h3>
           <p class="planner-intro">Cada fase se procesa por separado. Primero calculamos la vista previa con el historial disponible; solo después de revisar sus avisos podrás guardar el bloque.</p>
           <div *ngIf="draft.serverPlanId" class="planner-note">Plan borrador {{ draft.serverPlanId }} · {{ serverMesocycles.length }} mesociclos guardados. Cada bloque generado permanece como borrador y requiere revisión profesional.</div>
-          <div *ngIf="draft.phases.length" class="planner-phase-progress"><span *ngFor="let phase of draft.phases; let i = index" [class.complete]="isPhaseGenerated(phase)" [class.current]="i === currentPhaseIndex">{{ i + 1 }}</span></div>
+          <nav *ngIf="draft.phases.length" class="planner-phase-navigation" aria-label="Fases del macrociclo">
+            <button type="button" *ngFor="let phase of draft.phases; let i = index" class="planner-phase-nav-item"
+              [class.complete]="isPhaseGenerated(phase)" [class.current]="i === currentPhaseIndex"
+              [attr.aria-current]="i === currentPhaseIndex ? 'step' : null"
+              (click)="selectPhase(i)" [disabled]="previewLoading || generatingPhase">
+              <span class="planner-phase-nav-number">{{ i + 1 }}</span>
+              <span class="planner-phase-nav-copy"><strong>{{ phase.name }}</strong><small>{{ phase.startDate | date:'dd/MM' }} – {{ phase.endDate | date:'dd/MM' }}</small></span>
+              <span class="planner-phase-nav-status">{{ isPhaseGenerated(phase) ? 'Guardado' : 'Pendiente' }}</span>
+            </button>
+          </nav>
+          <div *ngIf="draft.phases.length" class="planner-phase-progress" role="status">{{ generatedCount }} de {{ draft.phases.length }} mesociclos generados</div>
           <article *ngIf="currentPhase as phase" class="planner-phase-editor">
             <header><strong>{{ phase.name }}</strong><span>{{ phase.startDate | date:'dd/MM/yyyy' }} – {{ phase.endDate | date:'dd/MM/yyyy' }}</span></header>
             <p>{{ phase.objective }}</p>
@@ -299,6 +309,15 @@ export class TrainingPlannerWizardComponent implements OnInit {
     }
     this.draft.generatedPhaseKeys = [...known];
     this.persist();
+  }
+
+  selectPhase(index: number): void {
+    if (index < 0 || index >= this.draft.phases.length || this.previewLoading || this.generatingPhase) return;
+    this.currentPhaseIndex = index;
+    this.currentPreview = null;
+    this.previewPhaseKey = '';
+    this.acknowledgeWarnings = false;
+    this.mesocycleError = '';
   }
 
   private selectNextPendingPhase(): void {
