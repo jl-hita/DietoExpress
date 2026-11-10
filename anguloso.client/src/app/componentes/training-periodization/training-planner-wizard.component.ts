@@ -4,6 +4,7 @@ import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom, timeout } from 'rxjs';
 import { PlannerWizardDraft, PlannerWizardPhaseDraft, PlannerWizardStateService } from './planner-wizard-state.service';
+import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './training-periodization.models';
 
 @Component({
   selector: 'app-training-planner-wizard',
@@ -49,7 +50,7 @@ import { PlannerWizardDraft, PlannerWizardPhaseDraft, PlannerWizardStateService 
         <section *ngIf="draft.currentStep === 1" class="planner-step">
           <p class="planner-kicker">ETAPA 2 DE 5</p>
           <h3>¿Cuándo puedes entrenar?</h3>
-          <p class="planner-intro">Selecciona los días disponibles. Podremos ajustar la distribución en la siguiente iteración del asistente.</p>
+          <p class="planner-intro">Selecciona los días y el material que realmente tiene disponible el cliente.</p>
           <div class="planner-days" role="group" aria-label="Días disponibles">
             <label *ngFor="let day of dayOptions" [class.selected]="draft.trainingDays.includes(day.value)">
               <input type="checkbox" [checked]="draft.trainingDays.includes(day.value)" (change)="toggleDay(day.value, $any($event.target).checked)" [disabled]="!!draft.serverPlanId">
@@ -65,6 +66,7 @@ import { PlannerWizardDraft, PlannerWizardPhaseDraft, PlannerWizardStateService 
               <select [(ngModel)]="draft.split" (ngModelChange)="persist()" [disabled]="!!draft.serverPlanId"><option [ngValue]="0">Automática</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / pierna</option><option [ngValue]="3">Empuje / tirón / pierna</option></select>
             </label>
           </div>
+          <label class="planner-field">Material disponible (opcional)<input [(ngModel)]="draft.availableEquipmentCsv" (ngModelChange)="persist()" [disabled]="!!draft.serverPlanId" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar"><small>Separado por comas. Déjalo vacío si dispone de todo el material.</small></label>
         </section>
 
         <section *ngIf="draft.currentStep === 2" class="planner-step">
@@ -79,43 +81,36 @@ import { PlannerWizardDraft, PlannerWizardPhaseDraft, PlannerWizardStateService 
           <label class="planner-field" *ngIf="draft.includeDeload">Intervalo entre descargas<select [(ngModel)]="draft.deloadEveryWeeks" (ngModelChange)="invalidateMacrocycle()" [disabled]="!!draft.serverPlanId"><option [ngValue]="4">4 semanas de trabajo</option><option [ngValue]="5">5 semanas de trabajo</option><option [ngValue]="6">6 semanas de trabajo</option><option [ngValue]="7">7 semanas de trabajo</option><option [ngValue]="8">8 semanas de trabajo</option></select></label>
           <button type="button" class="secondary" (click)="buildMacrocycleProposal()" [disabled]="buildingProposal || !macrocycleInputValid">{{ buildingProposal ? 'Preparando propuesta…' : (draft.phases.length ? 'Actualizar propuesta de fases' : 'Proponer fases del macrociclo') }}</button>
           <p *ngIf="proposalError" class="planner-validation" role="alert">{{ proposalError }}</p>
-          <p *ngIf="draft.phases.length" class="planner-note">Propuesta preparada: {{ draft.phases.length }} fases. Revísalas en el paso siguiente.</p>
+          <p *ngIf="draft.phases.length" class="planner-note">Propuesta preparada: {{ draft.phases.length }} fases. Revísalas aquí antes de continuar.</p>
+          <div *ngIf="draft.phases.length" class="planner-phase-list">
+            <h4>Fases propuestas · revisa antes de continuar</h4>
+            <article *ngFor="let phase of draft.phases; let i = index" class="planner-phase-editor">
+              <header><strong>Fase {{ i + 1 }}</strong><button type="button" class="secondary" (click)="removePhase(i)" [disabled]="draft.phases.length <= 1 || saving">Eliminar</button></header>
+              <div class="planner-inline-fields">
+                <label class="planner-field">Nombre<input [(ngModel)]="phase.name" (ngModelChange)="phaseChanged()" [disabled]="!!draft.serverPlanId" maxlength="160"></label>
+                <label class="planner-field">Tipo<select [(ngModel)]="phase.phaseType" (ngModelChange)="phaseChanged()" [disabled]="!!draft.serverPlanId"><option value="accumulation">Acumulación</option><option value="intensification">Intensificación</option><option value="deload">Descarga</option><option value="realization">Realización</option><option value="general">General</option></select></label>
+                <label class="planner-field">Inicio<input type="date" [(ngModel)]="phase.startDate" (ngModelChange)="phaseChanged()" [disabled]="!!draft.serverPlanId"></label>
+                <label class="planner-field">Fin<input type="date" [(ngModel)]="phase.endDate" (ngModelChange)="phaseChanged()" [disabled]="!!draft.serverPlanId"></label>
+              </div>
+              <label class="planner-field">Objetivo<textarea [(ngModel)]="phase.objective" (ngModelChange)="phaseChanged()" [disabled]="!!draft.serverPlanId" rows="2" maxlength="500"></textarea></label>
+            </article>
+            <p *ngIf="phaseValidationMessage" class="planner-validation" role="alert">{{ phaseValidationMessage }}</p>
+          </div>
         </section>
 
-        <section *ngIf="draft.currentStep === 3" class="planner-step">
-          <p class="planner-kicker">ETAPA 4 DE 5</p><h3>Revisa las fases del macrociclo</h3>
-          <p class="planner-intro">Edita nombres, fechas, tipo y objetivo. No puede haber solapamientos y una descarga automática debe durar siete días.</p>
-          <p *ngIf="!draft.phases.length" class="planner-validation">Vuelve al paso anterior y genera la propuesta.</p>
-          <article *ngFor="let phase of draft.phases; let i = index" class="planner-phase-editor">
-            <header><strong>Fase {{ i + 1 }}</strong><button type="button" class="secondary" (click)="removePhase(i)" [disabled]="draft.phases.length <= 1 || saving">Eliminar</button></header>
-            <div class="planner-inline-fields">
-              <label class="planner-field">Nombre<input [(ngModel)]="phase.name" (ngModelChange)="phaseChanged()" maxlength="160"></label>
-              <label class="planner-field">Tipo<select [(ngModel)]="phase.phaseType" (ngModelChange)="phaseChanged()"><option value="accumulation">Acumulación</option><option value="intensification">Intensificación</option><option value="deload">Descarga</option><option value="realization">Realización</option><option value="general">General</option></select></label>
-              <label class="planner-field">Inicio<input type="date" [(ngModel)]="phase.startDate" (ngModelChange)="phaseChanged()"></label>
-              <label class="planner-field">Fin<input type="date" [(ngModel)]="phase.endDate" (ngModelChange)="phaseChanged()"></label>
-            </div>
-            <label class="planner-field">Objetivo<textarea [(ngModel)]="phase.objective" (ngModelChange)="phaseChanged()" rows="2" maxlength="500"></textarea></label>
-          </article>
-          <p *ngIf="phaseValidationMessage" class="planner-validation" role="alert">{{ phaseValidationMessage }}</p>
-          <p class="planner-note">Las fases se guardarán como macrociclo. Los mesociclos y las rutinas se crearán en pasos posteriores.</p>
-        </section>
+
 
         <section *ngIf="draft.currentStep === 4" class="planner-step">
-          <p class="planner-kicker">ETAPA 5 DE 5</p>
-          <h3>Revisa la planificación</h3>
-          <p class="planner-intro">Se creará un plan en estado borrador y se guardará el macrociclo junto con la disponibilidad. No se notificará al cliente.</p>
+          <p class="planner-kicker">ETAPA 5 DE 5</p><h3>Revisión final</h3>
+          <p class="planner-intro">Comprueba qué se ha guardado. No se envía ninguna notificación ni se activa el plan.</p>
           <dl class="planner-review">
-            <div><dt>Objetivo</dt><dd>{{ goalLabel }}</dd></div>
-            <div><dt>Experiencia</dt><dd>{{ experienceLabel }}</dd></div>
-            <div><dt>Días</dt><dd>{{ selectedDaysLabel }}</dd></div>
-            <div><dt>Sesión máxima</dt><dd>{{ draft.sessionMinutes }} minutos</dd></div>
-            <div><dt>Distribución</dt><dd>{{ splitLabel }}</dd></div>
-            <div><dt>Duración</dt><dd>{{ draft.durationWeeks }} semanas</dd></div>
-            <div><dt>Fases</dt><dd>{{ draft.phases.length }}</dd></div>
-            <div><dt>Inicio</dt><dd>{{ draft.startDate | date:'dd/MM/yyyy' }}</dd></div>
+            <div><dt>Objetivo</dt><dd>{{ goalLabel }}</dd></div><div><dt>Experiencia</dt><dd>{{ experienceLabel }}</dd></div>
+            <div><dt>Días</dt><dd>{{ selectedDaysLabel }}</dd></div><div><dt>Sesión máxima</dt><dd>{{ draft.sessionMinutes }} minutos</dd></div>
+            <div><dt>Distribución</dt><dd>{{ splitLabel }}</dd></div><div><dt>Duración</dt><dd>{{ draft.durationWeeks }} semanas</dd></div>
+            <div><dt>Fases</dt><dd>{{ draft.phases.length }}</dd></div><div><dt>Mesociclos guardados</dt><dd>{{ generatedCount }} / {{ draft.phases.length }}</dd></div>
           </dl>
-          <div class="planner-draft-warning"><strong>El plan permanecerá como borrador.</strong><span>No se asignará ni notificará al paciente. Las rutinas se generarán en una fase posterior, con vista previa y revisión profesional.</span></div>
-          <p *ngIf="draft.serverPlanId" class="planner-note">Plan borrador creado (n.º {{ draft.serverPlanId }}). Puedes reintentar el guardado sin crear otro plan.</p>
+          <ul class="planner-final-phases"><li *ngFor="let phase of draft.phases"><strong>{{ phase.name }}</strong><span>{{ isPhaseGenerated(phase) ? 'Mesociclo guardado · borrador' : 'Pendiente de generar' }}</span></li></ul>
+          <div class="planner-draft-warning"><strong>La planificación sigue en borrador.</strong><span>Los bloques generados requieren revisión profesional. El portal del cliente puede mostrar borradores para que solicite revisión, pero no se envía ninguna notificación ni se activa el plan.</span></div>
           <p *ngIf="saveError" class="planner-validation" role="alert">{{ saveError }}</p>
           <p *ngIf="draft.creationUncertain" class="planner-validation" role="alert">No se ha podido confirmar si el servidor creó el plan. Comprueba la lista de planes antes de continuar; no reintentaremos para evitar duplicados.</p>
         </section>
@@ -124,9 +119,11 @@ import { PlannerWizardDraft, PlannerWizardPhaseDraft, PlannerWizardStateService 
       <footer class="planner-wizard-footer">
         <span class="planner-save-status" role="status">{{ savedLabel }}</span>
         <div>
-          <button type="button" class="secondary" (click)="previous()" [disabled]="draft.currentStep === 0 || saving">Anterior</button>
-          <button type="button" (click)="next()" *ngIf="draft.currentStep < steps.length - 1" [disabled]="!canContinue || saving">Continuar →</button>
-          <button type="button" (click)="savePlan()" *ngIf="draft.currentStep === steps.length - 1" [disabled]="saving || !canSave || draft.creationUncertain">{{ saving ? 'Guardando…' : 'Crear planificación en borrador' }}</button>
+          <button type="button" class="secondary" (click)="previous()" [disabled]="draft.currentStep === 0 || saving || generatingPhase">Anterior</button>
+          <button type="button" (click)="next()" *ngIf="draft.currentStep < 2" [disabled]="!canContinue || saving">Continuar →</button>
+          <button type="button" (click)="prepareMesocycleStep()" *ngIf="draft.currentStep === 2" [disabled]="!canContinue || saving || buildingProposal || draft.creationUncertain">{{ saving ? 'Guardando macrociclo…' : 'Guardar macrociclo y continuar' }}</button>
+          <button type="button" (click)="goToFinalReview()" *ngIf="draft.currentStep === 3" [disabled]="saving || generatingPhase || previewLoading">Continuar a la revisión →</button>
+          <button type="button" (click)="finish()" *ngIf="draft.currentStep === 4" [disabled]="saving || draft.creationUncertain">Finalizar y abrir planificación</button>
         </div>
       </footer>
     </section>
@@ -137,7 +134,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
   @Output() close = new EventEmitter<void>();
   @Output() completed = new EventEmitter<number>();
 
-  readonly steps = ['Objetivo', 'Disponibilidad', 'Macrociclo', 'Fases', 'Confirmación'];
+  readonly steps = ['Objetivo', 'Disponibilidad', 'Macrociclo', 'Mesociclos', 'Revisión'];
   readonly dayOptions = [
     { value: 1, label: 'Lun' }, { value: 2, label: 'Mar' }, { value: 3, label: 'Mié' },
     { value: 4, label: 'Jue' }, { value: 5, label: 'Vie' }, { value: 6, label: 'Sáb' }, { value: 0, label: 'Dom' }
@@ -148,6 +145,14 @@ export class TrainingPlannerWizardComponent implements OnInit {
   buildingProposal = false;
   proposalError = '';
   saveError = '';
+  mesocycleError = '';
+  previewLoading = false;
+  generatingPhase = false;
+  currentPhaseIndex = 0;
+  currentPreview: GeneratedProgram | null = null;
+  previewPhaseKey = '';
+  acknowledgeWarnings = false;
+  serverMesocycles: TrainingMesocycle[] = [];
 
   constructor(private readonly state: PlannerWizardStateService, private readonly http: HttpClient) {}
 
@@ -155,6 +160,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
     this.draft = this.state.load(this.clientId);
     if (this.draft.creationInProgress) { this.draft.creationInProgress = false; this.draft.creationUncertain = true; }
     this.persist();
+    if (this.draft.serverPlanId) void this.refreshServerMesocycles();
   }
 
   get validSplitDays(): boolean {
