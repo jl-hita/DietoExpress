@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom, timeout } from 'rxjs';
 import { PlannerWizardDraft, PlannerWizardPhaseDraft, PlannerWizardStateService } from './planner-wizard-state.service';
@@ -286,7 +286,12 @@ export class TrainingPlannerWizardComponent implements OnInit {
       this.persist();
     } catch (error: any) {
       this.proposalError = error?.error?.message || 'No se pudo preparar el macrociclo. Conservamos los datos para reintentarlo.';
-    } finally { this.buildingProposal = false; }
+    } finally {
+      this.buildingProposal = false;
+      // firstValueFrom resumes in a Promise continuation; explicitly refresh the wizard
+      // after the proposal has been applied so the new phases appear without a reload.
+      this.changeDetector.detectChanges();
+    }
   }
 
   removePhase(index: number): void {
