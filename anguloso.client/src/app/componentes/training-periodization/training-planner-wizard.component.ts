@@ -79,13 +79,13 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
           <label class="planner-field planner-weeks-field">Duración<div class="planner-range"><input type="range" min="4" max="52" step="1" [(ngModel)]="draft.durationWeeks" (ngModelChange)="invalidateMacrocycle()" [disabled]="!!draft.serverPlanId"><strong>{{ draft.durationWeeks }} semanas</strong></div></label>
           <label class="planner-check"><input type="checkbox" [(ngModel)]="draft.includeDeload" (ngModelChange)="invalidateMacrocycle()" [disabled]="!!draft.serverPlanId"> Incluir semanas de descarga</label>
           <label class="planner-field" *ngIf="draft.includeDeload">Intervalo entre descargas<select [(ngModel)]="draft.deloadEveryWeeks" (ngModelChange)="invalidateMacrocycle()" [disabled]="!!draft.serverPlanId"><option [ngValue]="4">4 semanas de trabajo</option><option [ngValue]="5">5 semanas de trabajo</option><option [ngValue]="6">6 semanas de trabajo</option><option [ngValue]="7">7 semanas de trabajo</option><option [ngValue]="8">8 semanas de trabajo</option></select></label>
-          <button type="button" class="secondary" (click)="buildMacrocycleProposal()" [disabled]="buildingProposal || !macrocycleInputValid">{{ buildingProposal ? 'Preparando propuesta…' : (draft.phases.length ? 'Actualizar propuesta de fases' : 'Proponer fases del macrociclo') }}</button>
+          <button type="button" class="secondary" (click)="buildMacrocycleProposal()" [disabled]="buildingProposal || !macrocycleInputValid || !!draft.serverPlanId">{{ buildingProposal ? 'Preparando propuesta…' : (draft.phases.length ? 'Actualizar propuesta de fases' : 'Proponer fases del macrociclo') }}</button>
           <p *ngIf="proposalError" class="planner-validation" role="alert">{{ proposalError }}</p>
           <p *ngIf="draft.phases.length" class="planner-note">Propuesta preparada: {{ draft.phases.length }} fases. Revísalas aquí antes de continuar.</p>
           <div *ngIf="draft.phases.length" class="planner-phase-list">
             <h4>Fases propuestas · revisa antes de continuar</h4>
             <article *ngFor="let phase of draft.phases; let i = index" class="planner-phase-editor">
-              <header><strong>Fase {{ i + 1 }}</strong><button type="button" class="secondary" (click)="removePhase(i)" [disabled]="draft.phases.length <= 1 || saving">Eliminar</button></header>
+              <header><strong>Fase {{ i + 1 }}</strong><button type="button" class="secondary" (click)="removePhase(i)" [disabled]="draft.phases.length <= 1 || saving || !!draft.serverPlanId">Eliminar</button></header>
               <div class="planner-inline-fields">
                 <label class="planner-field">Nombre<input [(ngModel)]="phase.name" (ngModelChange)="phaseChanged()" [disabled]="!!draft.serverPlanId" maxlength="160"></label>
                 <label class="planner-field">Tipo<select [(ngModel)]="phase.phaseType" (ngModelChange)="phaseChanged()" [disabled]="!!draft.serverPlanId"><option value="accumulation">Acumulación</option><option value="intensification">Intensificación</option><option value="deload">Descarga</option><option value="realization">Realización</option><option value="general">General</option></select></label>
@@ -186,7 +186,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
     this.draft = this.state.load(this.clientId);
     if (this.draft.creationInProgress) { this.draft.creationInProgress = false; this.draft.creationUncertain = true; }
     this.persist();
-    if (this.draft.serverPlanId) void this.refreshServerMesocycles();
+    if (this.draft.serverPlanId) void this.refreshServerMesocycles().then(() => { if (this.draft.currentStep === 3) this.selectNextPendingPhase(); }).catch(error => { this.mesocycleError = error?.error?.message || 'No se pudo recuperar el estado de los mesociclos guardados.'; });
   }
 
   get validSplitDays(): boolean {
@@ -258,7 +258,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
   }
 
   removePhase(index: number): void {
-    if (this.draft.phases.length <= 1) return;
+    if (this.draft.phases.length <= 1 || this.draft.serverPlanId) return;
     this.draft.phases = this.draft.phases.filter((_, i) => i !== index).map((phase, i) => ({ ...phase, sequenceNumber: i + 1 }));
     this.phaseChanged();
   }
