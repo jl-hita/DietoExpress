@@ -1,4 +1,5 @@
 using Anguloso.Server.Logica;
+using System.IO;
 using System.Reflection;
 using Xunit;
 
@@ -6,6 +7,28 @@ namespace DietoExpress.Security.Tests;
 
 public sealed class TrainingSessionExerciseOrdererTests
 {
+    private static string RepoRoot
+    {
+        get
+        {
+            var directory = new DirectoryInfo(AppContext.BaseDirectory);
+            while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Anguloso.Server", "Program.cs")))
+                directory = directory.Parent;
+            return directory?.FullName ?? throw new InvalidOperationException("No se encontró la raíz del repositorio.");
+        }
+    }
+
+    [Fact]
+    public void GeneratorAllocatesWeeklyVolumeBeforeApplyingExerciseOrdering()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingProgramGenerator.cs"));
+        var allocation = source.IndexOf("TrainingProgramVolumeAllocator.Allocate(", StringComparison.Ordinal);
+        var ordering = source.IndexOf("TrainingSessionExerciseOrderer.Reorder(", StringComparison.Ordinal);
+
+        Assert.True(allocation >= 0 && ordering > allocation,
+            "La ordenación de ejercicios debe ejecutarse después de asignar las series semanales para no alterar los desempates del asignador.");
+    }
+
     [Fact]
     public void KeepsFirstLiftAndMovesIndependentCompoundAheadOfOverlappingPress()
     {
@@ -52,6 +75,11 @@ public sealed class TrainingSessionExerciseOrdererTests
         Assert.Equal(new[] { "squat", "hinge", "extension", "core" }, result.Select(x => x.ExerciseId));
         Assert.Equal(new[] { 3, 4, 2, 1 }, result.Select(x => x.Sets));
         Assert.Equal(new[] { 1, 2, 3, 4 }, result.Select(x => x.Order));
+        foreach (var exercise in result)
+        {
+            var original = input.Single(item => item.ExerciseId == exercise.ExerciseId);
+            Assert.Equal(original with { Order = exercise.Order }, exercise);
+        }
     }
 
     [Fact]
