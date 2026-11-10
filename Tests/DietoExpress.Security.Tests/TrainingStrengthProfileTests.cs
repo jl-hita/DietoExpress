@@ -53,11 +53,13 @@ public sealed class TrainingStrengthProfileTests
     }
 
     [Fact]
-    public void FiveDayPushPullLegsWarnsThatLegsAreTrainedOnlyOncePerWeek()
+    public void FiveDayPushPullLegsHypertrophyDoesNotFlagSingleWeeklyLegExposureAsAFrequencyDefect()
     {
         var plan = TrainingBlockProgressionTests.Generate(
             1, TrainingGoal.Hypertrophy, 5, 90, TrainingExperience.Intermediate, TrainingProgramSplit.PushPullLegs);
-        Assert.Contains(plan.QualityReport!.Warnings, warning =>
-            warning.Contains("Quadriceps", StringComparison.Ordinal) && warning.Contains("1 sesión", StringComparison.Ordinal));
+        // La frecuencia por sí sola no es un defecto de hipertrofia cuando el volumen semanal
+        // se compara de forma equivalente; esta alerta queda reservada a objetivos de fuerza.
+        Assert.DoesNotContain(plan.QualityReport!.Warnings, warning =>
+            warning.Contains("Quadriceps recibe estímulo efectivo en 1 sesión", StringComparison.Ordinal));
     }
 }
