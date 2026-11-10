@@ -137,7 +137,7 @@ public sealed class TrainingDiagnosticsController : ControllerBase
                         content.Item().Text("DATOS ESTRUCTURADOS (JSON)").Bold().FontSize(10);
                         foreach (var line in json.Split('\n'))
                             content.Item().Text(line.Length == 0 ? " " : line)
-                                .FontFamily("Courier New").FontSize(5.8f).LineHeight(1.05f);
+                                .FontFamily("Arial").FontSize(5.8f);
                     });
                     page.Footer().AlignCenter().Text(text =>
                     {
