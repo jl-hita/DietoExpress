@@ -222,7 +222,11 @@ export class TrainingPlannerWizardComponent implements OnInit {
     this.draft = this.state.load(this.clientId);
     if (this.draft.creationInProgress) { this.draft.creationInProgress = false; this.draft.creationUncertain = true; }
     this.persist();
-    if (this.draft.serverPlanId) void this.refreshServerMesocycles().then(() => { if (this.draft.currentStep === 3) this.selectNextPendingPhase(); }).catch(error => { this.mesocycleError = error?.error?.message || 'No se pudo recuperar el estado de los mesociclos guardados.'; this.changeDetector.detectChanges(); });
+    if (this.draft.serverPlanId) void this.refreshServerMesocycles().then(() => {
+      if (this.draft.currentStep === 3) this.selectNextPendingPhase();
+      // refreshServerMesocycles detects changes before this continuation selects the next phase.
+      this.changeDetector.detectChanges();
+    }).catch(error => { this.mesocycleError = error?.error?.message || 'No se pudo recuperar el estado de los mesociclos guardados.'; this.changeDetector.detectChanges(); });
   }
 
   get validSplitDays(): boolean {
