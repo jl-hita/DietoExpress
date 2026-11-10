@@ -177,6 +177,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
       if (phase.startDate < this.draft.startDate || phase.endDate > this.macrocycleEndDate) return 'Todas las fases deben quedar dentro de las fechas del macrociclo.';
       if (phase.phaseType === 'deload' && this.inclusiveDays(phase.startDate, phase.endDate) !== 7) return 'Cada fase de descarga debe durar exactamente siete días.';
       if (i > 0 && phase.startDate <= phases[i - 1].endDate) return 'Las fases no pueden solaparse.';
+      if (i > 0 && phase.startDate !== this.addDays(phases[i - 1].endDate, 1)) return 'Las fases deben ser consecutivas, sin dejar días ni semanas sin planificar.';
     }
     if (phases[0].startDate !== this.draft.startDate || phases[phases.length - 1].endDate !== this.macrocycleEndDate) return 'Las fases deben cubrir todo el macrociclo, sin dejar semanas fuera.';
     return '';
@@ -225,7 +226,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
   removePhase(index: number): void {
     if (this.draft.phases.length <= 1) return;
     this.draft.phases = this.draft.phases.filter((_, i) => i !== index).map((phase, i) => ({ ...phase, sequenceNumber: i + 1 }));
-    this.persist();
+    this.phaseChanged();
   }
 
   async savePlan(): Promise<void> {
