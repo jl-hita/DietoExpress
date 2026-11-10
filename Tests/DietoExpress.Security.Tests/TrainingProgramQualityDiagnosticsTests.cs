@@ -52,7 +52,7 @@ public sealed class TrainingProgramQualityDiagnosticsTests
         Assert.Contains(report.Warnings, warning =>
             warning.Contains("Chest", StringComparison.Ordinal) &&
             warning.Contains("1 sesión", StringComparison.Ordinal) &&
-            warning.Contains("dos días por semana", StringComparison.Ordinal));
+            warning.Contains("ACSM 2026", StringComparison.Ordinal));
         Assert.Contains(report.Warnings, warning =>
             warning.Contains("Quadriceps", StringComparison.Ordinal) &&
             warning.Contains("1 sesión", StringComparison.Ordinal));
@@ -93,9 +93,8 @@ public sealed class TrainingProgramQualityDiagnosticsTests
             warning.Contains("ACSM 2026", StringComparison.Ordinal));
 
         var generalFitnessWarnings = TrainingProgramQualityAnalyzer.Analyze(Plan("GeneralFitness", singleExposure)).Warnings;
-        Assert.Contains(generalFitnessWarnings, warning =>
-            warning.Contains("Chest", StringComparison.Ordinal) &&
-            warning.Contains("dos días por semana", StringComparison.Ordinal));
+        Assert.DoesNotContain(generalFitnessWarnings, warning =>
+            warning.Contains("recibe estímulo efectivo en 1 sesión", StringComparison.Ordinal));
 
         // ACSM 2026 found frequency itself did not affect hypertrophy when volume was compared.
         // A once-weekly split is not flagged as a hypertrophy defect by this diagnostic.
