@@ -87,6 +87,11 @@ export class PlannerWizardStateService {
     }
   }
 
+  clear(clientId: number): void {
+    if (typeof sessionStorage === 'undefined') return;
+    try { sessionStorage.removeItem(this.storageKey(clientId)); } catch { /* El borrador de sesión es opcional. */ }
+  }
+
   private storageKey(clientId: number): string {
     return `dietoexpress:training-planner:v1:client:${clientId}`;
   }
