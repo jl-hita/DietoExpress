@@ -165,3 +165,14 @@ La regresión verifica que sentadilla con barra y prensa superan al goblet squat
 El techo por ejercicio se reduce de cuatro a tres series. El resumen oficial de ACSM 2026 indica 2–3 series por ejercicio para fuerza con cargas ≥80 % 1RM. El asignador puede dejar un déficit semanal visible si no hay capacidad compatible para repartir más trabajo; no debe compensarlo concentrando cuatro o cinco series en un solo ejercicio. El volumen total por grupo sigue siendo una decisión individualizada y no se deriva de un mínimo universal para cada músculo.
 
 Referencia práctica ACSM 2026: [5 Things to Know About Creating an Effective Resistance Training Plan](https://www.acsm.org/effective-resistance-training-program-infographic/).
+
+
+## Correcciones de evidencia y feedback — 10/11/2026
+
+- La advertencia de frecuencia por grupo se limita al objetivo de fuerza. ACSM 2026 destaca al menos dos sesiones semanales de entrenamiento de fuerza, pero el aviso que aplica esa frecuencia a cada músculo es una heurística interna, no un mínimo universal. No se emite para hipertrofia: con volumen semanal igualado, la frecuencia no mostró un efecto consistente sobre la hipertrofia. Tampoco se exige que cada músculo aparezca dos veces en planes de condición general; la recomendación general de ACSM se refiere a entrenar al menos dos veces por semana e implicar los grupos principales.
+- El adaptador de feedback muscular solo propone añadir una serie cuando todos los ejercicios prescritos para ese músculo en las dos últimas sesiones completas tienen respuesta explícita de estímulo bajo, recuperación y ausencia de molestias. Una respuesta adecuada, ausente o una sesión incompleta impide tratar el músculo como insuficientemente estimulado.
+- Para reducir una serie, el estímulo alto y la sensación de músculo todavía cargado deben aparecer juntos en el mismo ejercicio en al menos dos de las tres últimas sesiones; la sesión más reciente debe estar completada. Una señal alta de un ejercicio y una señal de fatiga de otro no se combinan artificialmente.
+- El mapeador de feedback recorre los ejercicios de la prescripción, crea exposiciones neutrales cuando falta la respuesta de un ejercicio y conserva las sesiones parciales como no completadas. Si la prescripción estructurada más reciente no es utilizable, no recupera datos antiguos para simular evidencia reciente.
+- Estos umbrales siguen siendo heurísticas operativas del producto, no reglas de ACSM. No se cambia el calendario de descarga ni se introduce una descarga automática fija.
+
+Referencia principal: Currier et al., ACSM Position Stand 2026, DOI 10.1249/MSS.0000000000003897. La revisión encontró que la frecuencia de hipertrofia no cambia de forma consistente cuando el volumen semanal está igualado; para fuerza destaca cargas ≥80 % 1RM, 2–3 series por ejercicio y al menos dos sesiones semanales.
