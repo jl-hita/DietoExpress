@@ -137,3 +137,15 @@
 .training-page .planner-phase-editor{display:grid;gap:12px;padding:14px;border:1px solid var(--border-color,#d8dee8);border-radius:12px;background:var(--surface-color,#fff)}
 .training-page .planner-phase-editor>header{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .training-page .planner-phase-editor textarea{box-sizing:border-box;width:100%;border:1px solid var(--border-color,#c5ccd6);border-radius:9px;padding:10px;background:var(--surface-color,#fff);color:inherit;font:inherit;resize:vertical}
+
+.training-page .planner-phase-progress{display:flex;gap:8px;flex-wrap:wrap}
+.training-page .planner-phase-progress span{display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--border-color,#d8dee8);border-radius:50%;font-weight:700;color:var(--secondary-text-color,#687385)}
+.training-page .planner-phase-progress span.current{border:2px solid var(--primary-color,#0d766e);color:var(--primary-color,#0d766e)}
+.training-page .planner-phase-progress span.complete{background:var(--primary-color,#0d766e);border-color:var(--primary-color,#0d766e);color:#fff}
+.training-page .planner-generation-actions{display:flex;gap:8px;flex-wrap:wrap}
+.training-page .planner-preview-warnings{display:grid;gap:8px;padding:14px;border:1px solid var(--border-color,#d8dee8);border-radius:10px;background:var(--surface-container,#f7f8fa)}
+.training-page .planner-preview-warnings ul{margin:0;padding-left:20px}
+.training-page .planner-final-phases{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.training-page .planner-final-phases li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-color,#e5e8ed)}
+.training-page .planner-final-phases span{color:var(--secondary-text-color,#687385);text-align:right;font-size:.85rem}
+@media(max-width:520px){.training-page .planner-final-phases li{flex-direction:column;gap:3px}.training-page .planner-final-phases span{text-align:left}}
