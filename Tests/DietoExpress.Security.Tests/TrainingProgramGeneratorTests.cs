@@ -188,6 +188,37 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void DirectCoreExercisesAreExcludedByDefaultButIndirectCoreWorkRemainsEligible()
+    {
+        var catalog = Catalog()
+            .Select(exercise => exercise.MovementPattern == TrainingMovementPattern.Squat
+                ? exercise with
+                {
+                    SecondaryMuscleGroups = [TrainingMuscleGroup.Abdominals, TrainingMuscleGroup.ErectorSpinae]
+                }
+                : exercise)
+            .Append(new TrainingExerciseCandidate(
+                "direct-ab-crunch", "catalog-2026-10", "Crunch abdominal",
+                TrainingMovementPattern.Accessory, [],
+                [TrainingGoal.GeneralFitness, TrainingGoal.Hypertrophy, TrainingGoal.Strength],
+                TrainingExperience.Beginner, 100, true,
+                [TrainingMuscleGroup.Abdominals], []))
+            .ToArray();
+
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { DurationWeeks = 1 }, catalog);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        var exercises = result.Prescription!.Sessions.SelectMany(session => session.Exercises).ToArray();
+
+        Assert.DoesNotContain(exercises, exercise => exercise.ExerciseId == "exercise-core");
+        Assert.DoesNotContain(exercises, exercise => exercise.ExerciseId == "direct-ab-crunch");
+        Assert.Contains(exercises, exercise =>
+            exercise.ExerciseId == "squat-basic" &&
+            exercise.SecondaryMuscleGroups.Contains(TrainingMuscleGroup.Abdominals));
+    }
+
+    [Fact]
     public void ExcludedExerciseIsNeverSelected()
     {
         var result = TrainingProgramGenerator.Generate(
