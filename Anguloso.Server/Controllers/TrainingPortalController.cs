@@ -727,63 +727,68 @@ public sealed class TrainingPortalController : ControllerBase
     /// </summary>
     private async Task ApplyMuscleFeedbackAsync(int clientId, int sessionId, long recordId, CancellationToken cancellationToken)
     {
-        var exposures = new List<Anguloso.Server.Logica.TrainingMuscleFeedbackExposure>();
+        var records = new List<Anguloso.Server.Logica.TrainingMuscleFeedbackRecord>();
         var goal = Anguloso.Server.Logica.TrainingGoal.GeneralFitness;
         int planId = 0;
         string experienceText = "beginner";
         await using (var command = Command("""
-            SELECT s.plan_id, s.scheduled_date, s.exercise_prescription_data::text, r.exercise_feedback::text, f.experience_level
+            SELECT s.plan_id, s.scheduled_date, s.exercise_prescription_data::text,
+                   r.exercise_feedback::text, f.experience_level, r.outcome
             FROM training_session_records r
             JOIN training_sessions s ON s.id = r.session_id
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
             WHERE f.client_id = @clientId AND p.status = 'active' AND r.outcome IS NOT NULL
               AND s.plan_id = (SELECT plan_id FROM training_sessions WHERE id = @sessionId)
-              AND s.exercise_prescription_data IS NOT NULL AND r.exercise_feedback IS NOT NULL
-            ORDER BY s.scheduled_date DESC, s.id DESC LIMIT 4
+              AND s.session_type = 'strength'
+            ORDER BY s.scheduled_date DESC, s.id DESC
+            LIMIT 4
             """, ("clientId", clientId), ("sessionId", sessionId)))
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
         {
             while (await reader.ReadAsync(cancellationToken))
             {
-                planId = reader.GetInt32(0);
-                experienceText = reader.GetString(4);
-                var date = DateOnly.FromDateTime(reader.GetDateTime(1));
-                var prescribed = new Dictionary<string, (string[] Muscles, int Sets)>(StringComparer.Ordinal);
-                try
+                if (records.Count == 0)
                 {
-                    using var prescription = JsonDocument.Parse(reader.GetString(2));
-                    if (prescription.RootElement.TryGetProperty("goal", out var goalElement) && goalElement.ValueKind == JsonValueKind.String)
-                        Enum.TryParse(goalElement.GetString(), true, out goal);
-                    foreach (var exercise in prescription.RootElement.GetProperty("exercises").EnumerateArray())
+                    planId = reader.GetInt32(0);
+                    experienceText = reader.GetString(4);
+                    if (!reader.IsDBNull(2))
                     {
-                        var id = exercise.GetProperty("exerciseId").GetString();
-                        if (id is null) continue;
-                        var muscles = exercise.TryGetProperty("primaryMuscleGroups", out var m) && m.ValueKind == JsonValueKind.Array
-                            ? m.EnumerateArray().Select(x => x.GetString()!).ToArray() : [];
-                        prescribed[id] = (muscles, exercise.TryGetProperty("sets", out var s) && s.TryGetInt32(out var sets) ? sets : 0);
-                    }
-                    using var feedback = JsonDocument.Parse(reader.GetString(3));
-                    foreach (var item in feedback.RootElement.EnumerateArray())
-                    {
-                        var id = item.TryGetProperty("exerciseId", out var e) ? e.GetString() : null;
-                        if (id is null || !prescribed.TryGetValue(id, out var info)) continue;
-                        string? Text(string name) => item.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
-                        exposures.Add(new(date, id, info.Muscles, info.Sets, Text("stimulus"), Text("discomfort"), Text("preFatigue")));
+                        try
+                        {
+                            using var prescription = JsonDocument.Parse(reader.GetString(2));
+                            if (prescription.RootElement.TryGetProperty("goal", out var goalElement) &&
+                                goalElement.ValueKind == JsonValueKind.String)
+                                Enum.TryParse(goalElement.GetString(), true, out goal);
+                        }
+                        catch (JsonException)
+                        {
+                            // The mapper below fails closed if the newest prescription is unusable.
+                        }
                     }
                 }
-                catch (Exception exception) when (exception is JsonException or KeyNotFoundException or InvalidOperationException) { }
+
+                records.Add(new Anguloso.Server.Logica.TrainingMuscleFeedbackRecord(
+                    DateOnly.FromDateTime(reader.GetDateTime(1)),
+                    reader.GetString(5),
+                    reader.IsDBNull(3) ? null : reader.GetString(3),
+                    reader.IsDBNull(2) ? null : reader.GetString(2)));
             }
         }
-        if (exposures.Count == 0 || planId == 0) return;
-        exposures.Reverse(); // chronological
+
+        if (records.Count == 0 || planId == 0) return;
+        // Records are loaded newest-first. The mapper preserves missing feedback as neutral and
+        // blocks stale history when the newest structured prescription is unusable.
+        var exposures = Anguloso.Server.Logica.TrainingMuscleFeedbackMapper.Map(records);
+        if (exposures.Count == 0) return;
         if (!Enum.TryParse<Anguloso.Server.Logica.TrainingExperience>(experienceText, true, out var experience))
             experience = Anguloso.Server.Logica.TrainingExperience.Beginner;
 
         var plannedByMuscle = new Dictionary<string, int>(StringComparer.Ordinal);
         await using (var upcoming = Command("""
             SELECT s.exercise_prescription_data::text FROM training_sessions s
-            WHERE s.plan_id = @planId AND s.scheduled_date > CURRENT_DATE AND s.scheduled_date <= CURRENT_DATE + 7
+            WHERE s.plan_id = @planId AND s.session_type = 'strength'
+              AND s.scheduled_date > CURRENT_DATE AND s.scheduled_date <= CURRENT_DATE + 7
               AND s.status = 'planned' AND s.exercise_prescription_data IS NOT NULL
             """, ("planId", planId)))
         await using (var upcomingReader = await upcoming.ExecuteReaderAsync(cancellationToken))
