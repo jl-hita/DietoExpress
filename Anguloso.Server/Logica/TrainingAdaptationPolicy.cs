@@ -25,10 +25,11 @@ public static class TrainingAdaptationPolicy
             return Decision(TrainingAdaptationAction.PauseAffectedExerciseAndReview,
                 "Se ha registrado dolor nuevo o que empeora. No progreses el entrenamiento y solicita valoración profesional antes de reanudar el ejercicio implicado.");
 
-        // Reactive deload PROPOSAL (never applied automatically): only when the last three sessions each
-        // show a stress signal AND at least two different kinds of signal appear (low recovery, very
-        // high session RPE, many missed sets). A single repeated signal keeps its own, milder action.
-        // Window and thresholds are internal product rules; the professional decides.
+        // Reactive deload proposal: only when the last three sessions each show a stress signal AND
+        // at least two different kinds of signal appear (low recovery, very high session RPE, many missed
+        // sets). This policy only emits the proposal; TrainingAutoAdaptationApplier may apply it after
+        // its 28-day cooldown. This is reactive, not a calendar-based deload schedule.
+        // Window and thresholds are internal product rules, not ACSM prescriptions.
         var stressWindow = recentFeedback.TakeLast(3).ToArray();
         if (stressWindow.Length == 3 && stressWindow.All(IsStressed))
         {
