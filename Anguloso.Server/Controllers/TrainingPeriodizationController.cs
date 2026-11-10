@@ -1152,7 +1152,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
         var id = await command.ExecuteScalarAsync(cancellationToken);
         if (id is null) return Conflict(new { message = "Activa primero la planificación deportiva para este cliente." });
         var planId = Convert.ToInt32(id);
-        await NotifyTrainingPlanAssignedAsync(clientId, planId, request.Name.Trim(), cancellationToken);
+        if (request.NotifyClient) await NotifyTrainingPlanAssignedAsync(clientId, planId, request.Name.Trim(), cancellationToken);
         return CreatedAtAction(nameof(GetPlans), new { clientId }, new { id = planId, request.Name, request.PeriodizationModel, request.StartDate, request.EndDate, status = "draft", version = 1 });
     }
 
@@ -2750,7 +2750,7 @@ public sealed record ReviewTrainingAdaptationProposalRequest(
     IReadOnlyList<string>? TargetExerciseIds = null);
 public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, string PrimaryGoal, string ExperienceLevel, string ManagementMode, string? Notes, DateTime CreatedAt, DateTime UpdatedAt, bool CanManage = true);
 public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, string? ManagementMode = null);
-public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes);
+public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes, bool NotifyClient = true);
 public sealed record UpdateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes, int Version);
 public sealed record CreateQuickTrainingRoutineRequest(string Name, DateOnly ScheduledDate, string SessionType, int DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription);
 public sealed record TrainingPlanDto(int Id, string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string Status, int Version, string? Notes);
