@@ -7,8 +7,8 @@ public sealed class TrainingMuscleFeedbackTests
 {
     private static TrainingMuscleFeedbackExposure E(
         int day, string id = "bench", string muscle = "Chest", int sets = 3,
-        string? stimulus = "adequate", string? discomfort = "none", string? pre = "recovered") =>
-        new(new DateOnly(2026, 11, day), id, [muscle], sets, stimulus, discomfort, pre);
+        string? stimulus = "adequate", string? discomfort = "none", string? pre = "recovered", bool completed = true) =>
+        new(new DateOnly(2026, 11, day), id, [muscle], sets, stimulus, discomfort, pre, completed);
 
     private static readonly Dictionary<string, int> Planned = new() { ["Chest"] = 10 };
     private static readonly Dictionary<string, int> Ceiling = new() { ["Chest"] = 16 };
@@ -58,7 +58,7 @@ public sealed class TrainingMuscleFeedbackTests
         var result = Run(
             E(2, "bench", sets: 3, stimulus: "low"),
             E(4, "bench", sets: 3, stimulus: "low"),
-            E(4, "fly", sets: 1, stimulus: "adequate"));
+            E(4, "fly", sets: 5, stimulus: "low"));
 
         var add = Assert.Single(result);
         Assert.Equal(TrainingMuscleFeedbackAction.AddSet, add.Action);
@@ -115,4 +115,67 @@ public sealed class TrainingMuscleFeedbackTests
         var result = Run(E(2, stimulus: "low", discomfort: "mild"), E(4, stimulus: "low", discomfort: "mild"), E(6, stimulus: "low"));
         Assert.DoesNotContain(result, d => d.Action == TrainingMuscleFeedbackAction.AddSet);
     }
+
+    [Fact]
+    public void MixedLowAndAdequateExercisesDoNotTriggerMuscleVolumeIncrease()
+    {
+        var result = Run(
+            E(2, "bench", stimulus: "low"), E(2, "fly", sets: 2, stimulus: "adequate"),
+            E(4, "bench", stimulus: "low"), E(4, "fly", sets: 2, stimulus: "adequate"));
+        Assert.DoesNotContain(result, item => item.Action == TrainingMuscleFeedbackAction.AddSet);
+    }
+
+    [Fact]
+    public void MissingExerciseFeedbackDoesNotCountAsLowStimulusEvidence()
+    {
+        var result = Run(
+            E(2, "bench", stimulus: "low"), E(2, "fly", sets: 2, stimulus: null, discomfort: null, pre: null),
+            E(4, "bench", stimulus: "low"), E(4, "fly", sets: 2, stimulus: null, discomfort: null, pre: null));
+        Assert.DoesNotContain(result, item => item.Action == TrainingMuscleFeedbackAction.AddSet);
+    }
+
+    [Fact]
+    public void DiscomfortOnOneExerciseCannotBeHiddenWhenEvaluatingMuscleVolumeIncrease()
+    {
+        var result = Run(
+            E(2, "bench", stimulus: "low"), E(2, "fly", sets: 2, stimulus: "low", discomfort: "mild"),
+            E(4, "bench", stimulus: "low"), E(4, "fly", sets: 2, stimulus: "low", discomfort: "mild"));
+        Assert.DoesNotContain(result, item => item.Action == TrainingMuscleFeedbackAction.AddSet);
+    }
+
+    [Fact]
+    public void HighAndLoadedSignalsFromDifferentExercisesDoNotReduceVolume()
+    {
+        var result = Run(
+            E(2, "bench", stimulus: "high", pre: "loaded"),
+            E(4, "fly", sets: 2, stimulus: "high", pre: "loaded"),
+            E(6, "bench", stimulus: "high", pre: "recovered"));
+        Assert.DoesNotContain(result, item => item.Action == TrainingMuscleFeedbackAction.ReduceSet);
+    }
+
+    [Fact]
+    public void ReductionTargetsTheSameExerciseThatRepeatedlyReportedHighStimulusAndFatigue()
+    {
+        var result = Run(
+            E(2, "bench", sets: 3, stimulus: "high", pre: "loaded"),
+            E(4, "bench", sets: 3, stimulus: "high", pre: "loaded"),
+            E(6, "bench", sets: 3, stimulus: "high", pre: "loaded"),
+            E(6, "fly", sets: 4, stimulus: "adequate", pre: "loaded"));
+        var reduce = Assert.Single(result.Where(item => item.Action == TrainingMuscleFeedbackAction.ReduceSet));
+        Assert.Equal("bench", reduce.ExerciseId);
+    }
+
+    [Fact]
+    public void IncompleteSessionsCannotTriggerVolumeIncreaseOrReduction()
+    {
+        var add = Run(E(2, stimulus: "low"), E(4, stimulus: "low", completed: false));
+        Assert.DoesNotContain(add, item => item.Action == TrainingMuscleFeedbackAction.AddSet);
+
+        var reduce = Run(
+            E(2, stimulus: "high", pre: "loaded"),
+            E(4, stimulus: "high", pre: "loaded"),
+            E(6, stimulus: "high", pre: "loaded", completed: false));
+        Assert.DoesNotContain(reduce, item => item.Action == TrainingMuscleFeedbackAction.ReduceSet);
+    }
+
 }
