@@ -6,6 +6,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, firstValueFrom, forkJoin, of, Subscription, timeout } from 'rxjs';
 import { DateInputDirective } from '../../directives/date-input.directive';
 import { TrainingReviewRequestsPanelComponent } from './training-review-requests-panel.component';
+import { TrainingPlannerWizardComponent } from './training-planner-wizard.component';
 import { MacroChartMesocycle, MacroChartPhase, MacroChartWeek, MacrocycleChartComponent } from './macrocycle-chart.component';
 
 import {
@@ -43,7 +44,7 @@ import {
 @Component({
   selector: 'app-training-periodization',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, DateInputDirective, MacrocycleChartComponent, TrainingReviewRequestsPanelComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DateInputDirective, MacrocycleChartComponent, TrainingReviewRequestsPanelComponent, TrainingPlannerWizardComponent],
   template: `
     <main class="training-page">
       <a *ngIf="clientId > 0" class="back-link" [routerLink]="['/clients', clientId]">← Volver al expediente</a>
@@ -196,9 +197,10 @@ import {
         <section class="panel" *ngIf="current.enabled">
           <h2>Planes de entrenamiento</h2>
           <div class="training-create-actions" *ngIf="current.canManage">
-            <button type="button" class="secondary create-plan-toggle" (click)="showCreatePlanForm = !showCreatePlanForm; showQuickRoutineForm = false" [attr.aria-expanded]="showCreatePlanForm">＋ Nueva planificación</button>
+            <button type="button" class="secondary create-plan-toggle" (click)="showPlannerWizard = true; showCreatePlanForm = false; showQuickRoutineForm = false" [attr.aria-expanded]="showPlannerWizard">＋ Nueva planificación guiada</button>
             <button type="button" class="create-plan-toggle" (click)="showQuickRoutineForm = !showQuickRoutineForm; showCreatePlanForm = false" [attr.aria-expanded]="showQuickRoutineForm" [disabled]="trainingManagementMode !== 'self'">＋ Rutina sencilla</button>
           </div>
+          <app-training-planner-wizard *ngIf="showPlannerWizard" [clientId]="clientId" (close)="showPlannerWizard = false"></app-training-planner-wizard>
           <form *ngIf="showCreatePlanForm" (ngSubmit)="createPlan()" class="form-grid create-plan-form">
             <h3 class="full">¿Qué quieres planificar?</h3>
             <div class="full plan-type-choice">
@@ -867,6 +869,7 @@ import {
   `,
 })
 export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
+  showPlannerWizard = false;
   clientId = 0;
   loading = true;
   loadFailed = false;
