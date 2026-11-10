@@ -114,6 +114,12 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
               <button type="button" (click)="generateCurrentPhase()" [disabled]="!canGenerateCurrentPhase || generatingPhase">{{ generatingPhase ? 'Guardando bloque…' : 'Guardar este mesociclo' }}</button>
             </div>
             <p *ngIf="currentPreview && previewPhaseKey === phaseKey(phase)" class="planner-note">Vista previa: {{ currentPreview.sessions.length }} sesiones en {{ currentPreview.durationWeeks }} semanas · motor {{ currentPreview.engineVersion }}</p>
+            <div *ngIf="currentPreview && previewPhaseKey === phaseKey(phase)" class="planner-preview-sessions">
+              <article *ngFor="let session of currentPreview.sessions">
+                <header><strong>{{ session.title }}</strong><span>Semana {{ session.weekNumber }} · {{ session.estimatedDurationMinutes }} min</span></header>
+                <ul><li *ngFor="let exercise of session.exercises">{{ exercise.exerciseNameSnapshot }} · {{ exercise.sets }} × {{ exercise.minRepetitions }}–{{ exercise.maxRepetitions }} reps</li></ul>
+              </article>
+            </div>
             <div *ngIf="currentPreview && previewPhaseKey === phaseKey(phase)" class="planner-preview-warnings">
               <strong>Revisión de calidad</strong>
               <p *ngIf="!(currentPreview.qualityReport?.warnings?.length)">La vista previa no ha devuelto advertencias de calidad.</p>
