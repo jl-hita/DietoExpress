@@ -850,6 +850,9 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             // el DDL actual debe seguir siendo idempotente para poder reparar esquemas incompletos.
             LegalCommunicationsSchema.Initialize(context);
             TrainingTemplatesSchema.Initialize(context);
+            // Reparación aditiva e idempotente del esquema actual. Debe ejecutarse siempre: las columnas
+            // nuevas (p. ej. food_preferences.exclude_bread) se declaran aquí y no en las migraciones con marcador.
+            EnsureCurrentSchema(context, logger);
             UpgradeDocumentTemplateSchemaV1(context, logger);
             UpgradeLegalComplianceSchemaV1(context, logger);
             UpgradeLegalConfigurationSchemaV1(context, logger);

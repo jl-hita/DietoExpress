@@ -31,6 +31,14 @@ public sealed class DatabaseBootstrapRegressionTests
 
  
     [Fact]
+    public void Bootstrap_InvokesEnsureCurrentSchemaSoNewColumnsAreCreated()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        Assert.Contains("ALTER TABLE food_preferences ADD COLUMN IF NOT EXISTS exclude_bread", bootstrap);
+        Assert.Matches(@"(?m)^\s+EnsureCurrentSchema\(context, logger\);", bootstrap);
+    }
+
+    [Fact]
     public void Bootstrap_RepairsStripeColumnsBeforeSaaSSeedUpdates()
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
