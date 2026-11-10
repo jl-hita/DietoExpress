@@ -106,11 +106,33 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
           <p class="planner-kicker">ETAPA 4 DE 5</p><h3>Previsualiza y genera cada mesociclo</h3>
           <p class="planner-intro">Cada fase se procesa por separado. Primero calculamos la vista previa con el historial disponible; solo después de revisar sus avisos podrás guardar el bloque.</p>
           <div *ngIf="draft.serverPlanId" class="planner-note">Plan borrador {{ draft.serverPlanId }} · {{ serverMesocycles.length }} mesociclos guardados. Cada bloque generado permanece como borrador y requiere revisión profesional.</div>
-          <div *ngIf="draft.phases.length" class="planner-phase-progress"><span *ngFor="let phase of draft.phases; let i = index" [class.complete]="isPhaseGenerated(phase)" [class.current]="i === currentPhaseIndex">{{ i + 1 }}</span></div>
+          <nav *ngIf="draft.phases.length" class="planner-phase-navigation" aria-label="Fases del macrociclo">
+            <button type="button" *ngFor="let phase of draft.phases; let i = index" class="planner-phase-nav-item"
+              [class.complete]="isPhaseGenerated(phase)" [class.current]="i === currentPhaseIndex"
+              [attr.aria-current]="i === currentPhaseIndex ? 'step' : null"
+              (click)="selectPhase(i)" [disabled]="previewLoading || generatingPhase">
+              <span class="planner-phase-nav-number">{{ i + 1 }}</span>
+              <span class="planner-phase-nav-copy"><strong>{{ phase.name }}</strong><small>{{ phase.startDate | date:'dd/MM' }} – {{ phase.endDate | date:'dd/MM' }}</small></span>
+              <span class="planner-phase-nav-status">{{ isPhaseGenerated(phase) ? 'Guardado' : 'Pendiente' }}</span>
+            </button>
+          </nav>
+          <div *ngIf="draft.phases.length" class="planner-phase-progress" role="status">{{ generatedCount }} de {{ draft.phases.length }} mesociclos generados</div>
           <article *ngIf="currentPhase as phase" class="planner-phase-editor">
             <header><strong>{{ phase.name }}</strong><span>{{ phase.startDate | date:'dd/MM/yyyy' }} – {{ phase.endDate | date:'dd/MM/yyyy' }}</span></header>
             <p>{{ phase.objective }}</p>
             <p class="planner-note" *ngIf="isPhaseGenerated(phase)">Este mesociclo ya está guardado. No se volverá a generar.</p>
+            <div *ngIf="isPhaseGenerated(phase)" class="planner-preview-sessions">
+              <article *ngFor="let session of sessionsForPhase(phase)">
+                <header><strong>{{ session.title }}</strong><span>{{ session.scheduledDate | date:'dd/MM/yyyy' }} · {{ session.durationMinutes || '—' }} min</span></header>
+                <ul *ngIf="session.exercisePrescriptionData?.exercises?.length; else plainPrescription">
+                  <li *ngFor="let exercise of session.exercisePrescriptionData.exercises">
+                    {{ exercise.exerciseNameSnapshot }} · {{ exercise.sets }} × {{ exercise.minRepetitions }}–{{ exercise.maxRepetitions }} reps
+                  </li>
+                </ul>
+                <ng-template #plainPrescription><p *ngIf="session.exercisePrescription">{{ session.exercisePrescription }}</p></ng-template>
+              </article>
+              <p *ngIf="!sessionsForPhase(phase).length" class="planner-note">El bloque está registrado, pero no se han encontrado sesiones en sus fechas.</p>
+            </div>
             <div class="planner-generation-actions">
               <button type="button" class="secondary" (click)="previewCurrentPhase()" [disabled]="previewLoading || generatingPhase || isPhaseGenerated(phase)">{{ previewLoading ? 'Calculando vista previa…' : 'Generar vista previa' }}</button>
               <button type="button" (click)="generateCurrentPhase()" [disabled]="!canGenerateCurrentPhase || generatingPhase">{{ generatingPhase ? 'Guardando bloque…' : 'Guardar este mesociclo' }}</button>
@@ -188,6 +210,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
   previewPhaseKey = '';
   acknowledgeWarnings = false;
   serverMesocycles: TrainingMesocycle[] = [];
+  serverSessions: any[] = [];
 
   constructor(private readonly state: PlannerWizardStateService, private readonly http: HttpClient) {}
 
@@ -279,6 +302,12 @@ export class TrainingPlannerWizardComponent implements OnInit {
     return this.draft.generatedPhaseKeys.includes(key) || this.serverMesocycles.some(meso =>
       String(meso.startDate).slice(0, 10) === phase.startDate && String(meso.endDate ?? '').slice(0, 10) === phase.endDate);
   }
+  sessionsForPhase(phase: PlannerWizardPhaseDraft): any[] {
+    return this.serverSessions.filter(session => {
+      const date = String(session.scheduledDate ?? '').slice(0, 10);
+      return date >= phase.startDate && date <= phase.endDate;
+    });
+  }
   get generatedCount(): number { return this.draft.phases.filter(phase => this.isPhaseGenerated(phase)).length; }
   get allPhasesGenerated(): boolean { return this.generatedCount === this.draft.phases.length; }
   get canGenerateCurrentPhase(): boolean {
@@ -289,8 +318,14 @@ export class TrainingPlannerWizardComponent implements OnInit {
 
   async refreshServerMesocycles(): Promise<void> {
     if (!this.draft.serverPlanId) return;
-    this.serverMesocycles = await firstValueFrom(this.http.get<TrainingMesocycle[]>(
-      `/api/training/plans/${this.draft.serverPlanId}/mesocycles`).pipe(timeout({ first: 15000 })));
+    const [mesocycles, sessions] = await Promise.all([
+      firstValueFrom(this.http.get<TrainingMesocycle[]>(
+        `/api/training/plans/${this.draft.serverPlanId}/mesocycles`).pipe(timeout({ first: 15000 }))),
+      firstValueFrom(this.http.get<any[]>(
+        `/api/training/plans/${this.draft.serverPlanId}/sessions`).pipe(timeout({ first: 15000 })))
+    ]);
+    this.serverMesocycles = mesocycles;
+    this.serverSessions = sessions;
     const known = new Set(this.draft.generatedPhaseKeys);
     for (const phase of this.draft.phases) {
       if (this.serverMesocycles.some(meso =>
@@ -299,6 +334,15 @@ export class TrainingPlannerWizardComponent implements OnInit {
     }
     this.draft.generatedPhaseKeys = [...known];
     this.persist();
+  }
+
+  selectPhase(index: number): void {
+    if (index < 0 || index >= this.draft.phases.length || this.previewLoading || this.generatingPhase) return;
+    this.currentPhaseIndex = index;
+    this.currentPreview = null;
+    this.previewPhaseKey = '';
+    this.acknowledgeWarnings = false;
+    this.mesocycleError = '';
   }
 
   private selectNextPendingPhase(): void {
@@ -395,7 +439,13 @@ export class TrainingPlannerWizardComponent implements OnInit {
     const phase = this.currentPhase;
     if (!phase || !this.canGenerateCurrentPhase || !this.draft.serverPlanId || this.generatingPhase) return;
     this.generatingPhase = true; this.mesocycleError = '';
-    const sequenceNumber = Math.max(0, ...this.serverMesocycles.map(meso => meso.sequenceNumber)) + 1;
+    const orderedPhases = [...this.draft.phases].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const sequenceNumber = orderedPhases.findIndex(item => this.phaseKey(item) === this.phaseKey(phase)) + 1;
+    if (sequenceNumber < 1) {
+      this.generatingPhase = false;
+      this.mesocycleError = 'No se ha podido determinar el orden de esta fase. Revisa las fechas antes de reintentar.';
+      return;
+    }
     try {
       await firstValueFrom(this.http.post(
         `/api/training/plans/${this.draft.serverPlanId}/generate-mesocycle`,
