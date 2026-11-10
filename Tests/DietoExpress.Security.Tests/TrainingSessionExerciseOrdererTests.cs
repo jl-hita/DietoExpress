@@ -1,4 +1,5 @@
 using Anguloso.Server.Logica;
+using System.Reflection;
 using Xunit;
 
 namespace DietoExpress.Security.Tests;
@@ -21,7 +22,7 @@ public sealed class TrainingSessionExerciseOrdererTests
             Prescription(row, 3)
         };
 
-        var result = TrainingSessionExerciseOrderer.Reorder(input, [bench, overhead, row], null);
+        var result = Reorder(input, [bench, overhead, row], null);
 
         Assert.Equal(new[] { "bench", "row", "overhead" }, result.Select(x => x.ExerciseId));
         Assert.Equal(new[] { 1, 2, 3 }, result.Select(x => x.Order));
@@ -46,7 +47,7 @@ public sealed class TrainingSessionExerciseOrdererTests
             Prescription(hinge, 4, sets: 4)
         };
 
-        var result = TrainingSessionExerciseOrderer.Reorder(input, [squat, legExtension, core, hinge], null);
+        var result = Reorder(input, [squat, legExtension, core, hinge], null);
 
         Assert.Equal(new[] { "squat", "hinge", "extension", "core" }, result.Select(x => x.ExerciseId));
         Assert.Equal(new[] { 3, 4, 2, 1 }, result.Select(x => x.Sets));
@@ -65,11 +66,27 @@ public sealed class TrainingSessionExerciseOrdererTests
         var input = new[] { Prescription(squat, 1), Prescription(back, 2), Prescription(chest, 3) };
         var preferences = new[] { new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Chest, Priority: 3) };
 
-        var first = TrainingSessionExerciseOrderer.Reorder(input, [squat, back, chest], preferences);
-        var second = TrainingSessionExerciseOrderer.Reorder(input, [squat, back, chest], preferences);
+        var first = Reorder(input, [squat, back, chest], preferences);
+        var second = Reorder(input, [squat, back, chest], preferences);
 
         Assert.Equal(new[] { "squat", "chest", "back" }, first.Select(x => x.ExerciseId));
         Assert.Equal(first.Select(x => x.ExerciseId), second.Select(x => x.ExerciseId));
+    }
+
+    private static IReadOnlyList<TrainingExercisePrescription> Reorder(
+        IReadOnlyList<TrainingExercisePrescription> exercises,
+        IEnumerable<TrainingExerciseCandidate> catalog,
+        IReadOnlyList<TrainingMuscleVolumeTarget>? preferences)
+    {
+        // The orderer is an implementation detail. Invoke it through reflection rather than
+        // widening its production visibility solely to satisfy a test in another assembly.
+        var ordererType = typeof(TrainingProgramGenerator).Assembly.GetType(
+            "Anguloso.Server.Logica.TrainingSessionExerciseOrderer",
+            throwOnError: true)!;
+        var method = ordererType.GetMethod("Reorder", BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException("TrainingSessionExerciseOrderer.Reorder was not found.");
+        var result = method.Invoke(null, new object?[] { exercises, catalog, preferences });
+        return Assert.IsAssignableFrom<IReadOnlyList<TrainingExercisePrescription>>(result);
     }
 
     private static TrainingExerciseCandidate Exercise(
