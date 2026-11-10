@@ -7,8 +7,9 @@ public sealed class TrainingMuscleFeedbackTests
 {
     private static TrainingMuscleFeedbackExposure E(
         int day, string id = "bench", string muscle = "Chest", int sets = 3,
-        string? stimulus = "adequate", string? discomfort = "none", string? pre = "recovered") =>
-        new(new DateOnly(2026, 11, day), id, [muscle], sets, stimulus, discomfort, pre);
+        string? stimulus = "adequate", string? discomfort = "none", string? pre = "recovered",
+        bool completed = true) =>
+        new(new DateOnly(2026, 11, day), id, [muscle], sets, stimulus, discomfort, pre, completed);
 
     private static readonly Dictionary<string, int> Planned = new() { ["Chest"] = 10 };
     private static readonly Dictionary<string, int> Ceiling = new() { ["Chest"] = 16 };
@@ -43,13 +44,64 @@ public sealed class TrainingMuscleFeedbackTests
     }
 
     [Fact]
+    public void MixedLowAndAdequateExercisesDoNotTriggerMuscleVolumeIncrease()
+    {
+        var result = Run(
+            E(2, "bench", stimulus: "low"),
+            E(2, "fly", sets: 2, stimulus: "adequate"),
+            E(4, "bench", stimulus: "low"),
+            E(4, "fly", sets: 2, stimulus: "adequate"));
+
+        Assert.DoesNotContain(result, decision => decision.Action == TrainingMuscleFeedbackAction.AddSet);
+    }
+
+    [Fact]
+    public void MissingExerciseFeedbackDoesNotCountAsLowStimulusEvidence()
+    {
+        var result = Run(
+            E(2, "bench", stimulus: "low"),
+            E(2, "fly", sets: 2, stimulus: null, discomfort: null, pre: null),
+            E(4, "bench", stimulus: "low"),
+            E(4, "fly", sets: 2, stimulus: null, discomfort: null, pre: null));
+
+        Assert.DoesNotContain(result, decision => decision.Action == TrainingMuscleFeedbackAction.AddSet);
+    }
+
+    [Fact]
+    public void HighStimulusAndLoadedPreFatigueMustBelongToTheSameExercise()
+    {
+        var result = Run(
+            E(2, "bench", stimulus: "high", pre: "recovered"),
+            E(2, "fly", sets: 2, stimulus: "adequate", pre: "loaded"),
+            E(4, "bench", stimulus: "high", pre: "recovered"),
+            E(4, "fly", sets: 2, stimulus: "adequate", pre: "loaded"));
+
+        Assert.DoesNotContain(result, decision => decision.Action == TrainingMuscleFeedbackAction.ReduceSet);
+    }
+
+    [Fact]
+    public void IncompleteLatestSessionCannotTriggerVolumeIncreaseOrReduction()
+    {
+        var add = Run(
+            E(2, stimulus: "low"),
+            E(4, stimulus: "low", completed: false));
+        Assert.DoesNotContain(add, decision => decision.Action == TrainingMuscleFeedbackAction.AddSet);
+
+        var reduce = Run(
+            E(2, stimulus: "high", pre: "loaded"),
+            E(4, stimulus: "high", pre: "loaded"),
+            E(6, stimulus: "high", pre: "loaded", completed: false));
+        Assert.DoesNotContain(reduce, decision => decision.Action == TrainingMuscleFeedbackAction.ReduceSet);
+    }
+
+    [Fact]
     public void HighStimulusWithAccumulatedFatigueRemovesOneSetButKeepsAtLeastOne()
     {
         var result = Run(E(2, stimulus: "high", pre: "loaded"), E(4, stimulus: "high", pre: "loaded", sets: 3), E(6));
         var reduce = Assert.Single(result);
         Assert.Equal(TrainingMuscleFeedbackAction.ReduceSet, reduce.Action);
         Assert.Empty(Run(E(2, stimulus: "high", pre: "loaded", sets: 1), E(4, stimulus: "high", pre: "loaded", sets: 1)));
-        Assert.Empty(Run(E(2, stimulus: "high", pre: "recovered"), E(4, stimulus: "high", pre: "recovered")));
+        Assert.Empty(Run(E(2, stimulus: "high", pre: "loaded"), E(4, stimulus: "high", pre: "recovered")));
     }
 
     [Fact]
