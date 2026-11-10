@@ -49,8 +49,8 @@ describe('PlannerWizardStateService', () => {
     expect(reset.currentStep).toBe(0);
     expect(reset.phases).toEqual([]);
     expect(reset.generatedPhaseKeys).toEqual([]);
-    expect(reset.serverMacrocycleSaved).toBeFalse();
-    expect(reset.serverSplitSaved).toBeFalse();
+    expect(reset.serverMacrocycleSaved).toBe(false);
+    expect(reset.serverSplitSaved).toBe(false);
     const stored = JSON.parse(sessionStorage.getItem('dietoexpress:training-planner:v1:client:7')!);
     expect(stored.serverPlanId).toBeNull();
     expect(stored.phases).toEqual([]);
