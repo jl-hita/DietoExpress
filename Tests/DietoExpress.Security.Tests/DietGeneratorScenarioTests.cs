@@ -10,6 +10,7 @@ namespace DietoExpress.Security.Tests;
 /// Escenarios deterministas con un catálogo de alimentos de prueba y el generador real.
 /// No sustituyen una validación con el catálogo de producción ni una revisión clínica.
 /// </summary>
+[Collection("DietaryProfileCatalog")]
 public sealed class DietGeneratorScenarioTests
 {
     [Theory]
@@ -262,7 +263,10 @@ public sealed class DietGeneratorScenarioTests
     private static List<foods> CreateCatalog()
     {
         var catalog = new List<foods>();
-        var id = 1;
+        // Mantener estos IDs fuera del rango de los alimentos reales y de los IDs reservados
+        // por FoodDietaryProfileIntegrationTests (9_000_001–9_000_004). El catálogo curado
+        // global se consulta por ID durante la generación vegana/vegetariana.
+        var id = 9_100_000;
 
         void Add(string name, string category, double kcal, double protein, double carbs, double fat)
         {
