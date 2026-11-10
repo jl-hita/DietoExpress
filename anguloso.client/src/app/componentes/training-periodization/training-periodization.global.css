@@ -78,3 +78,58 @@
   .training-page .training-assignment-overview>div.overview-stats{grid-template-columns:1fr}
   .training-page .macro-load-dashboard,.training-page .macro-volume-chart,.training-page .macro-chart-card,.training-page .macro-step{padding:12px}
 }
+
+/* Guided training planner wizard (PR1: local draft only). */
+.training-page .planner-wizard{display:grid;gap:20px;border-color:var(--border-color,#d8dee8);padding:clamp(16px,3vw,26px)}
+.training-page .planner-wizard-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.training-page .planner-wizard-header h2{margin:2px 0 6px}
+.training-page .planner-wizard-header p:not(.eyebrow){margin:0;color:var(--secondary-text-color,#687385);max-width:680px}
+.training-page .planner-close{flex:0 0 38px;min-height:38px;padding:4px;font-size:1.4rem}
+.training-page .planner-progress{display:grid;gap:12px}
+.training-page .planner-progress-track{height:6px;border-radius:99px;background:var(--surface-container,#edf0f4);overflow:hidden}
+.training-page .planner-progress-track span{display:block;height:100%;background:var(--primary-color,#0d9488);transition:width .2s ease}
+.training-page .planner-step-labels{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.training-page .planner-step-labels>span{display:flex;align-items:center;gap:7px;color:var(--secondary-text-color,#687385);font-size:.78rem}
+.training-page .planner-step-labels b{display:grid;place-items:center;flex:0 0 25px;height:25px;border:1px solid var(--border-color,#d8dee8);border-radius:50%;font-size:.75rem}
+.training-page .planner-step-labels .active{color:var(--primary-color,#0d766e);font-weight:700}
+.training-page .planner-step-labels .active b,.training-page .planner-step-labels .complete b{background:var(--primary-color,#0d766e);border-color:var(--primary-color,#0d766e);color:#fff}
+.training-page .planner-step{display:grid;gap:14px;max-width:850px}
+.training-page .planner-kicker{margin:0;color:var(--primary-color,#0d766e);font-size:.74rem;font-weight:800;letter-spacing:.08em}
+.training-page .planner-step h3{margin:-8px 0 0;font-size:1.45rem}
+.training-page .planner-intro{margin:-8px 0 4px;color:var(--secondary-text-color,#687385)}
+.training-page .planner-choice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.training-page .planner-choice{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid var(--border-color,#d8dee8);border-radius:12px;background:var(--surface-color,#fff);cursor:pointer}
+.training-page .planner-choice.selected{border-color:var(--primary-color,#0d766e);box-shadow:0 0 0 1px var(--primary-color,#0d766e)}
+.training-page .planner-choice input,.training-page .planner-days input,.training-page .planner-check input{accent-color:var(--primary-color,#0d766e);margin-top:3px}
+.training-page .planner-choice span{display:grid;gap:5px}
+.training-page .planner-choice small{color:var(--secondary-text-color,#687385);line-height:1.4}
+.training-page .planner-field{display:grid;gap:7px;max-width:440px;font-size:.9rem;font-weight:650}
+.training-page .planner-field input,.training-page .planner-field select{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--border-color,#c5ccd6);border-radius:9px;padding:11px;background:var(--surface-color,#fff);color:inherit;font:inherit}
+.training-page .planner-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.training-page .planner-days label{display:grid;justify-items:center;gap:7px;padding:12px 5px;border:1px solid var(--border-color,#d8dee8);border-radius:10px;background:var(--surface-color,#fff);cursor:pointer;font-size:.85rem}
+.training-page .planner-days label.selected{border-color:var(--primary-color,#0d766e);background:var(--surface-container,#eef7f4);font-weight:700}
+.training-page .planner-days input{margin:0}
+.training-page .planner-validation{margin:0;color:#a35c13;font-size:.84rem}
+.training-page .planner-inline-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.training-page .planner-range{display:flex;align-items:center;gap:14px}
+.training-page .planner-range input{flex:1;accent-color:var(--primary-color,#0d766e)}
+.training-page .planner-range strong{white-space:nowrap}
+.training-page .planner-check{display:flex;align-items:center;gap:8px;font-size:.9rem}
+.training-page .planner-block-preview{display:grid;gap:9px}
+.training-page .planner-block-preview article{display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px;border:1px solid var(--border-color,#d8dee8);border-radius:10px}
+.training-page .planner-block-preview article>span{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--surface-container,#edf0f4);font-weight:750}
+.training-page .planner-block-preview article div{display:grid;gap:4px}
+.training-page .planner-block-preview small{color:var(--secondary-text-color,#687385)}
+.training-page .planner-block-preview article>b{font-size:.82rem;white-space:nowrap}
+.training-page .planner-note{margin:0;padding:12px;border-left:3px solid var(--primary-color,#0d766e);background:var(--surface-container,#f7f8fa);font-size:.86rem}
+.training-page .planner-review{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px;margin:0}
+.training-page .planner-review div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-color,#e5e8ed)}
+.training-page .planner-review dt{color:var(--secondary-text-color,#687385)}
+.training-page .planner-review dd{margin:0;font-weight:650;text-align:right}
+.training-page .planner-draft-warning{display:grid;gap:4px;padding:14px;border:1px solid var(--border-color,#d8dee8);border-radius:10px;background:var(--surface-container,#f7f8fa)}
+.training-page .planner-draft-warning span{color:var(--secondary-text-color,#687385);font-size:.87rem}
+.training-page .planner-wizard-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:14px;border-top:1px solid var(--border-color,#e5e8ed)}
+.training-page .planner-wizard-footer>div{display:flex;gap:8px}
+.training-page .planner-save-status{color:var(--secondary-text-color,#687385);font-size:.8rem}
+@media(max-width:700px){.training-page .planner-choice-grid{grid-template-columns:1fr}.training-page .planner-step-labels small{display:none}.training-page .planner-step-labels>span{justify-content:center}.training-page .planner-inline-fields{grid-template-columns:1fr}.training-page .planner-review{grid-template-columns:1fr}}
+@media(max-width:480px){.training-page .planner-days{grid-template-columns:repeat(4,minmax(0,1fr))}.training-page .planner-wizard-footer{align-items:stretch;flex-direction:column}.training-page .planner-wizard-footer>div{display:grid;grid-template-columns:1fr 1fr}.training-page .planner-wizard-footer>div button:last-child:nth-child(1){grid-column:1/-1}.training-page .planner-save-status{min-height:1em}}
