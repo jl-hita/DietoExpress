@@ -52,17 +52,17 @@ import { PlannerWizardDraft, PlannerWizardPhaseDraft, PlannerWizardStateService 
           <p class="planner-intro">Selecciona los días disponibles. Podremos ajustar la distribución en la siguiente iteración del asistente.</p>
           <div class="planner-days" role="group" aria-label="Días disponibles">
             <label *ngFor="let day of dayOptions" [class.selected]="draft.trainingDays.includes(day.value)">
-              <input type="checkbox" [checked]="draft.trainingDays.includes(day.value)" (change)="toggleDay(day.value, $any($event.target).checked)">
+              <input type="checkbox" [checked]="draft.trainingDays.includes(day.value)" (change)="toggleDay(day.value, $any($event.target).checked)" [disabled]="!!draft.serverPlanId">
               <span>{{ day.label }}</span>
             </label>
           </div>
           <p class="planner-validation" *ngIf="draft.trainingDays.length < 2">Selecciona al menos dos días para continuar.</p>
           <div class="planner-inline-fields">
             <label class="planner-field">Duración máxima por sesión
-              <select [(ngModel)]="draft.sessionMinutes" (ngModelChange)="persist()"><option [ngValue]="45">45 minutos</option><option [ngValue]="60">60 minutos</option><option [ngValue]="75">75 minutos</option><option [ngValue]="90">90 minutos</option><option [ngValue]="120">120 minutos</option></select>
+              <select [(ngModel)]="draft.sessionMinutes" (ngModelChange)="persist()" [disabled]="!!draft.serverPlanId"><option [ngValue]="45">45 minutos</option><option [ngValue]="60">60 minutos</option><option [ngValue]="75">75 minutos</option><option [ngValue]="90">90 minutos</option><option [ngValue]="120">120 minutos</option></select>
             </label>
             <label class="planner-field">Distribución
-              <select [(ngModel)]="draft.split" (ngModelChange)="persist()"><option [ngValue]="0">Automática</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / pierna</option><option [ngValue]="3">Empuje / tirón / pierna</option></select>
+              <select [(ngModel)]="draft.split" (ngModelChange)="persist()" [disabled]="!!draft.serverPlanId"><option [ngValue]="0">Automática</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / pierna</option><option [ngValue]="3">Empuje / tirón / pierna</option></select>
             </label>
           </div>
         </section>
@@ -71,12 +71,12 @@ import { PlannerWizardDraft, PlannerWizardPhaseDraft, PlannerWizardStateService 
           <p class="planner-kicker">ETAPA 3 DE 5</p><h3>Define el macrociclo</h3>
           <p class="planner-intro">El servidor preparará una propuesta de fases editable. No se ejecuta el generador de rutinas.</p>
           <div class="planner-inline-fields">
-            <label class="planner-field">Nombre de la planificación<input [(ngModel)]="draft.planName" (ngModelChange)="persist()" maxlength="160" placeholder="Ej. Fuerza e hipertrofia · temporada 1"></label>
-            <label class="planner-field">Fecha de inicio<input type="date" [(ngModel)]="draft.startDate" (ngModelChange)="invalidateMacrocycle()"></label>
+            <label class="planner-field">Nombre de la planificación<input [(ngModel)]="draft.planName" (ngModelChange)="persist()" [disabled]="!!draft.serverPlanId" maxlength="160" placeholder="Ej. Fuerza e hipertrofia · temporada 1"></label>
+            <label class="planner-field">Fecha de inicio<input type="date" [(ngModel)]="draft.startDate" (ngModelChange)="invalidateMacrocycle()" [disabled]="!!draft.serverPlanId"></label>
           </div>
-          <label class="planner-field planner-weeks-field">Duración<div class="planner-range"><input type="range" min="4" max="52" step="1" [(ngModel)]="draft.durationWeeks" (ngModelChange)="invalidateMacrocycle()"><strong>{{ draft.durationWeeks }} semanas</strong></div></label>
-          <label class="planner-check"><input type="checkbox" [(ngModel)]="draft.includeDeload" (ngModelChange)="invalidateMacrocycle()"> Incluir semanas de descarga</label>
-          <label class="planner-field" *ngIf="draft.includeDeload">Intervalo entre descargas<select [(ngModel)]="draft.deloadEveryWeeks" (ngModelChange)="invalidateMacrocycle()"><option [ngValue]="4">4 semanas de trabajo</option><option [ngValue]="5">5 semanas de trabajo</option><option [ngValue]="6">6 semanas de trabajo</option><option [ngValue]="7">7 semanas de trabajo</option><option [ngValue]="8">8 semanas de trabajo</option></select></label>
+          <label class="planner-field planner-weeks-field">Duración<div class="planner-range"><input type="range" min="4" max="52" step="1" [(ngModel)]="draft.durationWeeks" (ngModelChange)="invalidateMacrocycle()" [disabled]="!!draft.serverPlanId"><strong>{{ draft.durationWeeks }} semanas</strong></div></label>
+          <label class="planner-check"><input type="checkbox" [(ngModel)]="draft.includeDeload" (ngModelChange)="invalidateMacrocycle()" [disabled]="!!draft.serverPlanId"> Incluir semanas de descarga</label>
+          <label class="planner-field" *ngIf="draft.includeDeload">Intervalo entre descargas<select [(ngModel)]="draft.deloadEveryWeeks" (ngModelChange)="invalidateMacrocycle()" [disabled]="!!draft.serverPlanId"><option [ngValue]="4">4 semanas de trabajo</option><option [ngValue]="5">5 semanas de trabajo</option><option [ngValue]="6">6 semanas de trabajo</option><option [ngValue]="7">7 semanas de trabajo</option><option [ngValue]="8">8 semanas de trabajo</option></select></label>
           <button type="button" class="secondary" (click)="buildMacrocycleProposal()" [disabled]="buildingProposal || !macrocycleInputValid">{{ buildingProposal ? 'Preparando propuesta…' : (draft.phases.length ? 'Actualizar propuesta de fases' : 'Proponer fases del macrociclo') }}</button>
           <p *ngIf="proposalError" class="planner-validation" role="alert">{{ proposalError }}</p>
           <p *ngIf="draft.phases.length" class="planner-note">Propuesta preparada: {{ draft.phases.length }} fases. Revísalas en el paso siguiente.</p>
@@ -89,12 +89,12 @@ import { PlannerWizardDraft, PlannerWizardPhaseDraft, PlannerWizardStateService 
           <article *ngFor="let phase of draft.phases; let i = index" class="planner-phase-editor">
             <header><strong>Fase {{ i + 1 }}</strong><button type="button" class="secondary" (click)="removePhase(i)" [disabled]="draft.phases.length <= 1 || saving">Eliminar</button></header>
             <div class="planner-inline-fields">
-              <label class="planner-field">Nombre<input [(ngModel)]="phase.name" (ngModelChange)="persist()" maxlength="160"></label>
-              <label class="planner-field">Tipo<select [(ngModel)]="phase.phaseType" (ngModelChange)="persist()"><option value="accumulation">Acumulación</option><option value="intensification">Intensificación</option><option value="deload">Descarga</option><option value="realization">Realización</option><option value="general">General</option></select></label>
-              <label class="planner-field">Inicio<input type="date" [(ngModel)]="phase.startDate" (ngModelChange)="persist()"></label>
-              <label class="planner-field">Fin<input type="date" [(ngModel)]="phase.endDate" (ngModelChange)="persist()"></label>
+              <label class="planner-field">Nombre<input [(ngModel)]="phase.name" (ngModelChange)="phaseChanged()" maxlength="160"></label>
+              <label class="planner-field">Tipo<select [(ngModel)]="phase.phaseType" (ngModelChange)="phaseChanged()"><option value="accumulation">Acumulación</option><option value="intensification">Intensificación</option><option value="deload">Descarga</option><option value="realization">Realización</option><option value="general">General</option></select></label>
+              <label class="planner-field">Inicio<input type="date" [(ngModel)]="phase.startDate" (ngModelChange)="phaseChanged()"></label>
+              <label class="planner-field">Fin<input type="date" [(ngModel)]="phase.endDate" (ngModelChange)="phaseChanged()"></label>
             </div>
-            <label class="planner-field">Objetivo<textarea [(ngModel)]="phase.objective" (ngModelChange)="persist()" rows="2" maxlength="500"></textarea></label>
+            <label class="planner-field">Objetivo<textarea [(ngModel)]="phase.objective" (ngModelChange)="phaseChanged()" rows="2" maxlength="500"></textarea></label>
           </article>
           <p *ngIf="phaseValidationMessage" class="planner-validation" role="alert">{{ phaseValidationMessage }}</p>
           <p class="planner-note">Las fases se guardarán como macrociclo. Los mesociclos y las rutinas se crearán en pasos posteriores.</p>
@@ -202,6 +202,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
   }
 
   invalidateMacrocycle(): void { this.draft.phases = []; this.draft.serverMacrocycleSaved = false; this.persist(); }
+  phaseChanged(): void { this.draft.serverMacrocycleSaved = false; this.persist(); }
 
   async buildMacrocycleProposal(): Promise<void> {
     if (!this.macrocycleInputValid || this.buildingProposal) return;
@@ -265,7 +266,9 @@ export class TrainingPlannerWizardComponent implements OnInit {
         this.draft.serverSplitSaved = true; this.persist();
       }
       this.savedLabel = 'Planificación guardada como borrador';
-      this.completed.emit(this.draft.serverPlanId!);
+      const completedPlanId = this.draft.serverPlanId!;
+      this.state.clear(this.clientId);
+      this.completed.emit(completedPlanId);
     } catch (error: any) {
       this.saveError = error?.error?.message || error?.error?.errors?.join?.(' ') || error?.message || 'No se pudo guardar. Puedes reintentar sin duplicar un plan ya confirmado.';
     } finally { this.saving = false; }
