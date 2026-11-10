@@ -71,7 +71,7 @@ public static class TrainingProgramGenerator
                     // product's default strength/hypertrophy routines. Direct core work is
                     // intentionally opt-in, so skip this optional template pattern without
                     // changing the remaining exercise-selection flow.
-                    if (pattern == TrainingMovementPattern.Core)
+                    if (pattern == TrainingMovementPattern.Core && !HasExplicitCorePriority(request.MuscleVolumeTargets))
                         continue;
 
                     var compatibleCandidates = catalog
@@ -369,6 +369,13 @@ public static class TrainingProgramGenerator
             }).ToArray()
         }).ToArray();
 
+    // A professional's explicit priority/target always overrides the default core exclusion.
+    private static bool HasExplicitCorePriority(IReadOnlyList<TrainingMuscleVolumeTarget>? preferences) =>
+        (preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
+            .Any(preference =>
+                preference.MuscleGroup is TrainingMuscleGroup.Abdominals or TrainingMuscleGroup.Obliques &&
+                (preference.Priority > 0 || preference.TargetWeeklyPrimarySets is not null));
+
     // Exclude only exercises whose reviewed primary targets are the abdominal wall.
     // Compounds that list abs/obliques as secondary muscles remain fully eligible.
     private static bool IsDirectCoreExercise(TrainingExerciseCandidate candidate) =>
@@ -662,7 +669,7 @@ public static class TrainingProgramGenerator
 
             var candidates = catalogCandidates
                 .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory
-                    && !IsDirectCoreExercise(candidate)
+                    && (HasExplicitCorePriority(request.MuscleVolumeTargets) || !IsDirectCoreExercise(candidate))
                     && (candidate.IsReviewed || candidate.IsOwnedByCurrentProfessional)
                     && IsAccessoryGoalCompatible(candidate, request.Goal)
                     && (int)candidate.MinimumExperience <= (int)request.Experience
