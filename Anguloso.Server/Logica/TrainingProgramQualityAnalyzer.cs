@@ -195,12 +195,11 @@ public static class TrainingProgramQualityAnalyzer
             }
 
             var isStrengthGoal = string.Equals(plan.Goal, "Strength", StringComparison.OrdinalIgnoreCase);
-            var isGeneralFitnessGoal = string.Equals(plan.Goal, "GeneralFitness", StringComparison.OrdinalIgnoreCase);
-            // ACSM 2026 found higher frequency (>=2 RT days/week) favorable for strength and
-            // cites general recommendations to strengthen all major muscle groups on 2+ days.
-            // For hypertrophy, frequency itself did not affect growth when volume was compared;
-            // do not label a once-weekly exposure as a hypertrophy quality defect.
-            if (isStrengthGoal || isGeneralFitnessGoal)
+            // ACSM 2026 identifies >=2 weekly sessions as a strength-enhancing variable.
+            // This per-muscle diagnostic is an internal review heuristic, not a universal minimum.
+            // Hypertrophy frequency itself did not affect growth when weekly volume was equated;
+            // general-fitness plans are not judged by a per-muscle frequency threshold here.
+            if (isStrengthGoal)
             {
                 foreach (var muscle in MajorMuscleFrequencyReviewMuscles)
                 {
@@ -209,12 +208,7 @@ public static class TrainingProgramQualityAnalyzer
                             exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups)
                             .Contains(muscle)));
                     if (effectiveFrequency is > 0 and < 2)
-                    {
-                        var guidance = isStrengthGoal
-                            ? "ACSM 2026 identifica entrenar al menos dos días por semana como una variable favorable para fuerza; esta alerta revisa la exposición del músculo y no impone una dosis universal."
-                            : "Las recomendaciones generales de fortalecimiento incluyen los grupos musculares principales al menos dos días por semana; esta alerta es orientativa y no bloquea la generación.";
-                        warnings.Add($"Semana {week}: {muscle} recibe estímulo efectivo en 1 sesión. {guidance} Revisa la distribución del split.");
-                    }
+                        warnings.Add($"Semana {week}: {muscle} recibe estímulo efectivo en 1 sesión. ACSM 2026 destaca al menos dos sesiones semanales de entrenamiento de fuerza; aplicar esa frecuencia a cada músculo es una heurística interna de revisión, no un mínimo universal ni una recomendación de frecuencia para hipertrofia. Revisa la distribución del split.");
                 }
             }
 
