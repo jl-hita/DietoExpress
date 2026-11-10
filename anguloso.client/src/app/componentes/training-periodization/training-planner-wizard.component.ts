@@ -81,6 +81,8 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
           <label class="planner-field" *ngIf="draft.includeDeload">Intervalo entre descargas<select [(ngModel)]="draft.deloadEveryWeeks" (ngModelChange)="invalidateMacrocycle()" [disabled]="!!draft.serverPlanId"><option [ngValue]="4">4 semanas de trabajo</option><option [ngValue]="5">5 semanas de trabajo</option><option [ngValue]="6">6 semanas de trabajo</option><option [ngValue]="7">7 semanas de trabajo</option><option [ngValue]="8">8 semanas de trabajo</option></select></label>
           <button type="button" class="secondary" (click)="buildMacrocycleProposal()" [disabled]="buildingProposal || !macrocycleInputValid || !!draft.serverPlanId">{{ buildingProposal ? 'Preparando propuesta…' : (draft.phases.length ? 'Actualizar propuesta de fases' : 'Proponer fases del macrociclo') }}</button>
           <p *ngIf="proposalError" class="planner-validation" role="alert">{{ proposalError }}</p>
+          <p *ngIf="saveError" class="planner-validation" role="alert">{{ saveError }}</p>
+          <p *ngIf="draft.creationUncertain" class="planner-validation" role="alert">No se ha podido confirmar si el servidor creó el plan. Comprueba la lista de planes antes de continuar; no reintentaremos para evitar duplicados.</p>
           <p *ngIf="draft.phases.length" class="planner-note">Propuesta preparada: {{ draft.phases.length }} fases. Revísalas aquí antes de continuar.</p>
           <div *ngIf="draft.phases.length" class="planner-phase-list">
             <h4>Fases propuestas · revisa antes de continuar</h4>
@@ -122,7 +124,8 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
             </div>
             <div *ngIf="currentPreview && previewPhaseKey === phaseKey(phase)" class="planner-preview-warnings">
               <strong>Revisión de calidad</strong>
-              <p *ngIf="!(currentPreview.qualityReport?.warnings?.length)">La vista previa no ha devuelto advertencias de calidad.</p>
+              <p *ngIf="!currentPreview.qualityReport" class="planner-validation">La vista previa no incluye un informe de calidad. No se permite guardar este bloque.</p>
+              <p *ngIf="currentPreview.qualityReport && !(currentPreview.qualityReport.warnings?.length)">La vista previa no ha devuelto advertencias de calidad.</p>
               <ul *ngIf="currentPreview.qualityReport?.warnings?.length"><li *ngFor="let warning of currentPreview.qualityReport?.warnings">{{ warning }}</li></ul>
               <label *ngIf="currentPreview.qualityReport?.warnings?.length" class="planner-check"><input type="checkbox" [(ngModel)]="acknowledgeWarnings"> He revisado los avisos y quiero guardar este borrador.</label>
             </div>
@@ -280,8 +283,8 @@ export class TrainingPlannerWizardComponent implements OnInit {
   get allPhasesGenerated(): boolean { return this.generatedCount === this.draft.phases.length; }
   get canGenerateCurrentPhase(): boolean {
     const phase = this.currentPhase;
-    if (!phase || !this.currentPreview || this.previewPhaseKey !== this.phaseKey(phase) || this.isPhaseGenerated(phase)) return false;
-    return !(this.currentPreview.qualityReport?.warnings?.length) || this.acknowledgeWarnings;
+    if (!phase || !this.currentPreview?.qualityReport || this.previewPhaseKey !== this.phaseKey(phase) || this.isPhaseGenerated(phase)) return false;
+    return !(this.currentPreview.qualityReport.warnings?.length) || this.acknowledgeWarnings;
   }
 
   async refreshServerMesocycles(): Promise<void> {
