@@ -96,6 +96,13 @@ export class PlannerWizardStateService {
     try { sessionStorage.removeItem(this.storageKey(clientId)); } catch { /* El borrador de sesión es opcional. */ }
   }
 
+  reset(clientId: number): PlannerWizardDraft {
+    this.clear(clientId);
+    const draft = this.createDefault();
+    this.save(clientId, draft);
+    return draft;
+  }
+
   clearIfPlanMatches(clientId: number, planId: number): void {
     if (typeof sessionStorage === 'undefined' || !Number.isInteger(planId) || planId <= 0) return;
     try {

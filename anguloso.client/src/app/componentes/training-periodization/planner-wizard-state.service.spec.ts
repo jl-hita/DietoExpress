@@ -26,6 +26,36 @@ describe('PlannerWizardStateService', () => {
     expect(sessionStorage.getItem('dietoexpress:training-planner:v1:client:7')).toBeNull();
   });
 
+  it('replaces an orphaned plan draft with a clean first-step draft', () => {
+    const draft = service.createDefault();
+    draft.currentStep = 3;
+    draft.serverPlanId = 9;
+    draft.serverMacrocycleSaved = true;
+    draft.serverSplitSaved = true;
+    draft.phases = [{
+      name: 'Fase antigua',
+      sequenceNumber: 1,
+      startDate: '2026-11-10',
+      endDate: '2026-12-07',
+      objective: 'Propuesta anterior',
+      phaseType: 'accumulation'
+    }];
+    draft.generatedPhaseKeys = ['2026-11-10|2026-12-07'];
+    service.save(7, draft);
+
+    const reset = service.reset(7);
+
+    expect(reset.serverPlanId).toBeNull();
+    expect(reset.currentStep).toBe(0);
+    expect(reset.phases).toEqual([]);
+    expect(reset.generatedPhaseKeys).toEqual([]);
+    expect(reset.serverMacrocycleSaved).toBe(false);
+    expect(reset.serverSplitSaved).toBe(false);
+    const stored = JSON.parse(sessionStorage.getItem('dietoexpress:training-planner:v1:client:7')!);
+    expect(stored.serverPlanId).toBeNull();
+    expect(stored.phases).toEqual([]);
+  });
+
   it('preserves a wizard draft when a different plan is deleted', () => {
     const draft = service.createDefault();
     draft.serverPlanId = 456;
