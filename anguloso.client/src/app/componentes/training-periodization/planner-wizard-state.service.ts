@@ -20,6 +20,7 @@ export interface PlannerWizardDraft {
   serverSplitSaved: boolean;
   creationInProgress: boolean;
   creationUncertain: boolean;
+  generatedPhaseKeys: string[];
 }
 
 export interface PlannerWizardPhaseDraft {
@@ -48,7 +49,7 @@ export class PlannerWizardStateService {
       includeDeload: true,
       deloadEveryWeeks: 4, phases: [], macrocycleName: 'Macrociclo principal',
       serverPlanId: null, serverMacrocycleSaved: false, serverSplitSaved: false,
-      creationInProgress: false, creationUncertain: false
+      creationInProgress: false, creationUncertain: false, generatedPhaseKeys: []
     };
   }
 
@@ -68,7 +69,8 @@ export class PlannerWizardStateService {
           ? [...new Set(parsed.trainingDays.filter(day => Number.isInteger(day) && day >= 0 && day <= 6))]
           : fallback.trainingDays,
         phases: Array.isArray(parsed.phases) ? parsed.phases.filter(phase => phase && typeof phase.name === 'string' && typeof phase.startDate === 'string' && typeof phase.endDate === 'string') : [],
-        serverPlanId: Number.isInteger(parsed.serverPlanId) && Number(parsed.serverPlanId) > 0 ? Number(parsed.serverPlanId) : null
+        serverPlanId: Number.isInteger(parsed.serverPlanId) && Number(parsed.serverPlanId) > 0 ? Number(parsed.serverPlanId) : null,
+        generatedPhaseKeys: Array.isArray(parsed.generatedPhaseKeys) ? parsed.generatedPhaseKeys.filter(key => typeof key === 'string') : []
       };
     } catch {
       return fallback;
