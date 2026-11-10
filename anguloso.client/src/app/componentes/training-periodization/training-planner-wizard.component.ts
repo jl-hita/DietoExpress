@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom, timeout } from 'rxjs';
 import { PlannerWizardDraft, PlannerWizardPhaseDraft, PlannerWizardStateService } from './planner-wizard-state.service';
@@ -212,13 +212,17 @@ export class TrainingPlannerWizardComponent implements OnInit {
   serverMesocycles: TrainingMesocycle[] = [];
   serverSessions: any[] = [];
 
-  constructor(private readonly state: PlannerWizardStateService, private readonly http: HttpClient) {}
+  constructor(
+    private readonly state: PlannerWizardStateService,
+    private readonly http: HttpClient,
+    private readonly changeDetector: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
     this.draft = this.state.load(this.clientId);
     if (this.draft.creationInProgress) { this.draft.creationInProgress = false; this.draft.creationUncertain = true; }
     this.persist();
-    if (this.draft.serverPlanId) void this.refreshServerMesocycles().then(() => { if (this.draft.currentStep === 3) this.selectNextPendingPhase(); }).catch(error => { this.mesocycleError = error?.error?.message || 'No se pudo recuperar el estado de los mesociclos guardados.'; });
+    if (this.draft.serverPlanId) void this.refreshServerMesocycles().then(() => { if (this.draft.currentStep === 3) this.selectNextPendingPhase(); }).catch(error => { this.mesocycleError = error?.error?.message || 'No se pudo recuperar el estado de los mesociclos guardados.'; this.changeDetector.detectChanges(); });
   }
 
   get validSplitDays(): boolean {
@@ -286,7 +290,12 @@ export class TrainingPlannerWizardComponent implements OnInit {
       this.persist();
     } catch (error: any) {
       this.proposalError = error?.error?.message || 'No se pudo preparar el macrociclo. Conservamos los datos para reintentarlo.';
-    } finally { this.buildingProposal = false; }
+    } finally {
+      this.buildingProposal = false;
+      // firstValueFrom resumes in a Promise continuation; explicitly refresh the wizard
+      // after the proposal has been applied so the new phases appear without a reload.
+      this.changeDetector.detectChanges();
+    }
   }
 
   removePhase(index: number): void {
@@ -334,6 +343,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
     }
     this.draft.generatedPhaseKeys = [...known];
     this.persist();
+    this.changeDetector.detectChanges();
   }
 
   selectPhase(index: number): void {
@@ -364,7 +374,10 @@ export class TrainingPlannerWizardComponent implements OnInit {
       this.persist();
     } catch (error: any) {
       this.saveError = error?.error?.message || error?.error?.errors?.join?.(' ') || error?.message || 'No se pudo preparar el plan. Puedes reintentar sin crear otro plan.';
-    } finally { this.saving = false; }
+    } finally {
+      this.saving = false;
+      this.changeDetector.detectChanges();
+    }
   }
 
   private async saveBasePlan(): Promise<void> {
@@ -432,7 +445,10 @@ export class TrainingPlannerWizardComponent implements OnInit {
       this.previewPhaseKey = this.phaseKey(phase);
     } catch (error: any) {
       this.mesocycleError = error?.error?.message || error?.error?.errors?.join?.(' ') || 'No se pudo calcular la vista previa de esta fase.';
-    } finally { this.previewLoading = false; }
+    } finally {
+      this.previewLoading = false;
+      this.changeDetector.detectChanges();
+    }
   }
 
   async generateCurrentPhase(): Promise<void> {
@@ -470,7 +486,10 @@ export class TrainingPlannerWizardComponent implements OnInit {
         }
       } catch { /* Keep the original actionable error. */ }
       this.mesocycleError = error?.error?.message || error?.error?.errors?.join?.(' ') || error?.message || 'No se pudo guardar el mesociclo. Revisa el estado antes de reintentar.';
-    } finally { this.generatingPhase = false; }
+    } finally {
+      this.generatingPhase = false;
+      this.changeDetector.detectChanges();
+    }
   }
 
   goToFinalReview(): void {
