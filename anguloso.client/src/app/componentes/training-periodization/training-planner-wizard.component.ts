@@ -30,6 +30,8 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
         </div>
       </div>
 
+      <p *ngIf="recoveryNotice" class="planner-note" role="status">{{ recoveryNotice }}</p>
+
       <div class="planner-wizard-body">
         <section *ngIf="draft.currentStep === 0" class="planner-step">
           <p class="planner-kicker">ETAPA 1 DE 5</p>
@@ -203,6 +205,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
   proposalError = '';
   saveError = '';
   mesocycleError = '';
+  recoveryNotice = '';
   previewLoading = false;
   generatingPhase = false;
   currentPhaseIndex = 0;
@@ -226,7 +229,24 @@ export class TrainingPlannerWizardComponent implements OnInit {
       if (this.draft.currentStep === 3) this.selectNextPendingPhase();
       // refreshServerMesocycles detects changes before this continuation selects the next phase.
       this.changeDetector.detectChanges();
-    }).catch(error => { this.mesocycleError = error?.error?.message || 'No se pudo recuperar el estado de los mesociclos guardados.'; this.changeDetector.detectChanges(); });
+    }).catch(error => {
+      if (error?.status === 404) {
+        // Older session drafts can outlive the server plan they reference (for example,
+        // when that plan was deleted before orphan-draft cleanup was introduced).
+        this.draft = this.state.reset(this.clientId);
+        this.serverMesocycles = [];
+        this.serverSessions = [];
+        this.currentPhaseIndex = 0;
+        this.currentPreview = null;
+        this.previewPhaseKey = '';
+        this.acknowledgeWarnings = false;
+        this.mesocycleError = '';
+        this.recoveryNotice = 'El plan asociado a este borrador ya no existe. Hemos descartado los datos antiguos y puedes empezar una planificación nueva.';
+      } else {
+        this.mesocycleError = error?.error?.message || 'No se pudo recuperar el estado de los mesociclos guardados. Conservamos el borrador para que puedas reintentarlo.';
+      }
+      this.changeDetector.detectChanges();
+    });
   }
 
   get validSplitDays(): boolean {
