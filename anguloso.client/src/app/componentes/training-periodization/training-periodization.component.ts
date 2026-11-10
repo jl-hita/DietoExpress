@@ -228,7 +228,7 @@ import {
           </form>
           <p *ngIf="plans.length === 0" class="muted">Todavía no hay planes de entrenamiento.</p>
           <article *ngFor="let plan of plans" class="plan-card" [id]="'training-plan-' + plan.id">
-            <div class="section-heading"><div><h3>{{ viewName(plan, 'plans.card') }}</h3><p>{{ plan.startDate | date:'mediumDate' }} <span *ngIf="plan.endDate">— {{ plan.endDate | date:'mediumDate' }}</span> · {{ modelLabel(plan.periodizationModel) }}</p></div><span class="status">{{ plan.status }}</span></div>
+            <div class="section-heading"><div><h3>{{ viewName(plan, 'plans.card') }}</h3><p>{{ plan.startDate | date:'mediumDate' }} <span *ngIf="plan.endDate">— {{ plan.endDate | date:'mediumDate' }}</span> · {{ modelLabel(plan.periodizationModel) }}</p></div><span class="status">{{ planStatusLabel(plan.status) }}</span></div>
             <p *ngIf="plan.notes">{{ plan.notes }}</p>
             <p *ngIf="plan.status === 'draft' && current.canManage && publishPlanReason(plan)" class="muted plan-publish-hint">{{ publishPlanReason(plan) }}</p>
             <div class="plan-card-actions" *ngIf="current.canManage">
@@ -253,7 +253,7 @@ import {
             </nav>
             <section *ngIf="!activePlanWorkspace[plan.id] || activePlanWorkspace[plan.id] === 'overview'" class="training-assignment-overview">
               <div class="overview-stats">
-                <div><strong>Planificación asignada</strong><p>{{ macrocyclePhases(plan).length ? 'Macrociclo con ' + macrocyclePhases(plan).length + ' fases' : 'Sin macrociclo definido' }}</p></div>
+                <div><strong>Estado del plan</strong><p>{{ macrocyclePhases(plan).length ? 'Macrociclo con ' + macrocyclePhases(plan).length + ' fases' : 'Sin macrociclo definido' }}</p></div>
                 <div><strong>{{ mesocycles[plan.id]?.length || 0 }}</strong><small>mesociclos</small></div>
                 <div><strong>{{ sessions[plan.id]?.length || 0 }}</strong><small>sesiones / rutinas</small></div>
               </div>
@@ -3713,6 +3713,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   }
 
   /** Siguiente paso recomendado del flujo macrociclo → mesociclos → rutinas. */
+  planStatusLabel(status: string): string {
+    return status === 'draft' ? 'Borrador' : status === 'active' ? 'Activo' : status === 'paused' ? 'Pausado' : status;
+  }
+
   canPublishPlan(plan: TrainingPlan): boolean {
     if (plan.status !== 'draft' || !this.sessions[plan.id] || !this.mesocycles[plan.id]) return false;
     if (!this.sessions[plan.id].length) return false;
