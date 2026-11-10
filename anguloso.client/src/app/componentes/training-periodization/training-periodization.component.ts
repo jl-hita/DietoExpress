@@ -200,7 +200,7 @@ import {
             <button type="button" class="secondary create-plan-toggle" (click)="showPlannerWizard = true; showCreatePlanForm = false; showQuickRoutineForm = false" [attr.aria-expanded]="showPlannerWizard">＋ Nueva planificación guiada</button>
             <button type="button" class="create-plan-toggle" (click)="showQuickRoutineForm = !showQuickRoutineForm; showCreatePlanForm = false" [attr.aria-expanded]="showQuickRoutineForm" [disabled]="trainingManagementMode !== 'self'">＋ Rutina sencilla</button>
           </div>
-          <app-training-planner-wizard *ngIf="showPlannerWizard" [clientId]="clientId" (close)="showPlannerWizard = false"></app-training-planner-wizard>
+          <app-training-planner-wizard *ngIf="showPlannerWizard" [clientId]="clientId" (close)="showPlannerWizard = false" (completed)="onPlannerCompleted($event)"></app-training-planner-wizard>
           <form *ngIf="showCreatePlanForm" (ngSubmit)="createPlan()" class="form-grid create-plan-form">
             <h3 class="full">¿Qué quieres planificar?</h3>
             <div class="full plan-type-choice">
@@ -2056,6 +2056,13 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   selectMacroPhase(planId: number, phaseId: number): void {
     this.selectedMacroPhaseId[planId] = phaseId;
     this.changeDetector.detectChanges();
+  }
+
+  onPlannerCompleted(planId: number): void {
+    this.showPlannerWizard = false;
+    this.activePlanWorkspace[planId] = 'macrocycle';
+    this.notice = 'Planificación creada como borrador. No se ha enviado ninguna notificación al cliente.';
+    this.load();
   }
 
   setPlanWorkspace(planId: number, workspace: 'overview' | 'macrocycle' | 'mesocycles' | 'routines'): void {

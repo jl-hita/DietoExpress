@@ -12,6 +12,19 @@ export interface PlannerWizardDraft {
   startDate: string;
   durationWeeks: number;
   includeDeload: boolean;
+  deloadEveryWeeks: number;
+  phases: PlannerWizardPhaseDraft[];
+  macrocycleName: string;
+  serverPlanId: number | null;
+  serverMacrocycleSaved: boolean;
+  serverSplitSaved: boolean;
+  creationInProgress: boolean;
+  creationUncertain: boolean;
+}
+
+export interface PlannerWizardPhaseDraft {
+  name: string; sequenceNumber: number; startDate: string; endDate: string; objective: string;
+  phaseType: 'accumulation' | 'intensification' | 'deload' | 'realization' | 'general';
 }
 
 @Injectable({ providedIn: 'root' })
@@ -32,7 +45,10 @@ export class PlannerWizardStateService {
       planName: '',
       startDate: localDate,
       durationWeeks: 12,
-      includeDeload: true
+      includeDeload: true,
+      deloadEveryWeeks: 4, phases: [], macrocycleName: 'Macrociclo principal',
+      serverPlanId: null, serverMacrocycleSaved: false, serverSplitSaved: false,
+      creationInProgress: false, creationUncertain: false
     };
   }
 
@@ -50,7 +66,9 @@ export class PlannerWizardStateService {
         currentStep: Math.min(4, Math.max(0, Number(parsed.currentStep) || 0)),
         trainingDays: Array.isArray(parsed.trainingDays)
           ? [...new Set(parsed.trainingDays.filter(day => Number.isInteger(day) && day >= 0 && day <= 6))]
-          : fallback.trainingDays
+          : fallback.trainingDays,
+        phases: Array.isArray(parsed.phases) ? parsed.phases.filter(phase => phase && typeof phase.name === 'string' && typeof phase.startDate === 'string' && typeof phase.endDate === 'string') : [],
+        serverPlanId: Number.isInteger(parsed.serverPlanId) && Number(parsed.serverPlanId) > 0 ? Number(parsed.serverPlanId) : null
       };
     } catch {
       return fallback;
@@ -67,6 +85,11 @@ export class PlannerWizardStateService {
     } catch {
       // La imposibilidad de guardar almacenamiento de sesión no debe bloquear el asistente.
     }
+  }
+
+  clear(clientId: number): void {
+    if (typeof sessionStorage === 'undefined') return;
+    try { sessionStorage.removeItem(this.storageKey(clientId)); } catch { /* El borrador de sesión es opcional. */ }
   }
 
   private storageKey(clientId: number): string {
