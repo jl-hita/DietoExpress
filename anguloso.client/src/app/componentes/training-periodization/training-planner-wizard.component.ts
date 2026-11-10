@@ -100,6 +100,32 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
 
 
 
+        <section *ngIf="draft.currentStep === 3" class="planner-step">
+          <p class="planner-kicker">ETAPA 4 DE 5</p><h3>Previsualiza y genera cada mesociclo</h3>
+          <p class="planner-intro">Cada fase se procesa por separado. Primero calculamos la vista previa con el historial disponible; solo después de revisar sus avisos podrás guardar el bloque.</p>
+          <div *ngIf="draft.serverPlanId" class="planner-note">Plan borrador {{ draft.serverPlanId }} · {{ serverMesocycles.length }} mesociclos guardados. Cada bloque generado permanece como borrador y requiere revisión profesional.</div>
+          <div *ngIf="draft.phases.length" class="planner-phase-progress"><span *ngFor="let phase of draft.phases; let i = index" [class.complete]="isPhaseGenerated(phase)" [class.current]="i === currentPhaseIndex">{{ i + 1 }}</span></div>
+          <article *ngIf="currentPhase as phase" class="planner-phase-editor">
+            <header><strong>{{ phase.name }}</strong><span>{{ phase.startDate | date:'dd/MM/yyyy' }} – {{ phase.endDate | date:'dd/MM/yyyy' }}</span></header>
+            <p>{{ phase.objective }}</p>
+            <p class="planner-note" *ngIf="isPhaseGenerated(phase)">Este mesociclo ya está guardado. No se volverá a generar.</p>
+            <div class="planner-generation-actions">
+              <button type="button" class="secondary" (click)="previewCurrentPhase()" [disabled]="previewLoading || generatingPhase || isPhaseGenerated(phase)">{{ previewLoading ? 'Calculando vista previa…' : 'Generar vista previa' }}</button>
+              <button type="button" (click)="generateCurrentPhase()" [disabled]="!canGenerateCurrentPhase || generatingPhase">{{ generatingPhase ? 'Guardando bloque…' : 'Guardar este mesociclo' }}</button>
+            </div>
+            <p *ngIf="currentPreview && previewPhaseKey === phaseKey(phase)" class="planner-note">Vista previa: {{ currentPreview.sessions.length }} sesiones en {{ currentPreview.durationWeeks }} semanas · motor {{ currentPreview.engineVersion }}</p>
+            <div *ngIf="currentPreview && previewPhaseKey === phaseKey(phase)" class="planner-preview-warnings">
+              <strong>Revisión de calidad</strong>
+              <p *ngIf="!(currentPreview.qualityReport?.warnings?.length)">La vista previa no ha devuelto advertencias de calidad.</p>
+              <ul *ngIf="currentPreview.qualityReport?.warnings?.length"><li *ngFor="let warning of currentPreview.qualityReport?.warnings">{{ warning }}</li></ul>
+              <label *ngIf="currentPreview.qualityReport?.warnings?.length" class="planner-check"><input type="checkbox" [(ngModel)]="acknowledgeWarnings"> He revisado los avisos y quiero guardar este borrador.</label>
+            </div>
+          </article>
+          <p *ngIf="mesocycleError" class="planner-validation" role="alert">{{ mesocycleError }}</p>
+          <p *ngIf="allPhasesGenerated" class="planner-note">Todas las fases tienen su mesociclo guardado. Puedes pasar a la revisión final.</p>
+          <p *ngIf="!allPhasesGenerated" class="planner-note">Puedes dejar fases pendientes y continuar; podrás generarlas más tarde desde la planificación.</p>
+        </section>
+
         <section *ngIf="draft.currentStep === 4" class="planner-step">
           <p class="planner-kicker">ETAPA 5 DE 5</p><h3>Revisión final</h3>
           <p class="planner-intro">Comprueba qué se ha guardado. No se envía ninguna notificación ni se activa el plan.</p>
@@ -181,7 +207,9 @@ export class TrainingPlannerWizardComponent implements OnInit {
       const phase = phases[i];
       if (!phase.name.trim() || !phase.startDate || !phase.endDate || phase.endDate < phase.startDate) return 'Revisa el nombre y las fechas de cada fase.';
       if (phase.startDate < this.draft.startDate || phase.endDate > this.macrocycleEndDate) return 'Todas las fases deben quedar dentro de las fechas del macrociclo.';
-      if (phase.phaseType === 'deload' && this.inclusiveDays(phase.startDate, phase.endDate) !== 7) return 'Cada fase de descarga debe durar exactamente siete días.';
+      const phaseDays = this.inclusiveDays(phase.startDate, phase.endDate);
+      if (phaseDays % 7 !== 0) return 'Cada fase debe durar un número exacto de semanas.';
+      if (phase.phaseType === 'deload' && phaseDays !== 7) return 'Cada fase de descarga debe durar exactamente siete días.';
       if (i > 0 && phase.startDate <= phases[i - 1].endDate) return 'Las fases no pueden solaparse.';
       if (i > 0 && phase.startDate !== this.addDays(phases[i - 1].endDate, 1)) return 'Las fases deben ser consecutivas, sin dejar días ni semanas sin planificar.';
     }
@@ -190,7 +218,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
   }
   get canContinue(): boolean {
     if (this.draft.currentStep === 1) return this.validSplitDays && this.draft.sessionMinutes >= 35 && this.draft.sessionMinutes <= 180;
-    if (this.draft.currentStep === 2 || this.draft.currentStep === 3) return this.macrocycleInputValid && !this.phaseValidationMessage;
+    if (this.draft.currentStep === 2) return this.macrocycleInputValid && !this.phaseValidationMessage;
     return true;
   }
   get canSave(): boolean { return this.validSplitDays && this.macrocycleInputValid && !!this.draft.phases.length && !this.phaseValidationMessage; }
@@ -235,51 +263,169 @@ export class TrainingPlannerWizardComponent implements OnInit {
     this.phaseChanged();
   }
 
-  async savePlan(): Promise<void> {
+  get currentPhase(): PlannerWizardPhaseDraft | null { return this.draft.phases[this.currentPhaseIndex] ?? null; }
+  phaseKey(phase: PlannerWizardPhaseDraft): string { return phase.startDate + '|' + phase.endDate; }
+  isPhaseGenerated(phase: PlannerWizardPhaseDraft): boolean {
+    const key = this.phaseKey(phase);
+    return this.draft.generatedPhaseKeys.includes(key) || this.serverMesocycles.some(meso =>
+      String(meso.startDate).slice(0, 10) === phase.startDate && String(meso.endDate ?? '').slice(0, 10) === phase.endDate);
+  }
+  get generatedCount(): number { return this.draft.phases.filter(phase => this.isPhaseGenerated(phase)).length; }
+  get allPhasesGenerated(): boolean { return this.generatedCount === this.draft.phases.length; }
+  get canGenerateCurrentPhase(): boolean {
+    const phase = this.currentPhase;
+    if (!phase || !this.currentPreview || this.previewPhaseKey !== this.phaseKey(phase) || this.isPhaseGenerated(phase)) return false;
+    return !(this.currentPreview.qualityReport?.warnings?.length) || this.acknowledgeWarnings;
+  }
+
+  async refreshServerMesocycles(): Promise<void> {
+    if (!this.draft.serverPlanId) return;
+    this.serverMesocycles = await firstValueFrom(this.http.get<TrainingMesocycle[]>(
+      `/api/training/plans/${this.draft.serverPlanId}/mesocycles`).pipe(timeout({ first: 15000 })));
+    const known = new Set(this.draft.generatedPhaseKeys);
+    for (const phase of this.draft.phases) {
+      if (this.serverMesocycles.some(meso =>
+        String(meso.startDate).slice(0, 10) === phase.startDate && String(meso.endDate ?? '').slice(0, 10) === phase.endDate))
+        known.add(this.phaseKey(phase));
+    }
+    this.draft.generatedPhaseKeys = [...known];
+    this.persist();
+  }
+
+  private selectNextPendingPhase(): void {
+    const next = this.draft.phases.findIndex(phase => !this.isPhaseGenerated(phase));
+    this.currentPhaseIndex = next >= 0 ? next : Math.max(0, this.draft.phases.length - 1);
+    this.currentPreview = null;
+    this.previewPhaseKey = '';
+    this.acknowledgeWarnings = false;
+  }
+
+  async prepareMesocycleStep(): Promise<void> {
     if (!this.canSave || this.saving || this.draft.creationUncertain) return;
     this.saving = true; this.saveError = '';
     try {
-      if (!this.draft.serverPlanId) {
-        this.draft.creationInProgress = true; this.persist();
-        try {
-          const created = await firstValueFrom(this.http.post<any>(`/api/training/clients/${this.clientId}/plans`, {
-            name: this.draft.planName.trim(), periodizationModel: 'custom', startDate: this.draft.startDate,
-            endDate: this.macrocycleEndDate, notes: 'Plan creado desde el asistente guiado. Pendiente de revisión y asignación profesional.',
-            notifyClient: false
-          }).pipe(timeout({ first: 20000 })));
-          this.draft.serverPlanId = created.id; this.draft.creationInProgress = false; this.draft.creationUncertain = false; this.persist();
-        } catch (error: any) {
-          this.draft.creationInProgress = false;
-          if (error?.status === 0 || error?.status >= 500 || !error?.status) this.draft.creationUncertain = true;
-          this.persist(); throw error;
-        }
-      }
-      const phases = [...this.draft.phases].sort((a, b) => a.startDate.localeCompare(b.startDate)).map((phase, i) => ({
-        name: phase.name.trim(), sequenceNumber: i + 1, startDate: phase.startDate, endDate: phase.endDate,
-        objective: phase.objective?.trim() || null, phaseType: phase.phaseType
-      }));
-      if (!this.draft.serverMacrocycleSaved) {
-        await firstValueFrom(this.http.put(`/api/training/plans/${this.draft.serverPlanId}/macrocycle`, {
-          name: this.draft.macrocycleName || this.draft.planName.trim(), periodizationModel: 'custom',
-          startDate: this.draft.startDate, endDate: this.macrocycleEndDate,
-          notes: 'Macrociclo generado y revisado en el asistente guiado.', phases
-        }).pipe(timeout({ first: 20000 })));
-        this.draft.serverMacrocycleSaved = true; this.persist();
-      }
-      if (!this.draft.serverSplitSaved) {
-        await firstValueFrom(this.http.post(`/api/training/plans/${this.draft.serverPlanId}/reorganize-split`, {
-          splitType: this.draft.split, trainingDays: this.draft.trainingDays, moves: []
-        }).pipe(timeout({ first: 20000 })));
-        this.draft.serverSplitSaved = true; this.persist();
-      }
-      this.savedLabel = 'Planificación guardada como borrador';
-      const completedPlanId = this.draft.serverPlanId!;
-      this.state.clear(this.clientId);
-      this.completed.emit(completedPlanId);
+      await this.saveBasePlan();
+      await this.refreshServerMesocycles();
+      this.selectNextPendingPhase();
+      this.draft.currentStep = 3;
+      this.persist();
     } catch (error: any) {
-      this.saveError = error?.error?.message || error?.error?.errors?.join?.(' ') || error?.message || 'No se pudo guardar. Puedes reintentar sin duplicar un plan ya confirmado.';
+      this.saveError = error?.error?.message || error?.error?.errors?.join?.(' ') || error?.message || 'No se pudo preparar el plan. Puedes reintentar sin crear otro plan.';
     } finally { this.saving = false; }
   }
+
+  private async saveBasePlan(): Promise<void> {
+    if (!this.draft.serverPlanId) {
+      this.draft.creationInProgress = true; this.persist();
+      try {
+        const created = await firstValueFrom(this.http.post<any>(`/api/training/clients/${this.clientId}/plans`, {
+          name: this.draft.planName.trim(), periodizationModel: 'custom', startDate: this.draft.startDate,
+          endDate: this.macrocycleEndDate, notes: 'Plan creado desde el asistente guiado. Pendiente de revisión y asignación profesional.',
+          notifyClient: false
+        }).pipe(timeout({ first: 20000 })));
+        this.draft.serverPlanId = created.id; this.draft.creationInProgress = false; this.draft.creationUncertain = false; this.persist();
+      } catch (error: any) {
+        this.draft.creationInProgress = false;
+        if (error?.status === 0 || error?.status >= 500 || !error?.status) this.draft.creationUncertain = true;
+        this.persist(); throw error;
+      }
+    }
+    const phases = [...this.draft.phases].sort((a, b) => a.startDate.localeCompare(b.startDate)).map((phase, i) => ({
+      name: phase.name.trim(), sequenceNumber: i + 1, startDate: phase.startDate, endDate: phase.endDate,
+      objective: phase.objective?.trim() || null, phaseType: phase.phaseType
+    }));
+    if (!this.draft.serverMacrocycleSaved) {
+      await firstValueFrom(this.http.put(`/api/training/plans/${this.draft.serverPlanId}/macrocycle`, {
+        name: this.draft.macrocycleName || this.draft.planName.trim(), periodizationModel: 'custom',
+        startDate: this.draft.startDate, endDate: this.macrocycleEndDate,
+        notes: 'Macrociclo generado y revisado en el asistente guiado.', phases
+      }).pipe(timeout({ first: 20000 })));
+      this.draft.serverMacrocycleSaved = true; this.persist();
+    }
+    if (!this.draft.serverSplitSaved) {
+      await firstValueFrom(this.http.post(`/api/training/plans/${this.draft.serverPlanId}/reorganize-split`, {
+        splitType: this.draft.split, trainingDays: this.draft.trainingDays, moves: []
+      }).pipe(timeout({ first: 20000 })));
+      this.draft.serverSplitSaved = true; this.persist();
+    }
+  }
+
+  private generationRequestFor(phase: PlannerWizardPhaseDraft): GenerationRequest {
+    return {
+      goal: this.draft.goal,
+      experience: this.draft.experience,
+      startDate: phase.startDate,
+      durationWeeks: this.inclusiveDays(phase.startDate, phase.endDate) / 7,
+      trainingDays: [...this.draft.trainingDays],
+      split: this.draft.split,
+      maximumSessionDurationMinutes: this.draft.sessionMinutes,
+      availableEquipment: [...new Set(this.draft.availableEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
+      excludedExerciseIds: [],
+      muscleVolumeTargets: [],
+      isDeload: phase.phaseType === 'deload'
+    };
+  }
+
+  async previewCurrentPhase(): Promise<void> {
+    const phase = this.currentPhase;
+    if (!phase || !this.draft.serverPlanId || this.previewLoading || this.isPhaseGenerated(phase)) return;
+    this.previewLoading = true; this.mesocycleError = ''; this.currentPreview = null; this.previewPhaseKey = '';
+    this.acknowledgeWarnings = false;
+    try {
+      this.currentPreview = await firstValueFrom(this.http.post<GeneratedProgram>(
+        `/api/training/generate-preview?planId=${this.draft.serverPlanId}`,
+        this.generationRequestFor(phase)
+      ).pipe(timeout({ first: 60000 })));
+      this.previewPhaseKey = this.phaseKey(phase);
+    } catch (error: any) {
+      this.mesocycleError = error?.error?.message || error?.error?.errors?.join?.(' ') || 'No se pudo calcular la vista previa de esta fase.';
+    } finally { this.previewLoading = false; }
+  }
+
+  async generateCurrentPhase(): Promise<void> {
+    const phase = this.currentPhase;
+    if (!phase || !this.canGenerateCurrentPhase || !this.draft.serverPlanId || this.generatingPhase) return;
+    this.generatingPhase = true; this.mesocycleError = '';
+    const sequenceNumber = Math.max(0, ...this.serverMesocycles.map(meso => meso.sequenceNumber)) + 1;
+    try {
+      await firstValueFrom(this.http.post(
+        `/api/training/plans/${this.draft.serverPlanId}/generate-mesocycle`,
+        {
+          name: phase.name.trim(), sequenceNumber, generation: this.generationRequestFor(phase),
+          notes: 'Generado desde el asistente guiado. Pendiente de revisión profesional antes de su activación.'
+        }
+      ).pipe(timeout({ first: 90000 })));
+      await this.refreshServerMesocycles();
+      this.draft.generatedPhaseKeys = [...new Set([...this.draft.generatedPhaseKeys, this.phaseKey(phase)])];
+      this.persist();
+      this.selectNextPendingPhase();
+      this.savedLabel = 'Mesociclo guardado como borrador';
+    } catch (error: any) {
+      // A timeout can happen after the transaction committed. Reconcile before offering a retry.
+      try {
+        await this.refreshServerMesocycles();
+        if (this.isPhaseGenerated(phase)) {
+          this.selectNextPendingPhase();
+          this.savedLabel = 'Mesociclo guardado; respuesta reconciliada';
+          return;
+        }
+      } catch { /* Keep the original actionable error. */ }
+      this.mesocycleError = error?.error?.message || error?.error?.errors?.join?.(' ') || error?.message || 'No se pudo guardar el mesociclo. Revisa el estado antes de reintentar.';
+    } finally { this.generatingPhase = false; }
+  }
+
+  goToFinalReview(): void {
+    if (this.generatingPhase || this.previewLoading) return;
+    this.draft.currentStep = 4; this.persist();
+  }
+
+  finish(): void {
+    if (!this.draft.serverPlanId || this.draft.creationUncertain) return;
+    const completedPlanId = this.draft.serverPlanId;
+    this.state.clear(this.clientId);
+    this.completed.emit(completedPlanId);
+  }
+
 
   private inclusiveDays(start: string, end: string): number {
     return Math.floor((Date.parse(end + 'T00:00:00Z') - Date.parse(start + 'T00:00:00Z')) / 86400000) + 1;
@@ -296,7 +442,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
   }
 
   previous(): void {
-    if (this.draft.currentStep > 0) {
+    if (this.draft.currentStep > 0 && !this.saving && !this.generatingPhase && !this.previewLoading) {
       this.draft.currentStep--;
       this.persist();
     }
@@ -314,5 +460,4 @@ export class TrainingPlannerWizardComponent implements OnInit {
     this.savedLabel = 'Borrador guardado en esta sesión';
   }
 
-  saveAndClose(): void { this.persist(); this.close.emit(); }
 }
