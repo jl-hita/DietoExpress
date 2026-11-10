@@ -45,11 +45,58 @@ public sealed class TrainingMuscleFeedbackTests
     [Fact]
     public void HighStimulusWithAccumulatedFatigueRemovesOneSetButKeepsAtLeastOne()
     {
-        var result = Run(E(2, stimulus: "high", pre: "loaded"), E(4, stimulus: "high", pre: "loaded", sets: 3), E(6));
+        var result = Run(E(2, stimulus: "high", pre: "loaded"), E(4, stimulus: "high", pre: "loaded", sets: 3), E(6, stimulus: "high", pre: "loaded"));
         var reduce = Assert.Single(result);
         Assert.Equal(TrainingMuscleFeedbackAction.ReduceSet, reduce.Action);
         Assert.Empty(Run(E(2, stimulus: "high", pre: "loaded", sets: 1), E(4, stimulus: "high", pre: "loaded", sets: 1)));
         Assert.Empty(Run(E(2, stimulus: "high", pre: "recovered"), E(4, stimulus: "high", pre: "recovered")));
+    }
+
+    [Fact]
+    public void LowStimulusAddsASetOnlyToTheExerciseThatReportedLowStimulus()
+    {
+        var result = Run(
+            E(2, "bench", sets: 3, stimulus: "low"),
+            E(4, "bench", sets: 3, stimulus: "low"),
+            E(4, "fly", sets: 1, stimulus: "adequate"));
+
+        var add = Assert.Single(result);
+        Assert.Equal(TrainingMuscleFeedbackAction.AddSet, add.Action);
+        Assert.Equal("bench", add.ExerciseId);
+    }
+
+    [Fact]
+    public void HighStimulusAndLoadedStateMustCoincideInAtLeastTwoRecentSessions()
+    {
+        var result = Run(
+            E(2, stimulus: "high", pre: "recovered"),
+            E(4, stimulus: "adequate", pre: "loaded"),
+            E(6, stimulus: "high", pre: "loaded"));
+
+        Assert.DoesNotContain(result, decision => decision.Action == TrainingMuscleFeedbackAction.ReduceSet);
+    }
+
+    [Fact]
+    public void HighAndLoadedSignalThatResolvedInLatestSessionDoesNotReduceVolume()
+    {
+        var result = Run(
+            E(2, stimulus: "high", pre: "loaded"),
+            E(4, stimulus: "high", pre: "loaded"),
+            E(6, stimulus: "high", pre: "recovered"));
+
+        Assert.DoesNotContain(result, decision => decision.Action == TrainingMuscleFeedbackAction.ReduceSet);
+    }
+
+    [Fact]
+    public void ReductionNeverTargetsAnUnflaggedExerciseOfTheSameMuscle()
+    {
+        var result = Run(
+            E(2, "bench", sets: 3, stimulus: "high", pre: "loaded"),
+            E(4, "bench", sets: 3, stimulus: "high", pre: "loaded"),
+            E(6, "bench", sets: 1, stimulus: "high", pre: "loaded"),
+            E(6, "fly", sets: 4, stimulus: "adequate", pre: "loaded"));
+
+        Assert.DoesNotContain(result, decision => decision.Action == TrainingMuscleFeedbackAction.ReduceSet);
     }
 
     [Fact]
