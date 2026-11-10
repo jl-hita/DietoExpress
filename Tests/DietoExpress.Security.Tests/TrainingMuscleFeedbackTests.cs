@@ -58,7 +58,7 @@ public sealed class TrainingMuscleFeedbackTests
         var result = Run(
             E(2, "bench", sets: 3, stimulus: "low"),
             E(4, "bench", sets: 3, stimulus: "low"),
-            E(4, "fly", sets: 1, stimulus: "adequate"));
+            E(4, "fly", sets: 5, stimulus: "low"));
 
         var add = Assert.Single(result);
         Assert.Equal(TrainingMuscleFeedbackAction.AddSet, add.Action);
