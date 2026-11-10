@@ -212,7 +212,11 @@ export class TrainingPlannerWizardComponent implements OnInit {
   serverMesocycles: TrainingMesocycle[] = [];
   serverSessions: any[] = [];
 
-  constructor(private readonly state: PlannerWizardStateService, private readonly http: HttpClient) {}
+  constructor(
+    private readonly state: PlannerWizardStateService,
+    private readonly http: HttpClient,
+    private readonly changeDetector: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
     this.draft = this.state.load(this.clientId);
