@@ -136,11 +136,6 @@ public static class TrainingProgramGenerator
                     request, catalog, equipment, excluded, sessions,
                     prescriptions, week, days[dayIndex], sessionTemplate.Title, days.Length);
 
-                // Reorder only after selection is complete. The first template lift remains fixed;
-                // the orderer is deterministic and never changes exercise selection, sets or volume.
-                prescriptions = TrainingSessionExerciseOrderer.Reorder(
-                    prescriptions, catalog, request.MuscleVolumeTargets).ToList();
-
                 // Final duration is calculated after weekly sets have been allocated.
                 sessions.Add(new TrainingSessionPrescription(
                     week,
@@ -157,7 +152,16 @@ public static class TrainingProgramGenerator
         if (!allocation.Succeeded)
             return new(null, allocation.Errors);
 
-        var sessionsWithWarmups = ApplyLoadReferences(AddWarmupGuidance(allocation.Sessions), request.LoadReferences);
+        // Allocate volume before reordering. The allocator resolves exact ties by the current
+        // exercise order; sorting earlier would silently move sets between exercises even though
+        // the orderer itself only changes Order. Apply presentation/fatigue-aware ordering only
+        // after weekly set allocation is complete.
+        var orderedAllocatedSessions = allocation.Sessions.Select(session => session with
+        {
+            Exercises = TrainingSessionExerciseOrderer.Reorder(
+                session.Exercises, catalog, request.MuscleVolumeTargets)
+        }).ToArray();
+        var sessionsWithWarmups = ApplyLoadReferences(AddWarmupGuidance(orderedAllocatedSessions), request.LoadReferences);
         var prescribedSessions = request.IsDeload
             ? ApplyConservativeDeload(sessionsWithWarmups)
             : ApplyIntraBlockProgression(sessionsWithWarmups, request.DurationWeeks, request.ContinuesPreviousBlock);
