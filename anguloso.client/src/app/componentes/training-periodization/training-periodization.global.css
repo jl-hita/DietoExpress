@@ -133,3 +133,7 @@
 .training-page .planner-save-status{color:var(--secondary-text-color,#687385);font-size:.8rem}
 @media(max-width:700px){.training-page .planner-choice-grid{grid-template-columns:1fr}.training-page .planner-step-labels small{display:none}.training-page .planner-step-labels>span{justify-content:center}.training-page .planner-inline-fields{grid-template-columns:1fr}.training-page .planner-review{grid-template-columns:1fr}}
 @media(max-width:480px){.training-page .planner-days{grid-template-columns:repeat(4,minmax(0,1fr))}.training-page .planner-wizard-footer{align-items:stretch;flex-direction:column}.training-page .planner-wizard-footer>div{display:grid;grid-template-columns:1fr 1fr}.training-page .planner-wizard-footer>div button:last-child:nth-child(1){grid-column:1/-1}.training-page .planner-save-status{min-height:1em}}
+
+.training-page .planner-phase-editor{display:grid;gap:12px;padding:14px;border:1px solid var(--border-color,#d8dee8);border-radius:12px;background:var(--surface-color,#fff)}
+.training-page .planner-phase-editor>header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.training-page .planner-phase-editor textarea{box-sizing:border-box;width:100%;border:1px solid var(--border-color,#c5ccd6);border-radius:9px;padding:10px;background:var(--surface-color,#fff);color:inherit;font:inherit;resize:vertical}
