@@ -96,6 +96,18 @@ export class PlannerWizardStateService {
     try { sessionStorage.removeItem(this.storageKey(clientId)); } catch { /* El borrador de sesión es opcional. */ }
   }
 
+  clearIfPlanMatches(clientId: number, planId: number): void {
+    if (typeof sessionStorage === 'undefined' || !Number.isInteger(planId) || planId <= 0) return;
+    try {
+      const raw = sessionStorage.getItem(this.storageKey(clientId));
+      if (!raw) return;
+      const draft = JSON.parse(raw) as Partial<PlannerWizardDraft>;
+      if (draft.serverPlanId === planId) sessionStorage.removeItem(this.storageKey(clientId));
+    } catch {
+      // A malformed optional session draft must not interfere with deleting a plan.
+    }
+  }
+
   private storageKey(clientId: number): string {
     return `dietoexpress:training-planner:v1:client:${clientId}`;
   }
