@@ -129,7 +129,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
     { value: 4, label: 'Jue' }, { value: 5, label: 'Vie' }, { value: 6, label: 'Sáb' }, { value: 0, label: 'Dom' }
   ];
   readonly Math = Math;
-  draft: PlannerWizardDraft = this.state.createDefault();
+  draft!: PlannerWizardDraft;
   savedLabel = 'Los cambios se guardan en esta sesión';
 
   constructor(private readonly state: PlannerWizardStateService) {}
