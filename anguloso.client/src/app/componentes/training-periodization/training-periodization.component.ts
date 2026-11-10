@@ -230,9 +230,11 @@ import {
           <article *ngFor="let plan of plans" class="plan-card" [id]="'training-plan-' + plan.id">
             <div class="section-heading"><div><h3>{{ viewName(plan, 'plans.card') }}</h3><p>{{ plan.startDate | date:'mediumDate' }} <span *ngIf="plan.endDate">— {{ plan.endDate | date:'mediumDate' }}</span> · {{ modelLabel(plan.periodizationModel) }}</p></div><span class="status">{{ plan.status }}</span></div>
             <p *ngIf="plan.notes">{{ plan.notes }}</p>
+            <p *ngIf="plan.status === 'draft' && current.canManage && publishPlanReason(plan)" class="muted plan-publish-hint">{{ publishPlanReason(plan) }}</p>
             <div class="plan-card-actions" *ngIf="current.canManage">
               <button type="button" class="secondary" (click)="viewPlan(plan)">Ver</button>
               <button type="button" class="secondary" (click)="beginEditPlan(plan)" [disabled]="saving">Editar</button>
+              <button *ngIf="plan.status === 'draft'" type="button" (click)="publishPlan(plan)" [disabled]="saving || !canPublishPlan(plan)">Publicar y notificar al cliente</button>
               <button type="button" class="secondary danger-action" (click)="deletePlan(plan)" [disabled]="saving">Eliminar</button>
             </div>
             <form *ngIf="editingPlanId === plan.id && planEditDraft as edit" class="form-grid plan-edit-form" (ngSubmit)="savePlan(plan)">
@@ -3711,6 +3713,40 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   }
 
   /** Siguiente paso recomendado del flujo macrociclo → mesociclos → rutinas. */
+  canPublishPlan(plan: TrainingPlan): boolean {
+    if (plan.status !== 'draft' || !this.sessions[plan.id] || !this.mesocycles[plan.id]) return false;
+    if (!this.sessions[plan.id].length) return false;
+    return this.mesocycles[plan.id].every(meso => meso.reviewStatus === 'reviewed');
+  }
+
+  publishPlanReason(plan: TrainingPlan): string {
+    if (plan.status !== 'draft') return '';
+    if (!this.sessions[plan.id] || !this.mesocycles[plan.id]) return 'Cargando sesiones y revisiones…';
+    if (!this.sessions[plan.id].length) return 'Añade al menos una sesión antes de publicar.';
+    const pending = this.mesocycles[plan.id].filter(meso => meso.reviewStatus !== 'reviewed').length;
+    if (pending) return pending === 1 ? 'Queda un mesociclo pendiente de revisión profesional.' : `Quedan ${pending} mesociclos pendientes de revisión profesional.`;
+    return 'Listo para publicar. El cliente recibirá un aviso y podrá consultar el plan activo.';
+  }
+
+  publishPlan(plan: TrainingPlan): void {
+    if (!this.canPublishPlan(plan) || this.saving) return;
+    if (!confirm(`¿Publicar «${plan.name}»? El plan pasará a estado activo y se notificará al cliente.`)) return;
+    this.saving = true;
+    this.error = '';
+    this.http.post<{ id: number; status: string; alreadyPublished: boolean }>(`/api/training/plans/${plan.id}/publish`, {}).subscribe({
+      next: result => {
+        this.plans = this.plans.map(item => item.id === plan.id ? { ...item, status: result.status } : item);
+        this.saving = false;
+        this.notice = result.alreadyPublished ? 'El plan ya estaba publicado.' : 'Plan publicado y notificación enviada al cliente.';
+        this.changeDetector.detectChanges();
+      },
+      error: e => {
+        this.error = e?.error?.message || 'No se pudo publicar el plan.';
+        this.saving = false;
+      }
+    });
+  }
+
   planNextStep(plan: TrainingPlan): { workspace: 'macrocycle' | 'mesocycles' | 'routines'; title: string; text: string; action: string } | null {
     const hasMacro = !!this.macrocyclePlans[plan.id]?.phases?.length;
     const mesoCount = this.mesocycles[plan.id]?.length || 0;
