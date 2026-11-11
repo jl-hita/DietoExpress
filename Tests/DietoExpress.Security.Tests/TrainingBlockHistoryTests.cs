@@ -77,7 +77,7 @@ public sealed class TrainingBlockHistoryTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Anguloso.sln"))) dir = dir.Parent;
         var controller = TrainingControllerSource.ReadAll().Replace("\r\n", "\n");
-        var ui = File.ReadAllText(Path.Combine(dir.FullName, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+        var ui = TrainingComponentSource.ReadAll();
 
         Assert.Equal(2, controller.Split("WithHistoryAsync(").Length - 1 - 1); // definición + 2 usos = 3 apariciones
         Assert.Contains("GetPreviousBlockAsync", controller);

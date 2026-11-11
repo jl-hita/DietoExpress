@@ -435,7 +435,7 @@ public sealed class ExerciseCatalogRegressionTests
     [Fact]
     public void ExerciseLibrary_LoadsFromPostgresAndEvaluationUsesCuratedRealExercises()
     {
-        var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+        var ui = TrainingComponentSource.ReadAll();
         var evaluation = File.ReadAllText(Path.Combine(RepoRoot, "Tests", "DietoExpress.Security.Tests", "TrainingGeneratorEvaluationReportTests.cs"));
 
         Assert.Contains("'/api/exercise-catalog?limit=100'", ui);

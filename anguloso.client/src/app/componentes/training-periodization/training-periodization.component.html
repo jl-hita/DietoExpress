@@ -1,0 +1,851 @@
+<main class="training-page">
+  <a *ngIf="clientId > 0" class="back-link" [routerLink]="['/clients', clientId]">← Volver al expediente</a>
+  <header><div><p class="eyebrow">MÓDULO OPCIONAL</p><h1>{{ clientId > 0 ? 'Planificación deportiva' : 'Entrenamientos y colaboraciones' }}</h1><p *ngIf="clientId > 0">Actívala solo para clientes que quieran trabajar objetivos de actividad física o entrenamiento.</p><p *ngIf="clientId === 0">Gestiona las invitaciones de colaboración. Para crear o consultar un plan, entra en la ficha del cliente y abre su sección de planificación deportiva.</p></div></header>
+  <p *ngIf="loading" role="status">{{ clientId > 0 ? 'Cargando planificación…' : 'Cargando invitaciones…' }}</p>
+  <p *ngIf="error" class="error" role="alert">{{ error }}</p>
+  <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
+  <section class="panel" *ngIf="clientId === 0 && diagnosticAccess" aria-label="Inventario de entrenamientos">
+    <div class="section-heading">
+      <div><h2>Todos los entrenamientos</h2><p>Inventario global de planes. Puedes abrir cada planificación, descargar su diagnóstico o eliminarla.</p></div>
+      <button type="button" class="secondary" (click)="loadDiagnosticPlans()" [disabled]="diagnosticPlansLoading">
+        {{ diagnosticPlansLoading ? 'Actualizando…' : 'Actualizar lista' }}
+      </button>
+    </div>
+    <p *ngIf="diagnosticPlansLoading" role="status">Cargando todos los entrenamientos…</p>
+    <p *ngIf="!diagnosticPlansLoading && !diagnosticPlans.length" class="muted">No hay planificaciones registradas.</p>
+    <div *ngIf="diagnosticPlans.length" class="diagnostic-plan-list">
+      <article *ngFor="let plan of diagnosticPlans" class="template-row diagnostic-plan-row">
+        <div class="adaptation-proposal-content">
+          <strong>{{ plan.name }} <span class="session-count">#{{ plan.id }}</span></strong>
+          <p>{{ plan.clientName }} · Cliente #{{ plan.clientId }} · {{ plan.startDate | date:'dd/MM/yyyy' }} — {{ plan.endDate ? (plan.endDate | date:'dd/MM/yyyy') : 'Sin fecha final' }}</p>
+          <p>{{ plan.status }} · {{ plan.mesocycleCount }} mesociclos · {{ plan.sessionCount }} sesiones · {{ plan.recordCount }} registros</p>
+          <small *ngIf="!plan.profileEnabled || plan.clientArchived" class="muted">Perfil desactivado o cliente archivado</small>
+        </div>
+        <div class="cycle-actions">
+          <a [routerLink]="['/clients', plan.clientId, 'training']">Abrir</a>
+          <button type="button" class="secondary" (click)="exportTestPlan(plan)" [disabled]="diagnosticExportingPlanId === plan.id">
+            {{ diagnosticExportingPlanId === plan.id ? 'Generando…' : 'Descargar PDF' }}
+          </button>
+          <button type="button" class="secondary" (click)="deleteDiagnosticPlan(plan)" [disabled]="diagnosticDeletingPlanId === plan.id">
+            {{ diagnosticDeletingPlanId === plan.id ? 'Eliminando…' : 'Eliminar' }}
+          </button>
+        </div>
+      </article>
+    </div>
+  </section>
+  <app-training-review-requests-panel *ngIf="clientId > 0 && profile?.enabled && profile.canManage && !loading"
+    [clientId]="clientId" [highlightRequestId]="deepLinkRequestId" (openPlan)="openPlanFromRequest($event)"></app-training-review-requests-panel>
+  <section class="panel adaptation-review-panel" *ngIf="clientId > 0 && profile?.enabled && profile.canManage && !loading">
+    <div class="section-heading"><div><h2>Revisión de adaptación por feedback</h2><p>Las recomendaciones del paciente no cambian el plan hasta que las revises. Las sesiones pasadas nunca se modifican.</p></div><span class="status">{{ adaptationProposals.length }} pendientes</span></div>
+    <p *ngIf="!adaptationProposals.length" class="muted">No hay propuestas pendientes. Cuando el paciente registre feedback relevante, aparecerá aquí para su revisión.</p>
+    <article *ngFor="let proposal of adaptationProposals" class="template-row adaptation-proposal-row">
+      <div class="adaptation-proposal-content">
+        <strong>{{ adaptationActionLabel(proposal.action) }}</strong>
+        <p>{{ proposal.sessionTitle }} · {{ proposal.sessionDate | date:'dd/MM/yyyy' }} · {{ proposal.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
+        <p>{{ proposal.explanation }}</p>
+        <small *ngIf="proposal.action === 'review_and_reduce_training_stress'">Solo se proponen reducciones cuando hay señales repetidas de fatiga en un ejercicio concreto. Revisa la evidencia y selecciona los ejercicios que quieras adaptar.</small>
+        <div *ngIf="proposal.action === 'review_and_reduce_training_stress'" class="adaptation-exercise-picker">
+          <p *ngIf="!proposal.exerciseVolumeRecommendations?.length">No hay registros por ejercicio suficientes para proponer una reducción específica. No se recortará volumen de forma global.</p>
+          <label *ngFor="let recommendation of proposal.exerciseVolumeRecommendations">
+            <input *ngIf="recommendation.action === 'ProposeReduceOneSet'" type="checkbox"
+              [checked]="isAdaptationExerciseSelected(proposal.id, recommendation.exerciseId)"
+              (change)="toggleAdaptationExercise(proposal.id, recommendation.exerciseId, $any($event.target).checked)" />
+            <span *ngIf="recommendation.action === 'ProposeReduceOneSet'">
+              {{ recommendation.exerciseId }} — {{ recommendation.explanation }}
+            </span>
+            <span *ngIf="recommendation.action !== 'ProposeReduceOneSet'">
+              {{ recommendation.exerciseId }} — {{ recommendation.explanation }}
+            </span>
+          </label>
+        </div>
+        <small *ngIf="proposal.action === 'hold_progression_and_review'">Al aprobar: pausa la progresión en sesiones futuras no realizadas.</small>
+        <small *ngIf="proposal.action === 'pause_affected_exercise_and_review'">Por seguridad no se reanuda automáticamente el ejercicio asociado al dolor; requiere ajuste profesional explícito.</small>
+        <label>Nota de revisión (opcional)<textarea [name]="'adaptationReviewNotes' + proposal.id" [(ngModel)]="adaptationReviewNotes[proposal.id]" rows="2" maxlength="2000" placeholder="Motivo de la decisión o ajustes manuales pendientes"></textarea></label>
+      </div>
+      <div class="cycle-actions">
+        <button type="button" (click)="reviewAdaptationProposal(proposal, 'approved')" [disabled]="saving">Revisar y aprobar</button>
+        <button type="button" class="secondary" (click)="reviewAdaptationProposal(proposal, 'rejected')" [disabled]="saving">Rechazar</button>
+      </div>
+    </article>
+  </section>
+  <p *ngIf="acceptedClientId" role="status">Colaboración aceptada. <a [routerLink]="['/clients', acceptedClientId, 'training']">Abrir el entrenamiento</a></p>
+  <section class="panel template-library" *ngIf="!loading">
+    <div class="section-heading"><div><h2>Plantillas de entrenamiento</h2><p>Guarda planes como modelos reutilizables y aplícalos a otros clientes sin alterar el original.</p></div><span class="status">{{ trainingTemplates.length }} plantillas</span></div>
+    <p *ngIf="!trainingTemplates.length" class="muted">Todavía no tienes plantillas. Abre un plan de un cliente y pulsa «Guardar como plantilla» para empezar tu biblioteca.</p>
+    <article *ngFor="let template of trainingTemplates" class="template-row">
+      <div><strong>{{ viewName(template, 'trainingTemplates.template') }}</strong><p>{{ modelLabel(template.periodizationModel) }} · {{ template.sessionCount }} sesiones · {{ template.createdAt | date:'mediumDate' }}</p><small *ngIf="template.notes">{{ template.notes }}</small></div>
+      <span class="template-chip">Reutilizable</span>
+    </article>
+    <form *ngIf="clientId > 0 && profile?.enabled && profile.canManage && trainingTemplates.length" class="form-grid template-apply" (ngSubmit)="createPlanFromTemplate()">
+      <h3 class="full">Crear un plan a partir de una plantilla</h3>
+      <label>Plantilla<select name="selectedTrainingTemplate" [(ngModel)]="selectedTemplateId" required><option [ngValue]="null" disabled>Selecciona una plantilla</option><option *ngFor="let template of trainingTemplates" [ngValue]="template.id">{{ viewName(template, 'trainingTemplates.template') }} · {{ template.sessionCount }} sesiones</option></select></label>
+      <label>Nombre del nuevo plan<input name="templatePlanName" [(ngModel)]="templatePlanName" required maxlength="160" placeholder="Ej. Fuerza · bloque inicial" /></label>
+      <label>Fecha de inicio<input type="text" appDateInput name="templateStartDate" [(ngModel)]="templateStartDate" required /></label>
+      <div class="full"><button type="submit" [disabled]="saving || selectedTemplateId === null">Crear plan desde plantilla</button></div>
+    </form>
+  </section>
+  <section *ngIf="clientId === 0 && !loading" class="panel standalone-session-template-panel">
+    <div class="section-heading"><div><h2>Crear plantilla de sesión</h2><p>Diseña aquí una sesión de gimnasio reutilizable, sin tener que abrir antes el expediente de un cliente ni crear una sesión en su calendario.</p></div><span class="status">{{ sessionTemplates.length }} plantillas</span></div>
+    <form class="standalone-session-template-form" (ngSubmit)="saveStandaloneSessionTemplate()">
+      <label>Nombre de la plantilla<input name="standaloneSessionTemplateName" [(ngModel)]="standaloneSessionTemplateDraft.name" required maxlength="160" placeholder="Ej. Torso A · hipertrofia" /></label>
+      <div class="standalone-session-template-fields">
+        <label>Tipo de sesión<select name="standaloneSessionTemplateType" [(ngModel)]="standaloneSessionTemplateDraft.type"><option value="strength">Fuerza / gimnasio</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">Entrenamiento general</option><option value="other">Otro</option></select></label>
+        <label>Duración (minutos)<input name="standaloneSessionTemplateDuration" type="number" [(ngModel)]="standaloneSessionTemplateDraft.duration" required min="1" max="1440" /></label>
+        <label>Intensidad objetivo<input name="standaloneSessionTemplateIntensity" [(ngModel)]="standaloneSessionTemplateDraft.intensity" maxlength="120" placeholder="Ej. RPE 7 · moderada-alta" /></label>
+      </div>
+      <section class="exercise-library standalone-exercise-library" aria-label="Biblioteca de ejercicios para la plantilla">
+        <div class="section-heading"><div><p class="eyebrow">BIBLIOTECA DE EJERCICIOS</p><h3>Construye la sesión con ejercicios del catálogo</h3><p>Busca por nombre, grupo muscular, objetivo o material y añade cada ejercicio a la prescripción.</p></div><span class="session-count">{{ filteredExercises.length }} ejercicios</span></div>
+        <div class="exercise-filters">
+          <label>Buscar<input name="standaloneExerciseSearch" [(ngModel)]="exerciseSearch" (ngModelChange)="loadExpandedExerciseCatalog()" placeholder="Ej. sentadilla, remo, movilidad…" /></label>
+          <label>Objetivo<select name="standaloneExerciseGoal" [(ngModel)]="exerciseGoalFilter"><option value="all">Todos</option><option value="strength">Fuerza</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="core">Core</option></select></label>
+          <label>Material<select name="standaloneExerciseEquipment" [(ngModel)]="exerciseEquipmentFilter"><option value="all">Todo el material</option><option value="bodyweight">Peso corporal</option><option value="dumbbell">Mancuernas</option><option value="barbell">Barra</option><option value="machine">Máquina</option><option value="band">Bandas</option><option value="cardio">Cardio</option></select></label>
+          <label>Grupo muscular<select name="standaloneExerciseMuscle" [(ngModel)]="exerciseMuscleFilter"><option value="all">Todos los grupos</option><option *ngFor="let muscle of exerciseMuscleGroups" [ngValue]="muscle">{{ muscle }}</option></select></label>
+        </div>
+        <div class="prescription-quick-settings" aria-label="Prescripción para el próximo ejercicio">
+          <label>Series<input type="number" name="standaloneExerciseSets" [(ngModel)]="standaloneExerciseSets" min="1" max="20" /></label>
+          <label>Repeticiones<input name="standaloneExerciseReps" [(ngModel)]="standaloneExerciseReps" maxlength="30" placeholder="8–12" /></label>
+          <label>Descanso<input name="standaloneExerciseRest" [(ngModel)]="standaloneExerciseRest" maxlength="30" placeholder="90 s" /></label>
+          <p>Estos valores se aplican al próximo ejercicio de fuerza o core; después puedes ajustarlos individualmente en la prescripción.</p>
+        </div>
+        <div class="exercise-results standalone-exercise-results">
+          <article *ngFor="let exercise of filteredExercises.slice(0, 80)" class="exercise-result">
+            <img *ngIf="exercise.imageUrl" class="exercise-thumb" [src]="exercise.imageUrl" [alt]="'Ilustración de ' + viewName(exercise, 'exercise.imageAlt')" loading="lazy" />
+            <div><strong>{{ viewName(exercise, 'exercise.result') }}</strong><p>{{ exercise.muscles }} · {{ exercise.equipmentLabel }}</p><small>{{ exercise.instructions }}</small><small *ngIf="exercise.source === 'repdb'" class="exercise-source">Biblioteca RepDB</small></div>
+            <button type="button" class="secondary" (click)="addExerciseToStandaloneDraft(exercise)" [disabled]="saving">＋ Añadir</button>
+          </article>
+          <p *ngIf="!filteredExercises.length" class="muted">No hay ejercicios con esos filtros. Prueba otra búsqueda.</p>
+          <p *ngIf="filteredExercises.length > 80" class="muted">Mostrando los primeros 80 resultados. Refina la búsqueda para encontrar otros ejercicios.</p>
+        </div>
+        <p class="exercise-attribution">Datos e ilustraciones ampliados: <a href="https://repdb.co" target="_blank" rel="noopener noreferrer">Exercise data by RepDB</a>. Si el catálogo externo no está disponible, se muestra la biblioteca básica.</p>
+      </section>
+      <label>Ejercicios y prescripción<textarea name="standaloneSessionTemplateExercises" [(ngModel)]="standaloneSessionTemplateDraft.exercisePrescription" rows="7" maxlength="12000" placeholder="Añade ejercicios desde la biblioteca o escribe aquí series, repeticiones, cargas y descansos…"></textarea></label>
+      <div *ngIf="muscleSetSummary(standaloneSessionTemplateDraft.exercisePrescription).length" class="muscle-set-summary"><strong>Resumen de series por grupo muscular</strong><span *ngFor="let item of muscleSetSummary(standaloneSessionTemplateDraft.exercisePrescription)">{{ item.muscle }}: {{ item.sets }} series</span><small>Cuenta las series prescritas de los ejercicios reconocidos en el catálogo; un ejercicio puede contribuir a varios grupos musculares.</small></div>
+      <label>Instrucciones y notas<textarea name="standaloneSessionTemplateInstructions" [(ngModel)]="standaloneSessionTemplateDraft.instructions" rows="3" maxlength="6000" placeholder="Calentamiento, técnica, progresión, adaptaciones…"></textarea></label>
+      <div class="standalone-session-template-actions"><p class="muted">La plantilla se guardará en tu biblioteca y podrás aplicarla al programar sesiones en cualquier plan que gestiones.</p><button type="submit" [disabled]="saving || !standaloneSessionTemplateDraft.name.trim() || (!standaloneSessionTemplateDraft.exercisePrescription.trim() && !standaloneSessionTemplateDraft.instructions.trim())">Guardar plantilla de sesión</button></div>
+    </form>
+    <div class="standalone-session-template-library">
+      <h3>Mi biblioteca de plantillas de sesión</h3>
+      <p *ngIf="!sessionTemplates.length" class="muted">Todavía no hay plantillas de sesión guardadas.</p>
+      <article *ngFor="let template of sessionTemplates" class="template-row">
+        <div><strong>{{ viewName(template, 'trainingTemplates.template') }}</strong><p>{{ sessionTypeLabel(template.sessionType) }}<span *ngIf="template.durationMinutes"> · {{ template.durationMinutes }} min</span><span *ngIf="template.intensityTarget"> · {{ template.intensityTarget }}</span></p><small *ngIf="template.exercisePrescription">{{ template.exercisePrescription }}</small><small *ngIf="template.instructions">{{ template.instructions }}</small></div>
+        <button type="button" class="secondary" (click)="deleteSessionTemplate(template)" [disabled]="saving" [attr.aria-label]="'Eliminar plantilla ' + viewName(template, 'sessionTemplates.deleteLabel')">Eliminar</button>
+      </article>
+    </div>
+  </section>
+  <section *ngIf="clientId === 0 && !invitations.length && !loading" class="panel">
+    <h2>No tienes invitaciones pendientes</h2>
+    <p>Aquí aparecerán las invitaciones de colaboración pendientes. Para crear un plan de entrenamiento o revisar el de un cliente, abre su ficha y entra en «Planificación deportiva».</p>
+    <a class="back-link" routerLink="/clients">Ir a clientes →</a>
+  </section>
+  <section *ngIf="invitations.length" class="panel">
+    <h2>Invitaciones de colaboración</h2>
+    <p>Revisa las solicitudes de acceso al entrenamiento de otros profesionales. Solo tendrás acceso de lectura.</p>
+    <article *ngFor="let invitation of invitations" class="collaboration-row">
+      <div><strong>{{ invitation.clientName }}</strong><p>Invita: {{ invitation.invitedBy }} · {{ invitation.createdAt | date:'mediumDate' }}</p></div>
+      <button type="button" (click)="acceptInvitation(invitation)" [disabled]="saving">Aceptar invitación</button>
+    </article>
+  </section>
+  <section *ngIf="clientId > 0 && !loading && !profile && !loadFailed" class="panel">
+    <h2>Este cliente no utiliza el módulo deportivo</h2>
+    <p>La planificación deportiva es opcional. Activarla no modifica el plan nutricional ni obliga al cliente a entrenar.</p>
+    <button type="button" (click)="activate()" [disabled]="saving">Activar para este cliente</button>
+  </section>
+  <ng-container *ngIf="profile as current">
+    <section class="panel">
+      <div class="section-heading"><div><h2>Perfil deportivo</h2><p>El expediente nutricional permanece disponible aunque desactives este módulo.</p></div><button *ngIf="current.canManage" type="button" class="secondary" (click)="toggleEnabled()" [disabled]="saving">{{ current.enabled ? 'Desactivar módulo' : 'Reactivar módulo' }}</button></div>
+      <div class="form-grid">
+        <label>Objetivo principal<select [(ngModel)]="current.primaryGoal" [disabled]="!current.canManage" name="primaryGoal"><option value="endurance">Resistencia</option><option value="strength">Fuerza</option><option value="hypertrophy">Hipertrofia</option><option value="weight_loss">Pérdida de peso</option><option value="health">Salud</option><option value="general_fitness">Condición física general</option><option value="other">Otro</option></select></label>
+        <label>Experiencia<select [(ngModel)]="current.experienceLevel" [disabled]="!current.canManage" name="experience"><option value="beginner">Principiante</option><option value="intermediate">Intermedio</option><option value="advanced">Avanzado</option><option value="unknown">Sin evaluar</option></select></label>
+        <label>Gestión del entrenamiento<select [(ngModel)]="trainingManagementMode" [disabled]="!current.canManage" name="trainingManagementMode"><option value="self">Lo llevo yo</option><option value="collaboration">En colaboración con otro profesional</option><option value="none">Solo seguimiento nutricional</option></select></label>
+        <label class="full">Notas<textarea [(ngModel)]="current.notes" [disabled]="!current.canManage" name="notes" rows="2"></textarea></label>
+      </div>
+      <button *ngIf="current.canManage" type="button" (click)="saveProfile()" [disabled]="saving">Guardar perfil</button>
+      <p *ngIf="!current.canManage" class="muted">Acceso de colaboración: puedes consultar el plan, pero no modificarlo.</p>
+    </section>
+    <section class="panel" *ngIf="current.enabled && current.canManage && trainingManagementMode === 'collaboration'">
+      <h2>Colaboración con otro profesional</h2>
+      <p>Busca por el correo de un profesional registrado en la misma clínica. La invitación quedará disponible en su área de invitaciones de DietoExpress; el aviso por correo automático aún no está integrado. Al aceptar podrá consultar el entrenamiento, pero no modificarlo.</p>
+      <form class="invite-form" (ngSubmit)="inviteCollaborator()">
+        <label>Correo del profesional<input type="email" name="collaboratorEmail" [(ngModel)]="collaboratorEmail" required maxlength="254" placeholder="profesional@clinica.es" /></label>
+        <button type="submit" [disabled]="saving">Crear invitación</button>
+      </form>
+      <p *ngIf="collaborations.length === 0" class="muted">Todavía no hay invitaciones ni colaboradores para este expediente.</p>
+      <div *ngFor="let collaboration of collaborations" class="collaboration-row">
+        <div><strong>{{ collaboration.professionalName }}</strong><p>{{ collaboration.email }} · <span class="status">{{ collaboration.status === 'active' ? 'Activa · solo lectura' : collaboration.status === 'pending' ? 'Pendiente de aceptación' : 'Revocada' }}</span></p></div>
+        <button *ngIf="collaboration.status !== 'revoked'" type="button" class="secondary" (click)="revokeCollaboration(collaboration)" [disabled]="saving">Revocar acceso</button>
+      </div>
+    </section>
+    <section class="panel" *ngIf="current.enabled">
+      <h2>Planes de entrenamiento</h2>
+      <div class="training-create-actions" *ngIf="current.canManage">
+        <button type="button" class="secondary create-plan-toggle" (click)="openPlannerWizard()" [attr.aria-expanded]="showPlannerWizard">＋ Nueva planificación guiada</button>
+        <button type="button" class="create-plan-toggle" (click)="showQuickRoutineForm = !showQuickRoutineForm; showCreatePlanForm = false" [attr.aria-expanded]="showQuickRoutineForm" [disabled]="trainingManagementMode !== 'self'">＋ Rutina sencilla</button>
+      </div>
+      <app-training-planner-wizard *ngIf="showPlannerWizard" [clientId]="clientId" (close)="showPlannerWizard = false" (completed)="onPlannerCompleted($event)"></app-training-planner-wizard>
+      <form *ngIf="showCreatePlanForm" (ngSubmit)="createPlan()" class="form-grid create-plan-form">
+        <h3 class="full">¿Qué quieres planificar?</h3>
+        <div class="full plan-type-choice">
+          <button type="button" [class.active]="newPlanTarget === 'macrocycle'" (click)="newPlanTarget = 'macrocycle'">Macrociclo</button>
+          <button type="button" [class.active]="newPlanTarget === 'mesocycles'" (click)="newPlanTarget = 'mesocycles'">Mesociclo</button>
+        </div>
+        <label>Nombre del plan<input name="planName" [(ngModel)]="planName" maxlength="160" required /></label>
+        <label>Modelo de periodización<select name="periodizationModel" [(ngModel)]="periodizationModel"><option value="custom">Personalizado</option><option value="linear">Lineal</option><option value="undulating">Ondulante</option><option value="block">Bloques</option><option value="reverse">Inversa</option><option value="continuous_competition">Competición continua</option><option value="autoregulatory">Autoregulado</option></select></label>
+        <label>Fecha inicial<input type="text" appDateInput name="startDate" [(ngModel)]="startDate" required /></label>
+        <label>Fecha final (opcional)<input type="text" appDateInput name="endDate" [(ngModel)]="endDate" /></label>
+        <label class="full">Notas<textarea name="planNotes" [(ngModel)]="planNotes" rows="2"></textarea></label>
+        <div class="full"><button type="submit" [disabled]="saving">Crear {{ newPlanTarget === 'macrocycle' ? 'macrociclo' : 'mesociclo' }}</button><button type="button" class="secondary" (click)="showCreatePlanForm = false" [disabled]="saving">Cancelar</button></div>
+      </form>
+      <form *ngIf="showQuickRoutineForm" class="form-grid quick-routine-form" (ngSubmit)="createQuickRoutineFromTrainingPage()">
+        <h3 class="full">Crear una rutina sin periodización</h3>
+        <p class="full muted">Se creará un plan sencillo con su primera sesión. Podrás añadir más sesiones después, sin macrociclos ni mesociclos.</p>
+        <label class="full">Nombre de la rutina<input name="quickRoutineName" [(ngModel)]="quickRoutineName" maxlength="160" required placeholder="Ej. Fuerza general" /></label>
+        <label>Fecha<input type="date" name="quickRoutineDate" [(ngModel)]="quickRoutineDate" required /></label>
+        <label>Tipo<select name="quickRoutineType" [(ngModel)]="quickRoutineType"><option value="strength">Fuerza / gimnasio</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud general</option><option value="general">General</option></select></label>
+        <label>Duración (minutos)<input type="number" name="quickRoutineDuration" [(ngModel)]="quickRoutineDuration" min="1" max="1440" required /></label>
+        <label>Intensidad<input name="quickRoutineIntensity" [(ngModel)]="quickRoutineIntensity" maxlength="120" placeholder="Ej. Moderada · RPE 6–7" /></label>
+        <label class="full">Ejercicios<textarea name="quickRoutineExercises" [(ngModel)]="quickRoutineExercises" rows="4" maxlength="6000" placeholder="Sentadilla · 3 × 8–12 · 90 s"></textarea></label>
+        <label class="full">Indicaciones<textarea name="quickRoutineInstructions" [(ngModel)]="quickRoutineInstructions" rows="3" maxlength="4000"></textarea></label>
+        <div class="full"><button type="submit" [disabled]="saving || trainingManagementMode !== 'self' || !quickRoutineName.trim() || !quickRoutineDate || quickRoutineDuration < 1">Crear y asignar rutina</button><button type="button" class="secondary" (click)="showQuickRoutineForm = false" [disabled]="saving">Cancelar</button></div>
+      </form>
+      <p *ngIf="plans.length === 0" class="muted">Todavía no hay planes de entrenamiento.</p>
+      <article *ngFor="let plan of plans" class="plan-card" [id]="'training-plan-' + plan.id">
+        <div class="section-heading"><div><h3>{{ viewName(plan, 'plans.card') }}</h3><p>{{ plan.startDate | date:'mediumDate' }} <span *ngIf="plan.endDate">— {{ plan.endDate | date:'mediumDate' }}</span> · {{ modelLabel(plan.periodizationModel) }}</p></div><span class="status">{{ planStatusLabel(plan.status) }}</span></div>
+        <p *ngIf="plan.notes">{{ plan.notes }}</p>
+        <p *ngIf="plan.status === 'draft' && current.canManage && publishPlanReason(plan)" class="muted plan-publish-hint">{{ publishPlanReason(plan) }}</p>
+        <div class="plan-card-actions" *ngIf="current.canManage">
+          <button type="button" class="secondary" (click)="viewPlan(plan)">Ver</button>
+          <button type="button" class="secondary" (click)="beginEditPlan(plan)" [disabled]="saving">Editar</button>
+          <button *ngIf="plan.status === 'draft'" type="button" (click)="publishPlan(plan)" [disabled]="saving || !canPublishPlan(plan)">Publicar y notificar al cliente</button>
+          <button type="button" class="secondary danger-action" (click)="deletePlan(plan)" [disabled]="saving">Eliminar</button>
+        </div>
+        <form *ngIf="editingPlanId === plan.id && planEditDraft as edit" class="form-grid plan-edit-form" (ngSubmit)="savePlan(plan)">
+          <label>Nombre<input name="editPlanName{{plan.id}}" [(ngModel)]="edit.name" maxlength="160" required /></label>
+          <label>Modelo<select name="editPlanModel{{plan.id}}" [(ngModel)]="edit.periodizationModel"><option value="custom">Personalizado</option><option value="linear">Lineal</option><option value="undulating">Ondulante</option><option value="block">Bloques</option><option value="reverse">Inversa</option><option value="continuous_competition">Competición continua</option><option value="autoregulatory">Autoregulado</option></select></label>
+          <label>Fecha inicial<input type="text" appDateInput name="editPlanStart{{plan.id}}" [(ngModel)]="edit.startDate" required /></label>
+          <label>Fecha final<input type="text" appDateInput name="editPlanEnd{{plan.id}}" [(ngModel)]="edit.endDate" /></label>
+          <label class="full">Notas<textarea name="editPlanNotes{{plan.id}}" [(ngModel)]="edit.notes" rows="2"></textarea></label>
+          <div class="full"><button type="submit" [disabled]="saving">Guardar cambios</button><button type="button" class="secondary" (click)="editingPlanId = null; planEditDraft = null" [disabled]="saving">Cancelar</button></div>
+        </form>
+        <nav class="training-workspace-nav" aria-label="Secciones de planificación">
+          <button type="button" [class.is-active]="!activePlanWorkspace[plan.id] || activePlanWorkspace[plan.id] === 'overview'" (click)="setPlanWorkspace(plan.id, 'overview')">Resumen</button>
+          <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'macrocycle'" (click)="setPlanWorkspace(plan.id, 'macrocycle')"><i class="step-num" aria-hidden="true">1</i>Macrociclo <span>{{ macrocyclePhases(plan).length }}</span></button>
+          <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'mesocycles'" (click)="setPlanWorkspace(plan.id, 'mesocycles')"><i class="step-num" aria-hidden="true">2</i>Mesociclos <span>{{ mesocycles[plan.id]?.length || 0 }}</span></button>
+          <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'routines'" (click)="setPlanWorkspace(plan.id, 'routines')"><i class="step-num" aria-hidden="true">3</i>Rutinas <span>{{ sessions[plan.id]?.length || 0 }}</span></button>
+        </nav>
+        <section *ngIf="!activePlanWorkspace[plan.id] || activePlanWorkspace[plan.id] === 'overview'" class="training-assignment-overview">
+          <div class="overview-stats">
+            <div><strong>Estado del plan</strong><p>{{ macrocyclePhases(plan).length ? 'Macrociclo con ' + macrocyclePhases(plan).length + ' fases' : 'Sin macrociclo definido' }}</p></div>
+            <div><strong>{{ mesocycles[plan.id]?.length || 0 }}</strong><small>mesociclos</small></div>
+            <div><strong>{{ sessions[plan.id]?.length || 0 }}</strong><small>sesiones / rutinas</small></div>
+          </div>
+          <div *ngIf="planNextStep(plan) as next" class="next-step-card" role="note">
+            <div><span class="macro-kicker">SIGUIENTE PASO</span><strong>{{ next.title }}</strong><p>{{ next.text }}</p></div>
+            <button *ngIf="current.canManage" type="button" (click)="setPlanWorkspace(plan.id, next.workspace)">{{ next.action }} →</button>
+          </div>
+          <section *ngIf="macroChartModel(plan) as overviewChart" class="macro-chart-card">
+            <div *ngIf="overviewChart.weeks.length; else overviewNoChart">
+              <div class="macro-overview-heading"><div><span class="macro-kicker">CARGA Y FASES</span><h4>Vista general del macrociclo</h4><p>Pulsa una fase para abrir su detalle semanal.</p></div></div>
+              <app-macrocycle-chart [phases]="overviewChart.phases" [weeks]="overviewChart.weeks" [mesocycles]="overviewChart.mesocycles" [selectedPhaseId]="selectedMacroPhaseId[plan.id] || null" (phaseSelect)="selectMacroPhase(plan.id, $event); setPlanWorkspace(plan.id, 'macrocycle')" />
+            </div>
+            <ng-template #overviewNoChart><p class="muted">Cuando definas el macrociclo verás aquí la gráfica de carga y fases.</p></ng-template>
+          </section>
+          <p class="muted flow-hint">El flujo recomendado es <strong>1 · Macrociclo</strong> (fases de la temporada) → <strong>2 · Mesociclos</strong> (bloques de semanas) → <strong>3 · Rutinas</strong> (sesiones del día a día). Cada paso tiene su propio espacio.</p>
+        </section>
+        <ng-container *ngIf="activePlanWorkspace[plan.id] === 'macrocycle'">
+          <ng-template #macroDesigner>
+            <section class="macro-generator" *ngIf="current.canManage">
+              <div class="macro-generator-heading"><div><span class="macro-kicker">PASO 1 · PLANIFICACIÓN GLOBAL</span><h4>{{ macrocyclePhases(plan).length ? 'Rediseñar el macrociclo' : 'Diseña tu macrociclo' }}</h4><p>Indica la duración y obtén una propuesta de fases editable. Las fechas se guardan de forma independiente de los mesociclos, microciclos y sesiones.</p></div><span class="macro-generator-icon">✦</span></div>
+              <div class="macro-generator-controls"><label>Duración total (semanas)<input type="number" min="3" max="52" [name]="'macroWeeks' + plan.id" [ngModel]="macroProposalWeeks[plan.id] || 12" (ngModelChange)="macroProposalWeeks[plan.id] = $event" /></label><label class="macro-deload-option"><input type="checkbox" [name]="'macroDeload' + plan.id" [(ngModel)]="macroIncludeDeload" /> Incluir semanas de descarga</label><label *ngIf="macroIncludeDeload">Cada (semanas de entrenamiento, 4–8)<input type="number" min="4" max="8" [name]="'macroDeloadEvery' + plan.id" [(ngModel)]="macroDeloadEvery" /></label><button type="button" (click)="generateMacrocycleProposal(plan)" [disabled]="saving">✦ Generar propuesta de macrociclo</button><button *ngIf="macrocyclePlans[plan.id]?.phases?.length" type="button" class="secondary" (click)="editMacrocycle(plan)" [disabled]="saving">Editar macrociclo guardado</button></div>
+              <div *ngIf="macroProposals[plan.id] as proposal" class="macro-proposal-editor">
+                <div class="macro-proposal-top"><strong>Propuesta editable · {{ proposal.length }} fases</strong><span>Independiente de las rutinas</span></div>
+                <article class="macro-proposal-phase" *ngFor="let phase of proposal; let phaseIndex = index" [ngClass]="'phase-' + phase.phaseType">
+                  <span class="macro-phase-number">{{ phase.sequence | number:'2.0' }}</span>
+                  <div class="macro-proposal-fields">
+                    <label>Nombre de la fase<input [name]="'macroPhaseName' + plan.id + phaseIndex" [ngModel]="viewName(phase, 'macroProposals.phaseEditor')" (ngModelChange)="updateName(phase, $event, 'macroProposals.phaseEditor')" maxlength="160" required /></label>
+                    <label>Objetivo<input [name]="'macroPhaseObjective' + plan.id + phaseIndex" [(ngModel)]="phase.objective" maxlength="500" /></label>
+                    <label>Tipo de fase<select [name]="'macroPhaseType' + plan.id + phaseIndex" [(ngModel)]="phase.phaseType"><option value="accumulation">Acumulación</option><option value="intensification">Intensificación</option><option value="deload">Descarga / recuperación</option><option value="realization">Realización / puesta a punto</option><option value="general">General / personalizada</option></select></label>
+                    <label>Inicio<input type="date" [name]="'macroPhaseStart' + plan.id + phaseIndex" [(ngModel)]="phase.startDate" required /></label>
+                    <label>Fin<input type="date" [name]="'macroPhaseEnd' + plan.id + phaseIndex" [(ngModel)]="phase.endDate" required /></label>
+                  </div>
+                  <button type="button" class="secondary macro-remove-phase" (click)="removeMacroPhase(plan.id, phaseIndex)" [disabled]="proposal.length <= 1 || saving" aria-label="Eliminar fase">×</button>
+                </article>
+                <div class="macro-proposal-actions"><button type="button" class="secondary" (click)="addMacroPhase(plan)" [disabled]="saving || proposal.length >= 24">＋ Añadir fase</button><button type="button" (click)="saveMacrocycleProposal(plan)" [disabled]="saving || !proposal.length">Guardar macrociclo</button><button type="button" class="secondary" (click)="macroProposals[plan.id] = []" [disabled]="saving">Descartar</button></div>
+                <p class="macro-footnote">Guardar aquí no crea rutinas ni modifica mesociclos existentes. Los bloques de trabajo se planifican en su sección y las sesiones se generan después.</p>
+              </div>
+            </section>
+          </ng-template>
+
+          <ng-container *ngIf="!macrocyclePhases(plan).length"><ng-container *ngTemplateOutlet="macroDesigner"></ng-container></ng-container>
+
+          <section class="macro-overview" *ngIf="macrocyclePhases(plan).length">
+            <div class="macro-overview-heading"><div><span class="macro-kicker">VISTA GLOBAL</span><h4>{{ macrocyclePlans[plan.id]?.name || 'Tu macrociclo' }}</h4><p>Fases de periodización independientes de los bloques de sesiones.</p></div><span class="macro-total">{{ macrocyclePhases(plan).length }} fases</span></div>
+            <section class="macro-load-dashboard">
+              <div class="macro-overview-heading"><div><span class="macro-kicker">CARGA DEL MACROCICLO</span><h4>Distribución semanal y por mesociclo</h4><p>Datos calculados a partir de las sesiones y prescripciones guardadas. Los datos ausentes se muestran como N/D.</p></div></div>
+              <section *ngIf="macroChartModel(plan) as chart" class="macro-volume-chart">
+                <div class="macro-overview-heading"><div><h5>Series por semana y fase</h5><p>Cada barra es una semana, coloreada por fase; la línea muestra el RPE medio. Pasa el cursor sobre una semana para ver el detalle.</p></div></div>
+                <app-macrocycle-chart [phases]="chart.phases" [weeks]="chart.weeks" [mesocycles]="chart.mesocycles" [selectedPhaseId]="selectedMacroPhaseId[plan.id] || null" (phaseSelect)="selectMacroPhase(plan.id, $event)" />
+              </section>
+              <h5 class="meso-summary-title">Resumen por mesociclo</h5>
+              <div *ngIf="mesocycleLoadSummary(plan).length" class="meso-sum-grid">
+                <article *ngFor="let meso of mesocycleLoadSummary(plan)" class="meso-sum-card">
+                  <strong>{{ meso.name }}</strong><small>{{ meso.startDate | date:'dd/MM/yyyy' }} – {{ meso.endDate | date:'dd/MM/yyyy' }}</small>
+                  <div class="macro-load-row"><span>Volumen</span><strong>{{ meso.sets === null ? 'N/D' : meso.sets + ' series' }}</strong></div><div class="macro-load-track"><span class="macro-load-bar volume-bar" [style.width.%]="meso.volumePct"></span></div>
+                  <div class="macro-load-row"><span>Sesiones</span><strong>{{ meso.sessions }}</strong></div><div class="macro-load-track"><span class="macro-load-bar frequency-bar" [style.width.%]="meso.frequencyPct"></span></div>
+                  <small class="meso-sum-foot">{{ meso.completedSessions }} realizadas · {{ meso.plannedMinutes }} min planificados</small>
+                </article>
+              </div>
+              <p *ngIf="!mesocycleLoadSummary(plan).length" class="muted">Los mesociclos aparecerán aquí cuando se hayan creado.</p>
+            </section>
+
+            <div class="macro-timeline" role="list" aria-label="Fases del macrociclo"><button type="button" class="macro-phase macro-phase-select" role="listitem" *ngFor="let phase of macrocyclePhases(plan)" [class.is-selected]="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-' + macroPhaseKind(phase)" (click)="selectMacroPhase(plan.id, phase.id)" [attr.aria-pressed]="isMacroPhaseSelected(plan.id, phase)">
+              <span class="macro-phase-number">{{ phase.sequenceNumber | number:'2.0' }}</span><div class="macro-phase-content"><strong>{{ viewName(phase, 'macroProposals.timeline') }}</strong><p>{{ phase.objective || 'Objetivo por definir' }}</p><small>{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ phase.endDate | date:'dd/MM/yyyy' }}</small><span class="macro-phase-duration">{{ macroPhaseDurationWeeks(phase) }} semanas</span></div>
+            </button></div>
+
+            <ng-container *ngFor="let phase of macrocyclePhases(plan)">
+              <section class="macro-phase-detail" *ngIf="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-detail-' + macroPhaseKind(phase)">
+                <div class="macro-detail-heading"><div><span class="macro-kicker">FASE {{ phase.sequenceNumber | number:'2.0' }} · DETALLE DE CARGA</span><h5>{{ viewName(phase, 'macroProposals.detail') }}</h5><p>{{ phase.objective || 'Objetivo pendiente de definir' }}</p></div><span class="macro-detail-dates">{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ phase.endDate | date:'dd/MM/yyyy' }}</span></div>
+                <div class="macro-load-legend"><span><i class="load-dot volume-dot"></i>Volumen: series prescritas</span><span><i class="load-dot frequency-dot"></i>Frecuencia: sesiones</span><span><i class="load-dot intensity-dot"></i>Intensidad: RPE si está disponible</span></div>
+                <div class="macro-microcycle-grid">
+                  <article class="macro-microcycle" *ngFor="let week of macroPhaseWeeks(plan, phase)" [class.week-deload]="week.isDeload">
+                    <div class="macro-microcycle-top"><strong>Microciclo {{ week.weekNumber }}</strong><span>{{ week.sessions }} sesiones</span></div>
+                    <small>{{ week.startDate | date:'dd/MM' }} — {{ week.endDate | date:'dd/MM' }}</small>
+                    <div class="macro-load-row"><span>Volumen</span><strong>{{ week.sets === null ? 'N/D' : week.sets + ' series' }}</strong></div><div class="macro-load-track"><span class="macro-load-bar volume-bar" [style.width.%]="week.volumePct"></span></div>
+                    <div class="macro-load-row"><span>Frecuencia</span><strong>{{ week.sessions }} sesiones</strong></div><div class="macro-load-track"><span class="macro-load-bar frequency-bar" [style.width.%]="week.frequencyPct"></span></div>
+                    <div class="macro-load-row"><span>Intensidad</span><strong>{{ week.intensityLabel }}</strong></div><div class="macro-load-track"><span class="macro-load-bar intensity-bar" [style.width.%]="week.intensityPct"></span></div>
+                    <p class="macro-microcycle-note">{{ week.completedSessions }} realizadas · {{ week.plannedMinutes }} min planificados</p>
+                  </article>
+                </div>
+                <div class="macro-phase-actions" *ngIf="current.canManage && phaseMesocycle(plan, phase) as block"><span [attr.style]="blockToneStyle(blockStatus(block).tone)">{{ blockStatus(block).label }}</span> <button type="button" class="secondary" *ngIf="block.reviewStatus === 'draft'" (click)="setMesocycleReviewStatus(block, 'reviewed')" [disabled]="saving">Marcar como revisado</button></div>
+                <div class="macro-phase-actions" *ngIf="current.canManage"><button type="button" (click)="generateMacrocyclePhaseMesocycle(plan, phase)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]">Generar este mesociclo y sus rutinas</button><button type="button" class="secondary" (click)="preparePhaseRoutineBlock(plan, phase)" [disabled]="saving">Preparar bloque vacío</button></div>
+                <p class="macro-footnote">La carga se calcula con las sesiones programadas dentro de las fechas de cada microciclo. «N/D» indica que la prescripción no contiene datos suficientes; no se inventan valores. Las barras se normalizan dentro de la fase.</p>
+              </section>
+            </ng-container>
+
+            <section *ngIf="current.canManage" class="macro-step">
+              <div class="macro-overview-heading"><div><span class="macro-kicker">PASO 2 · BLOQUES Y SESIONES</span><h4>Generar mesociclos y rutinas</h4><p>Usa las fases guardadas como bloques. Puedes generar todo el macrociclo de una vez o trabajar fase por fase desde su detalle.</p></div></div>
+              <div class="form-grid">
+                <label>Objetivo<select name="macroAutoGoal{{plan.id}}" [(ngModel)]="autoGoal" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
+                <label>Nivel<select name="macroAutoExperience{{plan.id}}" [(ngModel)]="autoExperience" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+                <label>Distribución semanal<select name="macroAutoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>Se aplicará a las rutinas de las fases que todavía no tengan planificación.</small></label>
+                <label>Duración máxima por sesión<input type="number" name="macroAutoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" (ngModelChange)="invalidateSplitReplacement(plan)" min="35" max="180" /></label>
+                <label>Material disponible (opcional)<input name="macroAutoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" (ngModelChange)="invalidateSplitReplacement(plan)" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Lista separada por comas. Guiones y guiones bajos son equivalentes; «machine» incluye máquinas específicas. Para restringir, usa «leg-press-machine», «hack-squat-machine» o «smith-machine». Vacío = todo el material.</small></label>
+                <fieldset class="auto-day-picker full"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'macroAutoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
+              </div>
+              <div class="macro-step-actions">
+                <button type="button" (click)="generateAllMacrocycleMesocycles(plan)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]">Generar todos los mesociclos y rutinas</button>
+                <button type="button" class="secondary" (click)="regenerateFutureDrafts(plan)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]" title="Vacía y vuelve a generar solo los bloques futuros que siguen siendo borradores intactos">Regenerar fases futuras (borradores)</button>
+                <span *ngIf="bulkGenerationProgress[plan.id]" role="status">Generando {{ bulkGenerationProgress[plan.id].completed }}/{{ bulkGenerationProgress[plan.id].total }} · {{ bulkGenerationProgress[plan.id].phaseName }}</span>
+              </div>
+              <div *ngIf="bulkGenerationProgress[plan.id] as progress" class="macro-progress" role="progressbar" aria-label="Progreso de generación" [attr.aria-valuenow]="progress.completed" aria-valuemin="0" [attr.aria-valuemax]="progress.total"><span [style.width.%]="progress.total ? progress.completed / progress.total * 100 : 0"></span></div>
+              <p *ngIf="generationErrors[plan.id]" class="error" role="alert">{{ generationErrors[plan.id] }}</p>
+              <p class="macro-footnote">Cada mesociclo se guarda con sus microciclos y sesiones en una operación transaccional. Si uno falla, se conserva lo ya generado y podrás reanudar sin duplicarlo.</p>
+            </section>
+
+            <div *ngIf="current.canManage" class="macro-designer-fold">
+              <button type="button" class="secondary" (click)="macroDesignerOpen[plan.id] = !macroDesignerOpen[plan.id]" [attr.aria-expanded]="!!macroDesignerOpen[plan.id] || !!macroProposals[plan.id]?.length">{{ (macroDesignerOpen[plan.id] || macroProposals[plan.id]?.length) ? '▾ Ocultar el diseñador de fases' : '▸ Rediseñar las fases del macrociclo' }}</button>
+              <ng-container *ngIf="macroDesignerOpen[plan.id] || macroProposals[plan.id]?.length"><ng-container *ngTemplateOutlet="macroDesigner"></ng-container></ng-container>
+            </div>
+          </section>
+        </ng-container>
+        <ng-container *ngIf="activePlanWorkspace[plan.id] === 'mesocycles'"><section *ngIf="current.canManage" class="auto-generator-panel">
+          <div class="auto-generator-heading"><span class="auto-generator-icon">✦</span><div><span class="macro-kicker">PASO 2 · BLOQUES</span><h4>Crear un mesociclo con el asistente</h4><p>Genera el bloque, sus semanas y las sesiones en una sola operación, con vista previa antes de guardar.</p><small>¿Prefieres definir solo la estructura, sin rutinas? Usa «Añadir mesociclo manualmente» más abajo.</small></div></div>
+          <div class="form-grid">
+            <h5 class="full form-subtitle"><i>1</i>¿Dónde se crea el bloque?</h5>
+            <label>Destino de las rutinas<select name="autoRoutineTarget{{plan.id}}" [ngModel]="autoTargetMesocycleIds[plan.id] ?? null" (ngModelChange)="selectRoutineTarget(plan, $event)"><option [ngValue]="null">Crear un mesociclo nuevo</option><option *ngFor="let target of mesocycles[plan.id]" [ngValue]="target.id" [disabled]="(microcycles[target.id]?.length || 0) > 0">{{ target.sequenceNumber }}. {{ viewName(target, 'mesocycles.routineTarget') }} · {{ target.startDate | date:'dd/MM/yyyy' }} — {{ (target.endDate || target.startDate) | date:'dd/MM/yyyy' }}</option></select><small>Elige un bloque vacío para generar sus microciclos y sesiones sin crear otro mesociclo.</small></label>
+            <label>Nombre del bloque (opcional)<input name="autoMesoName{{plan.id}}" [(ngModel)]="autoMesoNames[plan.id]" maxlength="160" placeholder="Ej. Hipertrofia · bloque 1" [disabled]="autoTargetMesocycleIds[plan.id] != null" /><small *ngIf="autoTargetMesocycleIds[plan.id] == null">Si lo dejas vacío, se asignará un nombre automáticamente.</small><small *ngIf="autoTargetMesocycleIds[plan.id] != null">Se conservará el nombre del mesociclo seleccionado.</small></label>
+            <h5 class="full form-subtitle"><i>2</i>Objetivo y duración</h5>
+            <label>Objetivo<select name="autoGoal{{plan.id}}" [(ngModel)]="autoGoal" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
+            <label>Nivel<select name="autoExperience{{plan.id}}" [(ngModel)]="autoExperience" (ngModelChange)="invalidateSplitReplacement(plan)"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+            <label>Inicio del mesociclo<input type="date" name="autoStartDate{{plan.id}}" [ngModel]="autoStartDates[plan.id] || nextMesocycleStart(plan)" (ngModelChange)="autoStartDates[plan.id] = $event" required /></label>
+            <label>Duración (semanas)<input type="number" name="autoWeeks{{plan.id}}" [(ngModel)]="autoDurationWeeks" min="1" max="52" required /></label>
+            <label class="auto-deload-option"><span><input type="checkbox" name="autoIsDeload{{plan.id}}" [(ngModel)]="autoIsDeload" /> Generar este bloque como descarga activa</span><small>Úsalo para un bloque/fase de descarga, preferentemente de una semana. Reduce las series aproximadamente un 40–50 % y deja más RIR.</small></label>
+            <h5 class="full form-subtitle"><i>3</i>Distribución y días de entrenamiento</h5>
+            <label>Distribución semanal<select name="autoSplit{{plan.id}}" [(ngModel)]="autoSplit"><option [ngValue]="0">Automática (según días)</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select><small>La distribución se elige independientemente del calendario, con combinaciones equilibradas: cuerpo completo 2–4 días, torso/pierna 2 o 4 y PPL 3, 5 o 6.</small></label>
+            <label>Rotación de ejercicios (opcional)<input type="number" name="autoRotation{{plan.id}}" [(ngModel)]="autoRotationIndex" min="0" max="20" step="1" placeholder="Automática" /><small>Vacío = el sistema rota entre los mejores ejercicios de cada patrón al crear un mesociclo nuevo. 0 = los mejor valorados; 1, 2… = alternativas igual de adecuadas.</small></label>
+            <fieldset class="auto-day-picker full"><legend>¿Qué días entrenará?</legend><p>Elige entre 2 y 6 días. La combinación debe ser compatible con la distribución elegida.</p><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'autoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
+            <details class="auto-advanced-settings full"><summary>Opciones avanzadas de la sesión</summary><div class="auto-advanced-grid"><label>Duración máxima por sesión<input type="number" name="autoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" (ngModelChange)="invalidateSplitReplacement(plan)" min="35" max="180" required /><small>Entre 35 y 180 minutos.</small></label><label>Material disponible (opcional)<input name="autoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" (ngModelChange)="invalidateSplitReplacement(plan)" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Guiones y guiones bajos son equivalentes. «machine» incluye máquinas específicas; puedes usar «leg-press-machine» o «smith-machine» para restringir. Vacío = todo el material.</small></label></div></details>
+            <details class="muscle-preference-editor full">
+              <summary>Prioridades musculares (opcional)</summary>
+              <p>Personaliza la dosis semanal de series efectivas estimadas. Se cuentan las contribuciones musculares relevantes de cada ejercicio, no solo la etiqueta primaria del catálogo. El objetivo explícito prevalece sobre la prioridad.</p>
+              <div class="muscle-preference-list">
+                <div *ngFor="let muscle of autoMusclePreferences" class="muscle-preference-row">
+                  <label class="muscle-preference-enable"><input type="checkbox" [name]="'muscleEnabled' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.enabled" />{{ muscle.label }}</label>
+                  <label>Prioridad<select [name]="'musclePriority' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.priority" [disabled]="!muscle.enabled"><option [ngValue]="0">Normal</option><option [ngValue]="1">+1</option><option [ngValue]="2">+2</option><option [ngValue]="3">+3</option></select></label>
+                  <label>Objetivo semanal<input type="number" [name]="'muscleTarget' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.targetWeeklyPrimarySets" [disabled]="!muscle.enabled" min="1" max="30" placeholder="Automático" /></label>
+                </div>
+              </div>
+              <small>La prioridad añade dos series al objetivo central por nivel (máximo predeterminado 20). Para hipertrofia (grupos principales): principiante 8–12, intermedio 10–16 y avanzado 12–20. Los isquiotibiales tienen una dosis predeterminada secundaria (mitad del objetivo base, mínimo dos series), que puedes elevar con prioridad u objetivo explícito. Los objetivos priorizados o explícitos usan ±2 y los explícitos admiten 1–30 series. Si el tiempo o el catálogo no permiten alcanzar el rango, el motor informa del déficit.</small>
+            </details>
+            <div class="full auto-generate-action"><button type="button" aria-label="Generar mesociclo automático" (click)="previewGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan">{{ generatingPlan ? 'Preparando propuesta…' : '✦ Generar propuesta de entrenamiento' }}</button><small>Se crearán {{ autoDurationWeeks }} semanas. Podrás revisar las sesiones y la cobertura muscular antes de guardar.</small></div>
+          </div>
+          <p *ngIf="generationErrors[plan.id]" class="error" role="alert">{{ generationErrors[plan.id] }}</p>
+          <div *ngIf="generatedPreviews[plan.id] as generated" class="generated-preview">
+            <div class="generated-preview-heading"><span class="preview-check">✓</span><div><h5>Tu propuesta está lista</h5><p>{{ generated.durationWeeks }} semanas · {{ generated.sessions.length }} sesiones en total</p></div></div>
+            <section class="load-dashboard" aria-label="Gráficas de carga semanal">
+              <div class="load-dashboard-heading"><div><span class="macro-kicker">PLANIFICACIÓN DE LA CARGA</span><h5>Cómo evoluciona el esfuerzo</h5><p>Compara volumen, frecuencia e intensidad prevista.</p></div><span class="load-legend-dot"></span></div>
+              <div class="load-week-grid"><article class="load-week-card" *ngFor="let week of generatedLoadWeeks(generated)">
+                <div class="load-week-top"><strong>Semana {{ week.weekNumber }}</strong><span>{{ week.sessions }} sesiones</span></div>
+                <div class="load-metric"><div class="load-metric-label"><span>Volumen</span><strong>{{ week.sets }} series</strong></div><div class="load-track"><span class="load-fill load-volume" [style.width.%]="week.volumePct"></span></div></div>
+                <div class="load-metric"><div class="load-metric-label"><span>Frecuencia</span><strong>{{ week.sessions }} días</strong></div><div class="load-track"><span class="load-fill load-frequency" [style.width.%]="week.frequencyPct"></span></div></div>
+                <div class="load-metric"><div class="load-metric-label"><span>Intensidad · RIR</span><strong>{{ week.averageRir === null ? 'Sin dato' : 'RIR ' + week.averageRir }}</strong></div><div class="load-track"><span class="load-fill load-intensity" [style.width.%]="week.intensityPct"></span></div></div>
+                <div class="load-index"><span>Índice de carga orientativo</span><strong>{{ week.loadIndex }}</strong></div>
+              </article></div>
+              <p class="load-disclaimer">El índice combina series, sesiones y RIR cuando está definido. Compara semanas de esta propuesta; no sustituye al tonelaje real ni a la valoración profesional.</p>
+            </section>
+            <section *ngIf="generated.history as history" class="quality-report" aria-label="Cambios respecto al bloque anterior">
+              <strong>Cambios respecto al bloque anterior</strong>
+              <p class="muted">{{ history.continuesPreviousBlock ? 'Este bloque continúa directamente al anterior: no se repite la semana de introducción completa.' : 'Este bloque no sigue directamente a otro de entrenamiento, así que empieza con su semana de introducción.' }}</p>
+              <p><span *ngFor="let item of historyExercises(generated, 'kept')" [attr.style]="historyBadgeStyle('kept')">{{ item.name }}</span></p>
+              <p *ngIf="historyExercises(generated, 'new').length"><strong>{{ historyLabel('new') }}:</strong> <span *ngFor="let item of historyExercises(generated, 'new')" [attr.style]="historyBadgeStyle('new')">{{ item.name }}</span></p>
+              <p *ngIf="historyExercises(generated, 'dropped').length"><strong>{{ historyLabel('dropped') }}:</strong> <span *ngFor="let item of historyExercises(generated, 'dropped')" [attr.style]="historyBadgeStyle('dropped')">{{ item.name }}</span></p>
+              <p class="muted">Un bloque de entrenamiento rota a ejercicios igual de adecuados; una descarga mantiene los del bloque anterior.</p>
+            </section>
+            <section *ngIf="generated.qualityReport" class="quality-report">
+              <strong>Chequeos orientativos de volumen y cobertura</strong>
+              <p class="muted">{{ generated.qualityReport.methodology }}</p>
+              <div *ngIf="hasVolumeDoseDeficit(generated.qualityReport.warnings)" role="status" style="margin:12px 0;padding:12px 14px;border:1px solid #d97706;border-radius:10px;background:#fffbeb;color:#78350f">
+                <strong>Revisión profesional: déficit de volumen o cobertura</strong>
+                <p style="margin:6px 0">Algunos grupos no alcanzan el rango orientativo. Puede ser una limitación aceptable por el tiempo o el material disponibles; el generador no fuerza más series si comprometen la duración o el equilibrio de la rutina.</p>
+                <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px">
+                  <input type="checkbox" [checked]="volumeDeficitAcknowledged[plan.id] === true" (change)="volumeDeficitAcknowledged[plan.id] = $any($event.target).checked" />
+                  <span>He revisado los déficits y acepto expresamente esta dosis para el tiempo y material disponibles.</span>
+                </label>
+              </div>
+              <ul *ngIf="generated.qualityReport.warnings.length; else noQualityWarnings">
+                <li *ngFor="let warning of generated.qualityReport.warnings">{{ warning }}</li>
+              </ul>
+              <ng-template #noQualityWarnings><p>No se han detectado alertas automáticas. La revisión profesional sigue siendo obligatoria.</p></ng-template>
+              <div *ngFor="let week of generated.qualityReport.weeklyMuscleVolumes" class="volume-week-card" style="margin-top:12px;padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+                <h6 style="margin:0 0 10px;font-size:14px">Volumen semanal · semana {{ week.weekNumber }}</h6>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">
+                  <div *ngFor="let muscle of week.muscles" style="display:flex;justify-content:space-between;gap:10px;padding:9px 10px;border:1px solid #e7edf4;border-radius:9px">
+                    <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
+                    <small style="color:#64748b">P {{ muscle.primarySets }} · S {{ muscle.secondarySets }} · frecuencia P {{ muscle.primaryFrequencySessions }} / S {{ muscle.secondaryFrequencySessions }}</small>
+                  </div>
+                </div>
+                <p style="margin:10px 0 0;color:#64748b;font-size:11px">El total usa la auditoría de estímulo efectivo. P/S son las etiquetas originales del catálogo; una exposición puede aparecer en ambas frecuencias.</p>
+              </div>
+            </section>
+            <article *ngFor="let session of generated.sessions" class="generated-session">
+              <strong>Semana {{ session.weekNumber }} · {{ dayName(session.day) }} · {{ session.title }}</strong>
+              <small>{{ session.estimatedDurationMinutes }} min</small>
+              <ul><li *ngFor="let exercise of session.exercises">{{ exercise.order }}. {{ exercise.exerciseNameSnapshot }} — {{ exercise.sets }} × {{ exercise.minRepetitions }}–{{ exercise.maxRepetitions }} · descanso {{ exercise.restSeconds }} s<ng-container *ngIf="exercise.targetLoadKg"> · carga {{ exercise.targetLoadKg }} kg</ng-container><ng-container *ngIf="exercise.warmupSets"> · aproximación {{ exercise.warmupSets }} serie(s) muy fácil(es)</ng-container></li></ul>
+              <div *ngIf="sessionVolume(generated, session) as volume" style="margin-top:8px;padding:10px;border:1px solid #e7edf4;border-radius:9px;background:#fff">
+                <strong style="font-size:12px">Volumen efectivo de esta sesión</strong>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:4px;margin-top:6px">
+                  <span *ngFor="let muscle of volume.muscles" [hidden]="muscle.estimatedEffectiveSets === 0" style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></span>
+                </div>
+              </div>
+            </article>
+            <div class="generated-preview-actions"><button type="button" (click)="saveGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan || (hasVolumeDoseDeficit(generated.qualityReport?.warnings) && !volumeDeficitAcknowledged[plan.id])">Guardar mesociclo y sus sesiones</button><button type="button" class="secondary" aria-label="Descartar vista previa" (click)="discardGeneratedPreview(plan.id)" [disabled]="saving">Descartar propuesta</button></div><p class="muted">Se guardará como borrador para que puedas ajustar las semanas y las rutinas.</p>
+          </div>
+        </section>
+        <form *ngIf="current.canManage" class="template-save-row" (ngSubmit)="savePlanAsTemplate(plan)">
+          <label>Guardar este plan como plantilla<input name="templateName{{plan.id}}" [(ngModel)]="templateNameDrafts[plan.id]" required maxlength="160" [placeholder]="viewName(plan, 'plans.templatePlaceholder') + ' · plantilla'" /></label>
+          <button type="submit" class="secondary" [disabled]="saving">Guardar como plantilla</button>
+        </form>
+        <section class="cycle-section">
+          <div class="cycle-toolbar"><div><span class="macro-kicker">ESTRUCTURA DEL PLAN</span><h4>Mesociclos</h4></div><button *ngIf="current.canManage" type="button" class="secondary" (click)="manualMesoOpen[plan.id] = !manualMesoOpen[plan.id]" [attr.aria-expanded]="!!manualMesoOpen[plan.id]">{{ manualMesoOpen[plan.id] ? 'Cerrar formulario' : '＋ Añadir mesociclo manualmente' }}</button></div>
+          <form *ngIf="current.canManage && mesocycleDrafts[plan.id] && (manualMesoOpen[plan.id] || !mesocycles[plan.id]?.length)" class="cycle-form" (ngSubmit)="createMesocycle(plan)">
+            <label>Nombre<input name="mesoName{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].name" required maxlength="160" /></label>
+            <label>N.º<input type="number" name="mesoSeq{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].sequence" required min="1" /></label>
+            <label>Inicio<input type="text" appDateInput name="mesoStart{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].startDate" required /></label>
+            <label>Fin<input type="text" appDateInput name="mesoEnd{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].endDate" /></label>
+            <label class="cycle-wide">Objetivo<input name="mesoObj{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].objective" maxlength="500" /></label>
+            <button type="submit" [disabled]="saving">Añadir mesociclo</button>
+          </form>
+          <p *ngIf="!mesocycles[plan.id]?.length" class="muted">Organiza el plan en bloques de varias semanas: usa el asistente de arriba o añade uno manualmente.</p>
+          <article *ngFor="let meso of mesocycles[plan.id]" class="mesocycle-card">
+            <ng-container *ngIf="editingMesocycleId !== meso.id; else editMesocycleForm">
+              <div class="section-heading"><strong>{{ meso.sequenceNumber }}. {{ viewName(meso, 'mesocycles.card') }}<span [attr.style]="blockToneStyle(blockStatus(meso).tone)">{{ blockStatus(meso).label }}</span></strong><div class="cycle-actions" *ngIf="current.canManage">
+                <button type="button" *ngIf="meso.reviewStatus === 'draft'" (click)="setMesocycleReviewStatus(meso, 'reviewed')" [disabled]="saving">Marcar como revisado</button>
+                <button type="button" class="secondary" (click)="moveMesocycle(plan, meso, -1)" [disabled]="saving || mesocycles[plan.id]?.[0]?.id === meso.id" aria-label="Subir mesociclo">↑</button>
+                <button type="button" class="secondary" (click)="moveMesocycle(plan, meso, 1)" [disabled]="saving || mesocycles[plan.id]?.[mesocycles[plan.id].length - 1]?.id === meso.id" aria-label="Bajar mesociclo">↓</button>
+                <button type="button" class="secondary" (click)="beginEditMesocycle(meso)" [disabled]="saving">Editar</button>
+                <button type="button" class="secondary" (click)="deleteMesocycle(meso)" [disabled]="saving">Eliminar</button>
+              </div></div>
+              <p class="meso-meta"><span class="meso-chip">{{ macroPhaseDurationWeeks(meso) }} sem.</span><span class="meso-chip">{{ microcycles[meso.id]?.length || 0 }} microciclos</span>{{ meso.startDate | date:'mediumDate' }} <span *ngIf="meso.endDate">— {{ meso.endDate | date:'mediumDate' }}</span></p>
+              <p *ngIf="meso.objective">{{ meso.objective }}</p>
+            </ng-container>
+            <ng-template #editMesocycleForm>
+              <form *ngIf="mesocycleEditDraft as edit" class="cycle-form" (ngSubmit)="saveMesocycle(meso)">
+                <label>Nombre<input name="editMesoName{{meso.id}}" [(ngModel)]="edit.name" required maxlength="160" /></label>
+                <label>N.º<input type="number" name="editMesoSeq{{meso.id}}" [(ngModel)]="edit.sequence" min="1" required /></label>
+                <label>Inicio<input type="text" appDateInput name="editMesoStart{{meso.id}}" [(ngModel)]="edit.startDate" required /></label>
+                <label>Fin<input type="text" appDateInput name="editMesoEnd{{meso.id}}" [(ngModel)]="edit.endDate" /></label>
+                <label class="cycle-wide">Objetivo<input name="editMesoObjective{{meso.id}}" [(ngModel)]="edit.objective" maxlength="500" /></label>
+                <label class="cycle-wide">Notas<textarea name="editMesoNotes{{meso.id}}" [(ngModel)]="edit.notes" rows="2"></textarea></label>
+                <button type="submit" [disabled]="saving">Guardar cambios</button><button type="button" class="secondary" (click)="editingMesocycleId = null; mesocycleEditDraft = null">Cancelar</button>
+              </form>
+            </ng-template>
+            <form *ngIf="current.canManage && microcycleDrafts[meso.id]" class="cycle-form" (ngSubmit)="createMicrocycle(meso)">
+              <label>Nombre<input name="microName{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].name" required maxlength="160" /></label>
+              <label>N.º<input type="number" name="microSeq{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].sequence" required min="1" /></label>
+              <label>Inicio<input type="text" appDateInput name="microStart{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].startDate" required /></label>
+              <label>Fin<input type="text" appDateInput name="microEnd{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].endDate" /></label>
+              <label class="cycle-wide">Enfoque<input name="microFocus{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].focus" maxlength="500" /></label>
+              <button type="submit" [disabled]="saving">Añadir microciclo</button>
+            </form>
+            <ul *ngIf="microcycles[meso.id]?.length"><li *ngFor="let micro of microcycles[meso.id]; let microIndex = index">
+              <ng-container *ngIf="editingMicrocycleId !== micro.id; else editMicrocycleForm">
+                <div class="section-heading"><span><strong>{{ micro.sequenceNumber }}. {{ viewName(micro, 'microcycles.card') }}</strong> · {{ micro.startDate | date:'mediumDate' }}<span *ngIf="micro.endDate"> — {{ micro.endDate | date:'mediumDate' }}</span><span *ngIf="micro.focus"> · {{ micro.focus }}</span></span>
+                <div class="cycle-actions" *ngIf="current.canManage">
+                  <button type="button" class="secondary" (click)="moveMicrocycle(meso, micro, -1)" [disabled]="saving || microIndex === 0" aria-label="Subir microciclo">↑</button>
+                  <button type="button" class="secondary" (click)="moveMicrocycle(meso, micro, 1)" [disabled]="saving || microIndex === microcycles[meso.id].length - 1" aria-label="Bajar microciclo">↓</button>
+                  <button type="button" class="secondary" (click)="beginEditMicrocycle(micro)" [disabled]="saving">Editar</button>
+                  <button type="button" class="secondary" (click)="deleteMicrocycle(micro)" [disabled]="saving">Eliminar</button>
+                </div></div>
+              </ng-container>
+              <ng-template #editMicrocycleForm>
+                <form *ngIf="microcycleEditDraft as edit" class="cycle-form" (ngSubmit)="saveMicrocycle(micro)">
+                  <label>Nombre<input name="editMicroName{{micro.id}}" [(ngModel)]="edit.name" required maxlength="160" /></label>
+                  <label>N.º<input type="number" name="editMicroSeq{{micro.id}}" [(ngModel)]="edit.sequence" min="1" required /></label>
+                  <label>Inicio<input type="text" appDateInput name="editMicroStart{{micro.id}}" [(ngModel)]="edit.startDate" required /></label>
+                  <label>Fin<input type="text" appDateInput name="editMicroEnd{{micro.id}}" [(ngModel)]="edit.endDate" /></label>
+                  <label class="cycle-wide">Enfoque<input name="editMicroFocus{{micro.id}}" [(ngModel)]="edit.focus" maxlength="500" /></label>
+                  <label class="cycle-wide">Notas<textarea name="editMicroNotes{{micro.id}}" [(ngModel)]="edit.notes" rows="2"></textarea></label>
+                  <button type="submit" [disabled]="saving">Guardar cambios</button><button type="button" class="secondary" (click)="editingMicrocycleId = null; microcycleEditDraft = null">Cancelar</button>
+                </form>
+              </ng-template>
+            </li></ul>
+          </article>
+        </section>
+        </ng-container>
+        <ng-container *ngIf="activePlanWorkspace[plan.id] === 'routines'"><section class="session-workspace">
+          <div class="session-workspace-heading">
+            <div><p class="eyebrow">TRABAJO DIARIO</p><h4>Calendario de entrenamiento</h4><p>Planifica la semana de un vistazo y entra en cada sesión para ajustar sus detalles.</p></div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span><button type="button" class="secondary" (click)="weeklyEditorOpen[plan.id] = !weeklyEditorOpen[plan.id]">{{ weeklyEditorOpen[plan.id] ? 'Cerrar editor semanal' : 'Editor semanal' }}</button><button type="button" class="secondary" (click)="toggleSplitReorganization(plan)">{{ splitReorganizationOpen[plan.id] ? 'Cerrar reorganización' : 'Reorganizar split' }}</button><button type="button" class="secondary" (click)="exportSessions(plan)" [disabled]="!sessions[plan.id]?.length">Exportar CSV</button><label style="display:grid;gap:2px;font-size:11px">PDF desde<input type="date" [name]="'trainingPdfStart' + plan.id" [(ngModel)]="trainingPdfStartDate" /></label><label style="display:grid;gap:2px;font-size:11px">Hasta<input type="date" [name]="'trainingPdfEnd' + plan.id" [(ngModel)]="trainingPdfEndDate" /></label><button type="button" class="secondary" (click)="exportTrainingPdf(plan)" [disabled]="!profile?.canManage || trainingPdfExportingPlanId === plan.id || !trainingPdfStartDate || !trainingPdfEndDate || trainingPdfEndDate < trainingPdfStartDate">{{ trainingPdfExportingPlanId === plan.id ? 'Generando PDF…' : 'PDF de entrenamiento' }}</button></div>
+          </div>
+          <section *ngIf="loadTrends[plan.id]?.length" class="load-trend" style="margin:16px 0;padding:14px;border:1px solid #e2e8f0;border-radius:12px">
+            <h5 style="margin:0 0 4px">Evolución de carga · últimas semanas</h5>
+            <p style="margin:0 0 10px;color:#64748b;font-size:13px">Carga orientativa = minutos realizados × RPE. Es descriptiva, no una recomendación automática.</p>
+            <div style="display:flex;align-items:flex-end;gap:10px;overflow-x:auto;min-height:130px;padding:8px 0">
+              <div *ngFor="let week of loadTrends[plan.id]" [title]="(week.weekStart | date:'d MMM') + ': ' + week.loadScore + ' puntos de carga'" style="min-width:42px;display:flex;flex-direction:column;align-items:center;gap:4px">
+                <strong style="font-size:12px">{{ week.loadScore | number:'1.0-0' }}</strong>
+                <span [style.height.px]="trendBarPixels(plan.id, week.loadScore)" style="display:block;width:24px;min-height:2px;background:#0d9488;border-radius:5px 5px 0 0"></span>
+                <small>{{ week.weekStart | date:'d/M' }}</small>
+              </div>
+            </div>
+          </section>
+          <div class="calendar-toolbar">
+            <div class="view-switch" role="group" aria-label="Vista de sesiones">
+              <button type="button" [class.active]="sessionViews[plan.id] !== 'list'" (click)="setSessionView(plan.id, 'week')">▦ Semana</button>
+              <button type="button" [class.active]="sessionViews[plan.id] === 'list'" (click)="setSessionView(plan.id, 'list')">☷ Lista</button>
+            </div>
+            <div *ngIf="sessionViews[plan.id] !== 'list'" class="week-navigation">
+              <button type="button" class="secondary" (click)="shiftWeek(plan, -1)" aria-label="Semana anterior">←</button>
+              <strong>{{ weekDays(plan)[0]?.date | date:'d MMM' }} – {{ weekDays(plan)[6]?.date | date:'d MMM y' }}</strong>
+              <button type="button" class="secondary" (click)="shiftWeek(plan, 1)" aria-label="Semana siguiente">→</button>
+              <button type="button" class="secondary" (click)="goToCurrentWeek(plan)">Semana actual</button>
+            </div>
+          </div>
+          <div *ngIf="sessionViews[plan.id] !== 'list'" class="week-summary">
+            <div><span class="summary-dot planned-dot"></span><span><strong>{{ weekSessions(plan.id, plan).length }}</strong><small>sesiones esta semana</small></span></div>
+            <div><span class="summary-dot minutes-dot"></span><span><strong>{{ weekPlannedMinutes(plan.id, plan) }} min</strong><small>duración planificada</small></span></div>
+            <div><span class="summary-dot completed-dot"></span><span><strong>{{ weekCompletedCount(plan.id, plan) }} / {{ weekSessions(plan.id, plan).length }}</strong><small>sesiones realizadas</small></span></div>
+          </div>
+          <section *ngIf="current.canManage && splitReorganizationOpen[plan.id]" class="split-reorganization-panel" style="margin:14px 0;padding:16px;border:1px solid var(--border-color,#dbe3ed);border-radius:14px;background:var(--surface-container,#f8fafc)">
+            <div class="section-heading"><div><h5>Reorganizar distribución semanal</h5><p>Solo se moverán sesiones futuras sin realización registrada. No se cambian ejercicios, series, cargas ni sesiones completadas. La semana en curso queda intacta.</p></div></div>
+            <div class="session-editor-grid">
+              <label>Split<select [name]="'reorgSplit' + plan.id" [(ngModel)]="splitReorganizationDrafts[plan.id].splitType" (ngModelChange)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''; invalidateSplitReplacement(plan)"><option [ngValue]="0">Automático</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / Pierna</option><option [ngValue]="3">Push / Pull / Legs</option></select></label>
+              <fieldset class="auto-day-picker"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'reorgDay' + plan.id + day.value" [checked]="splitReorganizationDrafts[plan.id].trainingDays.includes(day.value)" (change)="toggleReorganizationDay(plan, day.value, $any($event.target).checked)" /><span>{{ day.label }}</span></label></div></fieldset>
+            </div>
+            <div class="session-editor-grid" style="margin-top:10px">
+              <label>Objetivo de la nueva propuesta<select [name]="'reorgGoal' + plan.id" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
+              <label>Experiencia<select [name]="'reorgExperience' + plan.id" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+              <label>Duración máxima (min)<input type="number" [name]="'reorgMinutes' + plan.id" [(ngModel)]="autoMaximumMinutes" min="35" max="180" /></label>
+              <label class="session-editor-wide">Material disponible<input [name]="'reorgEquipment' + plan.id" [(ngModel)]="autoEquipmentCsv" placeholder="barbell, dumbbell, cable, machine…" /></label>
+            </div>
+            <p class="muted">«Preparar propuesta conservando sesiones» solo recoloca los días del mismo split y exige la misma frecuencia semanal. «Generar propuesta con este split» permite cambiar también la frecuencia: crea nuevas sesiones, conserva ajustes manuales de ejercicios que coinciden y mantiene los ejercicios personalizados no coincidentes para que puedas revisarlos. Las semanas de descarga deben reorganizarse por separado.</p>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" (click)="prepareSplitReorganization(plan)" [disabled]="saving">Preparar propuesta conservando sesiones</button><button type="button" class="secondary" (click)="generateSplitReplacementPreview(plan)" [disabled]="saving || splitReplacementLoading[plan.id]">{{ splitReplacementLoading[plan.id] ? 'Generando propuesta…' : 'Generar propuesta con este split' }}</button><button type="button" class="secondary" (click)="splitReorganizationDrafts[plan.id].moves = null; splitReorganizationDrafts[plan.id].error = ''; splitReplacementPreviews[plan.id] = null">Limpiar propuesta</button></div>
+            <p *ngIf="splitReorganizationDrafts[plan.id].error" class="error" role="alert">{{ splitReorganizationDrafts[plan.id].error }}</p>
+            <div *ngIf="splitReorganizationDrafts[plan.id].moves as moves" style="margin-top:12px">
+              <strong>Propuesta · {{ moves.length }} sesiones</strong>
+              <p *ngIf="!moves.length" class="muted">No hay sesiones futuras pendientes desde la próxima semana. Se guardará esta distribución como preferencia para las próximas rutinas.</p>
+              <div *ngIf="moves.length" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr><th style="text-align:left;padding:7px">Sesión</th><th style="text-align:left;padding:7px">Fecha actual</th><th style="text-align:left;padding:7px">Nueva fecha</th></tr></thead><tbody><tr *ngFor="let move of moves"><td style="padding:7px">{{ move.title }}</td><td style="padding:7px">{{ move.oldDate | date:'dd/MM/yyyy' }}</td><td style="padding:7px"><strong>{{ move.scheduledDate | date:'EEEE d MMMM' }}</strong></td></tr></tbody></table></div>
+              <p *ngIf="moves.length" class="muted">Se conservarán todas las prescripciones y el historial. Las fechas se aplicarán en una única transacción.</p>
+              <button type="button" (click)="applySplitReorganization(plan)" [disabled]="saving || splitReorganizationSaving[plan.id]">{{ splitReorganizationSaving[plan.id] ? 'Aplicando…' : 'Confirmar reorganización' }}</button>
+            </div>
+            <p *ngIf="splitReplacementErrors[plan.id]" class="error" role="alert">{{ splitReplacementErrors[plan.id] }}</p>
+            <section *ngIf="splitReplacementPreviews[plan.id] as replacement" style="margin-top:14px;padding:14px;border:1px solid #cbd5e1;border-radius:12px;background:#fff">
+              <div class="section-heading"><div><h6>Propuesta regenerada · {{ replacement.sessions.length }} sesiones</h6><p>{{ replacement.replaceFromDate | date:'dd/MM/yyyy' }} — {{ replacement.replaceThroughDate | date:'dd/MM/yyyy' }} · {{ replacement.preservedManualEdits }} ajustes manuales coincidentes conservados</p></div></div>
+              <p *ngIf="replacement.retainedCustomExercises" class="muted">{{ replacement.retainedCustomExercises }} ejercicios manuales que no estaban en la nueva selección se han conservado en sus sesiones ordinales. Revisa su distribución antes de confirmar.</p>
+              <div *ngIf="hasVolumeDoseDeficit(replacement.warnings)" role="status" style="margin:12px 0;padding:12px 14px;border:1px solid #d97706;border-radius:10px;background:#fffbeb;color:#78350f">
+                <strong>Revisión profesional: déficit de volumen o cobertura</strong>
+                <p style="margin:6px 0">La nueva distribución no alcanza todos los rangos orientativos. Puede ser una limitación aceptable por tiempo o material; revisa la propuesta y valida expresamente la dosis antes de sustituir sesiones futuras.</p>
+                <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px">
+                  <input type="checkbox" [checked]="splitVolumeDeficitAcknowledged[plan.id] === true" (change)="splitVolumeDeficitAcknowledged[plan.id] = $any($event.target).checked" />
+                  <span>He revisado los déficits y acepto expresamente esta dosis para el tiempo y material disponibles.</span>
+                </label>
+              </div>
+              <ul *ngIf="replacement.warnings.length"><li *ngFor="let warning of replacement.warnings">{{ warning }}</li></ul>
+              <div style="overflow-x:auto;margin-top:10px"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:7px">Fecha</th><th style="text-align:left;padding:7px">Sesión</th><th style="text-align:right;padding:7px">Minutos</th><th style="text-align:right;padding:7px">Ejercicios</th></tr></thead><tbody><tr *ngFor="let session of replacement.sessions"><td style="padding:7px">{{ session.scheduledDate | date:'dd/MM/yyyy' }}</td><td style="padding:7px">{{ session.title }}</td><td style="padding:7px;text-align:right">{{ session.durationMinutes }}</td><td style="padding:7px;text-align:right">{{ prescriptionExerciseCount(session.exercisePrescription) }}</td></tr></tbody></table></div>
+              <div *ngFor="let week of replacement.volumePreview.qualityReport.weeklyMuscleVolumes" style="margin-top:12px;padding:12px;border:1px solid #e7edf4;border-radius:10px">
+                <strong>Volumen efectivo · semana {{ week.weekNumber }}</strong>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;margin-top:8px">
+                  <div *ngFor="let muscle of week.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:5px 7px;border:1px solid #edf1f5;border-radius:7px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></div>
+                </div>
+              </div>
+              <div *ngFor="let comparison of replacement.volumePreview.sessionReports" style="margin-top:10px;padding:9px;background:#f8fafc;border-radius:8px">
+                <strong>Semana {{ comparison.weekNumber }} · {{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px;margin-top:5px">
+                  <span *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" [hidden]="muscle.estimatedEffectiveSets === 0" style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b></span>
+                </div>
+              </div>
+              <p *ngIf="replacement.volumePreview.unclassifiedExerciseNames.length" class="muted">No clasificados: {{ replacement.volumePreview.unclassifiedExerciseNames.join(', ') }}</p>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" (click)="applySplitReplacement(plan)" [disabled]="saving || splitReplacementLoading[plan.id] || (hasVolumeDoseDeficit(replacement.warnings) && !splitVolumeDeficitAcknowledged[plan.id])">Sustituir sesiones futuras con esta propuesta</button><button type="button" class="secondary" (click)="splitReplacementPreviews[plan.id] = null">Descartar</button></div>
+              <p class="muted">La sustitución solo afecta al periodo futuro mostrado. Las sesiones completadas y sus registros no se borran ni se modifican. Los ajustes manuales coincidentes se incorporan a la propuesta.</p>
+            </section>
+          </section>
+          <section *ngIf="current.canManage && weeklyEditorOpen[plan.id] && sessionViews[plan.id] !== 'list'" class="weekly-structured-editor" style="margin:14px 0;padding:16px;border:1px solid var(--border-color,#dbe3ed);border-radius:14px;background:var(--surface-container,#f8fafc)">
+            <div class="section-heading"><div><h5>Editor semanal estructurado</h5><p>Modifica cada sesión y sus ejercicios sin editar líneas de texto. Las sesiones completadas se muestran como solo lectura.</p></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ weekSessions(plan.id, plan).length }} sesiones</span><button type="button" class="secondary" (click)="prepareWeeklySessionCreation(plan)">Añadir sesión a esta semana</button></div></div>
+            <article *ngFor="let session of weekSessions(plan.id, plan)" style="padding:12px;margin-top:10px;border:1px solid #e2e8f0;border-radius:12px;background:#fff">
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><strong>{{ session.title }}</strong><span class="week-session-status">{{ session.completedAt ? 'Realizada · protegida' : 'Pendiente de revisión' }}</span><button *ngIf="canDeleteWeeklySession(session)" type="button" class="secondary" (click)="confirmWeeklySessionDeletion(plan, session)" [disabled]="saving">Eliminar sesión</button></div>
+              <div *ngIf="weeklyDeleteConfirmIds[plan.id] === session.id" role="group" aria-label="Confirmar eliminación de sesión" style="margin-top:8px;padding:10px;border:1px solid #f0c6c6;border-radius:9px;background:#fff8f8">
+                <p>Se eliminará esta sesión futura únicamente si no tiene registros de realización. El historial registrado está protegido.</p>
+                <button type="button" class="secondary" (click)="deleteWeeklySession(plan, session)" [disabled]="saving">Confirmar eliminación</button>
+                <button type="button" class="secondary" (click)="weeklyDeleteConfirmIds[plan.id] = null" [disabled]="saving">Cancelar</button>
+              </div>
+              <p *ngIf="weeklyDeleteErrors[plan.id]" class="error" role="alert">{{ weeklyDeleteErrors[plan.id] }}</p>
+              <ng-container *ngIf="!session.completedAt && weeklyDraft(session) as weekly">
+                <div class="session-editor-grid" style="margin-top:10px">
+                  <label>Fecha<input type="date" [name]="'weeklyDate' + session.id" [(ngModel)]="weekly.date" (ngModelChange)="onWeeklyDraftChanged(plan, session)" [min]="plan.startDate" [max]="plan.endDate || null" /></label>
+                  <label>Nombre de sesión<input [name]="'weeklyTitle' + session.id" [(ngModel)]="weekly.title" maxlength="160" (ngModelChange)="onWeeklyDraftChanged(plan, session)" /></label>
+                  <label>Duración (min)<input type="number" [name]="'weeklyDuration' + session.id" [(ngModel)]="weekly.duration" (ngModelChange)="markWeeklyDraftDirty(session)" min="1" max="1440" /></label>
+                  <label>Tipo<select [name]="'weeklyType' + session.id" [(ngModel)]="weekly.type" (ngModelChange)="markWeeklyDraftDirty(session)"><option value="strength">Fuerza</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">General</option><option value="other">Otro</option></select></label>
+                  <label>Intensidad / RIR objetivo<input [name]="'weeklyIntensity' + session.id" [(ngModel)]="weekly.intensity" (ngModelChange)="markWeeklyDraftDirty(session)" maxlength="120" /></label>
+                  <label class="session-editor-wide">Instrucciones<textarea [name]="'weeklyInstructions' + session.id" [(ngModel)]="weekly.instructions" (ngModelChange)="markWeeklyDraftDirty(session)" rows="2" maxlength="4000"></textarea></label>
+                </div>
+                <div style="margin-top:12px"><strong>Ejercicios de la sesión</strong>
+                  <div *ngFor="let exercise of weekly.exercises; let exerciseIndex = index" style="display:grid;grid-template-columns:minmax(160px,2fr) repeat(4,minmax(75px,0.7fr)) auto;gap:7px;align-items:end;padding:9px 0;border-bottom:1px solid #edf1f5">
+                    <label>Ejercicio<input [name]="'weeklyExerciseName' + session.id + exerciseIndex" [(ngModel)]="exercise.exerciseName" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="160" placeholder="Nombre del ejercicio" /></label>
+                    <label>Series<input type="number" [name]="'weeklyExerciseSets' + session.id + exerciseIndex" [(ngModel)]="exercise.sets" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="1" max="10" /></label>
+                    <label>Reps<input [name]="'weeklyExerciseReps' + session.id + exerciseIndex" [(ngModel)]="exercise.repetitions" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="30" placeholder="8–12" /></label>
+                    <label>RIR<input type="number" [name]="'weeklyExerciseRir' + session.id + exerciseIndex" [(ngModel)]="exercise.rir" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="10" step="0.5" /></label>
+                    <label>Descanso (s)<input type="number" [name]="'weeklyExerciseRest' + session.id + exerciseIndex" [(ngModel)]="exercise.restSeconds" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="3600" /></label>
+                    <label>Carga (kg)<input type="number" [name]="'weeklyExerciseLoad' + session.id + exerciseIndex" [(ngModel)]="exercise.targetLoadKg" (ngModelChange)="onWeeklyDraftChanged(plan, session)" min="0" max="1000" step="0.5" /></label>
+                    <small class="muted" *ngIf="exercise.loadBasis">{{ exercise.loadBasis }}</small>
+                    <small class="muted" *ngIf="exercise.warmupNote">{{ exercise.warmupNote }}</small>
+                    <div style="display:flex;gap:3px"><button type="button" class="secondary" (click)="moveWeeklyExercise(plan, session, exerciseIndex, -1)" [disabled]="exerciseIndex === 0" aria-label="Subir ejercicio">↑</button><button type="button" class="secondary" (click)="moveWeeklyExercise(plan, session, exerciseIndex, 1)" [disabled]="exerciseIndex === weekly.exercises.length - 1" aria-label="Bajar ejercicio">↓</button><button type="button" class="secondary" (click)="removeWeeklyExercise(plan, session, exerciseIndex)" aria-label="Eliminar ejercicio">×</button></div>
+                    <label style="grid-column:span 2">Progresión<select [name]="'weeklyExerciseProgression' + session.id + exerciseIndex" [(ngModel)]="exercise.progressionRule" (ngModelChange)="onWeeklyDraftChanged(plan, session)"><option value="DoubleProgression">Doble progresión</option><option value="None">Sin progresión automática</option></select></label>
+                    <label style="grid-column:span 4">Notas del ejercicio<input [name]="'weeklyExerciseNotes' + session.id + exerciseIndex" [(ngModel)]="exercise.notes" (ngModelChange)="onWeeklyDraftChanged(plan, session)" maxlength="500" placeholder="Notas complementarias (opcional)" /></label>
+                  </div>
+                  <button type="button" class="secondary" style="margin-top:10px" (click)="addWeeklyExercise(plan, session)">＋ Añadir ejercicio</button>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:12px"><button type="button" (click)="saveWeeklySession(plan, session)" [disabled]="saving">Guardar esta sesión</button></div>
+              </ng-container>
+              <p *ngIf="session.completedAt" class="muted">La prescripción, fecha e historial de realización se mantienen intactos.</p>
+            </article>
+            <section *ngIf="manualVolumePreviews[plan.id] as volume" class="manual-volume-dashboard" style="margin-top:14px;padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+              <div class="section-heading"><div><h6>Volumen efectivo de la semana editada</h6><p>El mismo analizador que utiliza el generador; se recalcula al modificar ejercicios, series o fechas.</p></div><span *ngIf="manualVolumePreviewLoading[plan.id]" role="status">Actualizando…</span></div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px">
+                <div *ngFor="let muscle of volume.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid #e7edf4;border-radius:8px">
+                  <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }}</strong>
+                </div>
+              </div>
+              <section *ngIf="volume.sessionReports.length" style="margin-top:12px">
+                <strong>Comparación por sesión</strong>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:8px">
+                  <article *ngFor="let comparison of volume.sessionReports" style="padding:9px;border:1px solid #e7edf4;border-radius:9px">
+                    <strong>{{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                    <div *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0">
+                      <span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b>
+                    </div>
+                    <small *ngIf="comparison.unclassifiedExerciseNames.length" class="muted">Sin clasificar: {{ comparison.unclassifiedExerciseNames.join(', ') }}</small>
+                  </article>
+                </div>
+              </section>
+              <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}.</p>
+              <p *ngIf="manualVolumePreviewErrors[plan.id]" class="error" role="alert">{{ manualVolumePreviewErrors[plan.id] }}</p>
+            </section>
+            <p *ngIf="!weekSessions(plan.id, plan).length" class="muted">No hay sesiones en esta semana. Programa una sesión para comenzar.</p>
+          </section>
+          <div *ngIf="sessions[plan.id]?.length && sessionViews[plan.id] !== 'list'" class="week-grid">
+            <article *ngFor="let day of weekDays(plan)" class="week-day" [class.today]="day.isToday" [class.day-has-sessions]="sessionsForDay(plan.id, day.date).length">
+              <header class="week-day-heading"><span>{{ day.date | date:'EEE' }}</span><strong>{{ day.date | date:'d' }}</strong></header>
+              <div *ngIf="sessionsForDay(plan.id, day.date).length === 0" class="week-day-empty">—</div>
+              <article *ngFor="let session of sessionsForDay(plan.id, day.date)" class="week-session" [ngClass]="'week-' + session.sessionType" [class.week-session-done]="!!session.completedAt">
+                <span class="week-session-type">{{ sessionTypeIcon(session.sessionType) }}</span>
+                <strong>{{ session.title }}</strong>
+                <span class="week-session-meta">{{ session.durationMinutes || '—' }} min · {{ sessionTypeLabel(session.sessionType) }}</span>
+                <span class="week-session-status">{{ session.completedAt ? '✓ Realizada' : '○ Programada' }}</span>
+                <div class="week-session-actions">
+                  <button *ngIf="current.canManage" type="button" (click)="editSessionFromCalendar(session)" [disabled]="saving" [attr.aria-label]="'Editar ' + session.title">Editar</button>
+                  <button *ngIf="current.canManage" type="button" (click)="recordSessionFromCalendar(session)" [disabled]="saving">{{ session.completedAt ? 'Registro' : 'Realizar' }}</button>
+                </div>
+              </article>
+            </article>
+          </div>
+          <p *ngIf="!sessions[plan.id]?.length && sessionViews[plan.id] !== 'list'" class="session-empty">Tu calendario está vacío. Programa una sesión para empezar; aparecerá automáticamente en su día.</p>
+          <form *ngIf="current.canManage" (ngSubmit)="createSession(plan)" class="session-editor" [attr.id]="'session-editor-' + plan.id">
+            <div class="editor-title"><span class="editor-icon">＋</span><div><strong>Programar sesión</strong><p>Añade una sesión al calendario de este plan.</p></div></div>
+            <section class="saved-session-templates" aria-label="Plantillas de sesión">
+              <div class="saved-session-heading"><div><strong>Plantillas de sesiones</strong><p>Guarda una sesión de gimnasio y reutilízala en cualquier plan que gestiones.</p></div><span class="session-count">{{ sessionTemplates.length }}</span></div>
+              <div class="saved-session-controls">
+                <label>Aplicar plantilla<select name="savedSessionTemplate{{plan.id}}" [(ngModel)]="selectedSessionTemplateIds[plan.id]"><option [ngValue]="null">Selecciona una plantilla…</option><option *ngFor="let template of sessionTemplates" [ngValue]="template.id">{{ viewName(template, 'sessionTemplates.template') }} · {{ sessionTypeLabel(template.sessionType) }}</option></select></label>
+                <button type="button" class="secondary" (click)="applySavedSessionTemplate(plan)" [disabled]="saving || !selectedSessionTemplateIds[plan.id]">Aplicar</button>
+                <label>Guardar borrador como plantilla<input name="sessionTemplateName{{plan.id}}" [(ngModel)]="sessionTemplateNameDrafts[plan.id]" maxlength="160" placeholder="Ej. Torso A · hipertrofia" /></label>
+                <button type="button" (click)="saveSessionAsTemplate(plan)" [disabled]="saving || !sessionTemplateNameDrafts[plan.id]?.trim()">Guardar plantilla</button>
+              </div>
+              <div *ngIf="sessionTemplates.length" class="saved-session-list">
+                <span *ngFor="let template of sessionTemplates" class="saved-session-chip"><strong>{{ viewName(template, 'sessionTemplates.template') }}</strong><small>{{ sessionTypeLabel(template.sessionType) }}<span *ngIf="template.durationMinutes"> · {{ template.durationMinutes }} min</span></small><button type="button" class="secondary" (click)="deleteSessionTemplate(template)" [disabled]="saving" [attr.aria-label]="'Eliminar plantilla ' + viewName(template, 'sessionTemplates.deleteLabel')">×</button></span>
+              </div>
+              <p *ngIf="!sessionTemplates.length" class="muted">Aún no tienes plantillas de sesión. Rellena los ejercicios y las instrucciones, ponle un nombre y guárdala aquí.</p>
+            </section>
+            <section class="exercise-library" aria-label="Biblioteca de ejercicios">
+              <div class="section-heading"><div><p class="eyebrow">BIBLIOTECA</p><h5>Construye la sesión</h5><p>Busca ejercicios, filtra por objetivo o material y añádelos con un toque.</p></div><span class="session-count">{{ filteredExercises.length }} ejercicios</span></div>
+              <div class="exercise-filters">
+                <label>Buscar ejercicio<input name="exerciseSearch{{plan.id}}" [(ngModel)]="exerciseSearch" placeholder="Ej. sentadilla, remo, movilidad…" /></label>
+                <label>Objetivo<select name="exerciseGoal{{plan.id}}" [(ngModel)]="exerciseGoalFilter"><option value="all">Todos</option><option value="strength">Fuerza</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="core">Core</option></select></label>
+                <label>Material<select name="exerciseEquipment{{plan.id}}" [(ngModel)]="exerciseEquipmentFilter"><option value="all">Todo el material</option><option value="bodyweight">Peso corporal</option><option value="dumbbell">Mancuernas</option><option value="barbell">Barra</option><option value="machine">Máquina</option><option value="band">Bandas</option><option value="cardio">Cardio</option></select></label>
+                <label>Grupo muscular<select name="exerciseMuscle{{plan.id}}" [(ngModel)]="exerciseMuscleFilter"><option value="all">Todos los grupos</option><option *ngFor="let muscle of exerciseMuscleGroups" [ngValue]="muscle">{{ muscle }}</option></select></label>
+              </div>
+              <div class="prescription-quick-settings" aria-label="Prescripción para el próximo ejercicio">
+                <label>Series<input type="number" name="sessionExerciseSets{{plan.id}}" [(ngModel)]="sessionExerciseSets" min="1" max="20" /></label>
+                <label>Repeticiones<input name="sessionExerciseReps{{plan.id}}" [(ngModel)]="sessionExerciseReps" maxlength="30" placeholder="8–12" /></label>
+                <label>Descanso<input name="sessionExerciseRest{{plan.id}}" [(ngModel)]="sessionExerciseRest" maxlength="30" placeholder="90 s" /></label>
+                <p>Se aplican al próximo ejercicio de fuerza o core; luego puedes modificar cada línea.</p>
+              </div>
+              <div class="exercise-results">
+                <article *ngFor="let exercise of filteredExercises" class="exercise-result">
+                  <img *ngIf="exercise.imageUrl" class="exercise-thumb" [src]="exercise.imageUrl" [alt]="'Ilustración de ' + viewName(exercise, 'exercise.imageAlt')" loading="lazy" />
+                  <div><strong>{{ viewName(exercise, 'exercise.result') }}</strong><p>{{ exercise.muscles }} · {{ exercise.equipmentLabel }}</p><small>{{ exercise.instructions }}</small><small *ngIf="exercise.source === 'repdb'" class="exercise-source">Biblioteca RepDB</small></div>
+                  <button type="button" class="secondary" (click)="addExerciseToDraft(plan, exercise)" [disabled]="saving">＋ Añadir</button>
+                </article>
+                <p class="exercise-attribution">Ilustraciones y datos ampliados: <a href="https://repdb.co" target="_blank" rel="noopener noreferrer">Exercise data by RepDB (repdb.co)</a>. Los ejercicios importados se cargan desde su catálogo público; si no está disponible, se mantiene la biblioteca básica.</p>
+                <p *ngIf="!filteredExercises.length" class="muted">No hay ejercicios con esos filtros. Prueba otra búsqueda.</p>
+              </div>
+              <div class="session-tools">
+                <label>Reutilizar sesión guardada<select name="sessionTemplate{{plan.id}}" [(ngModel)]="templateSessionId"><option [ngValue]="null">Elegir sesión como plantilla…</option><option *ngFor="let saved of sessions[plan.id]" [ngValue]="saved.id">{{ saved.title }} · {{ saved.scheduledDate | date:'shortDate' }}</option></select></label>
+                <button type="button" class="secondary" (click)="applySessionTemplate(plan)" [disabled]="!templateSessionId">Usar como plantilla</button>
+                <label>Generación asistida<select name="generatorGoal{{plan.id}}" [(ngModel)]="generatorGoal"><option value="strength">Fuerza general</option><option value="hypertrophy">Hipertrofia</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad y recuperación</option><option value="general">Condición física general</option></select></label>
+                <label>Nivel<select name="generatorLevel{{plan.id}}" [(ngModel)]="generatorLevel"><option value="beginner">Principiante</option><option value="intermediate">Intermedio</option><option value="advanced">Avanzado</option></select></label>
+                <label>Material disponible<select name="generatorEquipment{{plan.id}}" [(ngModel)]="generatorEquipment"><option value="mixed">Variado</option><option value="bodyweight">Solo peso corporal</option><option value="dumbbell">Mancuernas</option><option value="barbell">Barra y discos</option><option value="band">Bandas elásticas</option><option value="cardio">Cardio</option></select></label>
+                <button type="button" (click)="generateSessionDraft(plan)" [disabled]="saving">✦ Proponer sesión</button>
+              </div>
+              <p class="muted">La propuesta es un borrador editable, no una prescripción clínica ni una recomendación automática de carga. Revísala antes de guardarla.</p>
+            </section>
+            <div class="session-editor-grid">
+              <label>Nombre de la sesión<input name="sessionTitle{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].title" maxlength="160" placeholder="Ej. Fuerza de tren inferior" required /></label>
+              <label>Fecha<input type="text" appDateInput name="sessionDate{{plan.id}}" [ngModel]="sessionDrafts[plan.id].date" (ngModelChange)="onManualSessionDateChanged(plan, $event)" [min]="plan.startDate" [max]="plan.endDate || null" required /></label>
+              <label>Tipo de entrenamiento<select name="sessionType{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].type"><option value="endurance">Resistencia</option><option value="strength">Fuerza</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">General</option><option value="other">Otro</option></select></label>
+              <label>Duración estimada (min)<input type="number" name="sessionDuration{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].duration" min="1" max="1440" placeholder="60" /></label>
+              <label>Intensidad / zona objetivo<input name="sessionIntensity{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].intensity" maxlength="120" placeholder="Ej. RPE 7 · Z2 · 250 W · 5:00/km" /></label>
+              <label class="session-editor-wide">Instrucciones<textarea name="sessionInstructions{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].instructions" rows="2" maxlength="4000" placeholder="Calentamiento, bloques principales, pausas y vuelta a la calma…"></textarea></label>
+              <label class="session-editor-wide">Prescripción de ejercicios<textarea name="sessionExercises{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].exercisePrescription" (ngModelChange)="onManualPrescriptionChanged(plan)" rows="3" maxlength="6000" placeholder="Sentadilla · 3 × 8 · descanso 2 min · RPE 7&#10;Peso muerto rumano · 3 × 10 · descanso 90 s"></textarea><small>Indica ejercicio, series, repeticiones, descanso y observaciones. Puedes anotar ritmo o potencia en la zona objetivo.</small></label>
+              <div *ngIf="prescriptionLines(sessionDrafts[plan.id].exercisePrescription).length" class="prescription-line-editor session-editor-wide" style="display:grid;gap:7px;margin:8px 0">
+                <div *ngFor="let line of prescriptionLines(sessionDrafts[plan.id].exercisePrescription); let lineIndex = index" class="prescription-line-row" style="display:grid;grid-template-columns:minmax(0,1fr) repeat(3,auto);gap:6px;align-items:center">
+                  <input [name]="'draftExerciseLine' + plan.id + lineIndex" [ngModel]="line" (ngModelChange)="updatePrescriptionLine(sessionDrafts[plan.id], lineIndex, $event, plan)" aria-label="Prescripción del ejercicio" />
+                  <button type="button" class="secondary" (click)="movePrescriptionLine(sessionDrafts[plan.id], lineIndex, -1, plan)" [disabled]="lineIndex === 0" aria-label="Subir ejercicio">↑</button>
+                  <button type="button" class="secondary" (click)="movePrescriptionLine(sessionDrafts[plan.id], lineIndex, 1, plan)" [disabled]="lineIndex === prescriptionLines(sessionDrafts[plan.id].exercisePrescription).length - 1" aria-label="Bajar ejercicio">↓</button>
+                  <button type="button" class="secondary" (click)="removePrescriptionLine(sessionDrafts[plan.id], lineIndex, plan)" aria-label="Quitar ejercicio">×</button>
+                </div>
+              </div>
+              <section class="manual-volume-dashboard session-editor-wide" style="padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><strong>Volumen muscular efectivo estimado · semana</strong><span *ngIf="manualVolumePreviewLoading[plan.id]" role="status">Calculando…</span></div>
+                <p *ngIf="manualVolumePreviewErrors[plan.id]" class="muted" role="status">{{ manualVolumePreviewErrors[plan.id] }}</p>
+                <div *ngIf="manualVolumePreviews[plan.id] as volume">
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:7px;margin-top:10px">
+                    <div *ngFor="let muscle of volume.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e7edf4;border-radius:9px">
+                      <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
+                      <small style="grid-column:1 / -1;color:#64748b">Primarias {{ muscle.primarySets }} · secundarias {{ muscle.secondarySets }} · frecuencia P {{ muscle.primaryFrequencySessions }} / S {{ muscle.secondaryFrequencySessions }}</small>
+                    </div>
+                  </div>
+                  <section *ngIf="volume.sessionReports.length" style="margin-top:14px">
+                    <strong>Comparación por sesión</strong>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px;margin-top:8px">
+                      <article *ngFor="let comparison of volume.sessionReports" style="padding:10px;border:1px solid #e7edf4;border-radius:10px">
+                        <strong>{{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                        <div *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0">
+                          <span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b>
+                        </div>
+                        <small *ngIf="comparison.unclassifiedExerciseNames.length" class="muted">Sin clasificar: {{ comparison.unclassifiedExerciseNames.join(', ') }}</small>
+                      </article>
+                    </div>
+                  </section>
+                  <ul *ngIf="volume.qualityReport.warnings.length" style="margin:8px 0;padding-left:18px"><li *ngFor="let warning of volume.qualityReport.warnings">{{ warning }}</li></ul>
+                  <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted" style="margin:10px 0 0">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}. No se inventa su contribución.</p>
+                  <small>Se usa el mismo motor de estímulo auditado que en la generación automática. Incluye las sesiones programadas de esta semana y el borrador actual.</small>
+                </div>
+                <p *ngIf="!manualVolumePreviews[plan.id] && !manualVolumePreviewLoading[plan.id] && !manualVolumePreviewErrors[plan.id]" class="muted">Añade ejercicios reconocidos para calcular el volumen de la semana.</p>
+              </section>
+            </div>
+            <div class="editor-footer"><span>La fecha debe estar dentro del periodo del plan.</span><button type="submit" [disabled]="saving || !sessionDrafts[plan.id].title.trim()">＋ Añadir sesión</button></div>
+          </form>
+          <p *ngIf="!sessions[plan.id]?.length" class="session-empty">Todavía no hay sesiones. Programa la primera arriba para empezar a construir el calendario.</p>
+          <div *ngIf="sessions[plan.id]?.length && sessionViews[plan.id] === 'list'" class="session-list">
+            <article *ngFor="let session of sessions[plan.id]" class="session-card" [class.session-completed]="!!session.completedAt">
+              <div class="session-date-rail"><strong>{{ session.scheduledDate | date:'dd' }}</strong><span>{{ session.scheduledDate | date:'MMM' }}</span></div>
+              <div class="session-card-main">
+                <div class="session-card-top">
+                  <span class="session-type-icon" [ngClass]="'type-' + session.sessionType">{{ sessionTypeIcon(session.sessionType) }}</span>
+                  <div class="session-title-block"><div class="session-title-line"><h5>{{ session.title }}</h5><span class="session-status" [class.done]="!!session.completedAt">{{ session.completedAt ? 'Realizada' : 'Programada' }}</span></div><p>{{ sessionTypeLabel(session.sessionType) }} <span *ngIf="session.durationMinutes">· {{ session.durationMinutes }} min</span><span *ngIf="session.intensityTarget"> · {{ session.intensityTarget }}</span></p></div>
+                  <button *ngIf="current.canManage" type="button" class="secondary session-edit-button" (click)="beginEditSession(session)" [disabled]="saving">{{ editingSessionId === session.id ? 'Cerrar edición' : 'Editar' }}</button>
+                </div>
+                <p *ngIf="session.instructions" class="session-instructions">{{ session.instructions }}</p>
+                <div *ngIf="session.exercisePrescription" class="exercise-prescription"><strong>Ejercicios, series y descansos</strong><p style="white-space:pre-line">{{ session.exercisePrescription }}</p></div>
+                <div *ngIf="session.completedAt" class="completion-summary"><span class="completion-check">✓</span><span><strong>Realización registrada</strong><small>{{ session.actualDurationMinutes || '—' }} min reales · RPE {{ session.sessionRpe ?? '—' }} / 10</small></span><span *ngIf="session.durationMinutes && session.actualDurationMinutes" class="duration-delta">{{ session.actualDurationMinutes - session.durationMinutes > 0 ? '+' : '' }}{{ session.actualDurationMinutes - session.durationMinutes }} min</span></div>
+                <form *ngIf="current.canManage && editingSessionId === session.id && sessionEditDraft as edit" class="session-edit-form" (ngSubmit)="saveSession(session)">
+                  <div class="session-editor-grid">
+                    <label>Nombre<input name="editSessionTitle{{session.id}}" [(ngModel)]="edit.title" maxlength="160" required /></label>
+                    <label>Fecha<input type="text" appDateInput name="editSessionDate{{session.id}}" [ngModel]="edit.date" (ngModelChange)="onEditedSessionDateChanged(plan, session, $event)" [min]="plan.startDate" [max]="plan.endDate || null" required /></label>
+                    <label>Tipo<select name="editSessionType{{session.id}}" [(ngModel)]="edit.type"><option value="endurance">Resistencia</option><option value="strength">Fuerza</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">General</option><option value="other">Otro</option></select></label>
+                    <label>Duración (min)<input type="number" name="editSessionDuration{{session.id}}" [(ngModel)]="edit.duration" min="1" max="1440" required /></label>
+                    <label>Intensidad / zona<input name="editSessionIntensity{{session.id}}" [(ngModel)]="edit.intensity" maxlength="120" /></label>
+                    <label class="session-editor-wide">Instrucciones<textarea name="editSessionInstructions{{session.id}}" [(ngModel)]="edit.instructions" rows="3" maxlength="4000"></textarea></label>
+                    <label class="session-editor-wide">Prescripción de ejercicios<textarea name="editSessionExercises{{session.id}}" [ngModel]="edit.exercisePrescription" (ngModelChange)="onEditedSessionPrescriptionChanged(plan, session, $event)" rows="4" maxlength="6000" placeholder="Ejercicio · series × repeticiones · descanso · notas"></textarea></label>
+                    <div *ngIf="prescriptionLines(edit.exercisePrescription).length" class="prescription-line-editor session-editor-wide" style="display:grid;gap:7px;margin:8px 0">
+                      <div *ngFor="let line of prescriptionLines(edit.exercisePrescription); let lineIndex = index" class="prescription-line-row" style="display:grid;grid-template-columns:minmax(0,1fr) repeat(3,auto);gap:6px;align-items:center">
+                        <input [name]="'editExerciseLine' + session.id + lineIndex" [ngModel]="line" (ngModelChange)="updatePrescriptionLine(edit, lineIndex, $event, plan)" aria-label="Prescripción del ejercicio" />
+                        <button type="button" class="secondary" (click)="movePrescriptionLine(edit, lineIndex, -1, plan)" [disabled]="lineIndex === 0" aria-label="Subir ejercicio">↑</button>
+                        <button type="button" class="secondary" (click)="movePrescriptionLine(edit, lineIndex, 1, plan)" [disabled]="lineIndex === prescriptionLines(edit.exercisePrescription).length - 1" aria-label="Bajar ejercicio">↓</button>
+                        <button type="button" class="secondary" (click)="removePrescriptionLine(edit, lineIndex, plan)" aria-label="Quitar ejercicio">×</button>
+                      </div>
+                    </div>
+                    <section class="manual-volume-dashboard session-editor-wide" style="padding:14px;border:1px solid #dbe3ed;border-radius:12px;background:#fff">
+                      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><strong>Volumen muscular efectivo estimado · semana</strong><span *ngIf="manualVolumePreviewLoading[plan.id]" role="status">Calculando…</span></div>
+                      <p *ngIf="manualVolumePreviewErrors[plan.id]" class="muted" role="status">{{ manualVolumePreviewErrors[plan.id] }}</p>
+                      <div *ngIf="manualVolumePreviews[plan.id] as volume">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:7px;margin-top:10px">
+                          <div *ngFor="let muscle of volume.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e7edf4;border-radius:9px">
+                            <span>{{ muscleLabel(muscle.muscleGroup) }}</span><strong>{{ muscle.estimatedEffectiveSets }} series</strong>
+                          </div>
+                        </div>
+                        <section *ngIf="volume.sessionReports.length" style="margin-top:14px">
+                          <strong>Comparación por sesión</strong>
+                          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px;margin-top:8px">
+                            <article *ngFor="let comparison of volume.sessionReports" style="padding:10px;border:1px solid #e7edf4;border-radius:10px">
+                              <strong>{{ dayName(comparison.day) }} · {{ comparison.title }}</strong>
+                              <div *ngFor="let muscle of comparison.qualityReport.weeklyMuscleVolumes[0]?.muscles" style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0">
+                                <span>{{ muscleLabel(muscle.muscleGroup) }}</span><b>{{ muscle.estimatedEffectiveSets }}</b>
+                              </div>
+                              <small *ngIf="comparison.unclassifiedExerciseNames.length" class="muted">Sin clasificar: {{ comparison.unclassifiedExerciseNames.join(', ') }}</small>
+                            </article>
+                          </div>
+                        </section>
+                        <p *ngIf="volume.unclassifiedExerciseNames.length" class="muted" style="margin:10px 0 0">Sin volumen calculable por falta de metadatos revisados: {{ volume.unclassifiedExerciseNames.join(', ') }}.</p>
+                        <small>El cálculo incluye el resto de sesiones de esta semana y esta edición, con el mismo motor que la generación automática.</small>
+                      </div>
+                      <p *ngIf="!manualVolumePreviews[plan.id] && !manualVolumePreviewLoading[plan.id] && !manualVolumePreviewErrors[plan.id]" class="muted">Añade ejercicios reconocidos para calcular el volumen de la semana.</p>
+                    </section>
+                  </div>
+                  <div class="editor-footer"><span>Los registros de realización se conservan al editar.</span><div><button type="button" class="secondary" (click)="cancelEditSession(plan)">Cancelar</button> <button type="submit" [disabled]="saving">Guardar cambios</button></div></div>
+                </form>
+                <div class="session-card-actions">
+                  <button *ngIf="current.canManage" type="button" class="secondary" (click)="openRecord(session)" [disabled]="saving">{{ recordingSessionId === session.id ? 'Cerrar registro' : (session.completedAt ? 'Editar realización' : 'Registrar realización') }}</button>
+                </div>
+                <form *ngIf="current.canManage && recordingSessionId === session.id" class="record-form" (ngSubmit)="record(session)">
+                  <label>Duración real (min)<input type="number" [(ngModel)]="recordDrafts[session.id].duration" name="actualDuration{{session.id}}" min="1" max="1440" required /></label>
+                  <label>Esfuerzo percibido (RPE)<input type="number" [(ngModel)]="recordDrafts[session.id].rpe" name="actualRpe{{session.id}}" min="0" max="10" step="0.5" required /></label>
+                  <label class="record-notes">Notas<textarea [(ngModel)]="recordDrafts[session.id].notes" name="recordNotes{{session.id}}" rows="2" maxlength="2000" placeholder="Cómo te has encontrado, ajustes realizados…"></textarea></label>
+                  <button type="submit" [disabled]="saving">Guardar realización</button>
+                </form>
+              </div>
+            </article>
+          </div>
+        </section></ng-container>
+      
+      </article>
+    </section>
+  </ng-container>
+</main>
