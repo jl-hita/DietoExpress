@@ -211,7 +211,7 @@ public sealed class TrainingMuscleFeedbackTests
             E(4, "bench", sets: 3, stimulus: "high", pre: "loaded"),
             E(6, "bench", sets: 3, stimulus: "high", pre: "loaded"),
             E(6, "fly", sets: 4, stimulus: "adequate", pre: "loaded"));
-        var reduce = Assert.Single(result.Where(item => item.Action == TrainingMuscleFeedbackAction.ReduceSet));
+        var reduce = Assert.Single(result, item => item.Action == TrainingMuscleFeedbackAction.ReduceSet);
         Assert.Equal("bench", reduce.ExerciseId);
     }
 
