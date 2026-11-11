@@ -51,7 +51,7 @@ describe('PublicPlansService', () => {
 
         const req = httpTesting.expectOne('/api/public/plans');
         expect(req.request.method).toBe('GET');
-        req.flush({ trialDays: 7, plans: [] });
-        expect(result).toEqual({ trialDays: 7, plans: [] });
+        req.flush({ plans: [] });
+        expect(result).toEqual({ plans: [] });
     });
 });

@@ -54,4 +54,43 @@ public class PublicPlansRegressionTests
         Assert.DoesNotContain("79,90", landing);
         Assert.DoesNotContain("29.90", landing);
     }
+
+    private static string ReadRepo(params string[] parts) => File.ReadAllText(Path.Combine([RepoRoot, .. parts]));
+
+    [Fact]
+    public void OnlyTheIndividualPlanOffersTheFreeTrial()
+    {
+        // No existe prueba de clínica: el sistema no puede darla, así que la web no debe ofrecerla.
+        var source = Source();
+        Assert.Contains("TrialPlanCode = \"nutri_full\"", source);
+        Assert.Contains("p.code == TrialPlanCode && trialDays is > 0 ? trialDays : null", source);
+
+        var landing = ReadRepo("anguloso.client", "src", "app", "componentes", "landing", "landing.component.html");
+        Assert.Contains("plan.trialDays ? 'Probar ' + plan.trialDays + ' días gratis' : 'Crear cuenta y contratar'", landing);
+        Assert.Contains("Sin periodo de prueba", landing);
+        // Los días no están escritos en la plantilla: vienen del catálogo.
+        Assert.DoesNotContain("30 días", landing);
+        Assert.DoesNotContain("7 días", landing);
+    }
+
+    [Fact]
+    public void FreeTrial_IsThirtyDaysAndIsNotResetAtEveryStartup()
+    {
+        var bootstrap = ReadRepo("Anguloso.Server", "Logica", "DatabaseBootstrap.cs");
+        Assert.Contains("UpgradeFreeTrialLengthV1(context, logger);", bootstrap);
+        Assert.Contains("free-trial-30-days-v1", bootstrap);
+        Assert.Contains("SET trial_days = 30", bootstrap);
+
+        // La migración antigua solo fija los días la primera vez: antes los reescribía en cada arranque y anulaba lo que
+        // SuperAdmin hubiera editado.
+        var v3Start = bootstrap.IndexOf("public static void UpgradeSaaSSchemaV3(", StringComparison.Ordinal);
+        var v3 = bootstrap[v3Start..bootstrap.IndexOf("public static void UpgradeFreeTrialLengthV1(", v3Start, StringComparison.Ordinal)];
+        Assert.Contains("firstApplication", v3);
+        Assert.Contains("if (firstApplication)", v3);
+
+        var auth = ReadRepo("Anguloso.Server", "Controllers", "AuthController.cs");
+        Assert.Contains("freePlan.trial_days ?? 30", auth);
+        Assert.Contains("freePlanGoogle.trial_days ?? 30", auth);
+        Assert.DoesNotContain("trial_days ?? 7", auth);
+    }
 }

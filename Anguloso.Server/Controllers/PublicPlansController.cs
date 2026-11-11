@@ -19,6 +19,10 @@ public class PublicPlansController : ControllerBase
     // Planes internos o de prueba que no se venden desde la web.
     private static readonly string[] HiddenPlanCodes = ["free", "demo_nutri", "trial_nutri"];
 
+    // La prueba gratuita pública da acceso a Nutri Full (ver el plan «free»). Ningún otro plan tiene periodo de prueba,
+    // así que solo este lo anuncia: si se ofreciera una prueba de clínica el sistema no podría darla.
+    private const string TrialPlanCode = "nutri_full";
+
     private readonly angulosodbContext _context;
     private readonly PublicResponseCache _cache;
 
@@ -58,15 +62,15 @@ public class PublicPlansController : ControllerBase
             .FirstOrDefaultAsync(cancellationToken);
 
         return new PublicPlansResponse(
-            trialDays is > 0 ? trialDays : null,
             plans.Select(p => new PublicPlanDto(
                 p.code, p.name, p.description, p.monthly_price, p.yearly_price,
                 p.max_nutritionists, p.max_clients_per_nutritionist, p.max_total_clients,
+                p.code == TrialPlanCode && trialDays is > 0 ? trialDays : null,
                 p.Features.OrderBy(f => f, StringComparer.Ordinal).ToList())).ToList());
     }
 }
 
-public sealed record PublicPlansResponse(int? TrialDays, IReadOnlyList<PublicPlanDto> Plans);
+public sealed record PublicPlansResponse(IReadOnlyList<PublicPlanDto> Plans);
 
 public sealed record PublicPlanDto(
     string Code,
@@ -77,4 +81,6 @@ public sealed record PublicPlanDto(
     int? MaxNutritionists,
     int? MaxClientsPerNutritionist,
     int? MaxTotalClients,
+    /// <summary>Días de prueba gratuita del plan; nulo si el plan no tiene prueba.</summary>
+    int? TrialDays,
     IReadOnlyList<string> Features);

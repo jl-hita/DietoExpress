@@ -11,11 +11,12 @@ export interface PublicPlan {
   maxNutritionists?: number | null;
   maxClientsPerNutritionist?: number | null;
   maxTotalClients?: number | null;
+  /** Días de prueba gratuita del plan; ausente si el plan no tiene prueba (p. ej. clínica). */
+  trialDays?: number | null;
   features: string[];
 }
 
 export interface PublicPlansResponse {
-  trialDays?: number | null;
   plans: PublicPlan[];
 }
 

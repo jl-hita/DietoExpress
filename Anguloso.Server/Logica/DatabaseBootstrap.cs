@@ -864,6 +864,7 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             BillingSchemaBootstrap.Initialize(context, logger);
             UpgradeSaaSSchemaV2(context, logger);
             UpgradeSaaSSchemaV3(context, logger);
+            UpgradeFreeTrialLengthV1(context, logger);
             UpgradeSaaSSchemaV4(context, logger);
             UpgradeSaaSSchemaV5(context, logger);
             UpgradeSaaSSchemaV6(context, logger);
@@ -1721,23 +1722,36 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     }
 
     /// <summary>
-    /// Evolución de la cuenta FREE: prueba funcional de 7 días,
+    /// Evolución de la cuenta FREE: prueba funcional (7 días al crearse; hoy 30, ver UpgradeFreeTrialLengthV1),
     /// con un cliente y una dieta como límite.
     /// </summary>
     public static void UpgradeSaaSSchemaV3(angulosodbContext context, ILogger logger)
     {
+        // Los días de prueba y la descripción del plan se fijan solo la primera vez: son editables desde SuperAdmin y reescribirlos
+        // en cada arranque anulaba sus cambios (ver UpgradeFreeTrialLengthV1 para el valor actual).
+        var firstApplication = !context.Database
+            .SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'saas-v3-free-trial') AS \"Value\"")
+            .Single();
+        if (firstApplication)
+        {
+            context.Database.ExecuteSqlRaw(@"
+                UPDATE subscription_plans
+                SET trial_days = 7,
+                    description = 'Cuenta gratuita para probar DietoExpress durante 7 días'
+                WHERE code = 'free';
+            ");
+        }
+
         context.Database.ExecuteSqlRaw(@"
             UPDATE subscription_plans
             SET max_clients_per_nutritionist = 1,
-                max_total_clients = 1,
-                trial_days = 7,
-                description = 'Cuenta gratuita para probar DietoExpress durante 7 días'
+                max_total_clients = 1
             WHERE code = 'free';
 
             -- PostgreSQL no permite referenciar el alias de la tabla objetivo
             -- dentro del JOIN del FROM. La relación con el plan se expresa en WHERE.
             UPDATE subscriptions s
-            SET expires_at = u.created_at + INTERVAL '7 days'
+            SET expires_at = u.created_at + INTERVAL '30 days'
             FROM users u, subscription_plans p
             WHERE s.tenant_id = u.tenant_id
               AND p.id = s.plan_id
@@ -1759,6 +1773,27 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         ");
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v3-free-trial') ON CONFLICT (id) DO NOTHING;");
         logger.LogInformation("Migración SaaS saas-v3-free-trial aplicada correctamente.");
+    }
+
+    /// <summary>
+    /// La prueba gratuita pública pasa a durar 30 días. Se aplica una sola vez: a partir de aquí la duración se edita desde
+    /// SuperAdmin (plan «free») y los arranques ya no la reescriben. Las pruebas ya en curso conservan su fecha de fin.
+    /// </summary>
+    public static void UpgradeFreeTrialLengthV1(angulosodbContext context, ILogger logger)
+    {
+        var alreadyApplied = context.Database
+            .SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'free-trial-30-days-v1') AS \"Value\"")
+            .Single();
+        if (alreadyApplied) return;
+
+        context.Database.ExecuteSqlRaw(@"
+            UPDATE subscription_plans
+            SET trial_days = 30,
+                description = 'Prueba completa de Nutri Full durante 30 días'
+            WHERE code = 'free';
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('free-trial-30-days-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Prueba gratuita establecida en 30 días (free-trial-30-days-v1).");
     }
 
     /// <summary>

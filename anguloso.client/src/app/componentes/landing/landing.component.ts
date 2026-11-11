@@ -6,6 +6,7 @@ import { AdminService } from '../../servicios/admin.service';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { PublicPlan, PublicPlansService, planFeatureLabels, yearlySavingsPercent } from '../../servicios/public-plans.service';
+import { LANDING_CONTENT, publishableScreenshots, publishableTestimonials, publishableVideo } from './landing.content';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -19,8 +20,12 @@ import { PublicPlan, PublicPlansService, planFeatureLabels, yearlySavingsPercent
 export class LandingComponent implements OnInit {
   // Planes reales desde el catálogo de cobro. Si no se pueden cargar, la sección vuelve a mostrar solo la invitación a empezar.
   plans: PublicPlan[] = [];
-  trialDays: number | null = null;
   billingInterval: 'monthly' | 'yearly' = 'yearly';
+
+  // Vídeo, capturas y testimonios: se rellenan en landing.content.ts. Cada sección solo se muestra si tiene contenido publicable.
+  readonly video = publishableVideo(LANDING_CONTENT);
+  readonly screenshots = publishableScreenshots(LANDING_CONTENT);
+  readonly testimonials = publishableTestimonials(LANDING_CONTENT);
 
   private getPostLoginRoute(role: string | null): string[] {
     switch (role) {
@@ -44,7 +49,7 @@ export class LandingComponent implements OnInit {
     }
 
     this.publicPlans.getPlans().subscribe({
-      next: res => { this.plans = res.plans ?? []; this.trialDays = res.trialDays ?? null; },
+      next: res => { this.plans = res.plans ?? []; },
       error: () => { this.plans = []; }
     });
 
@@ -81,6 +86,9 @@ export class LandingComponent implements OnInit {
   maxSavings(): number { return Math.max(0, ...this.plans.map(plan => yearlySavingsPercent(plan))); }
 
   featureLabels(plan: PublicPlan): string[] { return planFeatureLabels(plan); }
+
+  // Los días de prueba de los planes que la ofrecen (hoy solo el individual). Ninguno => no se menciona la prueba.
+  trialPlan(): PublicPlan | undefined { return this.plans.find(plan => !!plan.trialDays && plan.trialDays > 0); }
 
   isFeatured(plan: PublicPlan): boolean { return this.plans.length > 1 && plan.code === 'nutri_full'; }
 

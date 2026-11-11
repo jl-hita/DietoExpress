@@ -19,6 +19,8 @@ export function flushPendingHttpRequests(httpTesting: HttpTestingController, fix
         request.flush({ items: [], totalCount: 0, page: 1, pageSize: 10 });
       } else if (url.includes('/auth/google-client-id')) {
         request.flush({ clientId: 'test-client' });
+      } else if (url.includes('/public/plans')) {
+        request.flush({ plans: [] });
       } else if (url.includes('/legal-documents/current')) {
         request.flush([]);
       } else if (url.includes('/ingrediente/getIngredientes')) {
