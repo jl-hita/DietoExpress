@@ -23,6 +23,8 @@ export const routes: AppRoute[] = [
   { path: 'reset-password', loadComponent: () => import('./componentes/user-reset/user-reset.component').then(m => m.UserResetComponent), title: 'Restablecer contraseña', showInMenu: false },
   { path: 'confirmar-email', loadComponent: () => import('./componentes/confirmar-email/confirmar-email.component').then(m => m.ConfirmarEmailComponent), title: 'Confirmar email', showInMenu: false },
   { path: 'patient', loadComponent: () => import('./componentes/patient-portal/patient-portal.component').then(m => m.PatientPortalComponent), title: 'Portal del Paciente' },
+  // Nueva interfaz del paciente, con la misma estructura que la app Android. Convive con /patient hasta completar la migración.
+  { path: 'portal', loadChildren: () => import('./componentes/patient-app/patient-app.routes').then(m => m.PATIENT_APP_ROUTES), title: 'DietoExpress', showInMenu: false },
   { path: 'video-consultation/:appointmentId', loadComponent: () => import('./componentes/video-consultation/video-consultation.component').then(m => m.VideoConsultationComponent), title: 'Consulta online' },
   { path: 'legal', loadComponent: () => import('./componentes/legal-documents/legal-documents.component').then(m => m.LegalDocumentsComponent), title: 'Documentación legal' },
   { path: 'para-nutricionistas', loadComponent: () => import('./componentes/nutritionist-marketplace/nutritionist-marketplace.component').then(m => m.NutritionistMarketplaceComponent), title: 'Consigue pacientes con DietoExpress' },

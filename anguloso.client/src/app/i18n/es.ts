@@ -85,7 +85,42 @@ export const es = {
   'patient.accessLink.expiredText': 'Te enviaremos uno nuevo a tu email.',
   'patient.accessLink.emailPlaceholder': 'tu@email.com',
   'patient.accessLink.send': 'Enviar enlace',
-  'patient.accessLink.sending': 'Enviando...'
+  'patient.accessLink.sending': 'Enviando...',
+
+  // ── Portal del paciente (nueva interfaz, paridad con la app Android) ───────
+  'papp.nav.label': 'Navegación principal',
+  'papp.nav.home': 'Inicio',
+  'papp.nav.diet': 'Mi dieta',
+  'papp.nav.training': 'Entrenamiento',
+  'papp.nav.progress': 'Progreso',
+  'papp.nav.appointments': 'Citas',
+  'papp.home.greeting': 'Hola, {name}',
+  'papp.home.greetingAnonymous': 'Hola, bienvenido/a',
+  'papp.home.trainingToday': 'Entrenamiento de hoy',
+  'papp.home.trainingNext': 'Próximo entrenamiento',
+  'papp.home.start': 'Empezar →',
+  'papp.home.view': 'Ver →',
+  'papp.home.nextAppointment': 'Próxima cita',
+  'papp.home.consultation': 'Consulta',
+  'papp.home.quickAccess': 'Accesos rápidos',
+  'papp.home.appointments': 'Mis citas',
+  'papp.home.appointmentsHint': 'Próxima cita y seguimiento',
+  'papp.home.documents': 'Documentos',
+  'papp.home.documentsHint': 'Archivos y consentimientos',
+  'papp.home.shopping': 'Lista de compra',
+  'papp.home.shoppingHint': 'Ingredientes del plan',
+  'papp.home.messages': 'Mensajes',
+  'papp.home.messagesHint': 'Habla con tu profesional',
+  'papp.home.profile': 'Perfil',
+  'papp.home.profileHint': 'Datos y configuración',
+  'papp.minutes': '{count} min',
+  'papp.loading': 'Cargando…',
+  'papp.error': 'No se ha podido cargar tu información.',
+  'papp.retry': 'Reintentar',
+  'papp.pending.title': 'Esta sección todavía se abre en el portal actual',
+  'papp.pending.text': 'Estamos trasladando el portal a la nueva interfaz, igual que la app Android. Mientras tanto puedes usar esta sección en el portal actual.',
+  'papp.pending.open': 'Abrir en el portal actual',
+  'papp.logout': 'Cerrar sesión'
 } as const;
 
 export type TranslationKey = keyof typeof es;
