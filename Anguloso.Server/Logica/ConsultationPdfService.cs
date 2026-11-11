@@ -13,9 +13,20 @@ namespace Anguloso.Server.Logica;
 // Documentación: este componente encapsula lógica compartida para mantener las reglas y transformaciones fuera de los puntos de entrada del frontend.
 public class ConsultationPdfService
 {
-    public byte[] GenerateConsultationPdf(clients client, DateOnly consultationDate, angulosodbContext context)
+    public static (DateOnly Start, DateOnly End) GetDefaultTrainingPeriod(DateOnly today)
+    {
+        var start = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+        return (start, start.AddDays(27));
+    }
+
+    public byte[] GenerateConsultationPdf(clients client, DateOnly consultationDate, angulosodbContext context,
+        DateOnly? trainingStartDate = null, DateOnly? trainingEndDate = null)
     {
         QuestPDF.Settings.License = LicenseType.Community;
+        var defaultPeriod = GetDefaultTrainingPeriod(DateOnly.FromDateTime(DateTime.Today));
+        var periodStart = trainingStartDate ?? defaultPeriod.Start;
+        var periodEnd = trainingEndDate ?? defaultPeriod.End;
+        if (periodEnd < periodStart) throw new ArgumentException("El final del periodo no puede ser anterior al inicio.");
 
         var nutritionist = context.users
             .AsNoTracking()
@@ -69,7 +80,7 @@ public class ConsultationPdfService
             .OrderByDescending(cd => cd.start_date)
             .FirstOrDefault();
 
-        var trainingPlans = LoadTrainingPlans(client, consultationDate, context);
+        var trainingPlans = LoadTrainingPlans(client, periodStart, periodEnd, context);
 
         var previous = evolution
             .Where(b => b.measurement_date < consultationDate)
@@ -156,7 +167,40 @@ public class ConsultationPdfService
     }
 
 
-    private List<TrainingPlanPdf> LoadTrainingPlans(clients client, DateOnly date, angulosodbContext context)
+    public byte[] GenerateTrainingPdf(clients client, int planId, DateOnly startDate, DateOnly endDate, angulosodbContext context)
+    {
+        if (endDate < startDate) throw new ArgumentException("El final del periodo no puede ser anterior al inicio.");
+        QuestPDF.Settings.License = LicenseType.Community;
+        var nutritionist = context.users.AsNoTracking().FirstOrDefault(u => u.id == client.user_id &&
+            (!client.tenant_id.HasValue || u.tenant_id == client.tenant_id.Value)) ?? new users
+            { full_name = "Nutricionista Desconocido", clinic_name = "DietoExpress", clinic_logo = null, clinic_address = null, clinic_phone = null };
+        var plans = LoadTrainingPlans(client, startDate, endDate, context, planId);
+        if (plans.Count == 0) throw new InvalidOperationException("No se encontró una planificación para el periodo solicitado.");
+        var document = Document.Create(container =>
+        {
+            foreach (var plan in plans)
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(36);
+                    page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(9).FontColor("#2d2d2d"));
+                    page.Header().Element(c => ComposeHeader(c, nutritionist));
+                    page.Content().Element(c => ComposeTrainingPlan(c, plan));
+                    page.Footer().AlignCenter().Text(text =>
+                    {
+                        text.Span("Documento generado el ").FontColor("#888888").FontSize(8);
+                        text.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm")).FontColor("#888888").FontSize(8);
+                        text.Span("  |  Página ").FontColor("#888888").FontSize(8);
+                        text.CurrentPageNumber().FontColor("#888888").FontSize(8);
+                        text.Span(" de ").FontColor("#888888").FontSize(8);
+                        text.TotalPages().FontColor("#888888").FontSize(8);
+                    });
+                });
+        });
+        return document.GeneratePdf();
+    }
+
+    private List<TrainingPlanPdf> LoadTrainingPlans(clients client, DateOnly startDate, DateOnly endDate, angulosodbContext context, int? onlyPlanId = null)
     {
         var plans = new List<TrainingPlanPdf>();
         var connection = context.Database.GetDbConnection();
@@ -172,23 +216,28 @@ public class ConsultationPdfService
                 INNER JOIN clients c ON c.id = f.client_id
                 WHERE c.id = @clientId
                   AND (@tenantId IS NULL OR c.tenant_id = @tenantId)
-                  AND p.start_date <= @date
-                  AND (p.end_date IS NULL OR p.end_date >= @date OR p.status IN ('draft', 'active'))
+                  AND p.start_date <= @endDate
+                  AND (p.end_date IS NULL OR p.end_date >= @startDate)
+                  AND (@planId IS NULL OR p.id = @planId)
                 ORDER BY p.start_date DESC, p.id DESC
                 """;
             var clientParam = command.CreateParameter();
             clientParam.ParameterName = "clientId"; clientParam.Value = client.id; command.Parameters.Add(clientParam);
             var tenantParam = command.CreateParameter();
             tenantParam.ParameterName = "tenantId"; tenantParam.Value = client.tenant_id.HasValue ? client.tenant_id.Value : DBNull.Value; command.Parameters.Add(tenantParam);
-            var dateParam = command.CreateParameter();
-            dateParam.ParameterName = "date"; dateParam.Value = date.ToDateTime(TimeOnly.MinValue); command.Parameters.Add(dateParam);
+            var startParam = command.CreateParameter();
+            startParam.ParameterName = "startDate"; startParam.Value = startDate.ToDateTime(TimeOnly.MinValue); command.Parameters.Add(startParam);
+            var endParam = command.CreateParameter();
+            endParam.ParameterName = "endDate"; endParam.Value = endDate.ToDateTime(TimeOnly.MinValue); command.Parameters.Add(endParam);
+            var planIdParam = command.CreateParameter();
+            planIdParam.ParameterName = "planId"; planIdParam.Value = onlyPlanId.HasValue ? onlyPlanId.Value : DBNull.Value; command.Parameters.Add(planIdParam);
             using (var reader = command.ExecuteReader())
             {
                 while (reader.Read())
                 {
                     plans.Add(new TrainingPlanPdf
                     {
-                        Id = Convert.ToInt32(reader.GetValue(0)),
+                        Id = Convert.ToInt32(reader.GetValue(0)), PeriodStart = startDate, PeriodEnd = endDate,
                         Name = reader.GetString(1),
                         Model = reader.IsDBNull(2) ? "—" : reader.GetString(2),
                         StartDate = reader.GetFieldValue<DateOnly>(3),
@@ -203,9 +252,14 @@ public class ConsultationPdfService
                 using var mesoCommand = connection.CreateCommand();
                 mesoCommand.CommandText = """
                     SELECT name, sequence_number, start_date, end_date, objective, notes
-                    FROM training_mesocycles WHERE plan_id = @planId ORDER BY sequence_number, id
+                    FROM training_mesocycles
+                    WHERE plan_id = @planId AND start_date <= @endDate
+                      AND (end_date IS NULL OR end_date >= @startDate)
+                    ORDER BY sequence_number, id
                     """;
                 var planParam = mesoCommand.CreateParameter(); planParam.ParameterName = "planId"; planParam.Value = plan.Id; mesoCommand.Parameters.Add(planParam);
+                var mesoStartParam = mesoCommand.CreateParameter(); mesoStartParam.ParameterName = "startDate"; mesoStartParam.Value = startDate.ToDateTime(TimeOnly.MinValue); mesoCommand.Parameters.Add(mesoStartParam);
+                var mesoEndParam = mesoCommand.CreateParameter(); mesoEndParam.ParameterName = "endDate"; mesoEndParam.Value = endDate.ToDateTime(TimeOnly.MinValue); mesoCommand.Parameters.Add(mesoEndParam);
                 using var mesoReader = mesoCommand.ExecuteReader();
                 while (mesoReader.Read())
                     plan.Mesocycles.Add(new TrainingMesoPdf(
@@ -216,13 +270,48 @@ public class ConsultationPdfService
             }
             foreach (var plan in plans)
             {
+                using var macroCommand = connection.CreateCommand();
+                macroCommand.CommandText = """
+                    SELECT name, periodization_model, start_date, end_date, notes
+                    FROM training_macrocycles WHERE plan_id = @planId ORDER BY start_date, id LIMIT 1
+                    """;
+                var macroPlanParam = macroCommand.CreateParameter(); macroPlanParam.ParameterName = "planId"; macroPlanParam.Value = plan.Id; macroCommand.Parameters.Add(macroPlanParam);
+                using (var macroReader = macroCommand.ExecuteReader())
+                    if (macroReader.Read())
+                    {
+                        plan.MacrocycleName = macroReader.GetString(0);
+                        plan.MacrocycleModel = macroReader.GetString(1);
+                        plan.MacrocycleStart = macroReader.GetFieldValue<DateOnly>(2);
+                        plan.ShowMacrocycleOverview = startDate <= plan.MacrocycleStart.Value && endDate >= plan.MacrocycleStart.Value;
+                        plan.MacrocycleEnd = macroReader.IsDBNull(3) ? null : macroReader.GetFieldValue<DateOnly>(3);
+                        plan.MacrocycleNotes = macroReader.IsDBNull(4) ? null : macroReader.GetString(4);
+                    }
+                if (plan.MacrocycleStart.HasValue)
+                {
+                    using var phasesCommand = connection.CreateCommand();
+                    phasesCommand.CommandText = """
+                        SELECT ph.name, ph.sequence_number, ph.start_date, ph.end_date, ph.objective, ph.phase_type
+                        FROM training_macrocycle_phases ph
+                        JOIN training_macrocycles mc ON mc.id = ph.macrocycle_id
+                        WHERE mc.plan_id = @planId ORDER BY ph.sequence_number, ph.start_date, ph.id
+                        """;
+                    var phasePlanParam = phasesCommand.CreateParameter(); phasePlanParam.ParameterName = "planId"; phasePlanParam.Value = plan.Id; phasesCommand.Parameters.Add(phasePlanParam);
+                    using var phaseReader = phasesCommand.ExecuteReader();
+                    while (phaseReader.Read()) plan.MacrocyclePhases.Add(new TrainingPhasePdf(
+                        phaseReader.GetString(0), phaseReader.GetInt32(1), phaseReader.GetFieldValue<DateOnly>(2),
+                        phaseReader.GetFieldValue<DateOnly>(3), phaseReader.IsDBNull(4) ? null : phaseReader.GetString(4), phaseReader.GetString(5)));
+                }
                 using var sessionsCommand = connection.CreateCommand();
                 sessionsCommand.CommandText = """
                     SELECT scheduled_date, title, session_type, duration_minutes, intensity_target, instructions,
                            exercise_prescription, exercise_prescription_data::text
-                    FROM training_sessions WHERE plan_id = @planId ORDER BY scheduled_date, id
+                    FROM training_sessions
+                    WHERE plan_id = @planId AND scheduled_date >= @startDate AND scheduled_date <= @endDate
+                    ORDER BY scheduled_date, id
                     """;
                 var planParam = sessionsCommand.CreateParameter(); planParam.ParameterName = "planId"; planParam.Value = plan.Id; sessionsCommand.Parameters.Add(planParam);
+                var sessionStartParam = sessionsCommand.CreateParameter(); sessionStartParam.ParameterName = "startDate"; sessionStartParam.Value = startDate.ToDateTime(TimeOnly.MinValue); sessionsCommand.Parameters.Add(sessionStartParam);
+                var sessionEndParam = sessionsCommand.CreateParameter(); sessionEndParam.ParameterName = "endDate"; sessionEndParam.Value = endDate.ToDateTime(TimeOnly.MinValue); sessionsCommand.Parameters.Add(sessionEndParam);
                 using var sessionReader = sessionsCommand.ExecuteReader();
                 while (sessionReader.Read())
                     plan.Sessions.Add(new TrainingSessionPdf(
@@ -255,7 +344,9 @@ public class ConsultationPdfService
             col.Item().Background("#0d9488").Padding(10).Text("PLANIFICACIÓN DEPORTIVA").Bold().FontSize(16).FontColor("#ffffff");
             col.Item().Text(plan.Name).Bold().FontSize(13);
             col.Item().Text($"Modelo: {plan.Model} · Estado: {plan.Status}").FontColor("#555555");
-            col.Item().Text($"Periodo: {plan.StartDate:dd/MM/yyyy} — {(plan.EndDate?.ToString("dd/MM/yyyy") ?? "Sin fecha final")}").FontColor("#555555");
+            col.Item().Text($"Periodo del documento: {plan.PeriodStart:dd/MM/yyyy} — {plan.PeriodEnd:dd/MM/yyyy}").FontColor("#555555");
+            col.Item().Text($"Vigencia del plan: {plan.StartDate:dd/MM/yyyy} — {(plan.EndDate?.ToString("dd/MM/yyyy") ?? "Sin fecha final")}").FontColor("#555555");
+            if (plan.ShowMacrocycleOverview) ComposeMacrocycleOverview(col, plan);
             if (!string.IsNullOrWhiteSpace(plan.Notes))
                 col.Item().Text($"Notas del plan: {plan.Notes}");
             col.Item().PaddingTop(4).Background("#e6fffb").Padding(7).Text("MACROCICLO · FASES Y OBJETIVOS").Bold().FontSize(11).FontColor("#0f766e");
@@ -274,9 +365,15 @@ public class ConsultationPdfService
             col.Item().PaddingTop(5).Background("#e6fffb").Padding(7).Text("RUTINAS Y SESIONES").Bold().FontSize(11).FontColor("#0f766e");
             if (plan.Sessions.Count == 0)
                 col.Item().Text("No hay sesiones de entrenamiento registradas en este plan.").Italic().FontColor("#777777");
-            foreach (var session in plan.Sessions)
+            foreach (var week in plan.Sessions
+                .GroupBy(session => session.Date.AddDays(-(((int)session.Date.DayOfWeek + 6) % 7)))
+                .OrderBy(group => group.Key))
             {
-                col.Item().BorderBottom(1).BorderColor("#e2e5ea").PaddingVertical(6).Column(item =>
+                col.Item().PaddingTop(6).Background("#f1f5f9").Padding(6)
+                    .Text($"SEMANA {week.Key:dd/MM/yyyy} — {week.Key.AddDays(6):dd/MM/yyyy}").Bold().FontColor("#334155");
+                foreach (var session in week)
+                {
+                col.Item().ShowEntire().BorderBottom(1).BorderColor("#e2e5ea").PaddingVertical(6).Column(item =>
                 {
                     item.Item().Text($"{session.Date:dddd dd/MM/yyyy} · {session.Title}").Bold().FontSize(10);
                     item.Item().Text($"{session.Type} · {(session.Duration.HasValue ? $"{session.Duration.Value} min" : "Duración no indicada")}" +
@@ -293,13 +390,16 @@ public class ConsultationPdfService
                                 {
                                     table.ColumnsDefinition(columns =>
                                     {
-                                        columns.RelativeColumn(4); columns.RelativeColumn(1.5f); columns.RelativeColumn(2); columns.RelativeColumn(1.5f); columns.RelativeColumn(3);
+                                        columns.RelativeColumn(3.5f); columns.RelativeColumn(1); columns.RelativeColumn(1.5f);
+                                        columns.RelativeColumn(0.9f); columns.RelativeColumn(1.2f); columns.RelativeColumn(1.2f); columns.RelativeColumn(2.5f);
                                     });
                                     table.Header(header =>
                                     {
                                         header.Cell().Background("#f0fdfa").Padding(3).Text("Ejercicio").Bold();
                                         header.Cell().Background("#f0fdfa").Padding(3).Text("Series").Bold();
-                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Repeticiones").Bold();
+                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Reps.").Bold();
+                                        header.Cell().Background("#f0fdfa").Padding(3).Text("RIR").Bold();
+                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Carga").Bold();
                                         header.Cell().Background("#f0fdfa").Padding(3).Text("Descanso").Bold();
                                         header.Cell().Background("#f0fdfa").Padding(3).Text("Progresión").Bold();
                                     });
@@ -311,11 +411,15 @@ public class ConsultationPdfService
                                         var sets = Get("sets"); if (sets == "—") sets = Get("Sets");
                                         var min = Get("minRepetitions"); if (min == "—") min = Get("MinRepetitions");
                                         var max = Get("maxRepetitions"); if (max == "—") max = Get("MaxRepetitions");
+                                        var rir = Get("targetRepetitionsInReserve"); if (rir == "—") rir = Get("TargetRepetitionsInReserve");
+                                        var load = Get("targetLoadKg"); if (load == "—") load = Get("TargetLoadKg");
                                         var rest = Get("restSeconds"); if (rest == "—") rest = Get("RestSeconds");
                                         var progression = Get("progressionRule"); if (progression == "—") progression = Get("ProgressionRule");
                                         table.Cell().Padding(3).Text(name);
                                         table.Cell().Padding(3).Text(sets);
                                         table.Cell().Padding(3).Text(min == max ? min : $"{min}–{max}");
+                                        table.Cell().Padding(3).Text(rir);
+                                        table.Cell().Padding(3).Text(load == "—" ? load : $"{load} kg");
                                         table.Cell().Padding(3).Text(rest == "—" ? rest : $"{rest}s");
                                         table.Cell().Padding(3).Text(progression).FontSize(7);
                                     }
@@ -332,12 +436,47 @@ public class ConsultationPdfService
                     else if (!string.IsNullOrWhiteSpace(session.Prescription))
                         item.Item().Text(session.Prescription).FontSize(8);
                 });
+                }
             }
         });
     }
 
+    private static void ComposeMacrocycleOverview(ColumnDescriptor col, TrainingPlanPdf plan)
+    {
+        if (plan.MacrocyclePhases.Count == 0 || !plan.MacrocycleStart.HasValue) return;
+        col.Item().PaddingTop(4).Background("#e6fffb").Padding(7).Text("ESQUEMA DEL MACROCICLO").Bold().FontSize(11).FontColor("#0f766e");
+        col.Item().Text($"{plan.MacrocycleName} · {plan.MacrocycleModel} · {plan.MacrocycleStart:dd/MM/yyyy} — {(plan.MacrocycleEnd?.ToString("dd/MM/yyyy") ?? "Sin fecha final")}").Bold();
+        col.Item().Row(row =>
+        {
+            foreach (var phase in plan.MacrocyclePhases)
+            {
+                var days = Math.Max(1, phase.End.DayNumber - phase.Start.DayNumber + 1);
+                var active = phase.Start <= plan.PeriodEnd && phase.End >= plan.PeriodStart;
+                row.RelativeItem((float)days).Background(active ? "#0d9488" : "#cbd5e1").Padding(4).Column(segment =>
+                {
+                    segment.Item().Text(phase.Name).Bold().FontSize(7).FontColor(active ? "#ffffff" : "#1f2937");
+                    segment.Item().Text($"{phase.Start:dd/MM}–{phase.End:dd/MM}").FontSize(6).FontColor(active ? "#ffffff" : "#334155");
+                });
+            }
+        });
+        foreach (var phase in plan.MacrocyclePhases)
+            col.Item().Text($"{phase.Sequence}. {phase.Name} ({phase.Type}) · {phase.Start:dd/MM/yyyy}–{phase.End:dd/MM/yyyy}" +
+                (string.IsNullOrWhiteSpace(phase.Objective) ? "" : $" · {phase.Objective}")).FontSize(8);
+        if (!string.IsNullOrWhiteSpace(plan.MacrocycleNotes)) col.Item().Text(plan.MacrocycleNotes).FontSize(8).FontColor("#555555");
+        col.Item().Text("En verde: fases que coinciden con el periodo de este documento.").FontSize(7).FontColor("#0f766e");
+    }
+
     private sealed class TrainingPlanPdf
     {
+        public DateOnly PeriodStart { get; set; }
+        public DateOnly PeriodEnd { get; set; }
+        public bool ShowMacrocycleOverview { get; set; }
+        public string? MacrocycleName { get; set; }
+        public string? MacrocycleModel { get; set; }
+        public DateOnly? MacrocycleStart { get; set; }
+        public DateOnly? MacrocycleEnd { get; set; }
+        public string? MacrocycleNotes { get; set; }
+        public List<TrainingPhasePdf> MacrocyclePhases { get; } = new();
         public int Id { get; init; }
         public string Name { get; init; } = "";
         public string Model { get; init; } = "";
@@ -349,6 +488,7 @@ public class ConsultationPdfService
         public List<TrainingSessionPdf> Sessions { get; } = new();
     }
 
+    private sealed record TrainingPhasePdf(string Name, int Sequence, DateOnly Start, DateOnly End, string? Objective, string Type);
     private sealed record TrainingMesoPdf(string Name, int Sequence, DateOnly Start, DateOnly? End, string? Objective, string? Notes);
     private sealed record TrainingSessionPdf(DateOnly Date, string Title, string Type, int? Duration, string? Intensity, string? Instructions, string? Prescription, string? StructuredPrescription);
 

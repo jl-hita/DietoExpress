@@ -125,8 +125,14 @@ export class ClientService {
     return this.http.get(`${this.base}/clients/${clientId}/diets/active/pdf`, { responseType: 'blob' });
   }
 
-  downloadConsultationPdf(clientId: number, date?: string): Observable<Blob> {
-    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  downloadConsultationPdf(clientId: number, date?: string, startDate?: string, endDate?: string): Observable<Blob> {
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    if (startDate && endDate) {
+      params.set('startDate', startDate);
+      params.set('endDate', endDate);
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
     return this.http.get(`${this.base}/clients/${clientId}/diets/consultation-pdf${query}`, { responseType: 'blob' });
   }
 

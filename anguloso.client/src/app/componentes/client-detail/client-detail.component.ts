@@ -109,6 +109,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   followupGoalMetric = 'adherence';
   followupGoalTarget: number | null = 80;
   followupGoalPhase: 'baseline' | 'building' | 'maintenance' | 'review' = 'building';
+  trainingPdfStartDate = this.defaultTrainingPdfPeriod().start;
+  trainingPdfEndDate = this.defaultTrainingPdfPeriod().end;
   followupGoalStartDate = this.localDateInput();
   followupGoalTargetDate = '';
   followupGoalNotes = '';
@@ -730,8 +732,12 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   downloadConsultationPdf(): void {
     if (!this.clientId) return;
 
-    const date = new Date().toISOString().slice(0, 10);
-    this.svc.downloadConsultationPdf(this.clientId, date).subscribe({
+    const date = this.localDateInput();
+    if (!this.trainingPdfStartDate || !this.trainingPdfEndDate || this.trainingPdfEndDate < this.trainingPdfStartDate) {
+      this.snack.open('Selecciona un periodo de entrenamiento válido', 'Cerrar', { duration: 3000 });
+      return;
+    }
+    this.svc.downloadConsultationPdf(this.clientId, date, this.trainingPdfStartDate, this.trainingPdfEndDate).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -991,6 +997,16 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     addTrend('Peso', ordered.map(c => c.weight), ' kg');
 
     return trends.slice(0, 4);
+  }
+
+  private defaultTrainingPdfPeriod(): { start: string; end: string } {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    const end = new Date(start);
+    end.setDate(end.getDate() + 27);
+    const format = (value: Date) => value.getFullYear() + '-' + String(value.getMonth() + 1).padStart(2, '0') + '-' + String(value.getDate()).padStart(2, '0');
+    return { start: format(start), end: format(end) };
   }
 
   private localDateInput(): string {

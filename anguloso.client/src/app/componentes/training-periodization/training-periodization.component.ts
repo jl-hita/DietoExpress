@@ -563,7 +563,7 @@ import {
             <ng-container *ngIf="activePlanWorkspace[plan.id] === 'routines'"><section class="session-workspace">
               <div class="session-workspace-heading">
                 <div><p class="eyebrow">TRABAJO DIARIO</p><h4>Calendario de entrenamiento</h4><p>Planifica la semana de un vistazo y entra en cada sesión para ajustar sus detalles.</p></div>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span><button type="button" class="secondary" (click)="weeklyEditorOpen[plan.id] = !weeklyEditorOpen[plan.id]">{{ weeklyEditorOpen[plan.id] ? 'Cerrar editor semanal' : 'Editor semanal' }}</button><button type="button" class="secondary" (click)="toggleSplitReorganization(plan)">{{ splitReorganizationOpen[plan.id] ? 'Cerrar reorganización' : 'Reorganizar split' }}</button><button type="button" class="secondary" (click)="exportSessions(plan)" [disabled]="!sessions[plan.id]?.length">Exportar CSV</button></div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span><button type="button" class="secondary" (click)="weeklyEditorOpen[plan.id] = !weeklyEditorOpen[plan.id]">{{ weeklyEditorOpen[plan.id] ? 'Cerrar editor semanal' : 'Editor semanal' }}</button><button type="button" class="secondary" (click)="toggleSplitReorganization(plan)">{{ splitReorganizationOpen[plan.id] ? 'Cerrar reorganización' : 'Reorganizar split' }}</button><button type="button" class="secondary" (click)="exportSessions(plan)" [disabled]="!sessions[plan.id]?.length">Exportar CSV</button><label style="display:grid;gap:2px;font-size:11px">PDF desde<input type="date" [name]="'trainingPdfStart' + plan.id" [(ngModel)]="trainingPdfStartDate" /></label><label style="display:grid;gap:2px;font-size:11px">Hasta<input type="date" [name]="'trainingPdfEnd' + plan.id" [(ngModel)]="trainingPdfEndDate" /></label><button type="button" class="secondary" (click)="exportTrainingPdf(plan)" [disabled]="!profile?.canManage || trainingPdfExportingPlanId === plan.id || !trainingPdfStartDate || !trainingPdfEndDate || trainingPdfEndDate < trainingPdfStartDate">{{ trainingPdfExportingPlanId === plan.id ? 'Generando PDF…' : 'PDF de entrenamiento' }}</button></div>
               </div>
               <section *ngIf="loadTrends[plan.id]?.length" class="load-trend" style="margin:16px 0;padding:14px;border:1px solid #e2e8f0;border-radius:12px">
                 <h5 style="margin:0 0 4px">Evolución de carga · últimas semanas</h5>
@@ -1017,6 +1017,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     profileEnabled: boolean; clientArchived: boolean; mesocycleCount: number; sessionCount: number; recordCount: number;
   }> = [];
   diagnosticExportingPlanId: number | null = null;
+  trainingPdfExportingPlanId: number | null = null;
+  trainingPdfStartDate = this.defaultTrainingPdfPeriod().start;
+  trainingPdfEndDate = this.defaultTrainingPdfPeriod().end;
   diagnosticDeletingPlanId: number | null = null;
   sessions: Record<number, TrainingSession[]> = {};
   loadTrends: Record<number, TrainingLoadWeek[]> = {};
@@ -2718,6 +2721,45 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         ? items.filter(item => !!item && Number.isInteger(item.id) && Number.isInteger(item.clientId))
         : [];
       this.changeDetector.detectChanges();
+    });
+  }
+
+  private defaultTrainingPdfPeriod(): { start: string; end: string } {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    const end = new Date(start);
+    end.setDate(end.getDate() + 27);
+    const format = (value: Date) => value.getFullYear() + '-' + String(value.getMonth() + 1).padStart(2, '0') + '-' + String(value.getDate()).padStart(2, '0');
+    return { start: format(start), end: format(end) };
+  }
+
+  exportTrainingPdf(plan: TrainingPlan): void {
+    if (!this.clientId || this.trainingPdfExportingPlanId !== null) return;
+    if (!this.trainingPdfStartDate || !this.trainingPdfEndDate || this.trainingPdfEndDate < this.trainingPdfStartDate) {
+      this.error = 'Selecciona un periodo válido para el PDF de entrenamiento.';
+      return;
+    }
+    this.trainingPdfExportingPlanId = plan.id;
+    this.error = '';
+    const params = new URLSearchParams({ planId: String(plan.id), startDate: this.trainingPdfStartDate, endDate: this.trainingPdfEndDate });
+    this.http.get('/api/clients/' + this.clientId + '/diets/training-pdf?' + params.toString(), { responseType: 'blob' }).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'dietoexpress-entrenamiento-' + plan.id + '-' + this.trainingPdfStartDate + '-' + this.trainingPdfEndDate + '.pdf';
+        link.click();
+        URL.revokeObjectURL(url);
+        this.trainingPdfExportingPlanId = null;
+        this.notice = 'PDF de entrenamiento generado correctamente.';
+        this.changeDetector.detectChanges();
+      },
+      error: () => {
+        this.trainingPdfExportingPlanId = null;
+        this.error = 'No se pudo generar el PDF de entrenamiento.';
+        this.changeDetector.detectChanges();
+      }
     });
   }
 
