@@ -371,10 +371,11 @@ public class DietGeneratorService
 
         DietDetailDto? advancedDiet = null;
 
-        // El motor es determinista dado un seed: la variedad procede de la rotación semanal y de la selección ponderada,
-        // y las composiciones de cada día se reintentan localmente. Solo si la validación final falla se genera otro seed;
-        // no se relajan restricciones ni tolerancias.
-        const int maxGenerationAttempts = 2;
+        // El motor es determinista dado un seed: la variedad procede de la rotación semanal y de la selección ponderada.
+        // Si la validación final rechaza una combinación concreta por límites semanales o macros diarios, se prueban
+        // seeds independientes adicionales, sin relajar restricciones ni tolerancias. Una generación válida termina
+        // inmediatamente, por lo que el límite ampliado solo afecta a propuestas que ya han fallado la validación.
+        const int maxGenerationAttempts = 8;
         var baseSeed = Random.Shared.Next();
         var engineMap = compatible.ToDictionary(e => e.Id);
         for (var attempt = 0; attempt < maxGenerationAttempts; attempt++)
