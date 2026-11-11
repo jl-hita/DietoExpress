@@ -255,6 +255,16 @@ public static class TrainingProgramVolumeAllocator
         BuildTargets(goal, experience, null, 3, 60)
             .ToDictionary(pair => pair.Key, pair => pair.Value + GetTargetTolerance(goal, experience, null, pair.Key));
 
+    /// <summary>Upper bound (target + tolerance) of the weekly effective sets for this request, honoring professional targets.</summary>
+    internal static IReadOnlyDictionary<TrainingMuscleGroup, decimal> GetWeeklyCeilings(
+        TrainingGoal goal,
+        TrainingExperience experience,
+        IReadOnlyList<TrainingMuscleVolumeTarget>? preferences,
+        int sessionsPerWeek,
+        int maximumSessionDurationMinutes) =>
+        BuildTargets(goal, experience, preferences, sessionsPerWeek, maximumSessionDurationMinutes)
+            .ToDictionary(pair => pair.Key, pair => pair.Value + GetTargetTolerance(goal, experience, preferences, pair.Key));
+
     internal static decimal EstimateDurationSeconds(TrainingSessionPrescription session) =>
         EstimateDuration(session);
 

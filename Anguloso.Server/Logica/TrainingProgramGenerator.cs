@@ -171,7 +171,9 @@ public static class TrainingProgramGenerator
         var sessionsWithWarmups = ApplyLoadReferences(AddWarmupGuidance(orderedAllocatedSessions), request.LoadReferences);
         var prescribedSessions = request.IsDeload
             ? ApplyConservativeDeload(sessionsWithWarmups)
-            : ApplyIntraBlockProgression(sessionsWithWarmups, request.DurationWeeks, request.ContinuesPreviousBlock);
+            : request.Goal is TrainingGoal.Hypertrophy or TrainingGoal.Strength
+                ? ApplyHypertrophyRamp(sessionsWithWarmups, request, catalog)
+                : ApplyIntraBlockProgression(sessionsWithWarmups, request.DurationWeeks, request.ContinuesPreviousBlock);
         var plan = new TrainingProgramPrescription(
             "0.9.0",
             request.Goal.ToString(),
@@ -203,6 +205,140 @@ public static class TrainingProgramGenerator
             : new(null, validationErrors);
 
         TrainingProgramGenerationResult Failure(string error) => new(null, [error]);
+    }
+
+    /// <summary>
+    /// Automatic intra-block ramp for hypertrophy and strength blocks (internal product heuristic, not a
+    /// guideline figure; general fitness keeps the legacy scheme). Effort rises across the block (RIR offset +1 in week 1 down to -1 in the
+    /// last week, floored at RIR 1 for isolation work and RIR 2 for compounds) and, in blocks of
+    /// four or more weeks, volume rises too: weeks 1-2 trim one set from exercises with three or
+    /// more sets, the middle weeks keep the allocated dose and the last week adds at most one set
+    /// per muscle, never above the muscle's weekly ceiling, the per-exercise limit or the session
+    /// duration. It is never a deload. A block that continues a previous one starts with a smaller
+    /// reserve bump and no set trimming.
+    /// </summary>
+    private static IReadOnlyList<TrainingSessionPrescription> ApplyHypertrophyRamp(
+        IReadOnlyList<TrainingSessionPrescription> sessions,
+        TrainingProgramGenerationRequest request,
+        IReadOnlyCollection<TrainingExerciseCandidate> catalog)
+    {
+        var weeks = request.DurationWeeks;
+        if (weeks < 2) return sessions;
+
+        var patternById = catalog
+            .GroupBy(x => x.ExerciseId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().MovementPattern, StringComparer.OrdinalIgnoreCase);
+        var sessionsPerWeek = sessions.GroupBy(x => x.WeekNumber).Select(g => g.Count()).DefaultIfEmpty(3).Max();
+        var ceilings = TrainingProgramVolumeAllocator.GetWeeklyCeilings(
+            request.Goal, request.Experience, request.MuscleVolumeTargets,
+            sessionsPerWeek, request.MaximumSessionDurationMinutes);
+        var maxSets = TrainingProgramVolumeAllocator.GetMaximumSetsPerExercise(request.Goal);
+        // Volume ramp (trim in weeks 1-2, extra set in the last week) is hypertrophy-only; strength
+        // progresses through load, so it only gets the effort ramp and the legacy week-1 trim.
+        var rampVolume = request.Goal == TrainingGoal.Hypertrophy;
+        var continues = request.ContinuesPreviousBlock;
+
+        var result = new List<TrainingSessionPrescription>();
+        foreach (var weekGroup in sessions.GroupBy(x => x.WeekNumber).OrderBy(g => g.Key))
+        {
+            var week = weekGroup.Key;
+            var offset = HypertrophyRirOffset(week, weeks, continues);
+            var trimSet = !continues && weeks >= 4 && (rampVolume ? week <= 2 : week == 1);
+            var weekSessions = weekGroup.OrderBy(x => x.Day).Select(session => session with
+            {
+                Exercises = session.Exercises.Select(exercise =>
+                {
+                    var isIsolation = patternById.TryGetValue(exercise.ExerciseId, out var pattern) &&
+                        (pattern == TrainingMovementPattern.Accessory || pattern == TrainingMovementPattern.Core);
+                    var floor = isIsolation && request.Experience != TrainingExperience.Beginner ? 1m : 2m;
+                    return exercise with
+                    {
+                        Sets = trimSet && exercise.Sets >= 3 ? exercise.Sets - 1 : exercise.Sets,
+                        TargetRepetitionsInReserve = exercise.TargetRepetitionsInReserve is { } rir
+                            ? ApplyRirOffset(rir, offset, floor)
+                            : null
+                    };
+                }).ToArray()
+            }).ToArray();
+
+            if (rampVolume && weeks >= 4 && week == weeks)
+                AddPeakWeekSets(weekSessions, ceilings, maxSets, request.MaximumSessionDurationMinutes);
+
+            result.AddRange(weekSessions.Select(session => session with
+            {
+                Exercises = session.Exercises.Select(exercise => exercise with
+                {
+                    SelectionRationale = exercise.SelectionRationale +
+                        " Rampa del bloque: esfuerzo y volumen progresivos (heurística interna)."
+                }).ToArray()
+            }));
+        }
+        return result;
+    }
+
+    private static decimal HypertrophyRirOffset(int week, int weeks, bool continues)
+    {
+        decimal offset;
+        if (week == weeks && weeks >= 3) offset = -1m;
+        else if (weeks == 2) offset = week == 1 ? 0.5m : 0m;
+        else if (week == 1) offset = 1m;
+        else if (weeks == 3) offset = 0m;
+        else offset = Math.Round(0.5m * (1m - (week - 2m) / (weeks - 3m)) * 2m, MidpointRounding.ToEven) / 2m;
+
+        if (!continues) return offset;
+        // A continuing block is already adapted: smaller introductory reserve, same final push.
+        return offset > 0m ? Math.Min(offset, week == 1 ? 0.5m : 0m) : offset;
+    }
+
+    private static decimal ApplyRirOffset(decimal rir, decimal offset, decimal floor)
+    {
+        var target = rir + offset;
+        if (offset < 0m) target = Math.Max(target, Math.Min(rir, floor));
+        return Math.Clamp(target, 0m, 5m);
+    }
+
+    private static void AddPeakWeekSets(
+        TrainingSessionPrescription[] weekSessions,
+        IReadOnlyDictionary<TrainingMuscleGroup, decimal> ceilings,
+        int maxSets,
+        int maximumSessionDurationMinutes)
+    {
+        var volume = TrainingProgramVolumeAllocator.CalculateEffectiveVolume(weekSessions)
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
+        var boosted = new HashSet<TrainingMuscleGroup>();
+        for (var sessionIndex = 0; sessionIndex < weekSessions.Length; sessionIndex++)
+        {
+            foreach (var exercise in weekSessions[sessionIndex].Exercises.OrderBy(x => x.Order).ToArray())
+            {
+                if (exercise.Sets >= maxSets) continue;
+                var tracked = TrainingExerciseStimulus.GetEffectiveMuscles(
+                        exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups)
+                    .Where(ceilings.ContainsKey)
+                    .ToArray();
+                if (tracked.Length == 0 || tracked.Any(boosted.Contains)) continue;
+                if (tracked.Any(muscle => volume.GetValueOrDefault(muscle) + 1m > ceilings[muscle])) continue;
+
+                var session = weekSessions[sessionIndex];
+                var candidateExercises = session.Exercises
+                    .Select(x => x.Order == exercise.Order ? x with { Sets = x.Sets + 1 } : x)
+                    .ToArray();
+                if (TrainingProgramVolumeAllocator.EstimateDurationSeconds(session with { Exercises = candidateExercises }) >
+                    maximumSessionDurationMinutes * 60m)
+                    continue;
+
+                var updated = session with { Exercises = candidateExercises };
+                weekSessions[sessionIndex] = updated with
+                {
+                    EstimatedDurationMinutes = (int)Math.Ceiling(
+                        TrainingProgramVolumeAllocator.EstimateDurationSeconds(updated) / 60m)
+                };
+                foreach (var muscle in tracked)
+                {
+                    boosted.Add(muscle);
+                    volume[muscle] = volume.GetValueOrDefault(muscle) + 1m;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -601,6 +737,17 @@ public static class TrainingProgramGenerator
                         ? new HashSet<TrainingMuscleGroup> { TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack, TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Forearms }
                         : null;
 
+        // Pressing and rowing already count in full toward triceps, biceps and deltoids, so the
+        // deficit-driven selection never asks for direct arm or lateral-delt work. In hypertrophy
+        // plans, upper-body sessions get one extra accessory slot reserved for that isolation work
+        // (the duration check below still protects the session limit).
+        var isolationSlotsApply = request.Goal == TrainingGoal.Hypertrophy && allowedMuscles is not null &&
+            (allowedMuscles.Contains(TrainingMuscleGroup.Biceps) || allowedMuscles.Contains(TrainingMuscleGroup.Triceps) ||
+             allowedMuscles.Contains(TrainingMuscleGroup.Deltoids)) &&
+            !allowedMuscles.Contains(TrainingMuscleGroup.Quadriceps);
+        if (isolationSlotsApply)
+            slots++;
+
         for (var slot = 0; slot < slots; slot++)
         {
             var currentEffectiveVolume = new Dictionary<TrainingMuscleGroup, decimal>();
@@ -667,6 +814,23 @@ public static class TrainingProgramGenerator
                     targets.GetValueOrDefault(TrainingMuscleGroup.Lats) &&
                 (allowedMuscles is null || allowedMuscles.Contains(TrainingMuscleGroup.Lats));
 
+            // Remaining direct-isolation exposures needed this week (hypertrophy only).
+            var directNeeds = new Dictionary<DirectIsolationGap, int>();
+            if (isolationSlotsApply)
+            {
+                var directCounts = catalogCandidates
+                    .Where(candidate => selectedThisWeek.Contains(candidate.ExerciseId))
+                    .Select(GetDirectIsolationGap)
+                    .Where(gap => gap != DirectIsolationGap.None)
+                    .GroupBy(gap => gap)
+                    .ToDictionary(group => group.Key, group => group.Count());
+                foreach (var gap in new[] { DirectIsolationGap.LateralDeltoid, DirectIsolationGap.Biceps, DirectIsolationGap.Triceps })
+                    directNeeds[gap] = Math.Max(0, DirectIsolationWeeklyExposures - directCounts.GetValueOrDefault(gap));
+            }
+
+            int DirectNeed(TrainingExerciseCandidate candidate) =>
+                directNeeds.GetValueOrDefault(GetDirectIsolationGap(candidate));
+
             var candidates = catalogCandidates
                 .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory
                     && (HasExplicitCorePriority(request.MuscleVolumeTargets) || !IsDirectCoreExercise(candidate))
@@ -697,7 +861,7 @@ public static class TrainingProgramGenerator
                     Candidate = candidate,
                     Score = AccessoryDeficitScore(candidate, currentEffectiveVolume, targets, allowedMuscles, request.MuscleVolumeTargets)
                 })
-                .Where(item => item.Score > 0m)
+                .Where(item => item.Score > 0m || DirectNeed(item.Candidate) > 0)
                 // Quadriceps receive first call on an accessory slot when glutes are already
                 // at target and quads remain under target. Hamstring accessories compete by
                 // their lower default target/score instead of reserving a slot unconditionally.
@@ -710,6 +874,7 @@ public static class TrainingProgramGenerator
                 .ThenByDescending(item =>
                     prioritizeLatAccessory &&
                     item.Candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Lats))
+                .ThenByDescending(item => DirectNeed(item.Candidate))
                 .ThenByDescending(item => item.Score)
                 .ThenByDescending(item => item.Candidate.SelectionPriority)
                 .ThenBy(item => item.Candidate.ExerciseId, StringComparer.Ordinal)
@@ -721,6 +886,12 @@ public static class TrainingProgramGenerator
                 var candidate = item.Candidate;
                 var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(
                     request.Goal, request.Experience, week, daysPerWeek, TrainingMovementPattern.Accessory);
+                // The allocator only adds sets where a muscle is below target, and compounds already
+                // cover arms/deltoids on paper, so a direct isolation exercise needs its own
+                // starting dose instead of a single set.
+                var directGap = isolationSlotsApply ? GetDirectIsolationGap(candidate) : DirectIsolationGap.None;
+                if (directGap != DirectIsolationGap.None)
+                    sets = directGap == DirectIsolationGap.LateralDeltoid ? DirectLateralDeltoidSets : DirectArmSets;
                 var underTargetMuscles = TrainingExerciseStimulus.GetEffectiveMuscles(
                         candidate.ExerciseId, candidate.PrimaryMuscleGroups, candidate.SecondaryMuscleGroups)
                     .Where(muscle => currentEffectiveVolume.GetValueOrDefault(muscle) < targets.GetValueOrDefault(muscle))
@@ -745,7 +916,8 @@ public static class TrainingProgramGenerator
                     day,
                     title,
                     WarmupAndTransitionsMinutes,
-                    currentExercises.Append(prescription).Select(exercise => exercise with { Sets = 1 }).ToArray());
+                    currentExercises.Append(prescription).Select(exercise =>
+                        ReferenceEquals(exercise, prescription) ? exercise : exercise with { Sets = 1 }).ToArray());
                 if (TrainingProgramVolumeAllocator.EstimateDurationSeconds(durationSession) >
                     request.MaximumSessionDurationMinutes * 60m)
                     continue;
@@ -758,6 +930,28 @@ public static class TrainingProgramGenerator
             if (!selected)
                 break;
         }
+    }
+
+    private enum DirectIsolationGap { None, LateralDeltoid, Biceps, Triceps }
+
+    // Internal product conventions (not guideline figures): two direct exposures per week for
+    // each of these groups, 3 sets for lateral raises and 2 for arm isolation.
+    private const int DirectIsolationWeeklyExposures = 2;
+    private const int DirectLateralDeltoidSets = 3;
+    private const int DirectArmSets = 2;
+
+    private static DirectIsolationGap GetDirectIsolationGap(TrainingExerciseCandidate candidate)
+    {
+        if (candidate.MovementPattern != TrainingMovementPattern.Accessory)
+            return DirectIsolationGap.None;
+        if (candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Deltoids) &&
+            candidate.ExerciseId.Contains("lateral-raise", StringComparison.OrdinalIgnoreCase))
+            return DirectIsolationGap.LateralDeltoid;
+        if (candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Biceps))
+            return DirectIsolationGap.Biceps;
+        if (candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Triceps))
+            return DirectIsolationGap.Triceps;
+        return DirectIsolationGap.None;
     }
 
     private static readonly HashSet<TrainingMuscleGroup> UpperBodyAccessoryMuscles =
@@ -809,20 +1003,25 @@ public static class TrainingProgramGenerator
     {
         var fullBodyA = new SessionTemplate("Cuerpo completo A",
             [TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.Hinge, TrainingMovementPattern.Core]);
+        // B templates reverse the order of coexisting large groups (push/pull, quads/posterior chain)
+        // so the muscle that was trained second in A is trained fresh first in B. The squat stays
+        // first in full-body sessions; only the upper-body pair is swapped.
         var fullBodyB = new SessionTemplate("Cuerpo completo B",
-            [TrainingMovementPattern.Squat, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
+            [TrainingMovementPattern.Squat, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
         var upperA = new SessionTemplate("Tren superior A",
             [TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]);
         var lowerA = new SessionTemplate("Tren inferior A",
             [TrainingMovementPattern.Squat, TrainingMovementPattern.Hinge, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
         var upperB = new SessionTemplate("Tren superior B",
-            [TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]);
+            [TrainingMovementPattern.VerticalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.Core]);
         var lowerB = new SessionTemplate("Tren inferior B",
-            [TrainingMovementPattern.Squat, TrainingMovementPattern.Hinge, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
+            [TrainingMovementPattern.Hinge, TrainingMovementPattern.Squat, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
         var push = new SessionTemplate("Empuje",
             [TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.Core]);
         var pull = new SessionTemplate("Tracción",
             [TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]);
+        var pushB = new SessionTemplate("Empuje B", [TrainingMovementPattern.VerticalPush, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.Core]);
+        var pullB = new SessionTemplate("Tracción B", [TrainingMovementPattern.VerticalPull, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.Core]);
         var legs = new SessionTemplate("Pierna",
             [TrainingMovementPattern.Squat, TrainingMovementPattern.Hinge, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
 
@@ -831,11 +1030,11 @@ public static class TrainingProgramGenerator
             TrainingProgramSplit.FullBody when daysPerWeek == 2 => [fullBodyA, fullBodyB],
             TrainingProgramSplit.FullBody when daysPerWeek == 3 => [fullBodyA, fullBodyB, fullBodyA with { Title = "Cuerpo completo C" }],
             TrainingProgramSplit.FullBody when daysPerWeek == 4 => [fullBodyA, fullBodyB, fullBodyA with { Title = "Cuerpo completo C" }, fullBodyB with { Title = "Cuerpo completo D" }],
-            TrainingProgramSplit.PushPullLegs when daysPerWeek == 5 => [push, pull, legs, push with { Title = "Empuje B" }, pull with { Title = "Tracción B" }],
+            TrainingProgramSplit.PushPullLegs when daysPerWeek == 5 => [push, pull, legs, pushB, pullB],
             TrainingProgramSplit.UpperLower when daysPerWeek == 2 => [upperA, lowerA],
             TrainingProgramSplit.UpperLower when daysPerWeek == 4 => [upperA, lowerA, upperB, lowerB],
             TrainingProgramSplit.PushPullLegs when daysPerWeek == 3 => [push, pull, legs],
-            TrainingProgramSplit.PushPullLegs when daysPerWeek == 6 => [push, pull, legs, push with { Title = "Empuje B" }, pull with { Title = "Tracción B" }, legs with { Title = "Pierna B" }],
+            TrainingProgramSplit.PushPullLegs when daysPerWeek == 6 => [push, pull, legs, pushB, pullB, legs with { Title = "Pierna B", Patterns = lowerB.Patterns }],
             TrainingProgramSplit.Automatic => daysPerWeek switch
             {
                 2 => [fullBodyA, fullBodyB],
