@@ -2687,11 +2687,35 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.notice = 'PDF de diagnóstico generado. Adjunta el archivo a la conversación para revisar la planificación.';
         this.changeDetector.detectChanges();
       },
-      error: e => {
+      error: async e => {
         this.exportingTestPlan = false;
+        let serverMessage = '';
+        if (e?.error instanceof Blob) {
+          try {
+            const responseText = await e.error.text();
+            if (responseText) {
+              try {
+                const payload = JSON.parse(responseText);
+                serverMessage = payload?.message || payload?.detail || payload?.title || '';
+              } catch {
+                serverMessage = responseText.slice(0, 500);
+              }
+            }
+          } catch {
+            // Keep the HTTP status visible even if the error body cannot be read.
+          }
+        } else {
+          serverMessage = e?.error?.message || e?.error?.detail || e?.error?.title || '';
+        }
+        console.error('[TrainingDiagnostics] Test-plan PDF export failed', {
+          status: e?.status,
+          statusText: e?.statusText,
+          message: serverMessage,
+          url: e?.url
+        });
         this.error = e?.status === 403
           ? 'Esta exportación está reservada al superadministrador.'
-          : e?.error?.message || 'No se pudo exportar la planificación de pruebas.';
+          : serverMessage || `No se pudo exportar la planificación de pruebas (HTTP ${e?.status || 'desconocido'}).`;
         this.changeDetector.detectChanges();
       }
     });
