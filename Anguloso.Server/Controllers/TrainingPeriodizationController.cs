@@ -1277,11 +1277,11 @@ public sealed class TrainingPeriodizationController : ControllerBase
     [HttpDelete("plans/{planId:int}")]
     public async Task<IActionResult> DeletePlan(int planId, CancellationToken cancellationToken)
     {
-        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        if (!User.IsInRole("superadmin") && !await CanManagePlan(planId, cancellationToken)) return NotFound();
         await using var command = Command("""
             DELETE FROM training_plans p
             USING training_profiles f
-            WHERE p.id = @planId AND p.profile_id = f.id AND f.enabled = TRUE
+            WHERE p.id = @planId AND p.profile_id = f.id
             RETURNING p.id
             """, ("planId", planId));
         var deleted = await command.ExecuteScalarAsync(cancellationToken);
