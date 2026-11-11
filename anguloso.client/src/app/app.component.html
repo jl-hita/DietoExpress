@@ -6,6 +6,13 @@
   </button>
   <small *ngIf="professionalPushMessage" aria-live="polite">{{ professionalPushMessage }}</small>
 </div>
+<div *ngIf="canEnableProfessionalPush && professionalPushActivated" class="professional-push-banner" role="region" aria-label="Probar notificaciones">
+  <span>Avisos push activados. Puedes comprobar su funcionamiento cuando quieras.</span>
+  <button type="button" (click)="testProfessionalPush()" [disabled]="professionalPushBusy">
+    {{ professionalPushBusy ? 'Enviando…' : 'Enviar notificación de prueba' }}
+  </button>
+  <small *ngIf="professionalPushMessage" aria-live="polite">{{ professionalPushMessage }}</small>
+</div>
 <div *ngIf="maintenanceNotice" class="maintenance-banner" role="alert" aria-live="assertive">
   <div class="maintenance-banner-icon" aria-hidden="true">⚠</div>
   <div class="maintenance-banner-content">

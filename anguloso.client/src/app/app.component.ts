@@ -147,6 +147,24 @@ export class AppComponent implements OnInit {
     }
   }
 
+  async testProfessionalPush(): Promise<void> {
+    if (!this.canEnableProfessionalPush || !this.professionalPushActivated || this.professionalPushBusy) return;
+    this.professionalPushBusy = true;
+    this.professionalPushMessage = '';
+    try {
+      const result = await this.http.post<{ sent: boolean }>('/api/professional/push/test', {}).toPromise();
+      if (!result?.sent) {
+        throw new Error('El servidor no ha confirmado el envío de la notificación de prueba');
+      }
+      this.professionalPushMessage = 'Notificación de prueba enviada. Comprueba si aparece en este dispositivo.';
+    } catch (error) {
+      console.error('[DietoExpress] Falló la notificación push de prueba.', error);
+      this.professionalPushMessage = 'No se ha podido enviar la notificación de prueba. Comprueba los permisos del navegador y vuelve a intentarlo.';
+    } finally {
+      this.professionalPushBusy = false;
+    }
+  }
+
   title = 'anguloso.client';
   maintenanceNotice?: MaintenanceNotice;
   readonly authService = inject(AuthService);
