@@ -637,7 +637,9 @@ public class ClientDietsController : ControllerBase
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error generando informe de consulta para cliente {clientId} ({consultationDate}): {ex.GetType().Name}");
+            HttpContext.RequestServices.GetRequiredService<ILogger<ClientDietsController>>()
+                .LogError(ex, "Error generando informe de consulta. ClientId={ClientId}; ConsultationDate={ConsultationDate}; ExceptionType={ExceptionType}; Message={ExceptionMessage}",
+                    clientId, consultationDate, ex.GetType().FullName, ex.Message);
             return Problem(
                 title: "Error al generar el informe",
                 detail: "No se ha podido generar el informe de consulta.",
@@ -685,7 +687,11 @@ public class ClientDietsController : ControllerBase
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error generando PDF de entrenamiento para plan {planId}: {ex.GetType().Name}");
+            // Se registra la excepción completa (tipo, mensaje, pila y excepciones internas): los fallos típicos
+            // de este exportador son fuentes ausentes en el servidor o datos inesperados del plan.
+            HttpContext.RequestServices.GetRequiredService<ILogger<ClientDietsController>>()
+                .LogError(ex, "Error generando PDF de entrenamiento. ClientId={ClientId}; PlanId={PlanId}; Period={Start}..{End}; ExceptionType={ExceptionType}; Message={ExceptionMessage}",
+                    clientId, planId, periodStart, periodEnd, ex.GetType().FullName, ex.Message);
             return Problem(title: "Error al generar el PDF de entrenamiento",
                 detail: "No se ha podido generar el documento.", statusCode: StatusCodes.Status500InternalServerError);
         }

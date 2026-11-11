@@ -106,7 +106,7 @@ public class ConsultationPdfService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(36);
-                page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(9).FontColor("#2d2d2d"));
+                page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(9).FontColor("#2d2d2d"));
 
                 page.Header().Element(c => ComposeHeader(c, nutritionist));
 
@@ -147,7 +147,7 @@ public class ConsultationPdfService
                 {
                     page.Size(PageSizes.A4);
                     page.Margin(36);
-                    page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(9).FontColor("#2d2d2d"));
+                    page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(9).FontColor("#2d2d2d"));
                     page.Header().Element(c => ComposeHeader(c, nutritionist));
                     page.Content().Element(c => ComposeTrainingPlan(c, plan));
                     page.Footer().AlignCenter().Text(text =>
@@ -183,7 +183,7 @@ public class ConsultationPdfService
                 {
                     page.Size(PageSizes.A4);
                     page.Margin(36);
-                    page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(9).FontColor("#2d2d2d"));
+                    page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(9).FontColor("#2d2d2d"));
                     page.Header().Element(c => ComposeHeader(c, nutritionist));
                     page.Content().Element(c => ComposeTrainingPlan(c, plan));
                     page.Footer().AlignCenter().Text(text =>
