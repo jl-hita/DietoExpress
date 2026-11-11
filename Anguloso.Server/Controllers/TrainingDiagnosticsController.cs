@@ -13,8 +13,7 @@ using QuestPDF.Infrastructure;
 namespace Anguloso.Server.Controllers;
 
 /// <summary>
-/// Exportación temporal de diagnóstico para revisar la única planificación de pruebas.
-/// No acepta identificadores del cliente ni del plan: solo funciona si existe exactamente un plan.
+/// Herramientas de inventario y diagnóstico de planes de entrenamiento, exclusivas del superadministrador.
 /// </summary>
 [ApiController]
 [Route("api/training/diagnostics")]
@@ -32,13 +31,70 @@ public sealed class TrainingDiagnosticsController : ControllerBase
         _logger = logger;
     }
 
-    [HttpGet("test-plan.pdf")]
-    public async Task<IActionResult> ExportUniqueTestPlan(CancellationToken cancellationToken)
+    [HttpGet("plans")]
+    public async Task<IActionResult> GetAllTrainingPlans(CancellationToken cancellationToken)
+    {
+        if (!User.IsInRole("superadmin")) return Forbid();
+
+        const string sql = """
+            SELECT p.id, p.name, p.periodization_model, p.start_date, p.end_date,
+                   p.status, p.version, p.notes, f.client_id, c.full_name,
+                   f.enabled AS profile_enabled, c.archived_at IS NOT NULL AS client_archived,
+                   (SELECT COUNT(*) FROM training_mesocycles m WHERE m.plan_id = p.id) AS mesocycle_count,
+                   (SELECT COUNT(*) FROM training_sessions s WHERE s.plan_id = p.id) AS session_count,
+                   (SELECT COUNT(*) FROM training_session_records r
+                    JOIN training_sessions s ON s.id = r.session_id WHERE s.plan_id = p.id) AS record_count
+            FROM training_plans p
+            JOIN training_profiles f ON f.id = p.profile_id
+            JOIN clients c ON c.id = f.client_id
+            ORDER BY p.start_date DESC, p.id DESC
+            """;
+
+        var items = new List<object>();
+        var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
+        var shouldClose = connection.State != System.Data.ConnectionState.Open;
+        try
+        {
+            if (shouldClose) await connection.OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                items.Add(new
+                {
+                    id = reader.GetInt32(0), name = reader.GetString(1), periodizationModel = reader.GetString(2),
+                    startDate = reader.GetFieldValue<DateOnly>(3),
+                    endDate = reader.IsDBNull(4) ? (DateOnly?)null : reader.GetFieldValue<DateOnly>(4),
+                    status = reader.GetString(5), version = reader.GetInt32(6),
+                    notes = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    clientId = reader.GetInt32(8),
+                    clientName = reader.IsDBNull(9) ? "Cliente sin nombre" : reader.GetString(9),
+                    profileEnabled = reader.GetBoolean(10), clientArchived = reader.GetBoolean(11),
+                    mesocycleCount = reader.GetInt64(12), sessionCount = reader.GetInt64(13), recordCount = reader.GetInt64(14)
+                });
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Could not load superadmin training-plan inventory. RequestId={RequestId}", HttpContext.TraceIdentifier);
+            throw;
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+        return Ok(items);
+    }
+
+    [HttpGet("plans/{planId:int}/test-plan.pdf")]
+    public async Task<IActionResult> ExportTestPlan(int planId, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
         var requestId = HttpContext.TraceIdentifier;
         _logger.LogInformation(
-            "Test-plan PDF export started. RequestId={RequestId}; Authenticated={Authenticated}; Roles={Roles}",
+            "Test-plan PDF export started. PlanId={PlanId}; RequestId={RequestId}; Authenticated={Authenticated}; Roles={Roles}",
+            planId,
             requestId,
             User.Identity?.IsAuthenticated == true,
             string.Join(",", User.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role || c.Type == "role").Select(c => c.Value).Distinct()));
@@ -57,78 +113,73 @@ public sealed class TrainingDiagnosticsController : ControllerBase
             if (shouldClose) await connection.OpenAsync(cancellationToken);
             _logger.LogInformation("Database connection ready for test-plan PDF export. RequestId={RequestId}; ElapsedMs={ElapsedMs}", requestId, stopwatch.ElapsedMilliseconds);
 
-            int planCount;
             await using (var countCommand = connection.CreateCommand())
             {
-                countCommand.CommandText = "SELECT COUNT(*) FROM training_plans";
-                planCount = Convert.ToInt32(await countCommand.ExecuteScalarAsync(cancellationToken));
+                countCommand.CommandText = "SELECT COUNT(*) FROM training_plans WHERE id = @planId";
+                countCommand.Parameters.AddWithValue("planId", planId);
+                var planExists = Convert.ToInt32(await countCommand.ExecuteScalarAsync(cancellationToken)) == 1;
+                if (!planExists)
+                {
+                    _logger.LogWarning("Test-plan PDF export stopped: plan not found. PlanId={PlanId}; RequestId={RequestId}", planId, requestId);
+                    return NotFound(new { message = "No existe la planificación solicitada." });
+                }
             }
 
-            _logger.LogInformation("Test-plan PDF export found {PlanCount} plans. RequestId={RequestId}; ElapsedMs={ElapsedMs}", planCount, requestId, stopwatch.ElapsedMilliseconds);
-            if (planCount == 0)
-            {
-                _logger.LogWarning("Test-plan PDF export stopped: no plans found. RequestId={RequestId}", requestId);
-                return NotFound(new { message = "No existe ninguna planificación de entrenamiento para exportar." });
-            }
-            if (planCount != 1)
-            {
-                _logger.LogWarning("Test-plan PDF export stopped: expected exactly one plan, found {PlanCount}. RequestId={RequestId}", planCount, requestId);
-                return Conflict(new { message = $"La exportación está limitada a una única planificación de pruebas. Se encontraron {planCount}; no se ha exportado ninguna." });
-            }
+            _logger.LogInformation("Test-plan PDF export will include the selected plan. PlanId={PlanId}; RequestId={RequestId}; ElapsedMs={ElapsedMs}", planId, requestId, stopwatch.ElapsedMilliseconds);
 
             const string sql = """
                 SELECT jsonb_pretty(jsonb_build_object(
                     'exportedAt', to_jsonb(clock_timestamp()),
-                    'plan', (SELECT to_jsonb(p) FROM training_plans p LIMIT 1),
+                    'plan', (SELECT to_jsonb(p) FROM training_plans p WHERE p.id = @planId),
                     'profile', (
                         SELECT jsonb_build_object(
                             'id', f.id, 'clientId', f.client_id, 'enabled', f.enabled,
                             'primaryGoal', f.primary_goal, 'experienceLevel', f.experience_level,
                             'managementMode', f.management_mode
                         )
-                        FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id LIMIT 1
+                        FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id WHERE p.id = @planId
                     ),
                     'macrocycles', COALESCE((
                         SELECT jsonb_agg(to_jsonb(m) ORDER BY m.start_date, m.id)
                         FROM training_macrocycles m
-                        WHERE m.plan_id = (SELECT id FROM training_plans LIMIT 1)
+                        WHERE m.plan_id = @planId
                     ), '[]'::jsonb),
                     'macrocyclePhases', COALESCE((
                         SELECT jsonb_agg(to_jsonb(ph) ORDER BY ph.start_date, ph.id)
                         FROM training_macrocycle_phases ph
                         JOIN training_macrocycles m ON m.id = ph.macrocycle_id
-                        WHERE m.plan_id = (SELECT id FROM training_plans LIMIT 1)
+                        WHERE m.plan_id = @planId
                     ), '[]'::jsonb),
                     'mesocycles', COALESCE((
                         SELECT jsonb_agg(to_jsonb(m) ORDER BY m.sequence_number, m.id)
                         FROM training_mesocycles m
-                        WHERE m.plan_id = (SELECT id FROM training_plans LIMIT 1)
+                        WHERE m.plan_id = @planId
                     ), '[]'::jsonb),
                     'microcycles', COALESCE((
                         SELECT jsonb_agg(to_jsonb(mc) ORDER BY mc.sequence_number, mc.id)
                         FROM training_microcycles mc
                         JOIN training_mesocycles m ON m.id = mc.mesocycle_id
-                        WHERE m.plan_id = (SELECT id FROM training_plans LIMIT 1)
+                        WHERE m.plan_id = @planId
                     ), '[]'::jsonb),
                     'sessions', COALESCE((
                         SELECT jsonb_agg(to_jsonb(s) ORDER BY s.scheduled_date, s.id)
                         FROM training_sessions s
-                        WHERE s.plan_id = (SELECT id FROM training_plans LIMIT 1)
+                        WHERE s.plan_id = @planId
                     ), '[]'::jsonb),
                     'sessionRecords', COALESCE((
                         SELECT jsonb_agg(to_jsonb(r) ORDER BY r.session_id, r.id)
                         FROM training_session_records r
                         JOIN training_sessions s ON s.id = r.session_id
-                        WHERE s.plan_id = (SELECT id FROM training_plans LIMIT 1)
+                        WHERE s.plan_id = @planId
                     ), '[]'::jsonb),
                     'splitPreferences', (
                         SELECT to_jsonb(sp) FROM training_plan_split_preferences sp
-                        WHERE sp.plan_id = (SELECT id FROM training_plans LIMIT 1)
+                        WHERE sp.plan_id = @planId
                     ),
                     'adaptationProposals', COALESCE((
                         SELECT jsonb_agg(to_jsonb(a) ORDER BY a.id)
                         FROM training_adaptation_proposals a
-                        WHERE a.plan_id = (SELECT id FROM training_plans LIMIT 1)
+                        WHERE a.plan_id = @planId
                     ), '[]'::jsonb)
                 ))
                 """;
@@ -137,7 +188,8 @@ public sealed class TrainingDiagnosticsController : ControllerBase
             await using (var command = connection.CreateCommand())
             {
                 command.CommandText = sql;
-                _logger.LogInformation("Executing diagnostic snapshot SQL. RequestId={RequestId}", requestId);
+                command.Parameters.AddWithValue("planId", planId);
+                _logger.LogInformation("Executing diagnostic snapshot SQL. PlanId={PlanId}; RequestId={RequestId}", planId, requestId);
                 var result = await command.ExecuteScalarAsync(cancellationToken);
                 json = Convert.ToString(result) ?? throw new InvalidOperationException("La exportación no devolvió datos.");
             }
@@ -160,7 +212,7 @@ public sealed class TrainingDiagnosticsController : ControllerBase
                     page.Header().Column(header =>
                     {
                         header.Item().Text("DIETOEXPRESS · EXPORTACIÓN DE DIAGNÓSTICO").Bold().FontSize(13).FontColor("#0f766e");
-                        header.Item().Text($"Planificaciones: 1 · Mesociclos: {mesocycleCount} · Sesiones: {sessionCount}")
+                        header.Item().Text($"Plan: {planId} · Mesociclos: {mesocycleCount} · Sesiones: {sessionCount}")
                             .FontSize(9).FontColor("#555555");
                         header.Item().Text("Exportación íntegra de datos asociados. Los campos ausentes o nulos se conservan como tales.")
                             .FontSize(8).FontColor("#555555");
@@ -186,7 +238,7 @@ public sealed class TrainingDiagnosticsController : ControllerBase
 
             var pdf = document.GeneratePdf();
             _logger.LogInformation("Diagnostic PDF generated successfully. RequestId={RequestId}; PdfBytes={PdfBytes}; ElapsedMs={ElapsedMs}", requestId, pdf.Length, stopwatch.ElapsedMilliseconds);
-            return File(pdf, "application/pdf", $"dietoexpress-plan-pruebas-{DateTime.UtcNow:yyyyMMdd-HHmm}.pdf");
+            return File(pdf, "application/pdf", $"dietoexpress-plan-{planId}-{DateTime.UtcNow:yyyyMMdd-HHmm}.pdf");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
