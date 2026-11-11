@@ -76,7 +76,7 @@ public sealed class TrainingBlockHistoryTests
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Anguloso.sln"))) dir = dir.Parent;
-        var controller = File.ReadAllText(Path.Combine(dir!.FullName, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs")).Replace("\r\n", "\n");
+        var controller = TrainingControllerSource.ReadAll().Replace("\r\n", "\n");
         var ui = File.ReadAllText(Path.Combine(dir.FullName, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
 
         Assert.Equal(2, controller.Split("WithHistoryAsync(").Length - 1 - 1); // definición + 2 usos = 3 apariciones

@@ -206,7 +206,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("review_status = 'approved'", service);
         Assert.Contains("owner_user_id = @owner_user_id", service);
         Assert.Contains("owner_movement_pattern", service);
-        Assert.Contains("GeneratePreview", File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs")));
+        Assert.Contains("GeneratePreview", TrainingControllerSource.ReadAll());
         Assert.Contains("MatSelectModule", File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "exercise-contributions", "exercise-contributions.component.ts")));
         Assert.Contains("WHERE reviewed_by = 'DietoExpress curated metadata v1'", service);
         Assert.DoesNotContain("ApplyCuratedReviewsAsync", service);

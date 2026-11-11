@@ -58,7 +58,7 @@ public sealed class TrainingReviewRequestTests
     [Fact]
     public void ProfessionalEndpoints_RequireManageAccessAndNeverModifyThePlan()
     {
-        var controller = Read("Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs");
+        var controller = TrainingControllerSource.ReadAll();
         var start = controller.IndexOf("clients/{clientId:int}/review-requests", StringComparison.Ordinal);
         var end = controller.IndexOf("plans/{planId:int}/load-trend", start, StringComparison.Ordinal);
         Assert.True(start > 0 && end > start);
@@ -137,7 +137,7 @@ public sealed class TrainingReviewRequestTests
     [Fact]
     public void TrainingWorkspaceImprovements_AreWiredEndToEnd()
     {
-        var controller = Read("Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs");
+        var controller = TrainingControllerSource.ReadAll();
         var bootstrap = Read("Anguloso.Server", "Logica", "DatabaseBootstrap.cs");
         var routes = Read("anguloso.client", "src", "app", "app.routes.ts");
         var sidebar = Read("anguloso.client", "src", "app", "componentes", "sidebar", "sidebar.component.html");
