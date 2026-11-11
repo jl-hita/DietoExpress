@@ -233,13 +233,47 @@ public class ConsultationPdfService
             }
             foreach (var plan in plans)
             {
+                using var macroCommand = connection.CreateCommand();
+                macroCommand.CommandText = """
+                    SELECT name, periodization_model, start_date, end_date, notes
+                    FROM training_macrocycles WHERE plan_id = @planId ORDER BY start_date, id LIMIT 1
+                    """;
+                var macroPlanParam = macroCommand.CreateParameter(); macroPlanParam.ParameterName = "planId"; macroPlanParam.Value = plan.Id; macroCommand.Parameters.Add(macroPlanParam);
+                using (var macroReader = macroCommand.ExecuteReader())
+                    if (macroReader.Read())
+                    {
+                        plan.MacrocycleName = macroReader.GetString(0);
+                        plan.MacrocycleModel = macroReader.GetString(1);
+                        plan.MacrocycleStart = macroReader.GetFieldValue<DateOnly>(2);
+                        plan.MacrocycleEnd = macroReader.IsDBNull(3) ? null : macroReader.GetFieldValue<DateOnly>(3);
+                        plan.MacrocycleNotes = macroReader.IsDBNull(4) ? null : macroReader.GetString(4);
+                    }
+                if (plan.MacrocycleStart.HasValue)
+                {
+                    using var phasesCommand = connection.CreateCommand();
+                    phasesCommand.CommandText = """
+                        SELECT ph.name, ph.sequence_number, ph.start_date, ph.end_date, ph.objective, ph.phase_type
+                        FROM training_macrocycle_phases ph
+                        JOIN training_macrocycles mc ON mc.id = ph.macrocycle_id
+                        WHERE mc.plan_id = @planId ORDER BY ph.sequence_number, ph.start_date, ph.id
+                        """;
+                    var phasePlanParam = phasesCommand.CreateParameter(); phasePlanParam.ParameterName = "planId"; phasePlanParam.Value = plan.Id; phasesCommand.Parameters.Add(phasePlanParam);
+                    using var phaseReader = phasesCommand.ExecuteReader();
+                    while (phaseReader.Read()) plan.MacrocyclePhases.Add(new TrainingPhasePdf(
+                        phaseReader.GetString(0), phaseReader.GetInt32(1), phaseReader.GetFieldValue<DateOnly>(2),
+                        phaseReader.GetFieldValue<DateOnly>(3), phaseReader.IsDBNull(4) ? null : phaseReader.GetString(4), phaseReader.GetString(5)));
+                }
                 using var sessionsCommand = connection.CreateCommand();
                 sessionsCommand.CommandText = """
                     SELECT scheduled_date, title, session_type, duration_minutes, intensity_target, instructions,
                            exercise_prescription, exercise_prescription_data::text
-                    FROM training_sessions WHERE plan_id = @planId ORDER BY scheduled_date, id
+                    FROM training_sessions
+                    WHERE plan_id = @planId AND scheduled_date >= @startDate AND scheduled_date <= @endDate
+                    ORDER BY scheduled_date, id
                     """;
                 var planParam = sessionsCommand.CreateParameter(); planParam.ParameterName = "planId"; planParam.Value = plan.Id; sessionsCommand.Parameters.Add(planParam);
+                var sessionStartParam = sessionsCommand.CreateParameter(); sessionStartParam.ParameterName = "startDate"; sessionStartParam.Value = startDate.ToDateTime(TimeOnly.MinValue); sessionsCommand.Parameters.Add(sessionStartParam);
+                var sessionEndParam = sessionsCommand.CreateParameter(); sessionEndParam.ParameterName = "endDate"; sessionEndParam.Value = endDate.ToDateTime(TimeOnly.MinValue); sessionsCommand.Parameters.Add(sessionEndParam);
                 using var sessionReader = sessionsCommand.ExecuteReader();
                 while (sessionReader.Read())
                     plan.Sessions.Add(new TrainingSessionPdf(
