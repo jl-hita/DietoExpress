@@ -63,7 +63,7 @@ public sealed class TrainingAutoAdaptationTests
     [InlineData("hold_progression_and_review", "")]
     public void ActiveDeloadBlocksOtherAutomaticLoadAndVolumeAdjustments(string action, string exerciseId)
     {
-        var ids = string.IsNullOrWhiteSpace(exerciseId) ? [] : [exerciseId];
+        string[] ids = string.IsNullOrWhiteSpace(exerciseId) ? [] : [exerciseId];
         var recentDeload = new TrainingAutoAdaptationRecord(
             TrainingAutoAdaptationKind.Deload, Now.AddDays(-3));
 
