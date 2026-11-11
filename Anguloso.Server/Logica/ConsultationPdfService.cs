@@ -385,13 +385,16 @@ public class ConsultationPdfService
                                 {
                                     table.ColumnsDefinition(columns =>
                                     {
-                                        columns.RelativeColumn(4); columns.RelativeColumn(1.5f); columns.RelativeColumn(2); columns.RelativeColumn(1.5f); columns.RelativeColumn(3);
+                                        columns.RelativeColumn(3.5f); columns.RelativeColumn(1); columns.RelativeColumn(1.5f);
+                                        columns.RelativeColumn(0.9f); columns.RelativeColumn(1.2f); columns.RelativeColumn(1.2f); columns.RelativeColumn(2.5f);
                                     });
                                     table.Header(header =>
                                     {
                                         header.Cell().Background("#f0fdfa").Padding(3).Text("Ejercicio").Bold();
                                         header.Cell().Background("#f0fdfa").Padding(3).Text("Series").Bold();
-                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Repeticiones").Bold();
+                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Reps.").Bold();
+                                        header.Cell().Background("#f0fdfa").Padding(3).Text("RIR").Bold();
+                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Carga").Bold();
                                         header.Cell().Background("#f0fdfa").Padding(3).Text("Descanso").Bold();
                                         header.Cell().Background("#f0fdfa").Padding(3).Text("Progresión").Bold();
                                     });
@@ -403,11 +406,15 @@ public class ConsultationPdfService
                                         var sets = Get("sets"); if (sets == "—") sets = Get("Sets");
                                         var min = Get("minRepetitions"); if (min == "—") min = Get("MinRepetitions");
                                         var max = Get("maxRepetitions"); if (max == "—") max = Get("MaxRepetitions");
+                                        var rir = Get("targetRepetitionsInReserve"); if (rir == "—") rir = Get("TargetRepetitionsInReserve");
+                                        var load = Get("targetLoadKg"); if (load == "—") load = Get("TargetLoadKg");
                                         var rest = Get("restSeconds"); if (rest == "—") rest = Get("RestSeconds");
                                         var progression = Get("progressionRule"); if (progression == "—") progression = Get("ProgressionRule");
                                         table.Cell().Padding(3).Text(name);
                                         table.Cell().Padding(3).Text(sets);
                                         table.Cell().Padding(3).Text(min == max ? min : $"{min}–{max}");
+                                        table.Cell().Padding(3).Text(rir);
+                                        table.Cell().Padding(3).Text(load == "—" ? load : $"{load} kg");
                                         table.Cell().Padding(3).Text(rest == "—" ? rest : $"{rest}s");
                                         table.Cell().Padding(3).Text(progression).FontSize(7);
                                     }
