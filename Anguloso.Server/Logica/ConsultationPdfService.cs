@@ -217,7 +217,7 @@ public class ConsultationPdfService
                 WHERE c.id = @clientId
                   AND (@tenantId IS NULL OR c.tenant_id = @tenantId)
                   AND p.start_date <= @endDate
-                  AND (p.end_date IS NULL OR p.end_date >= @startDate OR p.status IN ('draft', 'active'))
+                  AND (p.end_date IS NULL OR p.end_date >= @startDate)
                   AND (@planId IS NULL OR p.id = @planId)
                 ORDER BY p.start_date DESC, p.id DESC
                 """;
