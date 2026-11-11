@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using Anguloso.Server.Logica;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -21,20 +22,41 @@ namespace Anguloso.Server.Controllers;
 public sealed class TrainingDiagnosticsController : ControllerBase
 {
     private readonly angulosodbContext _context;
+    private readonly ILogger<TrainingDiagnosticsController> _logger;
 
-    public TrainingDiagnosticsController(angulosodbContext context) => _context = context;
+    public TrainingDiagnosticsController(
+        angulosodbContext context,
+        ILogger<TrainingDiagnosticsController> logger)
+    {
+        _context = context;
+        _logger = logger;
+    }
 
     [HttpGet("test-plan.pdf")]
     public async Task<IActionResult> ExportUniqueTestPlan(CancellationToken cancellationToken)
     {
-        if (!User.IsInRole("superadmin")) return Forbid();
+        var stopwatch = Stopwatch.StartNew();
+        var requestId = HttpContext.TraceIdentifier;
+        _logger.LogInformation(
+            "Test-plan PDF export started. RequestId={RequestId}; Authenticated={Authenticated}; Roles={Roles}",
+            requestId,
+            User.Identity?.IsAuthenticated == true,
+            string.Join(",", User.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role || c.Type == "role").Select(c => c.Value).Distinct()));
+
+        if (!User.IsInRole("superadmin"))
+        {
+            _logger.LogWarning("Test-plan PDF export forbidden: caller is not superadmin. RequestId={RequestId}", requestId);
+            return Forbid();
+        }
 
         var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
         var shouldClose = connection.State != System.Data.ConnectionState.Open;
-        if (shouldClose) await connection.OpenAsync(cancellationToken);
-
         try
         {
+            _logger.LogInformation("Opening database connection for test-plan PDF export. RequestId={RequestId}; WasAlreadyOpen={WasAlreadyOpen}", requestId, !shouldClose);
+            if (shouldClose) await connection.OpenAsync(cancellationToken);
+            _logger.LogInformation("Database connection ready for test-plan PDF export. RequestId={RequestId}; ElapsedMs={ElapsedMs}", requestId, stopwatch.ElapsedMilliseconds);
+
             int planCount;
             await using (var countCommand = connection.CreateCommand())
             {
@@ -42,10 +64,17 @@ public sealed class TrainingDiagnosticsController : ControllerBase
                 planCount = Convert.ToInt32(await countCommand.ExecuteScalarAsync(cancellationToken));
             }
 
+            _logger.LogInformation("Test-plan PDF export found {PlanCount} plans. RequestId={RequestId}; ElapsedMs={ElapsedMs}", planCount, requestId, stopwatch.ElapsedMilliseconds);
             if (planCount == 0)
+            {
+                _logger.LogWarning("Test-plan PDF export stopped: no plans found. RequestId={RequestId}", requestId);
                 return NotFound(new { message = "No existe ninguna planificación de entrenamiento para exportar." });
+            }
             if (planCount != 1)
+            {
+                _logger.LogWarning("Test-plan PDF export stopped: expected exactly one plan, found {PlanCount}. RequestId={RequestId}", planCount, requestId);
                 return Conflict(new { message = $"La exportación está limitada a una única planificación de pruebas. Se encontraron {planCount}; no se ha exportado ninguna." });
+            }
 
             const string sql = """
                 SELECT jsonb_pretty(jsonb_build_object(
@@ -108,15 +137,18 @@ public sealed class TrainingDiagnosticsController : ControllerBase
             await using (var command = connection.CreateCommand())
             {
                 command.CommandText = sql;
+                _logger.LogInformation("Executing diagnostic snapshot SQL. RequestId={RequestId}", requestId);
                 var result = await command.ExecuteScalarAsync(cancellationToken);
                 json = Convert.ToString(result) ?? throw new InvalidOperationException("La exportación no devolvió datos.");
             }
 
+            _logger.LogInformation("Diagnostic snapshot SQL completed. RequestId={RequestId}; JsonLength={JsonLength}; ElapsedMs={ElapsedMs}", requestId, json.Length, stopwatch.ElapsedMilliseconds);
             using var parsed = JsonDocument.Parse(json);
             var root = parsed.RootElement;
             var sessionCount = root.GetProperty("sessions").GetArrayLength();
             var mesocycleCount = root.GetProperty("mesocycles").GetArrayLength();
 
+            _logger.LogInformation("Building diagnostic PDF. RequestId={RequestId}; Mesocycles={MesocycleCount}; Sessions={SessionCount}", requestId, mesocycleCount, sessionCount);
             QuestPDF.Settings.License = LicenseType.Community;
             var document = Document.Create(container =>
             {
@@ -153,7 +185,18 @@ public sealed class TrainingDiagnosticsController : ControllerBase
             });
 
             var pdf = document.GeneratePdf();
+            _logger.LogInformation("Diagnostic PDF generated successfully. RequestId={RequestId}; PdfBytes={PdfBytes}; ElapsedMs={ElapsedMs}", requestId, pdf.Length, stopwatch.ElapsedMilliseconds);
             return File(pdf, "application/pdf", $"dietoexpress-plan-pruebas-{DateTime.UtcNow:yyyyMMdd-HHmm}.pdf");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning("Test-plan PDF export was cancelled. RequestId={RequestId}; ElapsedMs={ElapsedMs}", requestId, stopwatch.ElapsedMilliseconds);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Test-plan PDF export failed. RequestId={RequestId}; ElapsedMs={ElapsedMs}; DatabaseState={DatabaseState}", requestId, stopwatch.ElapsedMilliseconds, connection.State);
+            throw;
         }
         finally
         {
