@@ -208,7 +208,7 @@ public sealed class TrainingDiagnosticsController : ControllerBase
                 {
                     page.Size(PageSizes.A4);
                     page.Margin(28);
-                    page.DefaultTextStyle(style => style.FontFamily("Arial").FontSize(8).FontColor("#202124"));
+                    page.DefaultTextStyle(style => style.FontFamily("Lato").FontSize(8).FontColor("#202124"));
                     page.Header().Column(header =>
                     {
                         header.Item().Text("DIETOEXPRESS · EXPORTACIÓN DE DIAGNÓSTICO").Bold().FontSize(13).FontColor("#0f766e");
@@ -222,7 +222,7 @@ public sealed class TrainingDiagnosticsController : ControllerBase
                         content.Item().Text("DATOS ESTRUCTURADOS (JSON)").Bold().FontSize(10);
                         foreach (var line in json.Split('\n'))
                             content.Item().Text(line.Length == 0 ? " " : line)
-                                .FontFamily("Arial").FontSize(5.8f);
+                                .FontFamily("Lato").FontSize(5.8f);
                     });
                     page.Footer().AlignCenter().Text(text =>
                     {
