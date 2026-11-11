@@ -502,9 +502,12 @@ public sealed class TrainingProgramGeneratorTests
                 .Select(exercise => (exercise.ExerciseId, exercise.Sets))
                 .ToArray());
 
-        // Week 1 is the introductory week of the block (see TrainingBlockProgressionTests); steady weeks match.
+        // Weeks 1-2 are the ramp-in and the last week the peak (see TrainingBlockProgressionTests);
+        // the weeks in between keep the allocated dose.
         Assert.Equal(signatureByWeek[3], signatureByWeek[4]);
-        Assert.Equal(signatureByWeek[3], signatureByWeek[8]);
+        Assert.Equal(signatureByWeek[3], signatureByWeek[7]);
+        Assert.All(signatureByWeek[8].Zip(signatureByWeek[3]), pair =>
+            Assert.InRange(pair.First.Sets - pair.Second.Sets, 0, 1));
         Assert.All(sessions.SelectMany(session => session.Exercises), exercise =>
             Assert.InRange(exercise.TargetRepetitionsInReserve!.Value, 0m, 5m));
         Assert.Empty(TrainingPrescriptionValidator.Validate(result.Prescription));
@@ -570,10 +573,14 @@ public sealed class TrainingProgramGeneratorTests
 
         // The two-day full-body split includes a squat exposure on both days.
         // Count the audited effective dose, not only the provider's primary label.
-        Assert.InRange(weekTwoQuads.EstimatedEffectiveSets, 8m, 12m);
+        var weekThreeQuads = report.WeeklyMuscleVolumes.Single(week => week.WeekNumber == 3)
+            .Muscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Quadriceps);
+        Assert.InRange(weekThreeQuads.EstimatedEffectiveSets, 8m, 12m);
         Assert.True(weekOneQuads.EstimatedEffectiveSets <= weekTwoQuads.EstimatedEffectiveSets);
+        Assert.True(weekTwoQuads.EstimatedEffectiveSets <= weekThreeQuads.EstimatedEffectiveSets);
         Assert.Equal(2, weekOneQuads.PrimaryFrequencySessions);
-        Assert.Equal(weekTwoQuads.EstimatedEffectiveSets, weekFourQuads.EstimatedEffectiveSets);
+        // The ramp adds at most one set per muscle in the last week.
+        Assert.InRange(weekFourQuads.EstimatedEffectiveSets - weekThreeQuads.EstimatedEffectiveSets, 0m, 1m);
         Assert.DoesNotContain(report.Warnings, warning =>
             warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
         Assert.DoesNotContain(report.Warnings, warning =>
@@ -1116,6 +1123,77 @@ public sealed class TrainingProgramGeneratorTests
             exercise.ExerciseId is "leg-extension" or "machine-calf-raise");
         Assert.DoesNotContain(lower.Exercises, exercise =>
             exercise.ExerciseId is "cable-fly" or "lateral-raise" or "straight-arm-pulldown");
+    }
+
+    [Fact]
+    public void UpperLowerBSessionsLeadWithTheGroupTrainedSecondInASessions()
+    {
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                TrainingDays = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Friday],
+                Split = TrainingProgramSplit.UpperLower,
+                DurationWeeks = 1,
+                MaximumSessionDurationMinutes = 90
+            },
+            Catalog());
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        string First(string title) => generated.Prescription!.Sessions
+            .Single(session => session.Title == title).Exercises.OrderBy(x => x.Order).First().ExerciseId;
+
+        Assert.Equal("exercise-horizontalpush", First("Tren superior A"));
+        Assert.Equal("exercise-verticalpull", First("Tren superior B"));
+        Assert.Equal("squat-basic", First("Tren inferior A"));
+        Assert.Equal("exercise-hinge", First("Tren inferior B"));
+    }
+
+    [Fact]
+    public void HypertrophyUpperSessionsReceiveDirectLateralDeltoidBicepsAndTricepsWork()
+    {
+        var catalog = Catalog()
+            .Where(candidate => candidate.MovementPattern != TrainingMovementPattern.Accessory)
+            .Concat(new[]
+            {
+                new TrainingExerciseCandidate("lateral-raise", "catalog-2026-10", "Elevación lateral",
+                    TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 50, true, [TrainingMuscleGroup.Deltoids], []),
+                new TrainingExerciseCandidate("cable-curl", "catalog-2026-10", "Curl en polea",
+                    TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 50, true, [TrainingMuscleGroup.Biceps], []),
+                new TrainingExerciseCandidate("tricep-pushdown", "catalog-2026-10", "Extensión de tríceps en polea",
+                    TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 50, true, [TrainingMuscleGroup.Triceps], []),
+                new TrainingExerciseCandidate("machine-calf-raise", "catalog-2026-10", "Gemelo en máquina",
+                    TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                    TrainingExperience.Beginner, 50, true, [TrainingMuscleGroup.Calves], [])
+            })
+            .ToArray();
+
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                TrainingDays = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Friday],
+                Split = TrainingProgramSplit.UpperLower,
+                DurationWeeks = 1,
+                MaximumSessionDurationMinutes = 60
+            },
+            catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        var sessions = generated.Prescription!.Sessions;
+        var upper = sessions.Where(session => session.Title.StartsWith("Tren superior", StringComparison.Ordinal)).ToArray();
+        var lower = sessions.Where(session => session.Title.StartsWith("Tren inferior", StringComparison.Ordinal)).ToArray();
+
+        foreach (var id in new[] { "lateral-raise", "cable-curl", "tricep-pushdown" })
+        {
+            var exposures = upper.SelectMany(session => session.Exercises).Where(x => x.ExerciseId == id).ToArray();
+            Assert.Equal(2, exposures.Length);
+            Assert.All(exposures, exercise => Assert.True(exercise.Sets >= 2, $"{id} debe tener al menos 2 series directas."));
+            Assert.DoesNotContain(lower.SelectMany(session => session.Exercises), x => x.ExerciseId == id);
+        }
+        Assert.All(upper.SelectMany(session => session.Exercises).Where(x => x.ExerciseId == "lateral-raise"),
+            exercise => Assert.True(exercise.Sets >= 3));
     }
 
     [Fact]
