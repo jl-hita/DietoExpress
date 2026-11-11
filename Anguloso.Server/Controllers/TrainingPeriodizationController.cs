@@ -2535,7 +2535,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
             SELECT r.outcome, r.exercise_feedback::text, s.exercise_prescription_data::text
             FROM training_session_records r
             JOIN training_sessions s ON s.id = r.session_id
-            WHERE s.plan_id = @planId AND r.outcome IS NOT NULL
+            WHERE s.plan_id = @planId AND s.session_type = 'strength' AND r.outcome IS NOT NULL
             ORDER BY s.scheduled_date DESC, r.id DESC
             LIMIT 12
             """, transaction, ("planId", planId)))

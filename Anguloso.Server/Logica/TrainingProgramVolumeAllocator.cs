@@ -52,9 +52,7 @@ public static class TrainingProgramVolumeAllocator
         // Product ceiling aligned with the ACSM 2026 practical summary of 2–3 sets per exercise
         // for strength. It is a ceiling, not a mandatory dose; remaining weekly deficits stay
         // visible as warnings instead of concentrating more sets on one lift.
-        var maximumSetsPerExercise = goal == TrainingGoal.Strength
-            ? MaximumSetsPerExerciseForStrength
-            : MaximumSetsPerExercise;
+        var maximumSetsPerExercise = GetMaximumSetsPerExercise(goal);
         var warnings = new List<string>();
         var explicitTargetMuscles = (preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
             .Where(preference => preference.TargetWeeklyPrimarySets is not null)
@@ -169,6 +167,13 @@ public static class TrainingProgramVolumeAllocator
         return new(output.Values.OrderBy(x => x.WeekNumber).ThenBy(x => x.Day).ToArray(),
             warnings.Distinct(StringComparer.Ordinal).ToArray(), Array.Empty<string>());
     }
+
+    /// <summary>
+    /// Shared per-exercise working-set ceiling for generation and feedback-based volume increases.
+    /// Strength uses three sets per exercise; other goals retain the five-set product ceiling.
+    /// </summary>
+    public static int GetMaximumSetsPerExercise(TrainingGoal goal) =>
+        goal == TrainingGoal.Strength ? MaximumSetsPerExerciseForStrength : MaximumSetsPerExercise;
 
     public static IReadOnlyDictionary<TrainingMuscleGroup, decimal> CalculateEffectiveVolume(
         IEnumerable<TrainingSessionPrescription> sessions)
@@ -304,7 +309,7 @@ public static class TrainingProgramVolumeAllocator
         if (goal == TrainingGoal.Hypertrophy)
         {
             // In hypertrophy, all major groups (including arms and hamstrings) use the agreed
-            // experience range. Abdominals remain a supplemental target unless explicitly prioritized.
+            // experience range. Abdominals have no default direct-work target; they are opt-in.
             targets[TrainingMuscleGroup.Biceps] = baseline;
             targets[TrainingMuscleGroup.Triceps] = baseline;
             // Preserve the previously agreed lower hamstring priority: half the central
@@ -320,7 +325,6 @@ public static class TrainingProgramVolumeAllocator
             targets[TrainingMuscleGroup.Hamstrings] = Math.Max(2m, Math.Ceiling(baseline * 0.5m));
         }
 
-        targets[TrainingMuscleGroup.Abdominals] = supplementalBaseline;
         foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
         {
             var preferenceTarget = preference.TargetWeeklyPrimarySets ?? baseline + preference.Priority * 2m;

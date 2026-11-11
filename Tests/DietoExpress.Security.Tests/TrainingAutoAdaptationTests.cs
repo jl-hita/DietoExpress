@@ -54,6 +54,26 @@ public sealed class TrainingAutoAdaptationTests
         Assert.False(Decide("review_and_reduce_training_stress", ["squat"], new TrainingAutoAdaptationRecord(TrainingAutoAdaptationKind.Deload, Now.AddDays(-3))).ShouldApply);
     }
 
+    [Theory]
+    [InlineData("review_and_reduce_training_stress", "squat")]
+    [InlineData("review_and_reduce_training_stress", "")]
+    [InlineData("restore_volume", "squat")]
+    [InlineData("add_muscle_set", "bench")]
+    [InlineData("reduce_muscle_set", "bench")]
+    [InlineData("hold_progression_and_review", "")]
+    public void ActiveDeloadBlocksOtherAutomaticLoadAndVolumeAdjustments(string action, string exerciseId)
+    {
+        string[] ids = string.IsNullOrWhiteSpace(exerciseId) ? [] : [exerciseId];
+        var recentDeload = new TrainingAutoAdaptationRecord(
+            TrainingAutoAdaptationKind.Deload, Now.AddDays(-3));
+
+        var decision = Decide(action, ids, recentDeload);
+
+        Assert.False(decision.ShouldApply);
+        Assert.Equal(TrainingAutoAdaptationKind.None, decision.Kind);
+        Assert.Contains("descarga en curso", decision.SkipReason ?? "");
+    }
+
     private const string Session = """{"exercises":[{"exerciseId":"squat","exerciseNameSnapshot":"Sentadilla","order":1,"sets":4,"minRepetitions":5,"maxRepetitions":8,"targetRepetitionsInReserve":2,"restSeconds":180,"progressionRule":1,"catalogVersion":"v"},{"exerciseId":"curl","exerciseNameSnapshot":"Curl","order":2,"sets":1,"minRepetitions":8,"maxRepetitions":12,"targetRepetitionsInReserve":4,"restSeconds":90,"progressionRule":1,"catalogVersion":"v"}]}""";
 
     [Fact]

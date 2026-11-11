@@ -301,6 +301,27 @@ public sealed class TrainingExerciseVolumeAdapterTests
         Assert.Empty(TrainingExerciseVolumeFeedbackMapper.Map(records));
     }
 
+    [Fact]
+    public void OlderUnstructuredSessionDoesNotInvalidateNewerStructuredHistory()
+    {
+        const string prescription = """{"exercises":[{"exerciseId":"bench","sets":3,"targetRepetitionsInReserve":2}]}""";
+        const string fatigue = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"fatigue","sets":[{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":true,"rir":1}]}]""";
+        // SQL supplies newest-first history. The unusable row is older than the three valid exposures.
+        var records = new[]
+        {
+            new TrainingExerciseVolumeFeedbackRecord("completed", fatigue, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("completed", fatigue, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("completed", fatigue, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("completed", null, null)
+        };
+
+        var exposures = TrainingExerciseVolumeFeedbackMapper.Map(records);
+
+        Assert.Equal(3, exposures.Count);
+        var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate(exposures));
+        Assert.Equal(TrainingExerciseVolumeAction.ProposeReduceOneSet, recommendation.Action);
+    }
+
     private static TrainingExerciseVolumeExposure Exposure(
         string id,
         int planned = 3,

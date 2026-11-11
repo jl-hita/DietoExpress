@@ -92,6 +92,10 @@ public sealed class TrainingAdaptationReviewWorkflowTests
         Assert.Contains("exerciseVolumeRecommendations", component);
         Assert.Contains("toggleAdaptationExercise", component);
         Assert.Contains("TrainingExerciseVolumeFeedbackMapper.Map", portalController);
+        Assert.Contains("s.session_type = 'strength'", portalController);
+        Assert.Contains("s.session_type = 'strength'", controller);
+        Assert.Contains("GetMaximumSetsPerExercise(goal)", portalController);
+        Assert.Contains("ceilings.TryAdd(muscle, plannedSets + 2)", portalController);
         Assert.Contains("fatigueCandidates.Length > 0", portalController);
         Assert.Contains("training-periodization-v8-adaptation-review", bootstrap);
         Assert.Contains("Revisión de adaptación por feedback", component);

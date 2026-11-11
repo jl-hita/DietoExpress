@@ -807,8 +807,14 @@ public sealed class TrainingPortalController : ControllerBase
                 catch (Exception exception) when (exception is JsonException or KeyNotFoundException or InvalidOperationException) { }
         var ceilings = Anguloso.Server.Logica.TrainingProgramVolumeAllocator.GetWeeklyCeilings(goal, experience)
             .ToDictionary(pair => pair.Key.ToString(), pair => (int)pair.Value, StringComparer.Ordinal);
+        // A muscle explicitly present as primary work in this reviewed plan is opt-in, even if
+        // it has no default quota (e.g. direct core). Keep feedback-driven increases bounded.
+        foreach (var (muscle, plannedSets) in plannedByMuscle)
+            ceilings.TryAdd(muscle, plannedSets + 2);
 
-        var decisions = Anguloso.Server.Logica.TrainingMuscleFeedbackAdapter.Evaluate(exposures, plannedByMuscle, ceilings);
+        var maximumSetsPerExercise = Anguloso.Server.Logica.TrainingProgramVolumeAllocator.GetMaximumSetsPerExercise(goal);
+        var decisions = Anguloso.Server.Logica.TrainingMuscleFeedbackAdapter.Evaluate(
+            exposures, plannedByMuscle, ceilings, maximumSetsPerExercise);
         // One proposal per action and record (unique constraint), but it must carry EVERY affected exercise:
         // dropping all but the first would silently lose strong-discomfort pauses or swaps.
         foreach (var actionGroup in decisions.GroupBy(item => item.Action))
@@ -850,7 +856,7 @@ public sealed class TrainingPortalController : ControllerBase
             JOIN training_profiles f ON f.id = p.profile_id
             WHERE f.client_id = @clientId AND s.plan_id = (
                 SELECT plan_id FROM training_sessions WHERE id = @sessionId
-            ) AND p.status = 'active' AND r.outcome IS NOT NULL
+            ) AND p.status = 'active' AND s.session_type = 'strength' AND r.outcome IS NOT NULL
             ORDER BY s.scheduled_date DESC, r.id DESC
             LIMIT 12
             """, ("clientId", clientId), ("sessionId", sessionId)))

@@ -21,7 +21,7 @@ public sealed class TrainingMuscleFeedbackMapperTests
         Assert.Equal(new DateOnly(2026, 11, 6), exposures[2].Date);
         Assert.Equal("bench", exposures[0].ExerciseId);
         Assert.Equal("low", exposures[0].Stimulus);
-        var missing = Assert.Single(exposures.Where(item => item.ExerciseId == "fly" && item.Date == new DateOnly(2026, 11, 6)));
+        var missing = Assert.Single(exposures, item => item.ExerciseId == "fly" && item.Date == new DateOnly(2026, 11, 6));
         Assert.Null(missing.Stimulus);
         Assert.Null(missing.Discomfort);
         Assert.Null(missing.PreFatigue);

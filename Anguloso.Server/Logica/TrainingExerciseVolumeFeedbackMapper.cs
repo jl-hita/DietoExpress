@@ -11,20 +11,24 @@ namespace Anguloso.Server.Logica;
 public static class TrainingExerciseVolumeFeedbackMapper
 {
     public static IReadOnlyList<TrainingExerciseVolumeExposure> Map(
-        IEnumerable<TrainingExerciseVolumeFeedbackRecord> records)
+        IEnumerable<TrainingExerciseVolumeFeedbackRecord> newestFirstRecords)
     {
-        ArgumentNullException.ThrowIfNull(records);
-        var exposures = new List<TrainingExerciseVolumeExposure>();
-        foreach (var record in records.Reverse())
+        ArgumentNullException.ThrowIfNull(newestFirstRecords);
+        var parsedSessions = new List<IReadOnlyList<TrainingExerciseVolumeExposure>>();
+
+        // The SQL callers provide newest-first history. A malformed newest prescription must
+        // block stale evidence; an older malformed/legacy row only truncates the usable window.
+        foreach (var record in newestFirstRecords)
         {
             var prescription = ReadPrescription(record.PrescriptionJson);
             if (prescription.Count == 0)
             {
-                // A recent session without a parseable structured prescription cannot be
-                // matched safely to exercise IDs. Fail closed rather than reusing stale history.
-                return Array.Empty<TrainingExerciseVolumeExposure>();
+                if (parsedSessions.Count == 0)
+                    return Array.Empty<TrainingExerciseVolumeExposure>();
+                break;
             }
 
+            var sessionExposures = new List<TrainingExerciseVolumeExposure>();
             var feedbackById = ReadFeedback(record.ExerciseFeedbackJson);
             var originalSets = ReadOriginalSets(record.PrescriptionJson);
             foreach (var (exerciseId, target) in prescription)
@@ -33,7 +37,7 @@ public static class TrainingExerciseVolumeFeedbackMapper
                     ReadInt(exercise, "plannedSets") != target.PlannedSets)
                 {
                     // Missing or mismatched feedback is unknown, never a fatigue signal.
-                    exposures.Add(new TrainingExerciseVolumeExposure(
+                    sessionExposures.Add(new TrainingExerciseVolumeExposure(
                         exerciseId, target.PlannedSets, 0,
                         SessionCompleted: IsCompleted(record.Outcome),
                         TargetRir: target.TargetRir));
@@ -43,7 +47,7 @@ public static class TrainingExerciseVolumeFeedbackMapper
                 var completedSets = ReadInt(exercise, "completedSets");
                 if (completedSets < 0 || completedSets > target.PlannedSets)
                 {
-                    exposures.Add(new TrainingExerciseVolumeExposure(
+                    sessionExposures.Add(new TrainingExerciseVolumeExposure(
                         exerciseId, target.PlannedSets, 0,
                         SessionCompleted: IsCompleted(record.Outcome),
                         TargetRir: target.TargetRir));
@@ -55,7 +59,7 @@ public static class TrainingExerciseVolumeFeedbackMapper
                 var averageRir = completedSets > 0 && rirValues.Count == completedSets
                     ? rirValues.Average()
                     : (decimal?)null;
-                exposures.Add(new TrainingExerciseVolumeExposure(
+                sessionExposures.Add(new TrainingExerciseVolumeExposure(
                     exerciseId,
                     target.PlannedSets,
                     completedSets,
@@ -67,9 +71,13 @@ public static class TrainingExerciseVolumeFeedbackMapper
                     ActualAverageRir: averageRir,
                     OriginalPlannedSets: originalSets.TryGetValue(exerciseId, out var originalDose) ? originalDose : null));
             }
+
+            parsedSessions.Add(sessionExposures);
         }
 
-        return exposures;
+        // The adapter consumes chronological history. Reverse only after truncating at the
+        // first unusable older record, preserving the valid recent window.
+        return parsedSessions.AsEnumerable().Reverse().SelectMany(session => session).ToArray();
     }
 
     private static Dictionary<string, (int PlannedSets, decimal? TargetRir)> ReadPrescription(string? json)

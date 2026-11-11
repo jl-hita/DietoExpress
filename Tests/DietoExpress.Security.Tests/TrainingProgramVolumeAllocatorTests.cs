@@ -118,9 +118,11 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.Equal(3m, strength[TrainingMuscleGroup.Biceps]);
         Assert.Equal(3m, strength[TrainingMuscleGroup.Triceps]);
         Assert.Equal(3m, strength[TrainingMuscleGroup.Hamstrings]);
+        Assert.DoesNotContain(TrainingMuscleGroup.Abdominals, strength.Keys);
         Assert.Equal(4m, general[TrainingMuscleGroup.Chest]);
         Assert.Equal(2m, general[TrainingMuscleGroup.Biceps]);
         Assert.Equal(2m, general[TrainingMuscleGroup.Hamstrings]);
+        Assert.DoesNotContain(TrainingMuscleGroup.Abdominals, general.Keys);
     }
 
     [Fact]
@@ -272,12 +274,21 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.True(defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "bench").Sets > 1);
         Assert.Equal(5, defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "curl").Sets);
         Assert.Equal(1, defaults.Sessions[0].Exercises.Single(x => x.ExerciseId == "knee-raise").Sets);
+        Assert.DoesNotContain(defaults.Warnings, warning => warning.Contains("Abdominals", StringComparison.Ordinal));
 
         var prioritized = TrainingProgramVolumeAllocator.Allocate(
             sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
             [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.HipFlexors, Priority: 1)], 60);
         Assert.True(prioritized.Succeeded, string.Join("; ", prioritized.Errors));
         Assert.True(prioritized.Sessions[0].Exercises.Single(x => x.ExerciseId == "knee-raise").Sets > 1);
+
+        var explicitCore = TrainingProgramVolumeAllocator.Allocate(
+            sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
+            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Abdominals, Priority: 1)], 60);
+        Assert.True(explicitCore.Succeeded, string.Join("; ", explicitCore.Errors));
+        Assert.Contains(explicitCore.Warnings, warning =>
+            warning.Contains("Abdominals", StringComparison.Ordinal) &&
+            warning.Contains("no hay ningún ejercicio disponible", StringComparison.Ordinal));
     }
 
     [Fact]

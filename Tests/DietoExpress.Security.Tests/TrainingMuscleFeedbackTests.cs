@@ -66,6 +66,56 @@ public sealed class TrainingMuscleFeedbackTests
     }
 
     [Fact]
+    public void StrengthFeedbackCannotAddAFourthSetToAnExercise()
+    {
+        var result = TrainingMuscleFeedbackAdapter.Evaluate(
+            [
+                E(2, "bench", sets: 3, stimulus: "low"),
+                E(4, "bench", sets: 3, stimulus: "low")
+            ],
+            Planned,
+            Ceiling,
+            TrainingProgramVolumeAllocator.GetMaximumSetsPerExercise(TrainingGoal.Strength));
+
+        Assert.DoesNotContain(result, decision => decision.Action == TrainingMuscleFeedbackAction.AddSet);
+    }
+
+    [Fact]
+    public void StrengthFeedbackCanIncreaseAnExerciseFromTwoToThreeSets()
+    {
+        var result = TrainingMuscleFeedbackAdapter.Evaluate(
+            [
+                E(2, "bench", sets: 2, stimulus: "low"),
+                E(4, "bench", sets: 2, stimulus: "low")
+            ],
+            Planned,
+            Ceiling,
+            TrainingProgramVolumeAllocator.GetMaximumSetsPerExercise(TrainingGoal.Strength));
+
+        var add = Assert.Single(result);
+        Assert.Equal(TrainingMuscleFeedbackAction.AddSet, add.Action);
+        Assert.Equal("bench", add.ExerciseId);
+    }
+
+    [Fact]
+    public void ExplicitlyPlannedCoreMuscleCanReceiveBoundedFeedbackDrivenIncrease()
+    {
+        var planned = new Dictionary<string, int> { ["Abdominals"] = 2 };
+        var ceilings = new Dictionary<string, int> { ["Abdominals"] = 4 };
+        var result = TrainingMuscleFeedbackAdapter.Evaluate(
+            [
+                E(2, "ab-wheel", "Abdominals", sets: 2, stimulus: "low"),
+                E(4, "ab-wheel", "Abdominals", sets: 2, stimulus: "low")
+            ],
+            planned,
+            ceilings);
+
+        var add = Assert.Single(result);
+        Assert.Equal(TrainingMuscleFeedbackAction.AddSet, add.Action);
+        Assert.Equal("ab-wheel", add.ExerciseId);
+    }
+
+    [Fact]
     public void HighStimulusAndLoadedStateMustCoincideInAtLeastTwoRecentSessions()
     {
         var result = Run(
@@ -161,7 +211,7 @@ public sealed class TrainingMuscleFeedbackTests
             E(4, "bench", sets: 3, stimulus: "high", pre: "loaded"),
             E(6, "bench", sets: 3, stimulus: "high", pre: "loaded"),
             E(6, "fly", sets: 4, stimulus: "adequate", pre: "loaded"));
-        var reduce = Assert.Single(result.Where(item => item.Action == TrainingMuscleFeedbackAction.ReduceSet));
+        var reduce = Assert.Single(result, item => item.Action == TrainingMuscleFeedbackAction.ReduceSet);
         Assert.Equal("bench", reduce.ExerciseId);
     }
 

@@ -49,10 +49,21 @@ public static class TrainingAutoAdaptationPolicy
             return new(TrainingAutoAdaptationKind.None, [],
                 $"Ya se aplicó un ajuste del mismo tipo en los últimos {cooldownDays} días; se espera antes de encadenar otro.");
 
-        // A deload already in progress absorbs the other load reductions.
-        if (kind is TrainingAutoAdaptationKind.ReduceSets or TrainingAutoAdaptationKind.RaiseReserve &&
-            recentlyApplied.Any(item => item.Kind == TrainingAutoAdaptationKind.Deload && now - item.AppliedAt < TimeSpan.FromDays(DeloadWindowDays)))
-            return new(TrainingAutoAdaptationKind.None, [], "Hay una descarga en curso; no se aplican más reducciones.");
+        // A deload already in progress absorbs every other automatic load/volume adjustment.
+        // This prevents a muscle-level +1/-1 set proposal or a restoration from counteracting
+        // the deload that was just applied to the same future sessions.
+        var isLoadOrVolumeAdjustment = kind is
+            TrainingAutoAdaptationKind.ReduceSets or
+            TrainingAutoAdaptationKind.RaiseReserve or
+            TrainingAutoAdaptationKind.RestoreSets or
+            TrainingAutoAdaptationKind.HoldProgression or
+            TrainingAutoAdaptationKind.AddMuscleSet or
+            TrainingAutoAdaptationKind.ReduceMuscleSet;
+        if (isLoadOrVolumeAdjustment &&
+            recentlyApplied.Any(item => item.Kind == TrainingAutoAdaptationKind.Deload &&
+                                        now - item.AppliedAt < TimeSpan.FromDays(DeloadWindowDays)))
+            return new(TrainingAutoAdaptationKind.None, [],
+                "Hay una descarga en curso; se espera a que termine antes de encadenar otro ajuste de carga o volumen.");
 
         return new(kind, targetExerciseIds, null);
     }
