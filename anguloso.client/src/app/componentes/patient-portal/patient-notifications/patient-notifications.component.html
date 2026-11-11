@@ -1,12 +1,12 @@
 <section class="notification-panel" *ngIf="open">
   <div class="notification-panel-header">
     <div>
-      <strong>Notificaciones</strong>
-      <span *ngIf="unreadCount">{{ unreadCount }} sin leer</span>
+      <strong>{{ 'patient.notifications.title' | t }}</strong>
+      <span *ngIf="unreadCount">{{ 'patient.notifications.unread' | t: { count: unreadCount } }}</span>
     </div>
     <button type="button" (click)="enablePush.emit()" [disabled]="pushBusy || !pushSupported || pushEnabled" class="notification-push-btn">
       <mat-icon>{{ pushEnabled ? 'notifications_active' : 'notifications_none' }}</mat-icon>
-      {{ pushEnabled ? 'Push activadas' : pushBusy ? 'Activando…' : 'Activar avisos' }}
+      {{ (pushEnabled ? 'patient.notifications.pushEnabled' : pushBusy ? 'patient.notifications.pushEnabling' : 'patient.notifications.enablePush') | t }}
     </button>
   </div>
   <div class="notification-push-message" *ngIf="pushMessage">{{ pushMessage }}</div>
@@ -23,7 +23,7 @@
   </div>
   <div class="notification-empty" *ngIf="!loading && !notifications.length">
     <mat-icon>notifications_none</mat-icon>
-    <span>No tienes notificaciones.</span>
+    <span>{{ 'patient.notifications.empty' | t }}</span>
   </div>
   <div class="notification-loading" *ngIf="loading">
     <mat-spinner diameter="22"></mat-spinner>

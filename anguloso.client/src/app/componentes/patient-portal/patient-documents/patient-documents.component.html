@@ -2,45 +2,45 @@
   <div class="section-hero">
     <mat-icon>description</mat-icon>
     <div>
-      <h2>Documentación</h2>
-      <span>Documentos compartidos por tu nutricionista</span>
+      <h2>{{ 'patient.documents.title' | t }}</h2>
+      <span>{{ 'patient.documents.subtitle' | t }}</span>
     </div>
   </div>
 
   <section class="appointment-card" *ngIf="!loading && !error">
     <div class="empty-state" *ngIf="!documents.length">
       <mat-icon>folder_open</mat-icon>
-      <h3>No tienes documentos todavía</h3>
-      <p>Cuando tu nutricionista comparta documentación contigo aparecerá aquí.</p>
+      <h3>{{ 'patient.documents.emptyTitle' | t }}</h3>
+      <p>{{ 'patient.documents.emptyText' | t }}</p>
     </div>
     <article class="appointment-item" *ngFor="let doc of documents">
       <div class="appointment-item-date"><mat-icon>picture_as_pdf</mat-icon></div>
       <div class="appointment-item-info">
         <strong>{{ doc.name }}</strong>
-        <span>Versión {{ doc.version }} · {{ doc.createdAt | date:'d MMM yyyy' }}</span>
-        <span class="appointment-status" *ngIf="doc.requiresSignature && doc.status === 'pending'">Pendiente de firma/aceptación</span>
-        <span class="appointment-status" *ngIf="doc.requiresSignature && doc.status === 'pending' && !doc.viewedAt">Abre y revisa el PDF antes de aceptar</span>
-        <span class="appointment-status" *ngIf="doc.status === 'signed'">Aceptado</span>
-        <span class="appointment-status" *ngIf="!doc.requiresSignature && doc.status !== 'signed'">Disponible</span>
+        <span>{{ 'patient.documents.version' | t: { version: doc.version } }} · {{ doc.createdAt | date:'d MMM yyyy' }}</span>
+        <span class="appointment-status" *ngIf="doc.requiresSignature && doc.status === 'pending'">{{ 'patient.documents.pendingSignature' | t }}</span>
+        <span class="appointment-status" *ngIf="doc.requiresSignature && doc.status === 'pending' && !doc.viewedAt">{{ 'patient.documents.reviewFirst' | t }}</span>
+        <span class="appointment-status" *ngIf="doc.status === 'signed'">{{ 'patient.documents.accepted' | t }}</span>
+        <span class="appointment-status" *ngIf="!doc.requiresSignature && doc.status !== 'signed'">{{ 'patient.documents.available' | t }}</span>
       </div>
       <div class="document-actions">
-        <button type="button" class="appointment-cancel" (click)="download.emit(doc)">{{ doc.viewedAt ? 'Volver a abrir PDF' : 'Leer documento' }}</button>
-        <button type="button" class="appointment-cancel" *ngIf="doc.requiresSignature && doc.status === 'pending'" [disabled]="!doc.viewedAt" (click)="accept.emit(doc)">Aceptar documento</button>
+        <button type="button" class="appointment-cancel" (click)="download.emit(doc)">{{ (doc.viewedAt ? 'patient.documents.reopen' : 'patient.documents.read') | t }}</button>
+        <button type="button" class="appointment-cancel" *ngIf="doc.requiresSignature && doc.status === 'pending'" [disabled]="!doc.viewedAt" (click)="accept.emit(doc)">{{ 'patient.documents.accept' | t }}</button>
       </div>
     </article>
   </section>
 
   <div class="portal-inline-loading" *ngIf="loading">
     <mat-spinner diameter="28"></mat-spinner>
-    <span>Cargando documentación...</span>
+    <span>{{ 'patient.documents.loading' | t }}</span>
   </div>
   <div class="portal-inline-error" *ngIf="error">
     <mat-icon>cloud_off</mat-icon>
     <div>
-      <strong>No hemos podido cargar la documentación</strong>
+      <strong>{{ 'patient.documents.loadErrorTitle' | t }}</strong>
       <span>{{ error }}</span>
     </div>
-    <button type="button" (click)="retry.emit()" aria-label="Reintentar documentación">
+    <button type="button" (click)="retry.emit()" [attr.aria-label]="'patient.documents.retryLabel' | t">
       <mat-icon>refresh</mat-icon>
     </button>
   </div>
