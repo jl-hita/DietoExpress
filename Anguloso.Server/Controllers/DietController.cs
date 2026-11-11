@@ -85,7 +85,7 @@ public class DietController : ControllerBase
         {
             var searchTerm = search.Trim();
             if (searchTerm.Length > 100) return BadRequest("El texto de búsqueda no puede superar los 100 caracteres.");
-            var pattern = $"%{searchTerm}%";
+            var pattern = SqlSearch.Contains(searchTerm);
             query = query.Where(d => EF.Functions.ILike(d.name, pattern));
         }
 

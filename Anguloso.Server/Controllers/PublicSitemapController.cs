@@ -1,3 +1,4 @@
+using Anguloso.Server.Logica;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,17 +11,28 @@ public class PublicSitemapController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly PublicResponseCache _publicCache;
 
-    public PublicSitemapController(angulosodbContext context, IConfiguration configuration)
+    public PublicSitemapController(angulosodbContext context, IConfiguration configuration, PublicResponseCache publicCache)
     {
         _context = context;
         _configuration = configuration;
+        _publicCache = publicCache;
     }
 
     [AllowAnonymous]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("public-read")]
     [HttpGet("/sitemap.xml")]
     [Produces("application/xml")]
     public async Task<IActionResult> Sitemap(CancellationToken ct)
+    {
+        // El sitemap recorre varias consultas sobre el directorio y lo piden buscadores y bots: se genera como mucho cada 10 minutos.
+        var baseKey = _configuration["PLATFORM_FRONTEND_URL"] ?? $"{Request.Scheme}://{Request.Host}";
+        var xml = await _publicCache.GetOrCreateAsync("sitemap:" + baseKey, TimeSpan.FromMinutes(10), () => BuildSitemapAsync(ct));
+        return Content(xml ?? string.Empty, "application/xml; charset=utf-8");
+    }
+
+    private async Task<string?> BuildSitemapAsync(CancellationToken ct)
     {
         var baseUrl = (_configuration["PLATFORM_FRONTEND_URL"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
         var published = _context.users.AsNoTracking().Where(u =>
@@ -59,11 +71,11 @@ public class PublicSitemapController : ControllerBase
 
         urls.AddRange(profiles.Select(x => "/nutricionistas/" + Uri.EscapeDataString(x)));
 
-        var xml = new System.Text.StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
+        var sb = new System.Text.StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
         foreach (var path in urls.Distinct())
-            xml.Append("<url><loc>").Append(System.Net.WebUtility.HtmlEncode(baseUrl + path)).Append("</loc><changefreq>weekly</changefreq></url>");
-        xml.Append("</urlset>");
-        return Content(xml.ToString(), "application/xml; charset=utf-8");
+            sb.Append("<url><loc>").Append(System.Net.WebUtility.HtmlEncode(baseUrl + path)).Append("</loc><changefreq>weekly</changefreq></url>");
+        sb.Append("</urlset>");
+        return sb.ToString();
     }
 
     private static string Slugify(string value)

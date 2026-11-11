@@ -110,8 +110,10 @@ public class OpenFoodFactsService
                 localQuery = localQuery.Where(f => f.tenant_id == null && (f.source == null || f.source.ToLower() != "local"));
             }
 
+            // Búsqueda sin tildes y con comodines escapados; usa el índice trigram idx_foods_name_unaccent_trgm.
+            var likePattern = Anguloso.Server.Logica.Utils.SqlSearch.Contains(term);
             localQuery = localQuery
-                .Where(f => EF.Functions.ILike(f.name, $"%{term}%"));
+                .Where(f => EF.Functions.ILike(SqlFunctions.ImmutableUnaccent(f.name), SqlFunctions.ImmutableUnaccent(likePattern)));
 
             // El ranking se calcula en SQL antes del límite de 50, para que los alimentos
             // más utilizados no queden fuera por un orden alfabético previo.

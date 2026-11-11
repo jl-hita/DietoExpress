@@ -1,3 +1,4 @@
+using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -24,6 +25,9 @@ public class DirectoryController : ControllerBase
     private readonly ILogger<DirectoryController> _logger;
     private readonly IPublicFunnelAnalyticsService _funnelAnalytics;
     private readonly IVideoMeetingProvider _videoMeetings;
+    private readonly PublicResponseCache _publicCache;
+    // Los datos públicos del directorio se sirven desde memoria durante este tiempo; un cambio de perfil tarda como mucho esto en verse.
+    private static readonly TimeSpan PublicCacheTtl = TimeSpan.FromSeconds(60);
 
     public DirectoryController(
         angulosodbContext context,
@@ -35,7 +39,8 @@ public class DirectoryController : ControllerBase
         PatientPortalAccessService portalAccessService,
         ILogger<DirectoryController> logger,
         IPublicFunnelAnalyticsService funnelAnalytics,
-        IVideoMeetingProvider videoMeetings)
+        IVideoMeetingProvider videoMeetings,
+        PublicResponseCache publicCache)
     {
         _context = context;
         _licenseService = licenseService;
@@ -47,21 +52,31 @@ public class DirectoryController : ControllerBase
         _logger = logger;
         _funnelAnalytics = funnelAnalytics;
         _videoMeetings = videoMeetings;
+        _publicCache = publicCache;
     }
 
     // Solo los profesionales que activan expresamente la visibilidad salen al directorio público.
     [AllowAnonymous]
+    [EnableRateLimiting("public-read")]
     [HttpGet("professionals")]
     public async Task<ActionResult<IEnumerable<DirectoryProfileDto>>> Search([FromQuery] DirectorySearchDto filter)
+    {
+        // El listado es público y no depende del usuario: se comparte entre visitantes durante unos segundos.
+        var key = "directory:search:" + System.Text.Json.JsonSerializer.Serialize(filter);
+        var profiles = await _publicCache.GetOrCreateAsync(key, PublicCacheTtl, () => SearchCoreAsync(filter));
+        return Ok(profiles ?? new List<DirectoryProfileDto>());
+    }
+
+    private async Task<List<DirectoryProfileDto>?> SearchCoreAsync(DirectorySearchDto filter)
     {
         var query = _context.users.AsNoTracking()
             .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true && (u.directory_publication_status == "published" || u.directory_publication_status == "verified"));
 
         if (!string.IsNullOrWhiteSpace(filter.City))
-            query = query.Where(u => u.directory_city != null && EF.Functions.ILike(u.directory_city, $"%{filter.City.Trim()}%"));
+            query = query.Where(u => u.directory_city != null && EF.Functions.ILike(u.directory_city, SqlSearch.Contains(filter.City)));
         if (!string.IsNullOrWhiteSpace(filter.Province))
         {
-            var provincePattern = $"%{filter.Province.Trim()}%";
+            var provincePattern = SqlSearch.Contains(filter.Province);
             query = query.Where(u =>
                 u.directory_province != null &&
                 EF.Functions.ILike(
@@ -71,7 +86,7 @@ public class DirectoryController : ControllerBase
         if (filter.Online == true)
             query = query.Where(u => u.online_consultations == true);
         if (!string.IsNullOrWhiteSpace(filter.Speciality))
-            query = query.Where(u => u.directory_specialties != null && EF.Functions.ILike(u.directory_specialties, $"%{filter.Speciality.Trim()}%"));
+            query = query.Where(u => u.directory_specialties != null && EF.Functions.ILike(u.directory_specialties, SqlSearch.Contains(filter.Speciality)));
 
         if (!string.IsNullOrWhiteSpace(filter.Goal))
         {
@@ -84,7 +99,7 @@ public class DirectoryController : ControllerBase
                 _ => new[] { goal }
             };
             query = query.Where(u => u.directory_specialties != null &&
-                goalTerms.Any(term => EF.Functions.ILike(u.directory_specialties, $"%{term}%")));
+                goalTerms.Any(term => EF.Functions.ILike(u.directory_specialties, SqlSearch.Contains(term))));
         }
 
         if (filter.AvailableOnly == true)
@@ -154,17 +169,25 @@ public class DirectoryController : ControllerBase
             ? profiles.Where(p => p.CanAcceptAppointments && p.AvailableRuleCount > 0)
             : profiles;
 
-        return Ok(visibleProfiles
+        return visibleProfiles
             .OrderByDescending(p => p.RankingScore)
             .ThenBy(p => p.FullName)
-            .ToList());
+            .ToList();
     }
 
     [AllowAnonymous]
+    [EnableRateLimiting("public-read")]
     [HttpGet("professionals/{slug}")]
     public async Task<ActionResult<DirectoryProfileDto>> GetBySlug(string slug)
     {
         var normalized = slug.Trim().ToLowerInvariant();
+        // Los slugs inexistentes no se guardan (la factoría devuelve null), así que no se puede llenar la caché con ellos.
+        var cached = await _publicCache.GetOrCreateAsync("directory:profile:" + normalized, PublicCacheTtl, () => LoadProfileBySlugAsync(normalized));
+        return cached == null ? NotFound() : Ok(cached);
+    }
+
+    private async Task<DirectoryProfileDto?> LoadProfileBySlugAsync(string normalized)
+    {
         var profile = await _context.users.AsNoTracking()
             .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true && (u.directory_publication_status == "published" || u.directory_publication_status == "verified") && u.directory_slug == normalized)
             .Select(u => new DirectoryProfileDto
@@ -192,7 +215,7 @@ public class DirectoryController : ControllerBase
         }
 
         if (profile == null)
-            return NotFound();
+            return null;
 
         profile.SpecialtyList = SplitSpecialties(profile.Specialties);
         profile.ProfileCompleteness = CalculateProfileCompleteness(profile);
@@ -207,7 +230,7 @@ public class DirectoryController : ControllerBase
         profile.RankingScore = profile.ProfileCompleteness + Math.Min(profile.AvailableRuleCount * 2, 20)
             + Math.Min(profile.ReviewCount * 2, 10)
             + (profile.AverageRating >= 4.5 ? 20 : profile.AverageRating >= 4.0 ? 10 : 0);
-        return Ok(profile);
+        return profile;
     }
 
     [AllowAnonymous]
