@@ -1,6 +1,4 @@
-using System.Text.Json;
 using Anguloso.Server.Models;
-using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using WebPush;
 
@@ -68,45 +66,65 @@ public sealed class ProfessionalPushService
 
     public async Task SendNotificationAsync(int tenantId, int userId, string title, string body, string url, CancellationToken ct = default)
     {
+        await SendToRegisteredSubscriptionsAsync(tenantId, userId, title, body, url, ct);
+    }
+
+    /// <summary>Envía una prueba inmediata y devuelve true solo si el servicio push acepta al menos un envío.</summary>
+    public Task<bool> SendTestNotificationAsync(int tenantId, int userId, CancellationToken ct = default)
+        => SendToRegisteredSubscriptionsAsync(tenantId, userId, "Notificaciones activadas",
+            "DietoExpress ha enviado correctamente una notificación de prueba a este navegador.", "/appointments", ct);
+
+    private async Task<bool> SendToRegisteredSubscriptionsAsync(int tenantId, int userId, string title, string body, string url, CancellationToken ct)
+    {
         var subject = _config.GetConfigString("webPushSubject");
         var publicKey = GetVapidPublicKey();
         var privateKey = _config.GetConfigString("webPushPrivateKey");
         if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(publicKey) || string.IsNullOrWhiteSpace(privateKey) ||
             subject.StartsWith("__CONFIGURE_", StringComparison.Ordinal) || privateKey.StartsWith("__CONFIGURE_", StringComparison.Ordinal))
         {
-            _logger.LogWarning("No se envía push de recordatorio al profesional {UserId}: VAPID no está configurado.", userId);
-            return;
+            _logger.LogWarning("No se envía push al profesional {UserId}: VAPID no está configurado.", userId);
+            return false;
         }
 
-        var subscriptions = new List<(long Id, string Endpoint, string P256dh, string Auth)>();
+        var subscriptions = new List<(string Endpoint, string P256dh, string Auth)>();
         await using (var connection = new NpgsqlConnection(_connectionString))
         {
             await connection.OpenAsync(ct);
-            await using var command = new NpgsqlCommand("SELECT id,endpoint,p256dh,auth FROM professional_push_subscriptions WHERE tenant_id=@tenant AND user_id=@user;", connection);
+            await using var command = new NpgsqlCommand("SELECT endpoint,p256dh,auth FROM professional_push_subscriptions WHERE tenant_id=@tenant AND user_id=@user;", connection);
             command.Parameters.AddWithValue("tenant", tenantId);
             command.Parameters.AddWithValue("user", userId);
             await using var reader = await command.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) subscriptions.Add((reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3)));
+            while (await reader.ReadAsync(ct)) subscriptions.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2)));
         }
 
-        if (subscriptions.Count == 0) return;
+        if (subscriptions.Count == 0)
+        {
+            _logger.LogWarning("No se envía push al profesional {UserId}: no hay suscripciones registradas.", userId);
+            return false;
+        }
+
         var webPush = new WebPushClient();
         var vapid = new VapidDetails(subject, publicKey, privateKey);
-        var json = JsonSerializer.Serialize(new { title, body, url });
+        var json = System.Text.Json.JsonSerializer.Serialize(new { title, body, url });
+        var sent = false;
         foreach (var item in subscriptions)
         {
             try
             {
                 await webPush.SendNotificationAsync(new PushSubscription(item.Endpoint, item.P256dh, item.Auth), json, vapid);
+                sent = true;
             }
             catch (WebPushException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Gone || ex.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
                 await RemoveAsync(tenantId, userId, item.Endpoint, ct);
+                _logger.LogInformation("Se elimina una suscripción Web Push caducada del profesional {UserId}.", userId);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "No se pudo enviar notificación push al profesional {UserId}.", userId);
             }
         }
+
+        return sent;
     }
 }
