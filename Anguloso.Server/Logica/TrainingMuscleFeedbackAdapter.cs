@@ -11,11 +11,14 @@ public static class TrainingMuscleFeedbackAdapter
     public static IReadOnlyList<TrainingMuscleFeedbackDecision> Evaluate(
         IReadOnlyList<TrainingMuscleFeedbackExposure> chronological,
         IReadOnlyDictionary<string, int> plannedWeeklySetsByMuscle,
-        IReadOnlyDictionary<string, int> weeklyCeilingByMuscle)
+        IReadOnlyDictionary<string, int> weeklyCeilingByMuscle,
+        int maximumSetsPerExercise = MaximumSetsPerExercise)
     {
         ArgumentNullException.ThrowIfNull(chronological);
         ArgumentNullException.ThrowIfNull(plannedWeeklySetsByMuscle);
         ArgumentNullException.ThrowIfNull(weeklyCeilingByMuscle);
+        if (maximumSetsPerExercise is < 1 or > MaximumSetsPerExercise)
+            throw new ArgumentOutOfRangeException(nameof(maximumSetsPerExercise));
 
         var decisions = new List<TrainingMuscleFeedbackDecision>();
         var blockedExercises = new HashSet<string>(StringComparer.Ordinal);
@@ -63,7 +66,7 @@ public static class TrainingMuscleFeedbackAdapter
             {
                 var pick = last2[^1]
                     .Where(item => !blockedExercises.Contains(item.ExerciseId) &&
-                        EqualsValue(item.Stimulus, "low") && item.Sets < MaximumSetsPerExercise)
+                        EqualsValue(item.Stimulus, "low") && item.Sets < maximumSetsPerExercise)
                     .OrderBy(item => item.Sets).ThenBy(item => item.ExerciseId, StringComparer.Ordinal)
                     .FirstOrDefault();
                 if (pick is not null)
