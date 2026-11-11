@@ -98,6 +98,24 @@ public sealed class TrainingMuscleFeedbackTests
     }
 
     [Fact]
+    public void ExplicitlyPlannedCoreMuscleCanReceiveBoundedFeedbackDrivenIncrease()
+    {
+        var planned = new Dictionary<string, int> { ["Abdominals"] = 2 };
+        var ceilings = new Dictionary<string, int> { ["Abdominals"] = 4 };
+        var result = TrainingMuscleFeedbackAdapter.Evaluate(
+            [
+                E(2, "ab-wheel", "Abdominals", sets: 2, stimulus: "low"),
+                E(4, "ab-wheel", "Abdominals", sets: 2, stimulus: "low")
+            ],
+            planned,
+            ceilings);
+
+        var add = Assert.Single(result);
+        Assert.Equal(TrainingMuscleFeedbackAction.AddSet, add.Action);
+        Assert.Equal("ab-wheel", add.ExerciseId);
+    }
+
+    [Fact]
     public void HighStimulusAndLoadedStateMustCoincideInAtLeastTwoRecentSessions()
     {
         var result = Run(
