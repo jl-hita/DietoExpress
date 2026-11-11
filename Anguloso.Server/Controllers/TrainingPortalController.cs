@@ -807,6 +807,10 @@ public sealed class TrainingPortalController : ControllerBase
                 catch (Exception exception) when (exception is JsonException or KeyNotFoundException or InvalidOperationException) { }
         var ceilings = Anguloso.Server.Logica.TrainingProgramVolumeAllocator.GetWeeklyCeilings(goal, experience)
             .ToDictionary(pair => pair.Key.ToString(), pair => (int)pair.Value, StringComparer.Ordinal);
+        // A muscle explicitly present as primary work in this reviewed plan is opt-in, even if
+        // it has no default quota (e.g. direct core). Keep feedback-driven increases bounded.
+        foreach (var (muscle, plannedSets) in plannedByMuscle)
+            ceilings.TryAdd(muscle, plannedSets + 2);
 
         var maximumSetsPerExercise = Anguloso.Server.Logica.TrainingProgramVolumeAllocator.GetMaximumSetsPerExercise(goal);
         var decisions = Anguloso.Server.Logica.TrainingMuscleFeedbackAdapter.Evaluate(
