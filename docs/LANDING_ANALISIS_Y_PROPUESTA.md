@@ -71,6 +71,6 @@ Diez bloques seguidos: hero con maqueta del panel, tira de funciones, «platafor
 
 ## Decisiones que necesito de ti
 
-- Texto y número de días de la prueba que quieres destacar (hoy el catálogo dice 7).
-- Si el precio se anuncia con o sin IVA: la web solo indica «precios en euros» porque no consta en el catálogo.
+- ~~Número de días de la prueba~~: resuelto, es de 30 días y la web lo lee del catálogo (no está escrito en el código).
+- ~~Si el precio se anuncia con o sin IVA~~: resuelto, los precios incluyen IVA y la web lo indica.
 - Si hay testimonios, capturas reales o un vídeo que podamos usar.
