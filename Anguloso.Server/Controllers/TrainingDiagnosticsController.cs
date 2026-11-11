@@ -330,7 +330,7 @@ public sealed class TrainingDiagnosticsController : ControllerBase
             content.Item().Text("No hay datos registrados.").Italic().FontColor("#777777");
             return;
         }
-        content.Item().Border(1).BorderColor("#e5e7eb").Padding(7).Element(box => ComposeKeyValueTable(box.Column(), value));
+        content.Item().Border(1).BorderColor("#e5e7eb").Padding(7).Column(column => ComposeKeyValueTable(column, value));
     }
 
     private static void ComposeKeyValueTable(ColumnDescriptor content, JsonElement value)
