@@ -1,3 +1,4 @@
+import { EquipmentFieldComponent } from './equipment-field.component';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
@@ -45,7 +46,7 @@ import {
 @Component({
   selector: 'app-training-periodization',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, DateInputDirective, MacrocycleChartComponent, TrainingReviewRequestsPanelComponent, TrainingPlannerWizardComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DateInputDirective, MacrocycleChartComponent, TrainingReviewRequestsPanelComponent, TrainingPlannerWizardComponent, EquipmentFieldComponent],
   templateUrl: './training-periodization.component.html',
 })
 export class TrainingPeriodizationComponent implements OnInit, OnDestroy {

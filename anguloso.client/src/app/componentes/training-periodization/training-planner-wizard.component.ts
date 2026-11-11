@@ -4,21 +4,22 @@ import { ChangeDetectorRef, Component, EventEmitter, Input, OnInit, Output } fro
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom, timeout } from 'rxjs';
 import { PlannerWizardDraft, PlannerWizardPhaseDraft, PlannerWizardStateService } from './planner-wizard-state.service';
+import { EquipmentFieldComponent } from './equipment-field.component';
 import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './training-periodization.models';
 
 @Component({
   selector: 'app-training-planner-wizard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, EquipmentFieldComponent],
   template: `
     <section class="planner-wizard panel" aria-labelledby="plannerWizardTitle">
       <header class="planner-wizard-header">
         <div>
           <p class="eyebrow">PLANIFICADOR GUIADO · BORRADOR</p>
           <h2 id="plannerWizardTitle">Diseña tu planificación</h2>
-          <p>Configura primero el objetivo y la disponibilidad. Revisaremos la propuesta antes de crear o modificar un plan real.</p>
+          <p>Configura el objetivo y la disponibilidad. Al guardar el macrociclo (etapa 3) se crea un plan en borrador; no se envía nada al cliente ni se activa.</p>
         </div>
-        <button type="button" class="secondary planner-close" (click)="close.emit()" aria-label="Cerrar planificador">×</button>
+        <button type="button" class="secondary planner-close" (click)="requestClose()" aria-label="Cerrar planificador">×</button>
       </header>
 
       <div class="planner-progress" aria-label="Progreso del asistente">
@@ -31,6 +32,7 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
       </div>
 
       <p *ngIf="recoveryNotice" class="planner-note" role="status">{{ recoveryNotice }}</p>
+      <p *ngIf="draft.serverPlanId && draft.currentStep < 3" class="planner-note" role="status">El plan ya está creado en borrador, por eso estos datos no se pueden modificar aquí. Podrás ajustarlo desde la planificación cuando finalices.</p>
 
       <div class="planner-wizard-body">
         <section *ngIf="draft.currentStep === 0" class="planner-step">
@@ -59,7 +61,7 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
               <span>{{ day.label }}</span>
             </label>
           </div>
-          <p class="planner-validation" *ngIf="draft.trainingDays.length < 2">Selecciona al menos dos días para continuar.</p>
+          <p class="planner-validation" *ngIf="!validSplitDays" role="alert">{{ splitValidationMessage }}</p>
           <div class="planner-inline-fields">
             <label class="planner-field">Duración máxima por sesión
               <select [(ngModel)]="draft.sessionMinutes" (ngModelChange)="persist()" [disabled]="!!draft.serverPlanId"><option [ngValue]="45">45 minutos</option><option [ngValue]="60">60 minutos</option><option [ngValue]="75">75 minutos</option><option [ngValue]="90">90 minutos</option><option [ngValue]="120">120 minutos</option></select>
@@ -68,7 +70,7 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
               <select [(ngModel)]="draft.split" (ngModelChange)="persist()" [disabled]="!!draft.serverPlanId"><option [ngValue]="0">Automática</option><option [ngValue]="1">Cuerpo completo</option><option [ngValue]="2">Torso / pierna</option><option [ngValue]="3">Empuje / tirón / pierna</option></select>
             </label>
           </div>
-          <label class="planner-field">Material disponible (opcional)<input [(ngModel)]="draft.availableEquipmentCsv" (ngModelChange)="persist()" [disabled]="!!draft.serverPlanId" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar"><small>Separado por comas. Déjalo vacío si dispone de todo el material.</small></label>
+          <div class="planner-field">Material disponible (opcional)<app-equipment-field [(csv)]="draft.availableEquipmentCsv" (csvChange)="persist()" [disabled]="!!draft.serverPlanId"></app-equipment-field><small>Elige el material que tiene el cliente. Sin selección se asume que dispone de todo.</small></div>
         </section>
 
         <section *ngIf="draft.currentStep === 2" class="planner-step">
@@ -84,6 +86,7 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
           <button type="button" class="secondary" (click)="buildMacrocycleProposal()" [disabled]="buildingProposal || !macrocycleInputValid || !!draft.serverPlanId">{{ buildingProposal ? 'Preparando propuesta…' : (draft.phases.length ? 'Actualizar propuesta de fases' : 'Proponer fases del macrociclo') }}</button>
           <p *ngIf="proposalError" class="planner-validation" role="alert">{{ proposalError }}</p>
           <p *ngIf="saveError" class="planner-validation" role="alert">{{ saveError }}</p>
+          <p *ngIf="!draft.serverPlanId && step2Blocker" class="planner-validation" role="status">{{ step2Blocker }}</p>
           <p *ngIf="draft.creationUncertain" class="planner-validation" role="alert">No se ha podido confirmar si el servidor creó el plan. Comprueba la lista de planes antes de continuar; no reintentaremos para evitar duplicados.</p>
           <p *ngIf="draft.phases.length" class="planner-note">Propuesta preparada: {{ draft.phases.length }} fases. Revísalas aquí antes de continuar.</p>
           <div *ngIf="draft.phases.length" class="planner-phase-list">
@@ -135,6 +138,7 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
               </article>
               <p *ngIf="!sessionsForPhase(phase).length" class="planner-note">El bloque está registrado, pero no se han encontrado sesiones en sus fechas.</p>
             </div>
+            <p class="planner-note" *ngIf="!isPhaseGenerated(phase) && !(currentPreview && previewPhaseKey === phaseKey(phase))">Primero genera la vista previa de esta fase; después podrás revisarla y guardarla como mesociclo.</p>
             <div class="planner-generation-actions">
               <button type="button" class="secondary" (click)="previewCurrentPhase()" [disabled]="previewLoading || generatingPhase || isPhaseGenerated(phase)">{{ previewLoading ? 'Calculando vista previa…' : 'Generar vista previa' }}</button>
               <button type="button" (click)="generateCurrentPhase()" [disabled]="!canGenerateCurrentPhase || generatingPhase">{{ generatingPhase ? 'Guardando bloque…' : 'Guardar este mesociclo' }}</button>
@@ -192,6 +196,8 @@ export class TrainingPlannerWizardComponent implements OnInit {
   @Input({ required: true }) clientId = 0;
   @Output() close = new EventEmitter<void>();
   @Output() completed = new EventEmitter<number>();
+  /** Se emite (tras `completed`) cuando el asistente ha generado mesociclos con sesiones, para abrir directamente las rutinas. */
+  @Output() openRoutines = new EventEmitter<number>();
 
   readonly steps = ['Objetivo', 'Disponibilidad', 'Macrociclo', 'Mesociclos', 'Revisión'];
   readonly dayOptions = [
@@ -281,6 +287,13 @@ export class TrainingPlannerWizardComponent implements OnInit {
     if (this.draft.currentStep === 2) return this.macrocycleInputValid && !this.phaseValidationMessage;
     return true;
   }
+  /** Motivo por el que no se puede guardar el macrociclo aún; vacío si solo falta revisar las fases (ya se avisa en su lista). */
+  get step2Blocker(): string {
+    if (!this.validSplitDays) return 'Vuelve a la etapa 2: ' + this.splitValidationMessage;
+    if (!this.macrocycleInputValid) return 'Escribe un nombre para la planificación e indica fecha de inicio y una duración de 4 a 52 semanas.';
+    if (!this.draft.phases.length) return 'Pulsa «Proponer fases del macrociclo» para poder guardar y continuar.';
+    return '';
+  }
   get canSave(): boolean { return this.validSplitDays && this.macrocycleInputValid && !!this.draft.phases.length && !this.phaseValidationMessage; }
 
   get goalLabel(): string {
@@ -324,6 +337,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
 
   removePhase(index: number): void {
     if (this.draft.phases.length <= 1 || this.draft.serverPlanId) return;
+    if (!confirm('¿Eliminar la fase ' + (index + 1) + '? Tendrás que ajustar las fechas de las demás para que cubran todo el macrociclo.')) return;
     this.draft.phases = this.draft.phases.filter((_, i) => i !== index).map((phase, i) => ({ ...phase, sequenceNumber: i + 1 }));
     this.phaseChanged();
   }
@@ -516,6 +530,11 @@ export class TrainingPlannerWizardComponent implements OnInit {
     }
   }
 
+  requestClose(): void {
+    if (this.draft.serverPlanId && !confirm('El plan ya se ha creado como borrador. Si cierras ahora podrás retomar el asistente en esta sesión del navegador o seguir desde la planificación. ¿Cerrar el planificador?')) return;
+    this.close.emit();
+  }
+
   goToFinalReview(): void {
     if (this.generatingPhase || this.previewLoading) return;
     this.draft.currentStep = 4; this.persist();
@@ -524,8 +543,10 @@ export class TrainingPlannerWizardComponent implements OnInit {
   finish(): void {
     if (!this.draft.serverPlanId || this.draft.creationUncertain) return;
     const completedPlanId = this.draft.serverPlanId;
+    const hasGeneratedBlocks = this.generatedCount > 0;
     this.state.clear(this.clientId);
     this.completed.emit(completedPlanId);
+    if (hasGeneratedBlocks) this.openRoutines.emit(completedPlanId);
   }
 
 

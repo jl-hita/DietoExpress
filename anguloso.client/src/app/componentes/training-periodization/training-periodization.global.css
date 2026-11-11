@@ -170,3 +170,7 @@
 .training-page .planner-phase-nav-copy small{color:var(--muted-color,#64748b);font-size:.78rem}
 .training-page .planner-phase-nav-status{font-size:.75rem;font-weight:650;white-space:nowrap;color:var(--muted-color,#64748b)}
 .training-page .planner-phase-progress{font-size:.84rem;color:var(--muted-color,#64748b);margin:8px 0 14px}
+
+.training-page .equipment-picker-row{display:grid;gap:7px;font-size:.9rem;font-weight:650}
+.training-page .equipment-picker-row small,.training-page .planner-field small{font-weight:400;color:#64748b}
+.training-page .equipment-picker-row .secondary,.training-page .planner-field .equipment-field .secondary{width:auto}
