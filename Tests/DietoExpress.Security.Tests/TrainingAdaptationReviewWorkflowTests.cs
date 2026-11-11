@@ -77,7 +77,7 @@ public sealed class TrainingAdaptationReviewWorkflowTests
         var controller = TrainingControllerSource.ReadAll();
         var portalController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
-        var component = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+        var component = TrainingComponentSource.ReadAll();
 
         Assert.Contains("[HttpPost(\"adaptation-proposals/{proposalId:long}/review\")]", controller);
         Assert.Contains("request.Decision is not (\"approved\" or \"rejected\")", controller);

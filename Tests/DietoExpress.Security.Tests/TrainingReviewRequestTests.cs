@@ -119,7 +119,7 @@ public sealed class TrainingReviewRequestTests
     {
         var portalTs = Read("anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.ts");
         var portalHtml = Read("anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.html");
-        var trainingTs = Read("anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts");
+        var trainingTs = TrainingComponentSource.ReadAll();
 
         Assert.Contains("/api/portal/training/review-requests", portalTs);
         Assert.Contains("/review-request'", portalTs);
@@ -141,7 +141,7 @@ public sealed class TrainingReviewRequestTests
         var bootstrap = Read("Anguloso.Server", "Logica", "DatabaseBootstrap.cs");
         var routes = Read("anguloso.client", "src", "app", "app.routes.ts");
         var sidebar = Read("anguloso.client", "src", "app", "componentes", "sidebar", "sidebar.component.html");
-        var ui = Read("anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts");
+        var ui = TrainingComponentSource.ReadAll();
 
         // Estado de revisión de bloques: los generados nacen como borrador.
         Assert.Contains("review_status VARCHAR(20) NOT NULL DEFAULT 'reviewed'", bootstrap);
