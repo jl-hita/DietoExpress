@@ -219,10 +219,22 @@ public sealed class TrainingDiagnosticsController : ControllerBase
                     });
                     page.Content().PaddingTop(12).Column(content =>
                     {
-                        content.Item().Text("DATOS ESTRUCTURADOS (JSON)").Bold().FontSize(10);
+                        content.Spacing(10);
+                        content.Item().Text("INFORME DE PLANIFICACIÓN DE ENTRENAMIENTO").Bold().FontSize(15).FontColor("#0f766e");
+                        content.Item().Text("Resumen legible de la planificación y sus datos asociados. Los valores no registrados se muestran como tales; no se presuponen cargas, RIR ni descansos.").FontSize(8).FontColor("#555555");
+                        ComposeObject(content, "DATOS GENERALES DEL PLAN", root.GetProperty("plan"));
+                        ComposeObject(content, "PERFIL DE ENTRENAMIENTO", root.GetProperty("profile"));
+                        ComposeArray(content, "MACROCICLOS", root.GetProperty("macrocycles"));
+                        ComposeArray(content, "FASES DEL MACROCICLO", root.GetProperty("macrocyclePhases"));
+                        ComposeArray(content, "MESOCICLOS", root.GetProperty("mesocycles"));
+                        ComposeArray(content, "MICROCICLOS", root.GetProperty("microcycles"));
+                        ComposeSessions(content, root.GetProperty("sessions"), root.GetProperty("sessionRecords"));
+                        ComposeObject(content, "PREFERENCIAS DE DISTRIBUCIÓN (SPLIT)", root.GetProperty("splitPreferences"));
+                        ComposeArray(content, "PROPUESTAS DE ADAPTACIÓN", root.GetProperty("adaptationProposals"));
+                        content.Item().PageBreak();
+                        content.Item().Text("ANEXO · DATOS JSON ÍNTEGROS").Bold().FontSize(11).FontColor("#0f766e");
                         foreach (var line in json.Split('\n'))
-                            content.Item().Text(line.Length == 0 ? " " : line)
-                                .FontFamily("Lato").FontSize(5.8f);
+                            content.Item().Text(line.Length == 0 ? " " : line).FontFamily("Lato").FontSize(5.8f);
                     });
                     page.Footer().AlignCenter().Text(text =>
                     {
@@ -254,5 +266,122 @@ public sealed class TrainingDiagnosticsController : ControllerBase
         {
             if (shouldClose) await connection.CloseAsync();
         }
+    }
+
+    private static void ComposeSessions(ColumnDescriptor content, JsonElement sessions, JsonElement records)
+    {
+        content.Item().Text("SESIONES Y EJERCICIOS").Bold().FontSize(11).FontColor("#0f766e");
+        if (sessions.ValueKind != JsonValueKind.Array || sessions.GetArrayLength() == 0)
+        {
+            content.Item().Text("No hay sesiones registradas.").Italic().FontColor("#777777");
+            return;
+        }
+
+        var recordRows = records.ValueKind == JsonValueKind.Array
+            ? records.EnumerateArray().ToList()
+            : new List<JsonElement>();
+        foreach (var session in sessions.EnumerateArray())
+        {
+            var sessionId = session.TryGetProperty("id", out var id) ? id.ToString() : "";
+            content.Item().Border(1).BorderColor("#d9e2e8").Padding(8).Column(card =>
+            {
+                card.Spacing(4);
+                var title = GetText(session, "title", "name", "session_name");
+                var date = GetText(session, "scheduled_date", "scheduledDate", "date");
+                card.Item().Text($"{(string.IsNullOrWhiteSpace(title) ? "Sesión" : title)} · {date}").Bold().FontSize(9);
+                ComposeKeyValueTable(card, session);
+                var matching = recordRows.Where(record =>
+                    record.TryGetProperty("session_id", out var sid) && sid.ToString() == sessionId ||
+                    record.TryGetProperty("sessionId", out var sidCamel) && sidCamel.ToString() == sessionId).ToList();
+                if (matching.Count > 0)
+                {
+                    card.Item().PaddingTop(4).Text($"Ejercicios / registros ({matching.Count})").Bold().FontSize(8);
+                    foreach (var record in matching)
+                        ComposeKeyValueTable(card, record);
+                }
+            });
+        }
+    }
+
+    private static void ComposeArray(ColumnDescriptor content, string heading, JsonElement array)
+    {
+        content.Item().Text(heading).Bold().FontSize(11).FontColor("#0f766e");
+        if (array.ValueKind != JsonValueKind.Array || array.GetArrayLength() == 0)
+        {
+            content.Item().Text("No hay datos registrados.").Italic().FontColor("#777777");
+            return;
+        }
+        var index = 0;
+        foreach (var item in array.EnumerateArray())
+        {
+            index++;
+            content.Item().BorderBottom(1).BorderColor("#e5e7eb").PaddingVertical(5).Column(row =>
+            {
+                row.Item().Text($"Registro {index}").Bold().FontSize(8);
+                ComposeKeyValueTable(row, item);
+            });
+        }
+    }
+
+    private static void ComposeObject(ColumnDescriptor content, string heading, JsonElement value)
+    {
+        content.Item().Text(heading).Bold().FontSize(11).FontColor("#0f766e");
+        if (value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            content.Item().Text("No hay datos registrados.").Italic().FontColor("#777777");
+            return;
+        }
+        content.Item().Border(1).BorderColor("#e5e7eb").Padding(7).Column(column => ComposeKeyValueTable(column, value));
+    }
+
+    private static void ComposeKeyValueTable(ColumnDescriptor content, JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Object) return;
+        content.Item().Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                columns.RelativeColumn(1);
+                columns.RelativeColumn(2);
+            });
+            foreach (var property in value.EnumerateObject())
+            {
+                table.Cell().Background("#f8fafc").Padding(3).Text(Humanize(property.Name)).FontSize(7).Bold();
+                table.Cell().Padding(3).Text(FormatJsonValue(property.Value)).FontSize(7);
+            }
+        });
+    }
+
+    private static string FormatJsonValue(JsonElement value)
+    {
+        return value.ValueKind switch
+        {
+            JsonValueKind.Null or JsonValueKind.Undefined => "No especificado",
+            JsonValueKind.String => value.GetString() ?? "No especificado",
+            JsonValueKind.True => "Sí",
+            JsonValueKind.False => "No",
+            JsonValueKind.Object or JsonValueKind.Array => value.GetRawText(),
+            _ => value.ToString()
+        };
+    }
+
+    private static string GetText(JsonElement value, params string[] names)
+    {
+        foreach (var name in names)
+            if (value.TryGetProperty(name, out var property) && property.ValueKind != JsonValueKind.Null)
+                return FormatJsonValue(property);
+        return "";
+    }
+
+    private static string Humanize(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return value;
+        var chars = new List<char>(value.Length + 8);
+        foreach (var ch in value)
+        {
+            if (char.IsUpper(ch)) chars.Add(' ');
+            chars.Add(ch);
+        }
+        return char.ToUpperInvariant(chars[0]) + new string(chars.Skip(1).ToArray()).Replace('_', ' ');
     }
 }
