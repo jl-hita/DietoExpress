@@ -40,7 +40,7 @@
         <mat-icon>restaurant</mat-icon><span>Dietas</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/training-invitations" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>fitness_center</mat-icon><span>Entrenamientos</span>
       </a>
@@ -50,7 +50,7 @@
         <mat-icon>rate_review</mat-icon><span>Pendientes de entrenamiento</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/exercise-contributions" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>playlist_add</mat-icon><span>Proponer ejercicios</span>
       </a>
