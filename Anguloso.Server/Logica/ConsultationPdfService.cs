@@ -13,9 +13,20 @@ namespace Anguloso.Server.Logica;
 // Documentación: este componente encapsula lógica compartida para mantener las reglas y transformaciones fuera de los puntos de entrada del frontend.
 public class ConsultationPdfService
 {
-    public byte[] GenerateConsultationPdf(clients client, DateOnly consultationDate, angulosodbContext context)
+    public static (DateOnly Start, DateOnly End) GetDefaultTrainingPeriod(DateOnly today)
+    {
+        var start = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+        return (start, start.AddDays(27));
+    }
+
+    public byte[] GenerateConsultationPdf(clients client, DateOnly consultationDate, angulosodbContext context,
+        DateOnly? trainingStartDate = null, DateOnly? trainingEndDate = null)
     {
         QuestPDF.Settings.License = LicenseType.Community;
+        var defaultPeriod = GetDefaultTrainingPeriod(DateOnly.FromDateTime(DateTime.Today));
+        var periodStart = trainingStartDate ?? defaultPeriod.Start;
+        var periodEnd = trainingEndDate ?? defaultPeriod.End;
+        if (periodEnd < periodStart) throw new ArgumentException("El final del periodo no puede ser anterior al inicio.");
 
         var nutritionist = context.users
             .AsNoTracking()
@@ -69,7 +80,7 @@ public class ConsultationPdfService
             .OrderByDescending(cd => cd.start_date)
             .FirstOrDefault();
 
-        var trainingPlans = LoadTrainingPlans(client, consultationDate, context);
+        var trainingPlans = LoadTrainingPlans(client, periodStart, periodEnd, context);
 
         var previous = evolution
             .Where(b => b.measurement_date < consultationDate)
