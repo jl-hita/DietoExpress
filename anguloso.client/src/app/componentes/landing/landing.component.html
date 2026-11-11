@@ -4,7 +4,7 @@
     <nav class="nav-links" aria-label="Navegación principal">
       <a href="#funciones">Funciones</a>
       <a href="#entrenamiento">Entrenamiento</a>
-      <a href="#planes">Planes</a>
+      <a href="#planes">Planes y precios</a>
     </nav>
     <div class="nav-actions">
       <a class="nav-patient" routerLink="/patient">Soy paciente</a>
@@ -232,14 +232,60 @@
       <div class="hero-actions" style="justify-content:center;margin-top:32px"><button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Probar DietoExpress <mat-icon>arrow_forward</mat-icon></button></div>
     </section>
 
-    <section class="pricing" id="planes">
-      <div>
-        <span class="eyebrow">EMPIEZA SIN COMPLICACIONES</span>
-        <h2>Una plataforma profesional para una consulta profesional.</h2>
-        <p>Empieza con una prueba gratuita y descubre DietoExpress. Cuando tu consulta crezca, puedes pasar a un plan profesional o gestionar una clínica con tu equipo.</p>
+    <section class="plans" id="planes" *ngIf="plans.length; else plansFallback">
+      <div class="section-heading">
+        <span class="eyebrow">PLANES Y PRECIOS</span>
+        <h2>Elige el plan que encaja con tu consulta.</h2>
+        <p>Sin permanencia: puedes cancelar la renovación cuando quieras. Precios en euros.</p>
       </div>
-      <button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button>
+
+      <div class="plan-switch" role="group" aria-label="Periodo de facturación">
+        <button type="button" [class.active]="billingInterval === 'monthly'" [attr.aria-pressed]="billingInterval === 'monthly'" (click)="billingInterval = 'monthly'">Mensual</button>
+        <button type="button" [class.active]="billingInterval === 'yearly'" [attr.aria-pressed]="billingInterval === 'yearly'" (click)="billingInterval = 'yearly'">
+          Anual <span class="plan-save" *ngIf="hasYearlySavings()">Ahorra hasta {{ maxSavings() }} %</span>
+        </button>
+      </div>
+
+      <div class="plan-grid" [class.single]="plans.length === 1">
+        <article class="plan-card" *ngFor="let plan of plans" [class.featured]="isFeatured(plan)">
+          <span class="plan-ribbon" *ngIf="isFeatured(plan)">Para nutricionistas</span>
+          <h3>{{ plan.name }}</h3>
+          <p class="plan-description">{{ plan.description }}</p>
+          <div class="plan-price">
+            <b>{{ displayedPrice(plan) | number:'1.2-2' }} €</b><span>/ mes</span>
+          </div>
+          <small class="plan-billing" *ngIf="billingInterval === 'yearly'">
+            {{ plan.yearlyPrice | number:'1.0-2' }} € facturados al año<ng-container *ngIf="savings(plan) > 0"> · ahorras un {{ savings(plan) }} %</ng-container>
+          </small>
+          <small class="plan-billing" *ngIf="billingInterval === 'monthly'">Facturación mensual</small>
+
+          <ul class="plan-features">
+            <li *ngIf="plan.maxNutritionists"><mat-icon>groups</mat-icon><span>{{ plan.maxNutritionists }} {{ plan.maxNutritionists === 1 ? 'nutricionista' : 'nutricionistas' }}</span></li>
+            <li *ngIf="plan.maxClientsPerNutritionist"><mat-icon>person</mat-icon><span>Hasta {{ plan.maxClientsPerNutritionist }} pacientes por nutricionista</span></li>
+            <li *ngIf="plan.maxTotalClients && plan.maxNutritionists !== 1"><mat-icon>group</mat-icon><span>Hasta {{ plan.maxTotalClients }} pacientes en total</span></li>
+            <li *ngFor="let label of featureLabels(plan)"><mat-icon>check</mat-icon><span>{{ label }}</span></li>
+          </ul>
+
+          <button mat-flat-button color="primary" class="plan-cta" [class.secondary]="!isFeatured(plan)" (click)="crearCuenta()">
+            {{ trialDays && isFeatured(plan) ? 'Probar ' + trialDays + ' días gratis' : 'Crear cuenta y empezar' }}
+          </button>
+        </article>
+      </div>
+
+      <p class="plan-note" *ngIf="trialDays"><mat-icon>verified</mat-icon> La prueba de {{ trialDays }} días incluye todas las funciones del plan Nutri Full, sin tarjeta. El pago, cuando lo actives, se hace de forma segura con Stripe.</p>
+      <p class="plan-note" *ngIf="!trialDays"><mat-icon>lock</mat-icon> El pago se realiza de forma segura con Stripe.</p>
     </section>
+
+    <ng-template #plansFallback>
+      <section class="pricing" id="planes">
+        <div>
+          <span class="eyebrow">EMPIEZA SIN COMPLICACIONES</span>
+          <h2>Una plataforma profesional para una consulta profesional.</h2>
+          <p>Empieza con una prueba gratuita y descubre DietoExpress. Cuando tu consulta crezca, puedes pasar a un plan profesional o gestionar una clínica con tu equipo.</p>
+        </div>
+        <button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button>
+      </section>
+    </ng-template>
 
     <section class="trust-block">
       <div class="section-heading">
