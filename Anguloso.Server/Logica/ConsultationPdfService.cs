@@ -167,6 +167,39 @@ public class ConsultationPdfService
     }
 
 
+    public byte[] GenerateTrainingPdf(clients client, int planId, DateOnly startDate, DateOnly endDate, angulosodbContext context)
+    {
+        if (endDate < startDate) throw new ArgumentException("El final del periodo no puede ser anterior al inicio.");
+        QuestPDF.Settings.License = LicenseType.Community;
+        var nutritionist = context.users.AsNoTracking().FirstOrDefault(u => u.id == client.user_id &&
+            (!client.tenant_id.HasValue || u.tenant_id == client.tenant_id.Value)) ?? new users
+            { full_name = "Nutricionista Desconocido", clinic_name = "DietoExpress", clinic_logo = null, clinic_address = null, clinic_phone = null };
+        var plans = LoadTrainingPlans(client, startDate, endDate, context, planId);
+        if (plans.Count == 0) throw new InvalidOperationException("No se encontró una planificación para el periodo solicitado.");
+        var document = Document.Create(container =>
+        {
+            foreach (var plan in plans)
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(36);
+                    page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(9).FontColor("#2d2d2d"));
+                    page.Header().Element(c => ComposeHeader(c, nutritionist));
+                    page.Content().Element(c => ComposeTrainingPlan(c, plan));
+                    page.Footer().AlignCenter().Text(text =>
+                    {
+                        text.Span("Documento generado el ").FontColor("#888888").FontSize(8);
+                        text.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm")).FontColor("#888888").FontSize(8);
+                        text.Span("  |  Página ").FontColor("#888888").FontSize(8);
+                        text.CurrentPageNumber().FontColor("#888888").FontSize(8);
+                        text.Span(" de ").FontColor("#888888").FontSize(8);
+                        text.TotalPages().FontColor("#888888").FontSize(8);
+                    });
+                });
+        });
+        return document.GeneratePdf();
+    }
+
     private List<TrainingPlanPdf> LoadTrainingPlans(clients client, DateOnly startDate, DateOnly endDate, angulosodbContext context, int? onlyPlanId = null)
     {
         var plans = new List<TrainingPlanPdf>();
@@ -205,7 +238,6 @@ public class ConsultationPdfService
                     plans.Add(new TrainingPlanPdf
                     {
                         Id = Convert.ToInt32(reader.GetValue(0)), PeriodStart = startDate, PeriodEnd = endDate,
-                        ShowMacrocycleOverview = true,
                         Name = reader.GetString(1),
                         Model = reader.IsDBNull(2) ? "—" : reader.GetString(2),
                         StartDate = reader.GetFieldValue<DateOnly>(3),
@@ -245,6 +277,7 @@ public class ConsultationPdfService
                         plan.MacrocycleName = macroReader.GetString(0);
                         plan.MacrocycleModel = macroReader.GetString(1);
                         plan.MacrocycleStart = macroReader.GetFieldValue<DateOnly>(2);
+                        plan.ShowMacrocycleOverview = startDate <= plan.MacrocycleStart.Value && endDate >= plan.MacrocycleStart.Value;
                         plan.MacrocycleEnd = macroReader.IsDBNull(3) ? null : macroReader.GetFieldValue<DateOnly>(3);
                         plan.MacrocycleNotes = macroReader.IsDBNull(4) ? null : macroReader.GetString(4);
                     }
@@ -306,7 +339,9 @@ public class ConsultationPdfService
             col.Item().Background("#0d9488").Padding(10).Text("PLANIFICACIÓN DEPORTIVA").Bold().FontSize(16).FontColor("#ffffff");
             col.Item().Text(plan.Name).Bold().FontSize(13);
             col.Item().Text($"Modelo: {plan.Model} · Estado: {plan.Status}").FontColor("#555555");
-            col.Item().Text($"Periodo: {plan.StartDate:dd/MM/yyyy} — {(plan.EndDate?.ToString("dd/MM/yyyy") ?? "Sin fecha final")}").FontColor("#555555");
+            col.Item().Text($"Periodo del documento: {plan.PeriodStart:dd/MM/yyyy} — {plan.PeriodEnd:dd/MM/yyyy}").FontColor("#555555");
+            col.Item().Text($"Vigencia del plan: {plan.StartDate:dd/MM/yyyy} — {(plan.EndDate?.ToString("dd/MM/yyyy") ?? "Sin fecha final")}").FontColor("#555555");
+            if (plan.ShowMacrocycleOverview) ComposeMacrocycleOverview(col, plan);
             if (!string.IsNullOrWhiteSpace(plan.Notes))
                 col.Item().Text($"Notas del plan: {plan.Notes}");
             col.Item().PaddingTop(4).Background("#e6fffb").Padding(7).Text("MACROCICLO · FASES Y OBJETIVOS").Bold().FontSize(11).FontColor("#0f766e");
