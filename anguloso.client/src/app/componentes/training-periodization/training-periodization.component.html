@@ -181,7 +181,7 @@
         <button type="button" class="secondary create-plan-toggle" (click)="openPlannerWizard()" [attr.aria-expanded]="showPlannerWizard">＋ Nueva planificación guiada</button>
         <button type="button" class="create-plan-toggle" (click)="showQuickRoutineForm = !showQuickRoutineForm; showCreatePlanForm = false" [attr.aria-expanded]="showQuickRoutineForm" [disabled]="trainingManagementMode !== 'self'">＋ Rutina sencilla</button>
       </div>
-      <app-training-planner-wizard *ngIf="showPlannerWizard" [clientId]="clientId" (close)="showPlannerWizard = false" (completed)="onPlannerCompleted($event)"></app-training-planner-wizard>
+      <app-training-planner-wizard *ngIf="showPlannerWizard" [clientId]="clientId" (close)="onPlannerClosed()" (completed)="onPlannerCompleted($event)"></app-training-planner-wizard>
       <form *ngIf="showCreatePlanForm" (ngSubmit)="createPlan()" class="form-grid create-plan-form">
         <h3 class="full">¿Qué quieres planificar?</h3>
         <div class="full plan-type-choice">

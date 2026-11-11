@@ -1258,6 +1258,12 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.showQuickRoutineForm = false;
   }
 
+  /** Cerrar el asistente con la × también deja datos en el servidor (plan, mesociclos, sesiones): hay que refrescar la vista. */
+  onPlannerClosed(): void {
+    this.showPlannerWizard = false;
+    this.load();
+  }
+
   onPlannerCompleted(planId: number): void {
     this.showPlannerWizard = false;
     this.activePlanWorkspace[planId] = 'mesocycles';
@@ -2880,8 +2886,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.saving = false;
         this.recordingSessionId = null;
         this.http.get<TrainingSession[]>(`/api/training/plans/${session.planId}/sessions`).subscribe({
-          next: rows => this.sessions[session.planId] = rows,
-          error: () => this.error = 'La realización se guardó, pero no se pudo actualizar la lista. Recarga la página.'
+          next: rows => { this.sessions[session.planId] = rows; this.changeDetector.detectChanges(); },
+          error: () => { this.error = 'La realización se guardó, pero no se pudo actualizar la lista. Recarga la página.'; this.changeDetector.detectChanges(); }
         });
       },
       error: e => { this.error = e?.error?.message || 'No se pudo registrar la sesión.'; this.saving = false; }
