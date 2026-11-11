@@ -167,7 +167,7 @@ public class ConsultationPdfService
     }
 
 
-    private List<TrainingPlanPdf> LoadTrainingPlans(clients client, DateOnly date, angulosodbContext context)
+    private List<TrainingPlanPdf> LoadTrainingPlans(clients client, DateOnly startDate, DateOnly endDate, angulosodbContext context, int? onlyPlanId = null)
     {
         var plans = new List<TrainingPlanPdf>();
         var connection = context.Database.GetDbConnection();
@@ -183,23 +183,29 @@ public class ConsultationPdfService
                 INNER JOIN clients c ON c.id = f.client_id
                 WHERE c.id = @clientId
                   AND (@tenantId IS NULL OR c.tenant_id = @tenantId)
-                  AND p.start_date <= @date
-                  AND (p.end_date IS NULL OR p.end_date >= @date OR p.status IN ('draft', 'active'))
+                  AND p.start_date <= @endDate
+                  AND (p.end_date IS NULL OR p.end_date >= @startDate OR p.status IN ('draft', 'active'))
+                  AND (@planId IS NULL OR p.id = @planId)
                 ORDER BY p.start_date DESC, p.id DESC
                 """;
             var clientParam = command.CreateParameter();
             clientParam.ParameterName = "clientId"; clientParam.Value = client.id; command.Parameters.Add(clientParam);
             var tenantParam = command.CreateParameter();
             tenantParam.ParameterName = "tenantId"; tenantParam.Value = client.tenant_id.HasValue ? client.tenant_id.Value : DBNull.Value; command.Parameters.Add(tenantParam);
-            var dateParam = command.CreateParameter();
-            dateParam.ParameterName = "date"; dateParam.Value = date.ToDateTime(TimeOnly.MinValue); command.Parameters.Add(dateParam);
+            var startParam = command.CreateParameter();
+            startParam.ParameterName = "startDate"; startParam.Value = startDate.ToDateTime(TimeOnly.MinValue); command.Parameters.Add(startParam);
+            var endParam = command.CreateParameter();
+            endParam.ParameterName = "endDate"; endParam.Value = endDate.ToDateTime(TimeOnly.MinValue); command.Parameters.Add(endParam);
+            var planIdParam = command.CreateParameter();
+            planIdParam.ParameterName = "planId"; planIdParam.Value = onlyPlanId.HasValue ? onlyPlanId.Value : DBNull.Value; command.Parameters.Add(planIdParam);
             using (var reader = command.ExecuteReader())
             {
                 while (reader.Read())
                 {
                     plans.Add(new TrainingPlanPdf
                     {
-                        Id = Convert.ToInt32(reader.GetValue(0)),
+                        Id = Convert.ToInt32(reader.GetValue(0)), PeriodStart = startDate, PeriodEnd = endDate,
+                        ShowMacrocycleOverview = true,
                         Name = reader.GetString(1),
                         Model = reader.IsDBNull(2) ? "—" : reader.GetString(2),
                         StartDate = reader.GetFieldValue<DateOnly>(3),
