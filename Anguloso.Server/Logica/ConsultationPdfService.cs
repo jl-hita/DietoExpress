@@ -216,10 +216,10 @@ public class ConsultationPdfService
                 INNER JOIN training_profiles f ON f.id = p.profile_id
                 INNER JOIN clients c ON c.id = f.client_id
                 WHERE c.id = @clientId
-                  AND (@tenantId IS NULL OR c.tenant_id = @tenantId)
+                  AND (@tenantId::int IS NULL OR c.tenant_id = @tenantId::int)
                   AND p.start_date <= @endDate
                   AND (p.end_date IS NULL OR p.end_date >= @startDate)
-                  AND (@planId IS NULL OR p.id = @planId)
+                  AND (@planId::int IS NULL OR p.id = @planId::int)
                 ORDER BY p.start_date DESC, p.id DESC
                 """;
             var clientParam = command.CreateParameter();
