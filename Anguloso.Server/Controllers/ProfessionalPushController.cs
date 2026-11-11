@@ -36,6 +36,21 @@ public sealed class ProfessionalPushController : ControllerBase
         catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    [HttpPost("test")]
+    public async Task<IActionResult> SendTest(CancellationToken ct)
+    {
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var userId = AuthHelpers.GetUserId(User);
+        if (!tenantId.HasValue || !userId.HasValue) return Unauthorized();
+        var exists = await _db.users.AsNoTracking().AnyAsync(u => u.id == userId.Value && u.tenant_id == tenantId.Value && (u.role == "nutritionist" || u.role == "clinic_admin"), ct);
+        if (!exists) return Forbid();
+
+        var sent = await _push.SendTestNotificationAsync(tenantId.Value, userId.Value, ct);
+        return sent
+            ? Ok(new { sent = true })
+            : StatusCode(StatusCodes.Status503ServiceUnavailable, new { sent = false, message = "El servidor no ha podido entregar la notificación de prueba. Revisa la configuración VAPID y la suscripción del navegador." });
+    }
+
     [HttpDelete("subscriptions")]
     public async Task<IActionResult> Delete([FromBody] PushSubscriptionDto request, CancellationToken ct)
     {
