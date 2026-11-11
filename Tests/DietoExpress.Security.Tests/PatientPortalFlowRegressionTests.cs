@@ -30,8 +30,8 @@ public sealed class PatientPortalFlowRegressionTests
         Assert.Contains("c.access_token_expires_at > DateTime.UtcNow", auth);
         Assert.DoesNotContain("ExecuteUpdateAsync", auth);
         Assert.DoesNotContain("SetProperty(c => c.access_token, (string?)null)", auth);
-        Assert.Contains("var sessionExpiresAtUtc = DateTime.UtcNow.AddDays(30);", auth);
-        Assert.Contains("SetPatientSessionCookie(jwt, sessionExpiresAtUtc)", auth);
+        Assert.Contains("_sessions.Issue(Response, client);", auth);
+        Assert.Contains("SessionLifetime = TimeSpan.FromDays(30)", Read("Anguloso.Server/Logica/PatientSessionService.cs"));
         Assert.DoesNotContain("var sessionExpiresAtUtc = !string.IsNullOrWhiteSpace(request.Token)", auth);
     }
 

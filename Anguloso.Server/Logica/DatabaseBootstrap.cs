@@ -1883,6 +1883,19 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 used_at TIMESTAMPTZ,
                 CONSTRAINT uq_user_two_factor_recovery_codes UNIQUE (user_id, code_hash)
             );
+
+            CREATE TABLE IF NOT EXISTS patient_biometric_devices (
+                id VARCHAR(64) PRIMARY KEY,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                public_key TEXT NOT NULL,
+                device_name VARCHAR(100) NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                last_used_at TIMESTAMPTZ,
+                last_challenge_issued_at BIGINT NOT NULL DEFAULT 0,
+                revoked_at TIMESTAMPTZ
+            );
+            CREATE INDEX IF NOT EXISTS idx_patient_biometric_devices_client
+                ON patient_biometric_devices(client_id) WHERE revoked_at IS NULL;
         ");
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('account-security-v1-lockout-2fa') ON CONFLICT (id) DO NOTHING;");
         logger.LogInformation("Migración de seguridad de cuentas (bloqueo progresivo y 2FA) aplicada correctamente.");
@@ -3679,7 +3692,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'legal_eipd_decisions','professional_followup_settings','professional_consultations',
                     'patient_checkins','specializations','tenant_specializations','client_specializations',
                     'client_specialization_profiles','specialization_rules','video_usage_reservations',
-                    'schema_migrations','user_two_factor_recovery_codes','api_idempotency_records','integration_outbox','system_alerts','public_directory_reviews','patient_nutritionist_change_requests','patient_nutritionist_transfer_workflows','training_mesocycles','training_microcycles',
+                    'schema_migrations','user_two_factor_recovery_codes','patient_biometric_devices','api_idempotency_records','integration_outbox','system_alerts','public_directory_reviews','patient_nutritionist_change_requests','patient_nutritionist_transfer_workflows','training_mesocycles','training_microcycles',
                     'directory_verification_evidence','support_tickets','support_messages',
                     'support_notifications','support_ticket_audit','billing_checkout_attempts',
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',

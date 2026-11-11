@@ -50,9 +50,10 @@ public class PatientPortalController : ControllerBase
     private readonly PatientPortalAccessService _portalAccessService;
     private readonly DietPdfService _dietPdfService;
     private readonly AccountSecurityService _accountSecurity;
+    private readonly PatientSessionService _sessions;
     private const string GenericCredentialsFailure = "Los datos de acceso no son válidos o el acceso con PIN está bloqueado temporalmente. Puedes solicitar un enlace de acceso por email.";
 
-    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService, EmailServ emailServ, AutomationService automationService, PatientPortalAccessService portalAccessService, DietPdfService dietPdfService, AccountSecurityService accountSecurity)
+    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService, EmailServ emailServ, AutomationService automationService, PatientPortalAccessService portalAccessService, DietPdfService dietPdfService, AccountSecurityService accountSecurity, PatientSessionService sessions)
     {
         _context = context;
         _config = config;
@@ -62,6 +63,7 @@ public class PatientPortalController : ControllerBase
         _portalAccessService = portalAccessService;
         _dietPdfService = dietPdfService;
         _accountSecurity = accountSecurity;
+        _sessions = sessions;
     }
 
     /// <summary>
@@ -109,9 +111,8 @@ public class PatientPortalController : ControllerBase
         else return BadRequest("Debes proporcionar un enlace de acceso o tus credenciales.");
 
         // El enlace mágico solo limita el intercambio inicial por una sesión. Una vez autenticado,
-        // el paciente conserva su sesión durante 30 días; la versión de token permite revocarla
+        // el paciente conserva su sesión durante 30 días (PatientSessionService); la versión de token permite revocarla
         // al cerrar sesión, cambiar el PIN o regenerar el enlace de acceso.
-        var sessionExpiresAtUtc = DateTime.UtcNow.AddDays(30);
 
         var portalTenantId = client.tenant_id ?? client.user?.tenant_id;
         if (!await _licenseService.CanUseFeatureAsync(portalTenantId, "CLIENT_PORTAL")) return Forbid();
@@ -124,8 +125,7 @@ public class PatientPortalController : ControllerBase
         client.portal_failed_attempts = 0;
         client.portal_locked_until = null;
         await _context.SaveChangesAsync();
-        var jwt = GeneratePatientJwt(client, sessionExpiresAtUtc);
-        SetPatientSessionCookie(jwt, sessionExpiresAtUtc);
+        _sessions.Issue(Response, client);
 
         return Ok(new PatientAuthResponseDto
         {
@@ -756,6 +756,8 @@ public class PatientPortalController : ControllerBase
         client.portal_failed_attempts = 0;
         client.portal_locked_until = null;
         await _context.SaveChangesAsync();
+        // Cambiar el PIN suele indicar sospecha de acceso indebido: se retiran también los dispositivos biométricos.
+        await _context.Database.ExecuteSqlInterpolatedAsync($"UPDATE patient_biometric_devices SET revoked_at = NOW() WHERE client_id = {client.id} AND revoked_at IS NULL");
         return Ok(new { message = "Código de acceso asignado con éxito." });
     }
 
@@ -916,30 +918,6 @@ public class PatientPortalController : ControllerBase
         return null;
     }
 
-    private string GeneratePatientJwt(clients client, DateTime expiresAtUtc)
-    {
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]!);
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, client.id.ToString()),
-            new Claim("clientId", client.id.ToString()),
-            new Claim(ClaimTypes.Name, client.full_name ?? "Paciente"),
-            new Claim(ClaimTypes.Role, "patient"),
-            new Claim("portalTokenVersion", client.portal_token_version.ToString())
-        };
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Issuer = _config["Jwt:Issuer"],
-            Audience = _config["Jwt:Audience"],
-            Subject = new ClaimsIdentity(claims),
-            Expires = expiresAtUtc,
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-        };
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
-    }
-
     [HttpPost("push-tokens")]
     [Authorize(Roles = "patient")]
     public async Task<IActionResult> RegisterPushToken([FromBody] PatientPushTokenRequestDto request)
@@ -1003,19 +981,6 @@ SET client_id = EXCLUDED.client_id,
             Path = "/"
         });
         return NoContent();
-    }
-
-    private void SetPatientSessionCookie(string jwt, DateTime expiresAtUtc)
-    {
-        Response.Cookies.Append("dietoexpress_patient_session", jwt, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Expires = new DateTimeOffset(expiresAtUtc),
-            MaxAge = expiresAtUtc - DateTime.UtcNow,
-            Path = "/"
-        });
     }
 
 }

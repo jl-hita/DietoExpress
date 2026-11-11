@@ -3,6 +3,7 @@ namespace Anguloso.Server.Models;
 
 // Protección frente a fuerza bruta del PIN del portal. Fuera del archivo generado por EF Power Tools para que no se pierda al regenerarlo.
 // El esquema lo crea DatabaseBootstrap.UpgradeAccountSecuritySchemaV1.
+#pragma warning disable CS8981
 public partial class clients
 {
     /// <summary>Fallos consecutivos de PIN desde el último acceso correcto.</summary>

@@ -22,7 +22,7 @@ public class CookieTechnologyInventoryRegressionTests
     public void SessionCookies_AreHttpOnlySecureAndStrict()
     {
         var auth = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "AuthController.cs"));
-        var patient = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "PatientPortalController.cs"));
+        var patient = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "PatientSessionService.cs"));
 
         Assert.Contains("dietoexpress_professional_session", auth);
         Assert.Contains("HttpOnly = true", auth);
@@ -36,7 +36,7 @@ public class CookieTechnologyInventoryRegressionTests
         Assert.Contains("SameSite = SameSiteMode.Strict", patient);
         Assert.Contains("Expires = new DateTimeOffset(expiresAtUtc)", patient);
         Assert.Contains("MaxAge = expiresAtUtc - DateTime.UtcNow", patient);
-        Assert.Contains("var sessionExpiresAtUtc = DateTime.UtcNow.AddDays(30);", patient);
+        Assert.Contains("SessionLifetime = TimeSpan.FromDays(30)", patient);
         Assert.Contains("MaxAge = expiresAtUtc - DateTime.UtcNow", patient);
     }
 

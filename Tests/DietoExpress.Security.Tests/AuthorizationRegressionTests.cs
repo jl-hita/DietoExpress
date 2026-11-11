@@ -120,7 +120,7 @@ public class AuthorizationRegressionTests
         var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
 
         Assert.Contains("portal_token_version++", portal);
-        Assert.Contains("new Claim(\"portalTokenVersion\",", portal);
+        Assert.Contains("new(\"portalTokenVersion\",", File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "PatientSessionService.cs")));
         Assert.Contains("c.portal_token_version == portalTokenVersion", program);
         Assert.Contains("client.portal_token_version++", portal);
         Assert.Contains("[Authorize(Roles = \"patient\")]", portal);
