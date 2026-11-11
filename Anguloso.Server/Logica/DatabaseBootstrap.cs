@@ -865,6 +865,7 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             UpgradeSaaSSchemaV2(context, logger);
             UpgradeSaaSSchemaV3(context, logger);
             UpgradeFreeTrialLengthV1(context, logger);
+            UpgradeFreeTrialDescriptionV1(context, logger);
             UpgradeSaaSSchemaV4(context, logger);
             UpgradeSaaSSchemaV5(context, logger);
             UpgradeSaaSSchemaV6(context, logger);
@@ -1794,6 +1795,28 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         ");
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('free-trial-30-days-v1') ON CONFLICT (id) DO NOTHING;");
         logger.LogInformation("Prueba gratuita establecida en 30 días (free-trial-30-days-v1).");
+    }
+
+    /// <summary>
+    /// La descripción del plan «free» llevaba escrito el número de días («… durante 30 días»), que se quedaba obsoleto en cuanto
+    /// SuperAdmin cambiaba la duración. La cifra vive solo en <c>trial_days</c>. Solo se toca la descripción si sigue siendo la
+    /// que pusieron las migraciones, para no pisar un texto editado a mano.
+    /// </summary>
+    public static void UpgradeFreeTrialDescriptionV1(angulosodbContext context, ILogger logger)
+    {
+        var alreadyApplied = context.Database
+            .SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'free-trial-description-v1') AS \"Value\"")
+            .Single();
+        if (alreadyApplied) return;
+
+        context.Database.ExecuteSqlRaw(@"
+            UPDATE subscription_plans
+            SET description = 'Prueba completa de Nutri Full'
+            WHERE code = 'free'
+              AND description LIKE 'Prueba completa de Nutri Full durante % días';
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('free-trial-description-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Descripción del plan de prueba sin cifra de días (free-trial-description-v1).");
     }
 
     /// <summary>

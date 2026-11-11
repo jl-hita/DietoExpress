@@ -21,7 +21,7 @@
       <div class="hero-copy">
         <span class="eyebrow">SOFTWARE PROFESIONAL PARA NUTRICIÓN, ENTRENAMIENTO Y CLÍNICAS</span>
         <h1>Tu consulta, <span>más inteligente y más visible.</span></h1>
-        <p class="lead">Diseña planes nutricionales, crea rutinas de entrenamiento y acompaña la evolución de cada persona. Gestiona pacientes, citas y seguimiento, y facilita que nuevos clientes te encuentren: todo conectado en una sola plataforma.</p>
+        <p class="lead">Diseña planes nutricionales, genera un macrociclo de entrenamiento completo con todas sus rutinas en segundos y acompaña la evolución de cada persona. Gestiona pacientes, citas y seguimiento, y facilita que nuevos clientes te encuentren: todo conectado en una sola plataforma.</p>
         <div class="hero-actions">
           <button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Empezar gratis <mat-icon>arrow_forward</mat-icon></button>
           <a mat-stroked-button routerLink="/nutricionistas">Buscar nutricionista</a>
@@ -62,7 +62,7 @@
 
     <section class="proof-strip">
       <span>DE LA PRIMERA VISITA AL SEGUIMIENTO</span>
-      <div><b>Dietas adaptadas</b><b>Rutinas y mesociclos</b><b>App Android para clientes</b><b>Videoconsultas</b><b>Lista de la compra</b><b>Seguimiento</b></div>
+      <div><b>Dietas adaptadas</b><b>Macrociclos de entrenamiento completos</b><b>App Android para clientes</b><b>Videoconsultas</b><b>Lista de la compra</b><b>Seguimiento</b></div>
     </section>
 
     <section class="demo-video" id="video" *ngIf="video as demo">
@@ -248,11 +248,11 @@
     <section class="features" id="entrenamiento">
       <div class="section-heading">
         <span class="eyebrow">ENTRENAMIENTO CON SEGUIMIENTO REAL</span>
-        <h2>De la rutina inicial a una progresión que tiene en cuenta cómo responde cada persona.</h2>
-        <p>Herramientas para planificar, revisar y ajustar el entrenamiento sin convertir cada cambio en trabajo manual ni perder el criterio del profesional.</p>
+        <h2>Un macrociclo completo, con todas sus rutinas, en segundos.</h2>
+        <p>Define el objetivo y las fases, y DietoExpress genera la planificación entera: mesociclos, microciclos y las sesiones con sus ejercicios, series y repeticiones. Tú la revisas, la ajustas y la publicas, y después la progresión se adapta a cómo responde cada persona.</p>
       </div>
       <div class="feature-grid">
-        <article class="feature-card featured"><div class="feature-icon"><mat-icon>event_repeat</mat-icon></div><span class="feature-number">01</span><h3>Rutinas y planificación por mesociclos</h3><p>Genera propuestas estructuradas con ejercicios, series, repeticiones y objetivos, y organiza la progresión a lo largo de varias semanas.</p></article>
+        <article class="feature-card featured"><div class="feature-icon"><mat-icon>event_repeat</mat-icon></div><span class="feature-number">01</span><h3>Macrociclo completo en un solo paso</h3><p>Genera de una vez todas las fases del macrociclo con sus mesociclos y rutinas, en lugar de construir semana a semana. Si ya tienes bloques planificados, se respetan y solo se completan los que faltan.</p></article>
         <article class="feature-card"><div class="feature-icon"><mat-icon>fitness_center</mat-icon></div><span class="feature-number">02</span><h3>Biblioteca de ejercicios</h3><p>Organiza ejercicios por grupos musculares y utiliza prescripciones claras para que cada sesión sea fácil de consultar y ejecutar.</p></article>
         <article class="feature-card featured"><div class="feature-icon"><mat-icon>tune</mat-icon></div><span class="feature-number">03</span><h3>Adaptación basada en el rendimiento</h3><p>Registra cómo se completan las series y recoge el feedback sobre esfuerzo, molestias y series omitidas para orientar la progresión.</p></article>
         <article class="feature-card"><div class="feature-icon"><mat-icon>fact_check</mat-icon></div><span class="feature-number">04</span><h3>El profesional conserva el control</h3><p>Las propuestas de adaptación pueden revisarse profesionalmente: los datos del entrenamiento informan las decisiones, no sustituyen tu criterio.</p></article>
@@ -282,7 +282,7 @@
       <div class="section-heading">
         <span class="eyebrow">PLANES Y PRECIOS</span>
         <h2>Elige el plan que encaja con tu consulta.</h2>
-        <p>Sin permanencia: puedes cancelar la renovación cuando quieras. Precios en euros.</p>
+        <p>Sin permanencia: puedes cancelar la renovación cuando quieras. Precios en euros, IVA incluido.</p>
       </div>
 
       <div class="plan-switch" role="group" aria-label="Periodo de facturación">
@@ -298,7 +298,7 @@
           <h3>{{ plan.name }}</h3>
           <p class="plan-description">{{ plan.description }}</p>
           <div class="plan-price">
-            <b>{{ displayedPrice(plan) | number:'1.2-2' }} €</b><span>/ mes</span>
+            <b>{{ displayedPrice(plan) | number:'1.2-2' }} €</b><span>/ mes · IVA incluido</span>
           </div>
           <small class="plan-billing" *ngIf="billingInterval === 'yearly'">
             {{ plan.yearlyPrice | number:'1.0-2' }} € facturados al año<ng-container *ngIf="savings(plan) > 0"> · ahorras un {{ savings(plan) }} %</ng-container>

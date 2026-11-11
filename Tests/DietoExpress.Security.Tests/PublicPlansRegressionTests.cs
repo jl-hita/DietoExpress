@@ -74,6 +74,22 @@ public class PublicPlansRegressionTests
     }
 
     [Fact]
+    public void PricesAreAnnouncedAsIncludingVat()
+    {
+        var landing = ReadRepo("anguloso.client", "src", "app", "componentes", "landing", "landing.component.html");
+        Assert.Contains("IVA incluido", landing);
+        Assert.DoesNotContain("Precios en euros.", landing);
+    }
+
+    [Fact]
+    public void LandingMentionsTheCompleteMacrocycleGeneration()
+    {
+        var landing = ReadRepo("anguloso.client", "src", "app", "componentes", "landing", "landing.component.html");
+        Assert.Contains("macrociclo completo", landing, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("en segundos", landing);
+    }
+
+    [Fact]
     public void FreeTrial_IsThirtyDaysAndIsNotResetAtEveryStartup()
     {
         var bootstrap = ReadRepo("Anguloso.Server", "Logica", "DatabaseBootstrap.cs");
@@ -89,8 +105,15 @@ public class PublicPlansRegressionTests
         Assert.Contains("if (firstApplication)", v3);
 
         var auth = ReadRepo("Anguloso.Server", "Controllers", "AuthController.cs");
-        Assert.Contains("freePlan.trial_days ?? 30", auth);
-        Assert.Contains("freePlanGoogle.trial_days ?? 30", auth);
+        // La duración sale de la base de datos y no hay una cifra por defecto escrita en el código: sin días configurados no
+        // hay prueba (la cuenta caduca), en vez de regalar un número inventado.
+        Assert.Contains("freePlan.trial_days ?? 0", auth);
+        Assert.Contains("freePlanGoogle.trial_days ?? 0", auth);
         Assert.DoesNotContain("trial_days ?? 7", auth);
+        Assert.DoesNotContain("trial_days ?? 30", auth);
+
+        // La descripción del plan tampoco lleva la cifra (se quedaría obsoleta al editar los días).
+        Assert.Contains("free-trial-description-v1", bootstrap);
+        Assert.Contains("UpgradeFreeTrialDescriptionV1(context, logger);", bootstrap);
     }
 }
