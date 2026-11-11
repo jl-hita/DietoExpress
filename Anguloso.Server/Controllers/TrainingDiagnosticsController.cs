@@ -266,6 +266,7 @@ public sealed class TrainingDiagnosticsController : ControllerBase
         {
             if (shouldClose) await connection.CloseAsync();
         }
+    }
 
     private static void ComposeSessions(ColumnDescriptor content, JsonElement sessions, JsonElement records)
     {
@@ -382,6 +383,5 @@ public sealed class TrainingDiagnosticsController : ControllerBase
             chars.Add(ch);
         }
         return char.ToUpperInvariant(chars[0]) + new string(chars.Skip(1).ToArray()).Replace('_', ' ');
-    }
     }
 }
