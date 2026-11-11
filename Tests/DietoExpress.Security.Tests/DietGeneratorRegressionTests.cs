@@ -138,7 +138,7 @@ public sealed class DietGeneratorRegressionTests
 
         Assert.Contains("const int maxTries = 40;", engine);
         Assert.Contains("DayRetries", engine);
-        Assert.Contains("const int maxGenerationAttempts = 2;", source);
+        Assert.Contains("const int maxGenerationAttempts = 8;", source);
     }
 
     [Fact]
