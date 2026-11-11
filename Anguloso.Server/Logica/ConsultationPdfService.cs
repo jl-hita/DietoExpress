@@ -360,9 +360,15 @@ public class ConsultationPdfService
             col.Item().PaddingTop(5).Background("#e6fffb").Padding(7).Text("RUTINAS Y SESIONES").Bold().FontSize(11).FontColor("#0f766e");
             if (plan.Sessions.Count == 0)
                 col.Item().Text("No hay sesiones de entrenamiento registradas en este plan.").Italic().FontColor("#777777");
-            foreach (var session in plan.Sessions)
+            foreach (var week in plan.Sessions
+                .GroupBy(session => session.Date.AddDays(-(((int)session.Date.DayOfWeek + 6) % 7)))
+                .OrderBy(group => group.Key))
             {
-                col.Item().BorderBottom(1).BorderColor("#e2e5ea").PaddingVertical(6).Column(item =>
+                col.Item().PaddingTop(6).Background("#f1f5f9").Padding(6)
+                    .Text($"SEMANA {week.Key:dd/MM/yyyy} — {week.Key.AddDays(6):dd/MM/yyyy}").Bold().FontColor("#334155");
+                foreach (var session in week)
+                {
+                col.Item().ShowEntire().BorderBottom(1).BorderColor("#e2e5ea").PaddingVertical(6).Column(item =>
                 {
                     item.Item().Text($"{session.Date:dddd dd/MM/yyyy} · {session.Title}").Bold().FontSize(10);
                     item.Item().Text($"{session.Type} · {(session.Duration.HasValue ? $"{session.Duration.Value} min" : "Duración no indicada")}" +
@@ -418,6 +424,7 @@ public class ConsultationPdfService
                     else if (!string.IsNullOrWhiteSpace(session.Prescription))
                         item.Item().Text(session.Prescription).FontSize(8);
                 });
+                }
             }
         });
     }
