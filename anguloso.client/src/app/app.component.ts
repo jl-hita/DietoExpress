@@ -75,7 +75,7 @@ export class AppComponent implements OnInit {
     if (!this.canEnableProfessionalPush || this.professionalPushBusy) return;
     this.professionalPushBusy = true;
     this.professionalPushMessage = '';
-    let stage: 'permission' | 'configuration' | 'service-worker' | 'subscription' | 'registration' = 'permission';
+    let stage: 'permission' | 'configuration' | 'service-worker' | 'subscription' | 'registration' | 'verification' = 'permission';
 
     try {
       const permission = await Notification.requestPermission();
@@ -122,8 +122,14 @@ export class AppComponent implements OnInit {
         auth: json.keys['auth']
       }).toPromise();
 
+      stage = 'verification';
+      const verification = await this.http.post<{ sent: boolean }>('/api/professional/push/test', {}).toPromise();
+      if (!verification?.sent) {
+        throw new Error('El servidor no ha confirmado la entrega de la notificación de prueba');
+      }
+
       this.professionalPushActivated = true;
-      this.professionalPushMessage = 'Avisos de cita activados en este navegador.';
+      this.professionalPushMessage = 'Avisos activados. Comprueba que has recibido la notificación de prueba.';
     } catch (error) {
       // Registrar etapa y error técnico para diagnosticar sin mostrar detalles internos al usuario.
       console.error('[DietoExpress] No se pudo activar Web Push.', { stage, error });
@@ -132,7 +138,8 @@ export class AppComponent implements OnInit {
         configuration: 'No se ha podido consultar la configuración de avisos del servidor. Recarga la página y vuelve a intentarlo.',
         'service-worker': 'No se ha podido iniciar el componente de avisos del navegador. Comprueba que el sitio está abierto mediante HTTPS y vuelve a intentarlo.',
         subscription: 'El navegador no ha podido crear la suscripción push. Comprueba los permisos de notificaciones del sitio y vuelve a intentarlo.',
-        registration: 'El navegador ha creado la suscripción, pero DietoExpress no ha podido guardarla. Recarga la página y vuelve a intentarlo.'
+        registration: 'El navegador ha creado la suscripción, pero DietoExpress no ha podido guardarla. Recarga la página y vuelve a intentarlo.',
+        verification: 'La suscripción se ha guardado, pero el servidor no ha podido enviar la notificación de prueba. Los avisos no se han marcado como activados. Revisa los permisos del navegador o contacta con soporte.'
       };
       this.professionalPushMessage = messages[stage];
     } finally {
