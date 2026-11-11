@@ -110,15 +110,15 @@
             </div>
             <div class="target-input-box">
               <label>Proteínas (g)</label>
-              <input type="number" formControlName="targetProtein" placeholder="Ej: 140" min="0" />
+              <input type="number" formControlName="targetProtein" (input)="onMacroTargetInput()" placeholder="Ej: 140" min="0" />
             </div>
             <div class="target-input-box">
               <label>Carbohidratos (g)</label>
-              <input type="number" formControlName="targetCarbs" placeholder="Ej: 220" min="0" />
+              <input type="number" formControlName="targetCarbs" (input)="onMacroTargetInput()" placeholder="Ej: 220" min="0" />
             </div>
             <div class="target-input-box">
               <label>Grasas (g)</label>
-              <input type="number" formControlName="targetFat" placeholder="Ej: 70" min="0" />
+              <input type="number" formControlName="targetFat" (input)="onMacroTargetInput()" placeholder="Ej: 70" min="0" />
             </div>
           </div>
 
@@ -439,7 +439,7 @@
 
                 <!-- Listado de alimentos añadidos -->
                 <div formArrayName="items" class="meal-items-list">
-                  <div *ngIf="getItems(dIndex, mIndex).controls.length === 0" class="empty-meal-placeholder">
+                  <div *ngIf="getItems(dIndex, mIndex).controls.length === 0" class="empty-meal-placeholder" cdkDropList [cdkDropListData]="getItems(dIndex, mIndex)" (cdkDropListDropped)="dropFood($event)">
                     <p>No hay alimentos en esta comida. Usa el buscador de la derecha para añadir alimentos.</p>
                   </div>
 
@@ -452,7 +452,8 @@
                         <th>Proteínas</th>
                         <th>Carbohidratos</th>
                         <th>Grasas</th>
-                        <th width="40"></th>
+                        <th width="90">No deseado</th>
+                        <th width="80"></th>
                       </tr>
                     </thead>
                     <tbody cdkDropList [cdkDropListData]="getItems(dIndex, mIndex)" (cdkDropListDropped)="dropFood($event)">
@@ -496,8 +497,29 @@
                         <td class="nutrient-value">{{ itemCtrl.get('carbs')?.value | number:'1.0-1' }}g</td>
                         <td class="nutrient-value">{{ itemCtrl.get('fat')?.value | number:'1.0-1' }}g</td>
                         
-                        <!-- Botón borrar ingrediente -->
-                        <td>
+                        <!-- No deseado: sustituye por otro alimento del mismo grupo -->
+                        <td class="unwanted-cell">
+                          <input type="checkbox" formControlName="unwanted" *ngIf="!isExchangeItem(itemCtrl)"
+                                 [attr.aria-label]="'Marcar ' + (itemCtrl.get('foodName')?.value || 'alimento') + ' como no deseado'"
+                                 (change)="toggleUnwanted(dIndex, mIndex, iIndex, $any($event.target).checked)"
+                                 matTooltip="Marcar como no deseado y sustituir por otro del mismo grupo">
+                        </td>
+
+                        <!-- Acciones: duplicar, mover y borrar -->
+                        <td class="item-actions">
+                          <button type="button" class="btn-remove-item" aria-label="Duplicar alimento" (click)="duplicateItem(dIndex, mIndex, iIndex)" matTooltip="Duplicar alimento">
+                            <mat-icon>content_copy</mat-icon>
+                          </button>
+                          <button type="button" class="btn-remove-item" aria-label="Mover a otra comida" [matMenuTriggerFor]="moveMenu" matTooltip="Mover a otra comida" *ngIf="getMeals(dIndex).controls.length > 1">
+                            <mat-icon>drive_file_move</mat-icon>
+                          </button>
+                          <mat-menu #moveMenu="matMenu">
+                            <ng-container *ngFor="let targetMeal of getMeals(dIndex).controls; let tIndex = index">
+                              <button mat-menu-item type="button" *ngIf="tIndex !== mIndex" (click)="moveItemToMeal(dIndex, mIndex, iIndex, tIndex)">
+                                Mover a {{ targetMeal.get('name')?.value || ('Comida ' + (tIndex + 1)) }}
+                              </button>
+                            </ng-container>
+                          </mat-menu>
                           <button type="button" class="btn-remove-item" [attr.aria-label]="'Quitar ' + (itemCtrl.get('foodName')?.value || itemCtrl.get('exchangeGroupName')?.value || 'alimento')" (click)="removeItem(dIndex, mIndex, iIndex)" matTooltip="Quitar alimento">
                             <mat-icon>close</mat-icon>
                           </button>

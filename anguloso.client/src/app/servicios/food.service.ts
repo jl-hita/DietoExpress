@@ -27,6 +27,12 @@ export class FoodService {
     return this.http.get<{ count: number }>(`${this.baseUrl}/food/count`);
   }
 
+  getSameGroupSubstitutions(foodId: number, clientId?: number | null, limit = 15): Observable<any[]> {
+    const params: Record<string, string> = { target: 'balanced', sameGroupOnly: 'true', limit: String(limit) };
+    if (clientId) params['clientId'] = String(clientId);
+    return this.http.get<any[]>(`${this.baseUrl}/food/${foodId}/substitutions`, { params });
+  }
+
   getExchangeGroups(): Observable<FoodExchangeGroup[]> {
     return this.http.get<FoodExchangeGroup[]>(`${this.baseUrl}/food-exchange-groups`);
   }

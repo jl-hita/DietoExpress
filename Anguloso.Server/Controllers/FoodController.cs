@@ -417,6 +417,7 @@ public class FoodController : ControllerBase
         [FromQuery] string[]? excludeFlags = null,
         [FromQuery] int limit = 10,
         [FromQuery] int? clientId = null,
+        [FromQuery] bool sameGroupOnly = false,
         CancellationToken cancellationToken = default)
     {
         var tenantId = AuthHelpers.GetTenantId(User);
@@ -460,7 +461,8 @@ public class FoodController : ControllerBase
                 restrictionClient?.food_preferences?.allergies,
                 restrictionClient?.digestive_health?.gluten_intolerance == true,
                 restrictionClient?.digestive_health?.lactose_intolerance == true,
-                restrictionClient?.digestive_health?.fodmaps_intolerance == true);
+                restrictionClient?.digestive_health?.fodmaps_intolerance == true,
+                sameGroupOnly);
             return Ok(result);
         }
         catch (ArgumentException ex)

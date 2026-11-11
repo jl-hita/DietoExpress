@@ -24,7 +24,8 @@ public sealed class FoodSubstitutionService
         string? allergies = null,
         bool glutenIntolerance = false,
         bool lactoseIntolerance = false,
-        bool fodmapsIntolerance = false)
+        bool fodmapsIntolerance = false,
+        bool sameGroupOnly = false)
     {
         var source = await _context.foods.AsNoTracking()
             .Where(f => f.id == foodId)
@@ -102,6 +103,18 @@ public sealed class FoodSubstitutionService
             if (!a.HasValue || !b.HasValue) return 1.0;
             var denominator = Math.Max(Math.Abs(b.Value), 1.0);
             return Math.Min(Math.Abs(a.Value - b.Value) / denominator, 2.0);
+        }
+
+        // Con sameGroupOnly solo se aceptan alimentos del mismo grupo de intercambio (o, si el original
+        // no tiene grupo, de su misma categoría). Si el original no tiene ninguno de los dos, no hay candidatos.
+        if (sameGroupOnly)
+        {
+            candidates = candidates
+                .Where(f => source.exchange_group_id.HasValue
+                    ? f.exchange_group_id == source.exchange_group_id
+                    : !string.IsNullOrWhiteSpace(source.category) &&
+                      string.Equals(source.category, f.category, StringComparison.OrdinalIgnoreCase))
+                .ToList();
         }
 
         var ranked = candidates

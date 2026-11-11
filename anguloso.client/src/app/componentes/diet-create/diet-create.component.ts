@@ -284,7 +284,8 @@ export class DietCreateComponent implements OnInit {
       // Intercambios:
       exchangeGroupId: [item.exchangeGroupId ?? null],
       exchangeGroupName: [item.exchangeGroupName ?? null],
-      exchangeCount: [item.exchangeCount ?? null]
+      exchangeCount: [item.exchangeCount ?? null],
+      unwanted: [false]
     });
   }
 
@@ -518,6 +519,89 @@ export class DietCreateComponent implements OnInit {
 
     source.updateValueAndValidity();
     target.updateValueAndValidity();
+  }
+
+  /** Mueve un alimento a otra comida del mismo día (alternativa al arrastre, también válida con comidas vacías). */
+  moveItemToMeal(dIndex: number, mIndex: number, iIndex: number, targetMIndex: number): void {
+    if (mIndex === targetMIndex) return;
+    const source = this.getItems(dIndex, mIndex);
+    const target = this.getItems(dIndex, targetMIndex);
+    const control = source.at(iIndex);
+    if (!control) return;
+    source.removeAt(iIndex, { emitEvent: false });
+    target.push(control);
+    source.updateValueAndValidity();
+    this.snackBar.open(`Movido a ${this.getMeals(dIndex).at(targetMIndex).get('name')?.value}`, 'Cerrar', { duration: 2000 });
+  }
+
+  /** Duplica un alimento justo debajo del original para poder moverlo después a otra comida. */
+  duplicateItem(dIndex: number, mIndex: number, iIndex: number): void {
+    const items = this.getItems(dIndex, mIndex);
+    const original = items.at(iIndex);
+    if (!original) return;
+    const copy = this.createItemGroup({ ...original.getRawValue(), unwanted: false });
+    items.insert(iIndex + 1, copy);
+  }
+
+  /**
+   * Al marcar «no deseado» se sustituye el alimento por otro del mismo grupo (el más parecido
+   * nutricionalmente, respetando las restricciones del paciente) ajustando los gramos para conservar las kcal.
+   * Si no hay alternativa, se desmarca y se avisa.
+   */
+  toggleUnwanted(dIndex: number, mIndex: number, iIndex: number, checked: boolean): void {
+    const item = this.getItems(dIndex, mIndex).at(iIndex);
+    if (!item || !checked) return;
+    const foodId = item.get('foodId')?.value;
+    if (!foodId || this.isExchangeItem(item)) {
+      item.get('unwanted')?.setValue(false);
+      this.snackBar.open('Solo se pueden sustituir alimentos individuales.', 'Cerrar', { duration: 3000 });
+      return;
+    }
+    const inDiet = new Set<number>();
+    this.days.controls.forEach((_d, di) => this.getMeals(di).controls.forEach((_m, mi) =>
+      this.getItems(di, mi).controls.forEach(c => { const id = c.get('foodId')?.value; if (id) inDiet.add(id); })));
+
+    this.foodService.getSameGroupSubstitutions(foodId, this.clientId).subscribe({
+      next: candidates => {
+        const pick = (candidates || []).find(c => !inDiet.has(c.id) && (c.kcal ?? 0) > 0)
+          ?? (candidates || []).find(c => !inDiet.has(c.id));
+        if (!pick) {
+          item.get('unwanted')?.setValue(false);
+          this.snackBar.open('No hay otro alimento del mismo grupo disponible.', 'Cerrar', { duration: 3000 });
+          return;
+        }
+        const oldKcal = item.get('kcal')?.value || 0;
+        const oldGrams = item.get('grams')?.value || 100;
+        const grams = (pick.kcal ?? 0) > 0 && oldKcal > 0 ? Math.max(1, Math.round(oldKcal / pick.kcal * 100)) : oldGrams;
+        item.patchValue({
+          foodId: pick.id,
+          foodName: pick.brands ? `${pick.name} (${pick.brands})` : pick.name,
+          grams,
+          baseKcal: pick.kcal ?? 0,
+          baseProtein: pick.protein ?? 0,
+          baseCarbs: pick.carbs ?? 0,
+          baseFat: pick.fat ?? 0,
+          unwanted: false
+        });
+        this.recalcItem(item);
+        this.snackBar.open(`Sustituido por ${pick.name}`, 'Cerrar', { duration: 2500 });
+      },
+      error: () => {
+        item.get('unwanted')?.setValue(false);
+        this.snackBar.open('No se pudo buscar un sustituto.', 'Cerrar', { duration: 3000 });
+      }
+    });
+  }
+
+  /** Si el profesional fija gramos de proteína/HC/grasa, el objetivo de kcal se recalcula (4/4/9 kcal por gramo). */
+  onMacroTargetInput(): void {
+    const v = (name: string) => {
+      const n = Number(this.form.get(name)?.value);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    };
+    const p = v('targetProtein'), c = v('targetCarbs'), f = v('targetFat');
+    if (p + c + f <= 0) return;
+    this.form.get('targetKcal')?.setValue(Math.round(p * 4 + c * 4 + f * 9));
   }
 
   recalcItem(itemCtrl: AbstractControl): void {
