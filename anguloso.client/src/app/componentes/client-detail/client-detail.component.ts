@@ -1529,9 +1529,9 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
         this.newPasscode = '';
         this.snack.open('PIN de acceso actualizado correctamente', 'Cerrar', { duration: 3000 });
       },
-      error: () => {
+      error: (err) => {
         this.settingPasscode = false;
-        this.snack.open('Error al guardar el PIN', 'Cerrar', { duration: 3000 });
+        this.snack.open(typeof err?.error === 'string' && err.error ? err.error : 'Error al guardar el PIN', 'Cerrar', { duration: 5000 });
       }
     });
   }

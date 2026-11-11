@@ -870,6 +870,7 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             UpgradeSaaSSchemaV7(context, logger);
             UpgradeSaaSSchemaV8(context, logger);
             UpgradeSaaSSchemaV9(context, logger);
+            UpgradeAccountSecuritySchemaV1(context, logger);
             UpgradeMessagingSchemaV2(context, logger);
             UpgradeAutomationSchemaV1(context, logger);
             UpgradeAutomationSchemaV2(context, logger);
@@ -1859,6 +1860,32 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
 
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v9-security-tokens') ON CONFLICT (id) DO NOTHING;");
         logger.LogInformation("Migración SaaS saas-v9-security-tokens aplicada correctamente.");
+    }
+
+    /// <summary>Bloqueo progresivo de cuentas (profesionales y PIN de pacientes) y segundo factor TOTP con códigos de recuperación.</summary>
+    public static void UpgradeAccountSecuritySchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_count INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret_encrypted TEXT;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled_at TIMESTAMPTZ;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_last_step BIGINT;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_failed_attempts INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_locked_until TIMESTAMPTZ;
+
+            CREATE TABLE IF NOT EXISTS user_two_factor_recovery_codes (
+                id BIGSERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                code_hash VARCHAR(64) NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                used_at TIMESTAMPTZ,
+                CONSTRAINT uq_user_two_factor_recovery_codes UNIQUE (user_id, code_hash)
+            );
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('account-security-v1-lockout-2fa') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de seguridad de cuentas (bloqueo progresivo y 2FA) aplicada correctamente.");
     }
 
     /// <summary>Separa las conversaciones por etapa de asignación para evitar que un nuevo nutricionista herede el historial privado anterior.</summary>
@@ -3652,7 +3679,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'legal_eipd_decisions','professional_followup_settings','professional_consultations',
                     'patient_checkins','specializations','tenant_specializations','client_specializations',
                     'client_specialization_profiles','specialization_rules','video_usage_reservations',
-                    'schema_migrations','api_idempotency_records','integration_outbox','system_alerts','public_directory_reviews','patient_nutritionist_change_requests','patient_nutritionist_transfer_workflows','training_mesocycles','training_microcycles',
+                    'schema_migrations','user_two_factor_recovery_codes','api_idempotency_records','integration_outbox','system_alerts','public_directory_reviews','patient_nutritionist_change_requests','patient_nutritionist_transfer_workflows','training_mesocycles','training_microcycles',
                     'directory_verification_evidence','support_tickets','support_messages',
                     'support_notifications','support_ticket_audit','billing_checkout_attempts',
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',

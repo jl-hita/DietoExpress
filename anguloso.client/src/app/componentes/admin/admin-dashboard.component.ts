@@ -233,6 +233,10 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
                   <mat-icon>lock_reset</mat-icon>
                 </button>
 
+                <button *ngIf="u.twoFactorEnabled && u.role !== 'superadmin'" mat-icon-button color="warn" matTooltip="Desactivar verificación en dos pasos" (click)="resetTwoFactor(u)">
+                  <mat-icon>phonelink_erase</mat-icon>
+                </button>
+
                 <button *ngIf="!u.archivedAt && (u.role === 'nutritionist')" mat-icon-button color="warn" matTooltip="Archivar Cuenta" (click)="deleteUser(u)">
                   <mat-icon>delete_forever</mat-icon>
                 </button>
@@ -1148,6 +1152,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           error: () => this.snackBar.open('Error al restablecer contraseña.', 'Cerrar', { duration: 4000 })
         });
       }
+    });
+  }
+
+  // Soporte para profesionales que han perdido el móvil y los códigos de recuperación; revoca sus sesiones y queda auditado.
+  resetTwoFactor(user: AdminUser): void {
+    if (!confirm(`¿Desactivar la verificación en dos pasos de ${user.username}? Verifica antes su identidad por un canal independiente. Se cerrarán sus sesiones.`)) return;
+
+    this.adminService.resetUserTwoFactor(user.id).subscribe({
+      next: () => {
+        this.snackBar.open('Verificación en dos pasos desactivada.', 'OK', { duration: 3000 });
+        this.loadData();
+      },
+      error: () => this.snackBar.open('No se pudo desactivar la verificación en dos pasos.', 'Cerrar', { duration: 4000 })
     });
   }
 

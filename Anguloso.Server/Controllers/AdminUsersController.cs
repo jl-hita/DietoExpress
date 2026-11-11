@@ -455,6 +455,7 @@ public class AdminUsersController : ControllerBase
             .Select(u => new AdminUserDto
             {
                 Id = u.id,
+                TwoFactorEnabled = u.totp_enabled,
                 Username = u.username,
                 FullName = u.full_name,
                 Email = u.email,
@@ -889,6 +890,24 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
+    /// Desactiva el 2FA de un profesional que ha perdido el móvil y sus códigos de recuperación. Revoca sus sesiones y queda auditado.
+    /// </summary>
+    [HttpPut("users/{id}/reset-2fa")]
+    public async Task<IActionResult> ResetUserTwoFactor(int id, [FromServices] AccountSecurityService accountSecurity)
+    {
+        var user = await _context.users.AsNoTracking().FirstOrDefaultAsync(u => u.id == id);
+        if (user == null || user.role == "superadmin")
+            return NotFound("Usuario no encontrado.");
+        if (!user.totp_enabled)
+            return Conflict("El usuario no tiene la verificación en dos pasos activada.");
+
+        await accountSecurity.DisableTwoFactorAsync(user.id, revokeSessions: true);
+        await accountSecurity.ResetFailuresAsync(user.id);
+        await _audit.LogAccessAsync("RESET_USER_2FA", "users", user.id.ToString(), null, $"Verificación en dos pasos desactivada por SuperAdmin para {user.username}");
+        return Ok(new { message = "Verificación en dos pasos desactivada. El usuario deberá iniciar sesión de nuevo." });
+    }
+
+    /// <summary>
     /// Resetea la contraseña de un usuario directamente desde el panel de administración.
     /// </summary>
     [HttpPut("users/{id}/reset-password")]
@@ -905,6 +924,8 @@ public class AdminUsersController : ControllerBase
 
         user.password_hash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         user.token_version++;
+        user.failed_login_count = 0;
+        user.locked_until = null;
         await _context.SaveChangesAsync();
         await _audit.LogAccessAsync("RESET_USER_PASSWORD", "users", user.id.ToString(), null, $"Contraseña restablecida por SuperAdmin para {user.username}");
 
@@ -1014,6 +1035,7 @@ public class AdminUsersPageDto
 public class AdminUserDto
 {
     public int Id { get; set; }
+    public bool TwoFactorEnabled { get; set; }
     public string Username { get; set; } = string.Empty;
     public string? FullName { get; set; }
     public string? Email { get; set; }

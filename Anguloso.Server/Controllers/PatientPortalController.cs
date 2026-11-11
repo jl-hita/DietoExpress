@@ -49,8 +49,10 @@ public class PatientPortalController : ControllerBase
     private readonly AutomationService _automationService;
     private readonly PatientPortalAccessService _portalAccessService;
     private readonly DietPdfService _dietPdfService;
+    private readonly AccountSecurityService _accountSecurity;
+    private const string GenericCredentialsFailure = "Los datos de acceso no son válidos o el acceso con PIN está bloqueado temporalmente. Puedes solicitar un enlace de acceso por email.";
 
-    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService, EmailServ emailServ, AutomationService automationService, PatientPortalAccessService portalAccessService, DietPdfService dietPdfService)
+    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService, EmailServ emailServ, AutomationService automationService, PatientPortalAccessService portalAccessService, DietPdfService dietPdfService, AccountSecurityService accountSecurity)
     {
         _context = context;
         _config = config;
@@ -59,6 +61,7 @@ public class PatientPortalController : ControllerBase
         _automationService = automationService;
         _portalAccessService = portalAccessService;
         _dietPdfService = dietPdfService;
+        _accountSecurity = accountSecurity;
     }
 
     /// <summary>
@@ -87,10 +90,21 @@ public class PatientPortalController : ControllerBase
                     ((c.email != null && c.email.ToLower() == clean) || (c.phone != null && c.phone == clean)))
                 .Take(2)
                 .ToListAsync();
-            if (candidates.Count != 1) return Unauthorized("Los datos de acceso no son válidos.");
-            client = candidates[0];
-            if (string.IsNullOrWhiteSpace(client.passcode_hash) || !BCrypt.Net.BCrypt.Verify(request.Passcode, client.passcode_hash))
-                return Unauthorized("Los datos de acceso no son válidos.");
+            // Siempre se ejecuta una verificación BCrypt (real o ficticia) para que el tiempo de respuesta no revele
+            // si el email existe, si es ambiguo o si el paciente aún no tiene PIN.
+            var candidate = candidates.Count == 1 ? candidates[0] : null;
+            var storedHash = string.IsNullOrWhiteSpace(candidate?.passcode_hash) ? AccountSecurityService.DummyPasswordHash : candidate.passcode_hash;
+            var pinMatches = BCrypt.Net.BCrypt.Verify(request.Passcode, storedHash) && candidate != null && !string.IsNullOrWhiteSpace(candidate.passcode_hash);
+            if (candidate == null) return Unauthorized(GenericCredentialsFailure);
+            client = candidate;
+
+            // Un acceso bloqueado rechaza incluso el PIN correcto y no cuenta el intento; el mensaje es idéntico al de un PIN erróneo.
+            if (AccountSecurityService.IsPortalLocked(client, DateTime.UtcNow)) return Unauthorized(GenericCredentialsFailure);
+            if (!pinMatches)
+            {
+                await _accountSecurity.RegisterPortalFailureAsync(client.id);
+                return Unauthorized(GenericCredentialsFailure);
+            }
         }
         else return BadRequest("Debes proporcionar un enlace de acceso o tus credenciales.");
 
@@ -106,6 +120,9 @@ public class PatientPortalController : ControllerBase
         // el hash permanece en la base de datos para que el paciente pueda volver a entrar desde el mismo email.
 
         client.last_portal_access = DateTime.UtcNow;
+        // Un acceso correcto (PIN o enlace recibido por email) limpia el contador de fallos.
+        client.portal_failed_attempts = 0;
+        client.portal_locked_until = null;
         await _context.SaveChangesAsync();
         var jwt = GeneratePatientJwt(client, sessionExpiresAtUtc);
         SetPatientSessionCookie(jwt, sessionExpiresAtUtc);
@@ -731,10 +748,13 @@ public class PatientPortalController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
         if (string.IsNullOrWhiteSpace(dto.Passcode) || !System.Text.RegularExpressions.Regex.IsMatch(dto.Passcode, @"^\d{6}$")) return BadRequest("El PIN debe tener exactamente 6 dígitos.");
+        if (PortalPinPolicy.IsWeak(dto.Passcode)) return BadRequest("Ese PIN es demasiado fácil de adivinar (repeticiones, secuencias o patrones). Elige otro.");
         var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value && c.user_id == userId.Value);
         if (client == null) return NotFound("Cliente no encontrado.");
         client.passcode_hash = BCrypt.Net.BCrypt.HashPassword(dto.Passcode);
         client.portal_token_version++;
+        client.portal_failed_attempts = 0;
+        client.portal_locked_until = null;
         await _context.SaveChangesAsync();
         return Ok(new { message = "Código de acceso asignado con éxito." });
     }

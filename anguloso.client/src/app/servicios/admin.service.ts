@@ -41,6 +41,7 @@ export interface AdminUsersPage {
 
 export interface AdminUser {
   id: number;
+  twoFactorEnabled?: boolean;
   username: string;
   fullName?: string;
   email?: string;
@@ -306,6 +307,10 @@ export class AdminService {
 
   resetUserPassword(id: number, newPassword: string): Observable<{ message: string }> {
     return this.http.put<{ message: string }>(`${this.adminUrl}/users/${id}/reset-password`, { newPassword });
+  }
+
+  resetUserTwoFactor(id: number): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.adminUrl}/users/${id}/reset-2fa`, {});
   }
 
   getDirectoryVerification(status?: string): Observable<DirectoryVerificationItem[]> {

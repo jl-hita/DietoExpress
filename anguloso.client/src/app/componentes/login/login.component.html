@@ -10,7 +10,7 @@
       <p>Accede a tu espacio profesional de DietoExpress.</p>
     </div>
 
-    <form [formGroup]="form" (ngSubmit)="login()" class="login-form">
+    <form [formGroup]="form" (ngSubmit)="login()" class="login-form" *ngIf="!challengeToken">
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Email o usuario</mat-label>
         <mat-icon matPrefix>person_outline</mat-icon>
@@ -41,7 +41,22 @@
       </p>
     </form>
 
-    <div class="register-prompt">
+    <form (ngSubmit)="verifyTwoFactor()" class="login-form" *ngIf="challengeToken">
+      <p class="two-factor-hint">
+        Introduce el código de 6 dígitos de tu app autenticadora. Si has perdido el móvil, usa uno de tus códigos de recuperación (formato XXXXX-XXXXX).
+      </p>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Código de verificación</mat-label>
+        <mat-icon matPrefix>verified_user</mat-icon>
+        <input matInput name="twoFactorCode" [(ngModel)]="twoFactorCode" autocomplete="one-time-code" inputmode="text" maxlength="16" required autofocus />
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="loading || !twoFactorCode.trim()">
+        {{ loading ? 'Verificando...' : 'Verificar y entrar' }}
+      </button>
+      <p class="forgot"><a href="#" (click)="cancelTwoFactor(); $event.preventDefault()">← Volver a iniciar sesión</a></p>
+    </form>
+
+    <div class="register-prompt" *ngIf="!challengeToken">
       <span>¿Todavía no tienes cuenta?</span>
       <button mat-button color="primary" (click)="navegarCrearUser()">Crear cuenta gratis</button>
     </div>

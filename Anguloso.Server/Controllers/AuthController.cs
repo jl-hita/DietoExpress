@@ -42,9 +42,12 @@ public class AuthController : ControllerBase
     private readonly LogServ _logServ;
     private readonly IAuditLogService _audit;
     private readonly PatientDocumentTemplateSeeder _patientDocumentTemplateSeeder;
+    private readonly AccountSecurityService _accountSecurity;
+    private readonly TwoFactorCrypto _twoFactorCrypto;
+    private const string GenericLoginFailure = "Credenciales inválidas o cuenta bloqueada temporalmente por demasiados intentos. Inténtalo de nuevo más tarde.";
 
     //public AuthController(angulosodbContext context, IConfiguration config, IEmailService emailService, ConfigServ configServ)
-    public AuthController(angulosodbContext context, IConfiguration config, EmailServ emailServ, ConfigServ configServ, LogServ logServ, IAuditLogService audit, PatientDocumentTemplateSeeder patientDocumentTemplateSeeder)
+    public AuthController(angulosodbContext context, IConfiguration config, EmailServ emailServ, ConfigServ configServ, LogServ logServ, IAuditLogService audit, PatientDocumentTemplateSeeder patientDocumentTemplateSeeder, AccountSecurityService accountSecurity, TwoFactorCrypto twoFactorCrypto)
     {
         _context = context;
         _config = config;
@@ -54,6 +57,8 @@ public class AuthController : ControllerBase
         _logServ = logServ;
         _audit = audit;
         _patientDocumentTemplateSeeder = patientDocumentTemplateSeeder;
+        _accountSecurity = accountSecurity;
+        _twoFactorCrypto = twoFactorCrypto;
     }
 
     /// <summary>
@@ -73,7 +78,8 @@ public class AuthController : ControllerBase
     /// <response code="400">Datos incorrectos.</response>
     /// <response code="401">Usuario o contraseña inválidos.</response>
     [HttpPost("login")]
-    // Valida credenciales y estado de la cuenta antes de emitir la sesión JWT.
+    // Valida credenciales y estado de la cuenta antes de emitir la sesión JWT. Si la cuenta tiene 2FA activo, solo devuelve un
+    // desafío firmado y la sesión se emite en POST login/2fa tras comprobar el segundo factor.
     public async Task<IActionResult> Login([FromBody] LoginRequest login)
     {
         try
@@ -91,80 +97,142 @@ public class AuthController : ControllerBase
                 u.email == identifier ||
                 u.email.ToLower() == identifier.ToLower());
 
+            // Se ejecuta siempre una verificación BCrypt (real o ficticia) para que el tiempo de respuesta no revele
+            // si la cuenta existe, si usa Google sin contraseña o si está bloqueada.
+            var storedHash = string.IsNullOrEmpty(user?.password_hash) ? AccountSecurityService.DummyPasswordHash : user.password_hash;
+            var passwordMatches = BCrypt.Net.BCrypt.Verify(login.Password, storedHash) && user != null && !string.IsNullOrEmpty(user.password_hash);
+
             if (user == null)
-                return Unauthorized("Credenciales inválidas.");
+                return Unauthorized(GenericLoginFailure);
 
-            if (!BCrypt.Net.BCrypt.Verify(login.Password, user.password_hash))
-                return Unauthorized("Credenciales inválidas.");
+            // Una cuenta bloqueada rechaza incluso la contraseña correcta y no cuenta el intento; el mensaje es el mismo que en un fallo normal.
+            if (AccountSecurityService.IsLocked(user, DateTime.UtcNow))
+                return Unauthorized(GenericLoginFailure);
 
-            if (user.archived_at.HasValue)
+            if (!passwordMatches)
             {
-                if (user.role != "nutritionist")
-                    return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
-
-                var supportJwt = CrearJwtParaUsuario(user, supportOnly: true);
-                SetProfessionalSessionCookie(supportJwt);
-                return Ok(new
-                {
-                    username = user.username,
-                    email = user.email,
-                    role = user.role,
-                    subscriptionPlan = user.subscription_plan,
-                    subscriptionStatus = user.subscription_status,
-                    archivedSupport = true
-                });
+                await _accountSecurity.RegisterFailureAsync(user.id);
+                return Unauthorized(GenericLoginFailure);
             }
 
-            if (user.email_confirmed == null || user.email_confirmed == false)
-                return Unauthorized("Debes confirmar tu email antes de iniciar sesión.");
+            if (user.totp_enabled)
+                return Ok(new { requiresTwoFactor = true, challengeToken = _twoFactorCrypto.CreateChallenge(user.id, user.token_version, DateTimeOffset.UtcNow) });
 
-            // Actualizar fecha de último login
-            user.last_login = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            return await FinishLoginAsync(user);
+        }
+        catch(Exception e)
+        {
+            _logServ.LogError($"Error en Login: {e.Message}");
+            return BadRequest("Error al iniciar sesión o credenciales inválidas.");
+        }
+    }
 
-            /*
-             *Crear token JWT
-             *Ahora lo hace su propio método - se comparte lógica con login normal y login google
-             *
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]!);
+    /// <summary>
+    /// Segundo paso del inicio de sesión con 2FA: recibe el desafío del primer paso y un código TOTP o de recuperación.
+    /// </summary>
+    [HttpPost("login/2fa")]
+    public async Task<IActionResult> LoginTwoFactor([FromBody] TwoFactorLoginRequest request)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.Code) || request.Code.Length > 32)
+            return BadRequest("Código no válido.");
 
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.id.ToString()),
-                new Claim(ClaimTypes.Name, user.username),
-                new Claim(ClaimTypes.Role, user.role ?? "nutritionist")
-            };
+        if (!_twoFactorCrypto.TryReadChallenge(request.ChallengeToken, DateTimeOffset.UtcNow, out var userId, out var tokenVersion))
+            return Unauthorized("La verificación ha caducado. Inicia sesión de nuevo.");
 
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddHours(3),
-                SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(key),
-                    SecurityAlgorithms.HmacSha256Signature)
-            };
+        var user = await _context.users.FirstOrDefaultAsync(u => u.id == userId);
+        if (user == null || user.token_version != tokenVersion || !user.totp_enabled)
+            return Unauthorized("La verificación ha caducado. Inicia sesión de nuevo.");
 
-            var tokenNuevo = tokenHandler.CreateToken(tokenDescriptor);
-            var tokenString = tokenHandler.WriteToken(tokenNuevo);
-            */
+        if (AccountSecurityService.IsLocked(user, DateTime.UtcNow))
+            return Unauthorized(GenericLoginFailure);
 
-            var tokenString = CrearJwtParaUsuario(user);
-            SetProfessionalSessionCookie(tokenString);
+        var result = await _accountSecurity.VerifySecondFactorAsync(user, request.Code, HttpContext.RequestAborted);
+        if (result == SecondFactorResult.Invalid)
+        {
+            await _accountSecurity.RegisterFailureAsync(user.id);
+            return Unauthorized("Código no válido. Comprueba la hora de tu móvil o usa un código de recuperación.");
+        }
 
+        if (result == SecondFactorResult.RecoveryCode)
+        {
+            await WriteSecurityAuditAsync(user, "2FA_RECOVERY_CODE_USED", "Inicio de sesión con código de recuperación.");
+            var remaining = await _accountSecurity.CountRemainingRecoveryCodesAsync(user.id);
+            if (!string.IsNullOrWhiteSpace(user.email))
+                await _emailServ.SendEmailAsync(user.email, "Código de recuperación usado en DietoExpress",
+                    $"<p>Hola {System.Net.WebUtility.HtmlEncode(user.username)},</p><p>Se ha usado un código de recuperación para iniciar sesión en tu cuenta. Te quedan {remaining} códigos.</p><p>Si no has sido tú, cambia tu contraseña inmediatamente y contacta con soporte.</p>");
+        }
+
+        return await FinishLoginAsync(user);
+    }
+
+    // Tramo común a todos los inicios de sesión locales: cuenta archivada (solo soporte), email confirmado y emisión de la cookie de sesión.
+    private async Task<IActionResult> FinishLoginAsync(users user)
+    {
+        if (user.archived_at.HasValue)
+        {
+            if (user.role != "nutritionist")
+                return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+
+            await _accountSecurity.ResetFailuresAsync(user.id);
+            var supportJwt = CrearJwtParaUsuario(user, supportOnly: true);
+            SetProfessionalSessionCookie(supportJwt);
             return Ok(new
             {
                 username = user.username,
                 email = user.email,
                 role = user.role,
                 subscriptionPlan = user.subscription_plan,
-                subscriptionStatus = user.subscription_status
+                subscriptionStatus = user.subscription_status,
+                archivedSupport = true
             });
         }
-        catch(Exception e) 
+
+        if (user.email_confirmed == null || user.email_confirmed == false)
+            return Unauthorized("Debes confirmar tu email antes de iniciar sesión.");
+
+        // Actualizar fecha de último login y limpiar el contador de intentos fallidos
+        user.last_login = DateTime.UtcNow;
+        user.failed_login_count = 0;
+        user.locked_until = null;
+        await _context.SaveChangesAsync();
+
+        var tokenString = CrearJwtParaUsuario(user);
+        SetProfessionalSessionCookie(tokenString);
+
+        return Ok(new
         {
-            _logServ.LogError($"Error en Login: {e.Message}");
-            return BadRequest("Error al iniciar sesión o credenciales inválidas.");
+            username = user.username,
+            email = user.email,
+            role = user.role,
+            subscriptionPlan = user.subscription_plan,
+            subscriptionStatus = user.subscription_status
+        });
+    }
+
+    // La auditoría estándar toma la identidad del contexto autenticado; en el login aún no existe, así que se registra el usuario explícitamente.
+    private async Task WriteSecurityAuditAsync(users user, string action, string details)
+    {
+        try
+        {
+            var userAgent = Request.Headers.UserAgent.ToString();
+            _context.audit_logs.Add(new audit_logs
+            {
+                tenant_id = user.tenant_id,
+                user_id = user.id,
+                user_role = user.role,
+                action = action,
+                entity_name = "users",
+                entity_id = user.id.ToString(),
+                ip_address = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                user_agent = userAgent.Length > 290 ? userAgent[..290] : userAgent,
+                details = details,
+                created_at = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logServ.LogError($"Error guardando auditoría de seguridad: {ex.Message}");
         }
     }
 
@@ -468,6 +536,8 @@ public class AuthController : ControllerBase
 
         user.password_hash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword);
         user.token_version++;
+        user.failed_login_count = 0;
+        user.locked_until = null;
         user.reset_password_token = null;
         user.reset_token_expiration = null;
 
@@ -622,6 +692,16 @@ public class AuthController : ControllerBase
         var googleId = payload.Subject;
         var email = payload.Email.Trim().ToLowerInvariant();
         var name = string.IsNullOrWhiteSpace(payload.Name) ? payload.Email : payload.Name;
+
+        // Si la cuenta asociada tiene 2FA, Google no basta: se devuelve el mismo desafío que en el login con contraseña.
+        var twoFactorCandidate = await _context.users.AsNoTracking().FirstOrDefaultAsync(u => u.google_id == googleId)
+            ?? await _context.users.AsNoTracking().FirstOrDefaultAsync(u => u.email.ToLower() == email);
+        if (twoFactorCandidate is { totp_enabled: true })
+        {
+            if (AccountSecurityService.IsLocked(twoFactorCandidate, DateTime.UtcNow))
+                return Unauthorized(GenericLoginFailure);
+            return Ok(new { requiresTwoFactor = true, challengeToken = _twoFactorCrypto.CreateChallenge(twoFactorCandidate.id, twoFactorCandidate.token_version, DateTimeOffset.UtcNow) });
+        }
 
         // Una cuenta ya vinculada por Google puede iniciar sesión sin volver a aceptar
         // las condiciones contractuales. La aceptación solo es requisito para un alta nueva.
@@ -953,6 +1033,12 @@ public class PasswordResetByTokenRequest
 {
     public string? Token { get; set; }
     public string? NewPassword { get; set; }
+}
+
+public class TwoFactorLoginRequest
+{
+    public string? ChallengeToken { get; set; }
+    public string? Code { get; set; }
 }
 
 //DTO para la petición desde fronten

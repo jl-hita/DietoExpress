@@ -40,4 +40,42 @@ describe('LoginComponent', () => {
     it('should create', () => {
         expect(component).toBeTruthy();
     });
+
+    it('asks for the second factor instead of opening a session when the account has 2FA', () => {
+        component.form.setValue({ username: 'ana', password: 'una-contrasena-larga' });
+        component.login();
+
+        httpTesting.expectOne(request => request.url.endsWith('/auth/login')).flush({ requiresTwoFactor: true, challengeToken: 'challenge-1' });
+        fixture.detectChanges();
+
+        expect(component.challengeToken).toBe('challenge-1');
+        expect(fixture.nativeElement.querySelector('input[name="twoFactorCode"]')).toBeTruthy();
+        expect(fixture.nativeElement.querySelector('input[formControlName="password"]')).toBeFalsy();
+    });
+
+    it('sends the challenge and the code to the second step and then leaves the 2FA state', () => {
+        component.form.setValue({ username: 'ana', password: 'una-contrasena-larga' });
+        component.login();
+        httpTesting.expectOne(request => request.url.endsWith('/auth/login')).flush({ requiresTwoFactor: true, challengeToken: 'challenge-1' });
+
+        component.twoFactorCode = '123456';
+        component.verifyTwoFactor();
+        const req = httpTesting.expectOne('/api/auth/login/2fa');
+        expect(req.request.body).toEqual({ challengeToken: 'challenge-1', code: '123456' });
+        req.flush({ username: 'ana', role: 'nutritionist' });
+
+        expect(component.challengeToken).toBeNull();
+    });
+
+    it('returns to the password step when the challenge has expired', () => {
+        component.form.setValue({ username: 'ana', password: 'una-contrasena-larga' });
+        component.login();
+        httpTesting.expectOne(request => request.url.endsWith('/auth/login')).flush({ requiresTwoFactor: true, challengeToken: 'challenge-1' });
+
+        component.twoFactorCode = '123456';
+        component.verifyTwoFactor();
+        httpTesting.expectOne('/api/auth/login/2fa').flush('La verificación ha caducado. Inicia sesión de nuevo.', { status: 401, statusText: 'Unauthorized' });
+
+        expect(component.challengeToken).toBeNull();
+    });
 });
