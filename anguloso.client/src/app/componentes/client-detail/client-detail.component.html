@@ -72,9 +72,17 @@
       <a *ngIf="clientId" mat-stroked-button color="primary" [routerLink]="['/clients', clientId, 'messages']" title="Abrir conversación con el paciente">
         <mat-icon>chat</mat-icon> Mensajes
       </a>
-      <button mat-stroked-button color="primary" type="button" (click)="downloadConsultationPdf()" [disabled]="!clientId" title="Generar informe de consulta de hoy">
-        <mat-icon>description</mat-icon> Informe de consulta
-      </button>
+      <div class="consultation-pdf-period" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <label style="display:grid;gap:3px;font-size:12px">Entrenamientos desde
+          <input type="date" [(ngModel)]="trainingPdfStartDate" [ngModelOptions]="{standalone:true}" aria-label="Fecha inicial de los entrenamientos incluidos en el informe" />
+        </label>
+        <label style="display:grid;gap:3px;font-size:12px">Hasta
+          <input type="date" [(ngModel)]="trainingPdfEndDate" [ngModelOptions]="{standalone:true}" aria-label="Fecha final de los entrenamientos incluidos en el informe" />
+        </label>
+        <button mat-stroked-button color="primary" type="button" (click)="downloadConsultationPdf()" [disabled]="!clientId" title="Generar informe de consulta y planificación de entrenamiento">
+          <mat-icon>description</mat-icon> Informe de consulta
+        </button>
+      </div>
       <ng-container *ngIf="portalAccess as access">
         <a *ngIf="access.magicLink" mat-stroked-button color="accent" [href]="access.magicLink" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 6px;">
           <mat-icon>open_in_new</mat-icon> Abrir Portal del Paciente
