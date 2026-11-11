@@ -12,6 +12,9 @@ import { AuthService, AuthUser } from '../../servicios/auth.service';
 import { environment } from '../../../environments/environments';
 import { LegalDocument, LegalService } from '../../servicios/legal.service';
 import { TwoFactorService, isTwoFactorChallenge } from '../../servicios/two-factor.service';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
+import { LanguageSwitcherComponent } from '../../i18n/language-switcher.component';
 
 declare const google: any;
 
@@ -19,7 +22,7 @@ declare const google: any;
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-login',
     standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule, TranslatePipe, LanguageSwitcherComponent],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
@@ -43,7 +46,8 @@ export class LoginComponent {
     private snackBar: MatSnackBar,
     private ngZone: NgZone,
     private legalService: LegalService,
-    private twoFactorService: TwoFactorService
+    private twoFactorService: TwoFactorService,
+    private i18n: I18nService
   ) {
     this.legalService.getCurrent().subscribe({ next: docs => this.legalTerms = docs.find(d => d.key === 'saas_terms') ?? null, error: () => this.legalTerms = null });
     this.form = this.fb.group({
@@ -56,7 +60,7 @@ export class LoginComponent {
     this.http.get<{ clientId: string }>(`${this.baseUrl}/auth/google-client-id`).subscribe({
       next: (res) => {
         if (!res.clientId) {
-          this.snackBar.open('El acceso con Google no está configurado', 'Cerrar', { duration: 4000 });
+          this.snackBar.open(this.i18n.t('login.googleNotConfigured'), 'Cerrar', { duration: 4000 });
           return;
         }
 
@@ -73,12 +77,12 @@ export class LoginComponent {
           }
         }).catch((err) => {
           console.error('No se pudo cargar Google Identity Services', err);
-          this.snackBar.open('No se pudo cargar el acceso con Google', 'Cerrar', { duration: 4000 });
+          this.snackBar.open(this.i18n.t('login.googleLoadFailed'), 'Cerrar', { duration: 4000 });
         });
       },
       error: (err) => {
         console.error('No se pudo cargar la configuración de Google', err);
-        this.snackBar.open('No se pudo cargar la configuración de Google', 'Cerrar', { duration: 4000 });
+        this.snackBar.open(this.i18n.t('login.googleConfigFailed'), 'Cerrar', { duration: 4000 });
       }
     });
   }
@@ -119,7 +123,7 @@ export class LoginComponent {
   handleCredentialResponse(response: any) {
     const idToken = response?.credential;
     if (!idToken) {
-      this.snackBar.open('Error Google login', 'Cerrar', { duration: 3000 });
+      this.snackBar.open(this.i18n.t('login.googleCredentialError'), 'Cerrar', { duration: 3000 });
       return;
     }
 
@@ -130,9 +134,9 @@ export class LoginComponent {
       error: (err) => {
         console.error(err);
         if (err?.status === 428) {
-          this.snackBar.open('Para crear una cuenta con Google debes aceptar las condiciones de contratación vigentes.', 'Cerrar', { duration: 5000 });
+          this.snackBar.open(this.i18n.t('login.googleTermsRequired'), 'Cerrar', { duration: 5000 });
         } else {
-          this.snackBar.open('Error al autenticar con Google', 'Cerrar', { duration: 4000 });
+          this.snackBar.open(this.i18n.t('login.googleError'), 'Cerrar', { duration: 4000 });
         }
       }
     });
@@ -151,7 +155,7 @@ export class LoginComponent {
       },
       error: (err) => {
         console.error(err);
-        this.snackBar.open(typeof err.error === 'string' && err.error ? err.error : 'Usuario o contraseña incorrectos', 'Cerrar', { duration: 4000 });
+        this.snackBar.open(typeof err.error === 'string' && err.error ? err.error : this.i18n.t('login.badCredentials'), 'Cerrar', { duration: 4000 });
         this.loading = false;
       }
     });
@@ -170,7 +174,7 @@ export class LoginComponent {
       },
       error: (err) => {
         this.loading = false;
-        const message = typeof err.error === 'string' && err.error ? err.error : 'Código no válido.';
+        const message = typeof err.error === 'string' && err.error ? err.error : this.i18n.t('login.invalidCode');
         // Un desafío caducado obliga a repetir el primer paso.
         if (err.status === 401 && message.includes('caducado')) this.cancelTwoFactor();
         this.snackBar.open(message, 'Cerrar', { duration: 5000 });
@@ -204,11 +208,11 @@ export class LoginComponent {
     this.twoFactorCode = '';
     this.authService.login(res); // la sesión se mantiene en la cookie HttpOnly
     if (res.archivedSupport) {
-      this.snackBar.open('Cuenta archivada. Puedes comunicarte con tu clínica desde soporte.', 'Cerrar', { duration: 5000 });
+      this.snackBar.open(this.i18n.t('login.archivedAccount'), 'Cerrar', { duration: 5000 });
       this.router.navigate(['/archived-support']);
       return;
     }
-    this.snackBar.open('Bienvenido ' + res.username, 'Cerrar', { duration: 3000 });
+    this.snackBar.open(this.i18n.t('login.welcome', { name: res.username }), 'Cerrar', { duration: 3000 });
     this.router.navigate(this.getPostLoginRoute(res.role)); // cada rol entra en su dashboard
   }
 

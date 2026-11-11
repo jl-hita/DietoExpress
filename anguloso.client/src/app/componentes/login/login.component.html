@@ -1,66 +1,68 @@
 <div class="auth-shell">
+  <div class="auth-language"><app-language-switcher></app-language-switcher></div>
+
   <div class="auth-brand" (click)="volverInicio()" aria-label="DietoExpress">
-    <img class="brand-logo" src="/dietoexpress-logo-light.svg" alt="DietoExpress · Tu suite profesional de nutrición" />
+    <img class="brand-logo" src="/dietoexpress-logo-light.svg" [alt]="'login.logoAlt' | t" />
   </div>
 
   <div class="auth-card">
     <div class="auth-heading">
-      <span class="eyebrow">BIENVENIDO DE NUEVO</span>
-      <h1>Inicia sesión</h1>
-      <p>Accede a tu espacio profesional de DietoExpress.</p>
+      <span class="eyebrow">{{ 'login.eyebrow' | t }}</span>
+      <h1>{{ 'login.title' | t }}</h1>
+      <p>{{ 'login.subtitle' | t }}</p>
     </div>
 
     <form [formGroup]="form" (ngSubmit)="login()" class="login-form" *ngIf="!challengeToken">
       <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Email o usuario</mat-label>
+        <mat-label>{{ 'login.userLabel' | t }}</mat-label>
         <mat-icon matPrefix>person_outline</mat-icon>
         <input matInput formControlName="username" autocomplete="username" required />
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Contraseña</mat-label>
+        <mat-label>{{ 'login.passwordLabel' | t }}</mat-label>
         <mat-icon matPrefix>lock_outline</mat-icon>
         <input matInput type="password" formControlName="password" autocomplete="current-password" required />
       </mat-form-field>
 
       <button mat-flat-button color="primary" type="submit" [disabled]="loading">
-        {{ loading ? 'Entrando...' : 'Iniciar sesión' }}
+        {{ (loading ? 'login.submitting' : 'login.submit') | t }}
       </button>
 
-      <div class="divider"><span>o continúa con</span></div>
+      <div class="divider"><span>{{ 'login.orContinueWith' | t }}</span></div>
       <div class="google-legal" *ngIf="legalTerms">
         <label>
           <input type="checkbox" [(ngModel)]="googleTermsAccepted" [ngModelOptions]="{standalone: true}">
-          <span>Acepto las <a routerLink="/legal" target="_blank">condiciones de contratación</a> vigentes para crear una cuenta con Google.</span>
+          <span>{{ 'login.googleTermsPrefix' | t }} <a routerLink="/legal" target="_blank">{{ 'login.googleTermsLink' | t }}</a> {{ 'login.googleTermsSuffix' | t }}</span>
         </label>
       </div>
       <div class="boton-centrado"><div id="googleBtn"></div></div>
 
       <p class="forgot">
-        <a href="#" (click)="navegarPwdReset(); $event.preventDefault()">¿Has olvidado tu contraseña?</a>
+        <a href="#" (click)="navegarPwdReset(); $event.preventDefault()">{{ 'login.forgotPassword' | t }}</a>
       </p>
     </form>
 
     <form (ngSubmit)="verifyTwoFactor()" class="login-form" *ngIf="challengeToken">
       <p class="two-factor-hint">
-        Introduce el código de 6 dígitos de tu app autenticadora. Si has perdido el móvil, usa uno de tus códigos de recuperación (formato XXXXX-XXXXX).
+        {{ 'login.twoFactorHint' | t }}
       </p>
       <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Código de verificación</mat-label>
+        <mat-label>{{ 'login.twoFactorLabel' | t }}</mat-label>
         <mat-icon matPrefix>verified_user</mat-icon>
         <input matInput name="twoFactorCode" [(ngModel)]="twoFactorCode" autocomplete="one-time-code" inputmode="text" maxlength="16" required autofocus />
       </mat-form-field>
       <button mat-flat-button color="primary" type="submit" [disabled]="loading || !twoFactorCode.trim()">
-        {{ loading ? 'Verificando...' : 'Verificar y entrar' }}
+        {{ (loading ? 'login.twoFactorSubmitting' : 'login.twoFactorSubmit') | t }}
       </button>
-      <p class="forgot"><a href="#" (click)="cancelTwoFactor(); $event.preventDefault()">← Volver a iniciar sesión</a></p>
+      <p class="forgot"><a href="#" (click)="cancelTwoFactor(); $event.preventDefault()">{{ 'login.twoFactorBack' | t }}</a></p>
     </form>
 
     <div class="register-prompt" *ngIf="!challengeToken">
-      <span>¿Todavía no tienes cuenta?</span>
-      <button mat-button color="primary" (click)="navegarCrearUser()">Crear cuenta gratis</button>
+      <span>{{ 'login.noAccount' | t }}</span>
+      <button mat-button color="primary" (click)="navegarCrearUser()">{{ 'login.createAccount' | t }}</button>
     </div>
   </div>
 
-  <p class="back-link"><a routerLink="/">← Volver a DietoExpress</a></p>
+  <p class="back-link"><a routerLink="/">{{ 'login.backToHome' | t }}</a></p>
 </div>

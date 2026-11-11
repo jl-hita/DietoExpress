@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TranslatePipe } from '../../../i18n/translate.pipe';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -8,7 +9,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-access-link-recovery',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule, FormsModule, MatIconModule, MatProgressSpinnerModule, TranslatePipe],
   templateUrl: './access-link-recovery.component.html',
   styleUrls: ['./access-link-recovery.component.css']
 })

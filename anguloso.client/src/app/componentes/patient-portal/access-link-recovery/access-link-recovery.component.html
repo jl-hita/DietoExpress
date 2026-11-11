@@ -2,8 +2,8 @@
   <div class="access-link-recovery-title">
     <mat-icon>mail</mat-icon>
     <div>
-      <strong>¿Ha caducado tu enlace?</strong>
-      <span>Te enviaremos uno nuevo a tu email.</span>
+      <strong>{{ 'patient.accessLink.expiredTitle' | t }}</strong>
+      <span>{{ 'patient.accessLink.expiredText' | t }}</span>
     </div>
   </div>
 
@@ -22,13 +22,13 @@
       [(ngModel)]="email"
       name="accessLinkEmail"
       autocomplete="email"
-      placeholder="tu@email.com"
+      [placeholder]="'patient.accessLink.emailPlaceholder' | t"
       maxlength="320"
       required />
     <button type="submit" class="btn-portal-secondary" [disabled]="loading">
       <mat-spinner *ngIf="loading" diameter="18"></mat-spinner>
-      <span *ngIf="!loading">Enviar enlace</span>
-      <span *ngIf="loading">Enviando...</span>
+      <span *ngIf="!loading">{{ 'patient.accessLink.send' | t }}</span>
+      <span *ngIf="loading">{{ 'patient.accessLink.sending' | t }}</span>
     </button>
   </form>
 </div>

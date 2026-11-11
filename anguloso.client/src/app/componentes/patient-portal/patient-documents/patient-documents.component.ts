@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
+import { TranslatePipe } from '../../../i18n/translate.pipe';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PatientDocument } from '../../../servicios/patient-portal.service';
@@ -8,7 +9,7 @@ import { PatientDocument } from '../../../servicios/patient-portal.service';
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-patient-documents',
   standalone: true,
-  imports: [CommonModule, DatePipe, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule, DatePipe, MatIconModule, MatProgressSpinnerModule, TranslatePipe],
   templateUrl: './patient-documents.component.html',
   styleUrls: ['./patient-documents.component.css']
 })
