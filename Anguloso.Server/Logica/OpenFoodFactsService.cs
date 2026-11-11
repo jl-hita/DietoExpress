@@ -112,8 +112,10 @@ public class OpenFoodFactsService
 
             // Búsqueda sin tildes y con comodines escapados; usa el índice trigram idx_foods_name_unaccent_trgm.
             var likePattern = Anguloso.Server.Logica.Utils.SqlSearch.Contains(term);
+            // También se busca por marca (p. ej. "hacendado", "danone").
             localQuery = localQuery
-                .Where(f => EF.Functions.ILike(SqlFunctions.ImmutableUnaccent(f.name), SqlFunctions.ImmutableUnaccent(likePattern)));
+                .Where(f => EF.Functions.ILike(SqlFunctions.ImmutableUnaccent(f.name), SqlFunctions.ImmutableUnaccent(likePattern))
+                    || (f.brands != null && EF.Functions.ILike(SqlFunctions.ImmutableUnaccent(f.brands), SqlFunctions.ImmutableUnaccent(likePattern))));
 
             // El ranking se calcula en SQL antes del límite de 50, para que los alimentos
             // más utilizados no queden fuera por un orden alfabético previo.

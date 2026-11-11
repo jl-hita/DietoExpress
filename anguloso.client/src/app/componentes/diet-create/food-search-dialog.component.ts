@@ -18,8 +18,8 @@ import { FoodProduct } from '../../modelos/food-product';
     <h2 mat-dialog-title>Añadir alimento</h2>
     <mat-dialog-content>
       <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Buscar alimento...</mat-label>
-        <input matInput [formControl]="searchCtrl" placeholder="Pollo, arroz...">
+        <mat-label>Buscar alimento o marca...</mat-label>
+        <input matInput [formControl]="searchCtrl" placeholder="Pollo, arroz, Hacendado...">
       </mat-form-field>
       <p class="food-count" *ngIf="foodCount !== null" role="status">
         {{ foodCount | number }} alimentos disponibles en la base de datos
@@ -34,7 +34,7 @@ import { FoodProduct } from '../../modelos/food-product';
 
       <mat-list *ngIf="results.length > 0 && !selectedFood">
         <mat-list-item *ngFor="let f of results" (click)="selectFood(f)" class="food-item">
-          <span matListItemTitle>{{ f.name }}</span>
+          <span matListItemTitle>{{ f.name }}<span *ngIf="f.brands" class="food-brand"> · {{ f.brands }}</span></span>
           <span matListItemLine>{{ f.kcal || 0 }} kcal | P: {{ f.protein || 0 }}g | HC: {{ f.carbs || 0 }}g | G: {{ f.fat || 0 }}g</span>
         </mat-list-item>
       </mat-list>
@@ -60,6 +60,7 @@ import { FoodProduct } from '../../modelos/food-product';
     .food-count { margin: -4px 0 12px; color: #64748b; font-size: 12px; }
     .food-count-error { margin: -4px 0 12px; color: #b45309; font-size: 12px; }
     .loading-box { display: flex; justify-content: center; margin: 10px 0; }
+    .food-brand { color: #64748b; font-size: 12px; }
     .food-item { cursor: pointer; border-bottom: 1px solid #eee; }
     .food-item:hover { background: #f9f9f9; }
     .selected-food-box { padding: 15px; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px; background: #fdfdfd; }
