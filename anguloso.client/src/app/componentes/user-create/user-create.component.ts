@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../servicios/auth.service';
+import { PublicPlansService } from '../../servicios/public-plans.service';
 import { environment } from '../../../environments/environments';
 import { LegalDocument, LegalService } from '../../servicios/legal.service';
 
@@ -48,6 +49,8 @@ export class UserCreateComponent implements AfterViewInit {
   termsAccepted = false;
   legalLoading = true;
   googleTermsAccepted = false;
+  // Días de prueba reales del plan (los define SuperAdmin); si no se pueden leer se omite la cifra en lugar de inventarla.
+  trialDays: number | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -57,8 +60,13 @@ export class UserCreateComponent implements AfterViewInit {
     private router: Router,
     private legalService: LegalService,
     private ngZone: NgZone,
+    private publicPlans: PublicPlansService,
   ) {
     this.loadLegalDocuments();
+    this.publicPlans.getPlans().subscribe({
+      next: res => { this.trialDays = res.plans.find(plan => !!plan.trialDays)?.trialDays ?? null; },
+      error: () => { this.trialDays = null; }
+    });
     this.form = this.fb.group({
       username: ['', [Validators.required]],
       fullName: [''],
