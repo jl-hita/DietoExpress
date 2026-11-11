@@ -53,12 +53,33 @@ import {
       <p *ngIf="loading" role="status">{{ clientId > 0 ? 'Cargando planificación…' : 'Cargando invitaciones…' }}</p>
       <p *ngIf="error" class="error" role="alert">{{ error }}</p>
       <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
-      <section *ngIf="clientId === 0 && !loading" class="panel" aria-label="Herramientas de diagnóstico">
+      <section class="panel" *ngIf="clientId === 0 && diagnosticAccess" aria-label="Inventario de entrenamientos">
         <div class="section-heading">
-          <div><h2>Diagnóstico de planificación</h2><p>Exporta la única planificación de pruebas completa para una revisión técnica. Solo disponible para superadministradores.</p></div>
-          <button type="button" (click)="exportUniqueTestPlan()" [disabled]="exportingTestPlan">
-            {{ exportingTestPlan ? 'Generando PDF…' : 'Descargar planificación completa (PDF)' }}
+          <div><h2>Todos los entrenamientos</h2><p>Inventario global de planes. Puedes abrir cada planificación, descargar su diagnóstico o eliminarla.</p></div>
+          <button type="button" class="secondary" (click)="loadDiagnosticPlans()" [disabled]="diagnosticPlansLoading">
+            {{ diagnosticPlansLoading ? 'Actualizando…' : 'Actualizar lista' }}
           </button>
+        </div>
+        <p *ngIf="diagnosticPlansLoading" role="status">Cargando todos los entrenamientos…</p>
+        <p *ngIf="!diagnosticPlansLoading && !diagnosticPlans.length" class="muted">No hay planificaciones registradas.</p>
+        <div *ngIf="diagnosticPlans.length" class="diagnostic-plan-list">
+          <article *ngFor="let plan of diagnosticPlans" class="template-row diagnostic-plan-row">
+            <div class="adaptation-proposal-content">
+              <strong>{{ plan.name }} <span class="session-count">#{{ plan.id }}</span></strong>
+              <p>{{ plan.clientName }} · Cliente #{{ plan.clientId }} · {{ plan.startDate | date:'dd/MM/yyyy' }} — {{ plan.endDate ? (plan.endDate | date:'dd/MM/yyyy') : 'Sin fecha final' }}</p>
+              <p>{{ plan.status }} · {{ plan.mesocycleCount }} mesociclos · {{ plan.sessionCount }} sesiones · {{ plan.recordCount }} registros</p>
+              <small *ngIf="!plan.profileEnabled || plan.clientArchived" class="muted">Perfil desactivado o cliente archivado</small>
+            </div>
+            <div class="cycle-actions">
+              <a [routerLink]="['/clients', plan.clientId, 'training']">Abrir</a>
+              <button type="button" class="secondary" (click)="exportTestPlan(plan)" [disabled]="diagnosticExportingPlanId === plan.id">
+                {{ diagnosticExportingPlanId === plan.id ? 'Generando…' : 'Descargar PDF' }}
+              </button>
+              <button type="button" class="secondary" (click)="deleteDiagnosticPlan(plan)" [disabled]="diagnosticDeletingPlanId === plan.id">
+                {{ diagnosticDeletingPlanId === plan.id ? 'Eliminando…' : 'Eliminar' }}
+              </button>
+            </div>
+          </article>
         </div>
       </section>
       <app-training-review-requests-panel *ngIf="clientId > 0 && profile?.enabled && profile.canManage && !loading"
@@ -988,6 +1009,15 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   quickRoutineExercises = '';
   plans: TrainingPlan[] = [];
   exportingTestPlan = false;
+  diagnosticAccess = false;
+  diagnosticPlansLoading = false;
+  diagnosticPlans: Array<{
+    id: number; name: string; periodizationModel: string; startDate: string; endDate: string | null;
+    status: string; version: number; notes: string | null; clientId: number; clientName: string;
+    profileEnabled: boolean; clientArchived: boolean; mesocycleCount: number; sessionCount: number; recordCount: number;
+  }> = [];
+  diagnosticExportingPlanId: number | null = null;
+  diagnosticDeletingPlanId: number | null = null;
   sessions: Record<number, TrainingSession[]> = {};
   loadTrends: Record<number, TrainingLoadWeek[]> = {};
   sessionViews: Record<number, 'week' | 'list'> = {};
@@ -1101,6 +1131,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const routeId = this.route.snapshot.paramMap.get('id');
     if (routeId === null) {
       this.clientId = 0;
+      this.loadDiagnosticPlans();
       this.http.get<TrainingInvitation[]>('/api/training/collaborations/invitations').pipe(
         timeout({ first: 12000 }),
         catchError(() => {
@@ -2670,25 +2701,44 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     });
   }
 
-  exportUniqueTestPlan(): void {
-    if (this.exportingTestPlan) return;
-    this.exportingTestPlan = true;
+  loadDiagnosticPlans(): void {
+    if (this.diagnosticPlansLoading) return;
+    this.diagnosticPlansLoading = true;
+    this.http.get<typeof this.diagnosticPlans>('/api/training/diagnostics/plans').pipe(
+      timeout({ first: 15000 }),
+      catchError(error => {
+        if (error?.status !== 403) this.error = error?.error?.message || 'No se pudo cargar el inventario global de entrenamientos.';
+        return of(null);
+      })
+    ).subscribe(items => {
+      this.diagnosticPlansLoading = false;
+      if (items === null) { this.changeDetector.detectChanges(); return; }
+      this.diagnosticAccess = true;
+      this.diagnosticPlans = Array.isArray(items)
+        ? items.filter(item => !!item && Number.isInteger(item.id) && Number.isInteger(item.clientId))
+        : [];
+      this.changeDetector.detectChanges();
+    });
+  }
+
+  exportTestPlan(plan: typeof this.diagnosticPlans[number]): void {
+    if (this.diagnosticExportingPlanId !== null) return;
+    this.diagnosticExportingPlanId = plan.id;
     this.error = '';
-    this.notice = '';
-    this.http.get('/api/training/diagnostics/test-plan.pdf', { responseType: 'blob' }).subscribe({
+    this.http.get(`/api/training/diagnostics/plans/${plan.id}/test-plan.pdf`, { responseType: 'blob' }).subscribe({
       next: blob => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'dietoexpress-planificacion-pruebas.pdf';
+        link.download = `dietoexpress-plan-${plan.id}.pdf`;
         link.click();
         URL.revokeObjectURL(url);
-        this.exportingTestPlan = false;
-        this.notice = 'PDF de diagnóstico generado. Adjunta el archivo a la conversación para revisar la planificación.';
+        this.diagnosticExportingPlanId = null;
+        this.notice = `PDF de la planificación #${plan.id} generado correctamente.`;
         this.changeDetector.detectChanges();
       },
       error: async e => {
-        this.exportingTestPlan = false;
+        this.diagnosticExportingPlanId = null;
         let serverMessage = '';
         if (e?.error instanceof Blob) {
           try {
@@ -2697,25 +2747,39 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
               try {
                 const payload = JSON.parse(responseText);
                 serverMessage = payload?.message || payload?.detail || payload?.title || '';
-              } catch {
-                serverMessage = responseText.slice(0, 500);
-              }
+              } catch { serverMessage = responseText.slice(0, 500); }
             }
-          } catch {
-            // Keep the HTTP status visible even if the error body cannot be read.
-          }
+          } catch { /* HTTP status remains available below. */ }
         } else {
           serverMessage = e?.error?.message || e?.error?.detail || e?.error?.title || '';
         }
-        console.error('[TrainingDiagnostics] Test-plan PDF export failed', {
-          status: e?.status,
-          statusText: e?.statusText,
-          message: serverMessage,
-          url: e?.url
+        console.error('[TrainingDiagnostics] Plan PDF export failed', {
+          planId: plan.id, status: e?.status, statusText: e?.statusText, message: serverMessage, url: e?.url
         });
-        this.error = e?.status === 403
-          ? 'Esta exportación está reservada al superadministrador.'
-          : serverMessage || `No se pudo exportar la planificación de pruebas (HTTP ${e?.status || 'desconocido'}).`;
+        this.error = serverMessage || `No se pudo exportar el plan #${plan.id} (HTTP ${e?.status || 'desconocido'}).`;
+        this.changeDetector.detectChanges();
+      }
+    });
+  }
+
+  deleteDiagnosticPlan(plan: typeof this.diagnosticPlans[number]): void {
+    if (this.diagnosticDeletingPlanId !== null) return;
+    const confirmed = confirm(
+      `Vas a eliminar definitivamente la planificación «${plan.name}» (#${plan.id}) de ${plan.clientName}.\\n\\nIncluye ${plan.mesocycleCount} mesociclos, ${plan.sessionCount} sesiones y ${plan.recordCount} registros asociados. Esta acción no se puede deshacer.\\n\\n¿Eliminar esta planificación?`
+    );
+    if (!confirmed) return;
+    this.diagnosticDeletingPlanId = plan.id;
+    this.error = '';
+    this.http.delete(`/api/training/plans/${plan.id}`).subscribe({
+      next: () => {
+        this.diagnosticPlans = this.diagnosticPlans.filter(item => item.id !== plan.id);
+        this.diagnosticDeletingPlanId = null;
+        this.notice = `Planificación #${plan.id} eliminada.`;
+        this.changeDetector.detectChanges();
+      },
+      error: e => {
+        this.diagnosticDeletingPlanId = null;
+        this.error = e?.error?.message || `No se pudo eliminar la planificación #${plan.id} (HTTP ${e?.status || 'desconocido'}).`;
         this.changeDetector.detectChanges();
       }
     });
