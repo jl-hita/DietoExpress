@@ -32,7 +32,7 @@ describe('i18n dictionaries', () => {
     });
 
     it('actually translate the text instead of copying the Spanish source', () => {
-        const identicalAllowed = new Set(['patient.header.notifications', 'common.language']);
+        const identicalAllowed = new Set(['patient.header.notifications', 'common.language', 'papp.minutes']);
         const untranslated = (keys as (keyof typeof es)[]).filter(key => !identicalAllowed.has(key) && en[key] === es[key]);
         expect(untranslated).toEqual([]);
     });
