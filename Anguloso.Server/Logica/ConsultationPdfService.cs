@@ -422,8 +422,42 @@ public class ConsultationPdfService
         });
     }
 
+    private static void ComposeMacrocycleOverview(ColumnDescriptor col, TrainingPlanPdf plan)
+    {
+        if (plan.MacrocyclePhases.Count == 0 || !plan.MacrocycleStart.HasValue) return;
+        col.Item().PaddingTop(4).Background("#e6fffb").Padding(7).Text("ESQUEMA DEL MACROCICLO").Bold().FontSize(11).FontColor("#0f766e");
+        col.Item().Text($"{plan.MacrocycleName} · {plan.MacrocycleModel} · {plan.MacrocycleStart:dd/MM/yyyy} — {(plan.MacrocycleEnd?.ToString("dd/MM/yyyy") ?? "Sin fecha final")}").Bold();
+        col.Item().Row(row =>
+        {
+            foreach (var phase in plan.MacrocyclePhases)
+            {
+                var days = Math.Max(1, phase.End.DayNumber - phase.Start.DayNumber + 1);
+                var active = phase.Start <= plan.PeriodEnd && phase.End >= plan.PeriodStart;
+                row.RelativeItem((float)days).Background(active ? "#0d9488" : "#cbd5e1").Padding(4).Column(segment =>
+                {
+                    segment.Item().Text(phase.Name).Bold().FontSize(7).FontColor(active ? "#ffffff" : "#1f2937");
+                    segment.Item().Text($"{phase.Start:dd/MM}–{phase.End:dd/MM}").FontSize(6).FontColor(active ? "#ffffff" : "#334155");
+                });
+            }
+        });
+        foreach (var phase in plan.MacrocyclePhases)
+            col.Item().Text($"{phase.Sequence}. {phase.Name} ({phase.Type}) · {phase.Start:dd/MM/yyyy}–{phase.End:dd/MM/yyyy}" +
+                (string.IsNullOrWhiteSpace(phase.Objective) ? "" : $" · {phase.Objective}")).FontSize(8);
+        if (!string.IsNullOrWhiteSpace(plan.MacrocycleNotes)) col.Item().Text(plan.MacrocycleNotes).FontSize(8).FontColor("#555555");
+        col.Item().Text("En verde: fases que coinciden con el periodo de este documento.").FontSize(7).FontColor("#0f766e");
+    }
+
     private sealed class TrainingPlanPdf
     {
+        public DateOnly PeriodStart { get; set; }
+        public DateOnly PeriodEnd { get; set; }
+        public bool ShowMacrocycleOverview { get; set; }
+        public string? MacrocycleName { get; set; }
+        public string? MacrocycleModel { get; set; }
+        public DateOnly? MacrocycleStart { get; set; }
+        public DateOnly? MacrocycleEnd { get; set; }
+        public string? MacrocycleNotes { get; set; }
+        public List<TrainingPhasePdf> MacrocyclePhases { get; } = new();
         public int Id { get; init; }
         public string Name { get; init; } = "";
         public string Model { get; init; } = "";
@@ -435,6 +469,7 @@ public class ConsultationPdfService
         public List<TrainingSessionPdf> Sessions { get; } = new();
     }
 
+    private sealed record TrainingPhasePdf(string Name, int Sequence, DateOnly Start, DateOnly End, string? Objective, string Type);
     private sealed record TrainingMesoPdf(string Name, int Sequence, DateOnly Start, DateOnly? End, string? Objective, string? Notes);
     private sealed record TrainingSessionPdf(DateOnly Date, string Title, string Type, int? Duration, string? Intensity, string? Instructions, string? Prescription, string? StructuredPrescription);
 
