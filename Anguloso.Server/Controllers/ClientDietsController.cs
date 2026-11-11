@@ -589,7 +589,8 @@ public class ClientDietsController : ControllerBase
     [HttpGet("consultation-pdf")]
     [EnableRateLimiting("expensive")]
     // El PDF se genera a partir de datos ya filtrados por el acceso autorizado al paciente.
-    public async Task<IActionResult> GetConsultationPdf(int clientId, [FromQuery] DateOnly? date = null)
+    public async Task<IActionResult> GetConsultationPdf(int clientId, [FromQuery] DateOnly? date = null,
+        [FromQuery] DateOnly? startDate = null, [FromQuery] DateOnly? endDate = null)
     {
         if (!User.IsInRole("superadmin") && !await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT"))
             return Forbid();
@@ -600,6 +601,13 @@ public class ClientDietsController : ControllerBase
         if (!await UserOwnsClientAsync(clientId, userId.Value))
             return NotFound("Client not found or does not belong to the user.");
 
+        if (startDate.HasValue != endDate.HasValue)
+            return BadRequest(new { message = "Indica tanto la fecha inicial como la fecha final del periodo de entrenamiento." });
+        var defaultPeriod = ConsultationPdfService.GetDefaultTrainingPeriod(DateOnly.FromDateTime(DateTime.Today));
+        var trainingStart = startDate ?? defaultPeriod.Start;
+        var trainingEnd = endDate ?? defaultPeriod.End;
+        if (trainingEnd < trainingStart || trainingEnd.DayNumber - trainingStart.DayNumber > 365)
+            return BadRequest(new { message = "El periodo debe ser válido y no superar 366 días." });
         var consultationDate = date ?? DateOnly.FromDateTime(DateTime.Today);
 
         var tenantId = AuthHelpers.GetTenantId(User);
@@ -616,7 +624,9 @@ public class ClientDietsController : ControllerBase
             var pdfBytes = new ConsultationPdfService().GenerateConsultationPdf(
                 client,
                 consultationDate,
-                _context);
+                _context,
+                trainingStart,
+                trainingEnd);
 
             var clientName = string.IsNullOrWhiteSpace(client.full_name)
                 ? $"Cliente_{clientId}"
@@ -632,6 +642,52 @@ public class ClientDietsController : ControllerBase
                 title: "Error al generar el informe",
                 detail: "No se ha podido generar el informe de consulta.",
                 statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+
+    // GET: api/clients/{clientId}/diets/training-pdf?planId=123&startDate=yyyy-MM-dd&endDate=yyyy-MM-dd
+    [HttpGet("training-pdf")]
+    [EnableRateLimiting("expensive")]
+    public async Task<IActionResult> GetTrainingPdf(int clientId, [FromQuery] int planId,
+        [FromQuery] DateOnly? startDate = null, [FromQuery] DateOnly? endDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!User.IsInRole("superadmin") && !await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT"))
+            return Forbid();
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+        if (!await UserOwnsClientAsync(clientId, userId.Value)) return NotFound("Client not found or does not belong to the user.");
+        if (planId <= 0) return BadRequest(new { message = "Selecciona una planificación válida." });
+        if (startDate.HasValue != endDate.HasValue)
+            return BadRequest(new { message = "Indica tanto la fecha inicial como la fecha final." });
+        var defaultPeriod = ConsultationPdfService.GetDefaultTrainingPeriod(DateOnly.FromDateTime(DateTime.Today));
+        var periodStart = startDate ?? defaultPeriod.Start;
+        var periodEnd = endDate ?? defaultPeriod.End;
+        if (periodEnd < periodStart || periodEnd.DayNumber - periodStart.DayNumber > 365)
+            return BadRequest(new { message = "El periodo debe ser válido y no superar 366 días." });
+
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId &&
+            c.archived_at == null && (User.IsInRole("superadmin") || (tenantId.HasValue && c.tenant_id == tenantId.Value)), cancellationToken);
+        if (client == null) return NotFound("Client not found.");
+        var planBelongsToClient = await _context.Database.SqlQueryRaw<int?>(
+            """SELECT p.id AS "Value" FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id
+               WHERE p.id = {0} AND f.client_id = {1}""", planId, clientId).SingleOrDefaultAsync(cancellationToken);
+        if (!planBelongsToClient.HasValue) return NotFound("Training plan not found.");
+
+        try
+        {
+            var pdfBytes = new ConsultationPdfService().GenerateTrainingPdf(client, planId, periodStart, periodEnd, _context);
+            var clientName = string.IsNullOrWhiteSpace(client.full_name) ? $"Cliente_{clientId}" : client.full_name;
+            return File(pdfBytes, "application/pdf",
+                $"Entrenamiento_{SanitizeFileName(clientName)}_{periodStart:yyyyMMdd}_{periodEnd:yyyyMMdd}.pdf");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error generando PDF de entrenamiento para plan {planId}: {ex.GetType().Name}");
+            return Problem(title: "Error al generar el PDF de entrenamiento",
+                detail: "No se ha podido generar el documento.", statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
