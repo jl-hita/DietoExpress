@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
 import { environment } from '../../environments/environments';
 import { Biometric, ClientListItem, ClientDetail, ClientDiet, AssignDietPayload, UpdateClientDietPayload } from '../modelos/client';
 
@@ -125,10 +125,19 @@ export class ClientService {
     return this.http.get(`${this.base}/clients/${clientId}/diets/active/pdf`, { responseType: 'blob' });
   }
 
-  downloadConsultationPdf(clientId: number, date?: string, startDate?: string, endDate?: string): Observable<Blob> {
+  /** Planes de entrenamiento del cliente (vacío si no tiene o el módulo deportivo no está activado). */
+  getTrainingPlans(clientId: number): Observable<Array<{ id: number; name: string; startDate: string; endDate?: string | null }>> {
+    return this.http.get<Array<{ id: number; name: string; startDate: string; endDate?: string | null }>>(`${this.base}/training/clients/${clientId}/plans`).pipe(
+      map(plans => Array.isArray(plans) ? plans : []),
+      catchError(() => of([]))
+    );
+  }
+
+  downloadConsultationPdf(clientId: number, date?: string, startDate?: string, endDate?: string, includeTraining = true): Observable<Blob> {
     const params = new URLSearchParams();
     if (date) params.set('date', date);
-    if (startDate && endDate) {
+    if (!includeTraining) params.set('includeTraining', 'false');
+    if (includeTraining && startDate && endDate) {
       params.set('startDate', startDate);
       params.set('endDate', endDate);
     }

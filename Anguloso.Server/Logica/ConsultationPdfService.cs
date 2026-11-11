@@ -20,7 +20,7 @@ public class ConsultationPdfService
     }
 
     public byte[] GenerateConsultationPdf(clients client, DateOnly consultationDate, angulosodbContext context,
-        DateOnly? trainingStartDate = null, DateOnly? trainingEndDate = null)
+        DateOnly? trainingStartDate = null, DateOnly? trainingEndDate = null, bool includeTraining = true)
     {
         QuestPDF.Settings.License = LicenseType.Community;
         var defaultPeriod = GetDefaultTrainingPeriod(DateOnly.FromDateTime(DateTime.Today));
@@ -80,7 +80,8 @@ public class ConsultationPdfService
             .OrderByDescending(cd => cd.start_date)
             .FirstOrDefault();
 
-        var trainingPlans = LoadTrainingPlans(client, periodStart, periodEnd, context);
+        // Sin planificación (o si el profesional la excluye) el informe no incluye la sección de entrenamiento.
+        var trainingPlans = includeTraining ? LoadTrainingPlans(client, periodStart, periodEnd, context) : new List<TrainingPlanPdf>();
 
         var previous = evolution
             .Where(b => b.measurement_date < consultationDate)
@@ -336,134 +337,311 @@ public class ConsultationPdfService
         return plans;
     }
 
+    private static readonly System.Globalization.CultureInfo EsCulture = new("es-ES");
+
+    private static string PhaseTypeLabel(string type) => type switch
+    {
+        "accumulation" => "Acumulación",
+        "intensification" => "Intensificación",
+        "deload" => "Descarga",
+        "realization" => "Realización",
+        _ => "General"
+    };
+
+    private static (string Strong, string Pale) PhaseColors(string type) => type switch
+    {
+        "accumulation" => ("#0d9488", "#ccfbf1"),
+        "intensification" => ("#d97706", "#fef3c7"),
+        "deload" => ("#64748b", "#e2e8f0"),
+        "realization" => ("#7c3aed", "#ede9fe"),
+        _ => ("#2563eb", "#dbeafe")
+    };
+
+    private static string SessionTypeLabel(string type) => type.ToLowerInvariant() switch
+    {
+        "strength" => "Fuerza",
+        "cardio" => "Cardio",
+        "mobility" => "Movilidad",
+        "recovery" => "Recuperación",
+        "hiit" => "HIIT",
+        "general" => "General",
+        _ => type
+    };
+
+    private static string ModelLabel(string model) => model.ToLowerInvariant() switch
+    {
+        "custom" => "Personalizado",
+        "linear" => "Lineal",
+        "undulating" => "Ondulante",
+        "block" => "Por bloques",
+        _ => model
+    };
+
+    private static string StatusLabel(string status) => status.ToLowerInvariant() switch
+    {
+        "draft" => "Borrador",
+        "active" => "Activo",
+        "completed" => "Completado",
+        "archived" => "Archivado",
+        _ => status
+    };
+
     private void ComposeTrainingPlan(IContainer container, TrainingPlanPdf plan)
     {
         container.Column(col =>
         {
             col.Spacing(10);
-            col.Item().Background("#0d9488").Padding(10).Text("PLANIFICACIÓN DEPORTIVA").Bold().FontSize(16).FontColor("#ffffff");
-            col.Item().Text(plan.Name).Bold().FontSize(13);
-            col.Item().Text($"Modelo: {plan.Model} · Estado: {plan.Status}").FontColor("#555555");
-            col.Item().Text($"Periodo del documento: {plan.PeriodStart:dd/MM/yyyy} — {plan.PeriodEnd:dd/MM/yyyy}").FontColor("#555555");
-            col.Item().Text($"Vigencia del plan: {plan.StartDate:dd/MM/yyyy} — {(plan.EndDate?.ToString("dd/MM/yyyy") ?? "Sin fecha final")}").FontColor("#555555");
-            if (plan.ShowMacrocycleOverview) ComposeMacrocycleOverview(col, plan);
+
+            // Cabecera del plan
+            col.Item().Background("#0f766e").Padding(12).Column(head =>
+            {
+                head.Item().Text("PLANIFICACIÓN DE ENTRENAMIENTO").Bold().FontSize(9).FontColor("#99f6e4");
+                head.Item().Text(plan.Name).Bold().FontSize(18).FontColor("#ffffff");
+                head.Item().PaddingTop(2).Text($"{ModelLabel(plan.Model)} · {StatusLabel(plan.Status)} · Vigencia {plan.StartDate:dd/MM/yyyy} — {(plan.EndDate?.ToString("dd/MM/yyyy") ?? "sin fecha final")}")
+                    .FontSize(9).FontColor("#ccfbf1");
+            });
+
+            // Resumen numérico del periodo del documento
+            var totalMinutes = plan.Sessions.Sum(s => s.Duration ?? 0);
+            var weekCount = plan.Sessions.Select(s => s.Date.AddDays(-(((int)s.Date.DayOfWeek + 6) % 7))).Distinct().Count();
+            col.Item().Row(row =>
+            {
+                row.Spacing(8);
+                void Stat(string value, string label) => row.RelativeItem().Background("#f0fdfa").Border(1).BorderColor("#99f6e4").CornerRadius(4).Padding(7).Column(c =>
+                {
+                    c.Item().AlignCenter().Text(value).Bold().FontSize(12.5f).FontColor("#0f766e");
+                    c.Item().AlignCenter().Text(label).FontSize(7.5f).FontColor("#475569");
+                });
+                Stat($"{plan.PeriodStart:dd/MM}–{plan.PeriodEnd:dd/MM}", "Periodo del documento");
+                Stat(plan.Sessions.Count.ToString(), "Sesiones");
+                Stat(weekCount.ToString(), "Semanas con entrenamiento");
+                Stat(totalMinutes > 0 ? $"{totalMinutes / 60}h {totalMinutes % 60:00}m" : "—", "Tiempo planificado");
+            });
+
             if (!string.IsNullOrWhiteSpace(plan.Notes))
-                col.Item().Text($"Notas del plan: {plan.Notes}");
-            col.Item().PaddingTop(4).Background("#e6fffb").Padding(7).Text("MACROCICLO · FASES Y OBJETIVOS").Bold().FontSize(11).FontColor("#0f766e");
-            if (plan.Mesocycles.Count == 0)
-                col.Item().Text("No hay mesociclos definidos todavía.").Italic().FontColor("#777777");
-            foreach (var meso in plan.Mesocycles)
-            {
-                col.Item().Border(1).BorderColor("#d9dce3").Padding(8).Column(phase =>
-                {
-                    phase.Item().Text($"{meso.Sequence}. {meso.Name}").Bold().FontSize(10);
-                    phase.Item().Text($"{meso.Start:dd/MM/yyyy} — {(meso.End?.ToString("dd/MM/yyyy") ?? "Sin fecha final")}");
-                    if (!string.IsNullOrWhiteSpace(meso.Objective)) phase.Item().Text($"Objetivo: {meso.Objective}");
-                    if (!string.IsNullOrWhiteSpace(meso.Notes)) phase.Item().Text($"Notas: {meso.Notes}").FontSize(8).FontColor("#555555");
-                });
-            }
-            col.Item().PaddingTop(5).Background("#e6fffb").Padding(7).Text("RUTINAS Y SESIONES").Bold().FontSize(11).FontColor("#0f766e");
+                col.Item().Text($"Notas del plan: {plan.Notes}").FontSize(8.5f).Italic().FontColor("#475569");
+
+            ComposeMacrocycleOverview(col, plan);
+
+            col.Item().PaddingTop(4).Text("RUTINAS").Bold().FontSize(13).FontColor("#0f766e");
+            col.Item().Text("Anota en cada serie el peso y las repeticiones realizadas; marca «Hecho» al completarla.")
+                .FontSize(8).FontColor("#64748b");
             if (plan.Sessions.Count == 0)
-                col.Item().Text("No hay sesiones de entrenamiento registradas en este plan.").Italic().FontColor("#777777");
-            foreach (var week in plan.Sessions
+                col.Item().Text("No hay sesiones de entrenamiento en este periodo.").Italic().FontColor("#777777");
+
+            var weeks = plan.Sessions
                 .GroupBy(session => session.Date.AddDays(-(((int)session.Date.DayOfWeek + 6) % 7)))
-                .OrderBy(group => group.Key))
+                .OrderBy(group => group.Key)
+                .ToList();
+            foreach (var week in weeks)
             {
-                col.Item().PaddingTop(6).Background("#f1f5f9").Padding(6)
-                    .Text($"SEMANA {week.Key:dd/MM/yyyy} — {week.Key.AddDays(6):dd/MM/yyyy}").Bold().FontColor("#334155");
-                foreach (var session in week)
+                var weekNumber = weeks.IndexOf(week) + 1;
+                var phase = plan.MacrocyclePhases.FirstOrDefault(p => p.Start <= week.Key.AddDays(6) && p.End >= week.Key);
+                col.Item().PaddingTop(6).EnsureSpace(120).Background("#f1f5f9").Padding(6).Row(row =>
                 {
-                col.Item().ShowEntire().BorderBottom(1).BorderColor("#e2e5ea").PaddingVertical(6).Column(item =>
-                {
-                    item.Item().Text($"{session.Date:dddd dd/MM/yyyy} · {session.Title}").Bold().FontSize(10);
-                    item.Item().Text($"{session.Type} · {(session.Duration.HasValue ? $"{session.Duration.Value} min" : "Duración no indicada")}" +
-                        (string.IsNullOrWhiteSpace(session.Intensity) ? "" : $" · Intensidad: {session.Intensity}")).FontColor("#555555");
-                    if (!string.IsNullOrWhiteSpace(session.Instructions)) item.Item().Text(session.Instructions);
-                    if (!string.IsNullOrWhiteSpace(session.StructuredPrescription))
+                    row.RelativeItem().Text($"SEMANA {weekNumber} · {week.Key:dd/MM} – {week.Key.AddDays(6):dd/MM/yyyy}").Bold().FontColor("#334155");
+                    if (phase != null)
                     {
-                        try
-                        {
-                            using var json = System.Text.Json.JsonDocument.Parse(session.StructuredPrescription);
-                            if (json.RootElement.TryGetProperty("exercises", out var exercises) && exercises.ValueKind == System.Text.Json.JsonValueKind.Array)
-                            {
-                                item.Item().PaddingTop(3).Table(table =>
-                                {
-                                    table.ColumnsDefinition(columns =>
-                                    {
-                                        columns.RelativeColumn(3.5f); columns.RelativeColumn(1); columns.RelativeColumn(1.5f);
-                                        columns.RelativeColumn(0.9f); columns.RelativeColumn(1.2f); columns.RelativeColumn(1.2f); columns.RelativeColumn(2.5f);
-                                    });
-                                    table.Header(header =>
-                                    {
-                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Ejercicio").Bold();
-                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Series").Bold();
-                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Reps.").Bold();
-                                        header.Cell().Background("#f0fdfa").Padding(3).Text("RIR").Bold();
-                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Carga").Bold();
-                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Descanso").Bold();
-                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Progresión").Bold();
-                                    });
-                                    foreach (var exercise in exercises.EnumerateArray())
-                                    {
-                                        string Get(string name) => exercise.TryGetProperty(name, out var value) ? value.ToString() : "—";
-                                        var name = Get("exerciseNameSnapshot");
-                                        if (name == "—") name = Get("ExerciseNameSnapshot");
-                                        var sets = Get("sets"); if (sets == "—") sets = Get("Sets");
-                                        var min = Get("minRepetitions"); if (min == "—") min = Get("MinRepetitions");
-                                        var max = Get("maxRepetitions"); if (max == "—") max = Get("MaxRepetitions");
-                                        var rir = Get("targetRepetitionsInReserve"); if (rir == "—") rir = Get("TargetRepetitionsInReserve");
-                                        var load = Get("targetLoadKg"); if (load == "—") load = Get("TargetLoadKg");
-                                        var rest = Get("restSeconds"); if (rest == "—") rest = Get("RestSeconds");
-                                        var progression = Get("progressionRule"); if (progression == "—") progression = Get("ProgressionRule");
-                                        table.Cell().Padding(3).Text(name);
-                                        table.Cell().Padding(3).Text(sets);
-                                        table.Cell().Padding(3).Text(min == max ? min : $"{min}–{max}");
-                                        table.Cell().Padding(3).Text(rir);
-                                        table.Cell().Padding(3).Text(load == "—" ? load : $"{load} kg");
-                                        table.Cell().Padding(3).Text(rest == "—" ? rest : $"{rest}s");
-                                        table.Cell().Padding(3).Text(progression).FontSize(7);
-                                    }
-                                });
-                            }
-                            else if (!string.IsNullOrWhiteSpace(session.Prescription))
-                                item.Item().Text(session.Prescription).FontSize(8);
-                        }
-                        catch (System.Text.Json.JsonException)
-                        {
-                            if (!string.IsNullOrWhiteSpace(session.Prescription)) item.Item().Text(session.Prescription).FontSize(8);
-                        }
+                        var colors = PhaseColors(phase.Type);
+                        row.AutoItem().Background(colors.Strong).PaddingHorizontal(6).PaddingVertical(1)
+                            .Text($"{phase.Name} · {PhaseTypeLabel(phase.Type)}").FontSize(7.5f).Bold().FontColor("#ffffff");
                     }
-                    else if (!string.IsNullOrWhiteSpace(session.Prescription))
-                        item.Item().Text(session.Prescription).FontSize(8);
                 });
-                }
+                foreach (var session in week)
+                    col.Item().EnsureSpace(260).Element(c => ComposeSessionCard(c, session));
             }
         });
     }
 
+    private static void ComposeSessionCard(IContainer container, TrainingSessionPdf session)
+    {
+        container.Border(1).BorderColor("#cbd5e1").Column(card =>
+        {
+            card.Item().Background("#134e4a").Padding(7).Row(row =>
+            {
+                row.RelativeItem().Column(c =>
+                {
+                    c.Item().Text(session.Date.ToString("dddd dd/MM/yyyy", EsCulture).ToUpper(EsCulture)).FontSize(7.5f).FontColor("#99f6e4").Bold();
+                    c.Item().Text(session.Title).Bold().FontSize(11).FontColor("#ffffff");
+                });
+                row.AutoItem().AlignRight().Column(c =>
+                {
+                    c.Item().AlignRight().Text(SessionTypeLabel(session.Type)).FontSize(8).Bold().FontColor("#ccfbf1");
+                    c.Item().AlignRight().Text($"{(session.Duration.HasValue ? $"{session.Duration.Value} min" : "duración libre")}" +
+                        (string.IsNullOrWhiteSpace(session.Intensity) ? "" : $" · {session.Intensity}")).FontSize(8).FontColor("#ffffff");
+                });
+            });
+
+            card.Item().Padding(8).Column(body =>
+            {
+                body.Spacing(7);
+                if (!string.IsNullOrWhiteSpace(session.Instructions))
+                    body.Item().Background("#fffbeb").Padding(5).Text(session.Instructions).FontSize(8.5f).FontColor("#78350f");
+
+                var exercises = ParseExercises(session.StructuredPrescription);
+                if (exercises.Count > 0)
+                {
+                    for (var i = 0; i < exercises.Count; i++)
+                    {
+                        var exercise = exercises[i];
+                        var number = i + 1;
+                        body.Item().ShowEntire().Element(c => ComposeExerciseLog(c, number, exercise));
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(session.Prescription))
+                {
+                    body.Item().Border(1).BorderColor("#e2e8f0").Padding(6).Text(session.Prescription).FontSize(9);
+                }
+
+                // Espacio para anotaciones a mano durante el entrenamiento
+                body.Item().ShowEntire().Column(notes =>
+                {
+                    notes.Item().Text("Notas de la sesión (sensaciones, molestias, cambios de ejercicio…)").FontSize(7.5f).FontColor("#64748b");
+                    for (var line = 0; line < 2; line++)
+                        notes.Item().Height(15).BorderBottom(0.6f).BorderColor("#cbd5e1");
+                });
+            });
+        });
+    }
+
+    private sealed record ExerciseRow(string Name, int Sets, string Reps, string? Rir, string? LoadKg, int? RestSeconds, string? Progression, int WarmupSets, string? WarmupNote);
+
+    private static List<ExerciseRow> ParseExercises(string? json)
+    {
+        var result = new List<ExerciseRow>();
+        if (string.IsNullOrWhiteSpace(json)) return result;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("exercises", out var exercises) || exercises.ValueKind != System.Text.Json.JsonValueKind.Array)
+                return result;
+            foreach (var exercise in exercises.EnumerateArray())
+            {
+                // Los datos históricos pueden venir en camelCase o PascalCase.
+                string? Get(string name)
+                {
+                    if (exercise.TryGetProperty(name, out var value) && value.ValueKind is not (System.Text.Json.JsonValueKind.Null or System.Text.Json.JsonValueKind.Undefined)) return value.ToString();
+                    var pascal = char.ToUpperInvariant(name[0]) + name[1..];
+                    return exercise.TryGetProperty(pascal, out var other) && other.ValueKind is not (System.Text.Json.JsonValueKind.Null or System.Text.Json.JsonValueKind.Undefined) ? other.ToString() : null;
+                }
+                int? ToInt(string? text) => int.TryParse(text, out var number) ? number : null;
+                var min = Get("minRepetitions"); var max = Get("maxRepetitions");
+                var reps = min == null && max == null ? "—" : (min == max || max == null ? min! : min == null ? max! : $"{min}–{max}");
+                result.Add(new ExerciseRow(
+                    Get("exerciseNameSnapshot") ?? "Ejercicio",
+                    Math.Clamp(ToInt(Get("sets")) ?? 1, 1, 12), reps, Get("targetRepetitionsInReserve"), Get("targetLoadKg"),
+                    ToInt(Get("restSeconds")), Get("progressionRule"), Math.Clamp(ToInt(Get("warmupSets")) ?? 0, 0, 6), Get("warmupNote")));
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            result.Clear();
+        }
+        return result;
+    }
+
+    // Bloque de un ejercicio pensado para el gimnasio: prescripción arriba y una fila en blanco por serie.
+    private static void ComposeExerciseLog(IContainer container, int number, ExerciseRow exercise)
+    {
+        container.Column(block =>
+        {
+            block.Item().Row(row =>
+            {
+                row.ConstantItem(20).Height(20).Background("#0d9488").AlignCenter().AlignMiddle().Text(number.ToString()).Bold().FontColor("#ffffff");
+                row.RelativeItem().PaddingLeft(6).AlignMiddle().Text(exercise.Name).Bold().FontSize(10.5f);
+            });
+            var parts = new List<string> { $"{exercise.Sets} series × {exercise.Reps} reps" };
+            if (!string.IsNullOrWhiteSpace(exercise.Rir)) parts.Add($"RIR {exercise.Rir}");
+            if (exercise.RestSeconds.HasValue) parts.Add($"descanso {exercise.RestSeconds} s");
+            if (!string.IsNullOrWhiteSpace(exercise.LoadKg)) parts.Add($"carga orientativa {exercise.LoadKg} kg");
+            block.Item().PaddingLeft(26).PaddingBottom(3).Text(string.Join("  ·  ", parts)).FontSize(8.5f).FontColor("#0f766e").Bold();
+            if (exercise.WarmupSets > 0 || !string.IsNullOrWhiteSpace(exercise.WarmupNote))
+                block.Item().PaddingLeft(26).PaddingBottom(3).Text($"Calentamiento: {(exercise.WarmupSets > 0 ? $"{exercise.WarmupSets} series aproximación" : "")}{(string.IsNullOrWhiteSpace(exercise.WarmupNote) ? "" : $" · {exercise.WarmupNote}")}")
+                    .FontSize(7.5f).FontColor("#64748b");
+
+            block.Item().PaddingLeft(26).Table(table =>
+            {
+                table.ColumnsDefinition(columns =>
+                {
+                    columns.ConstantColumn(34); columns.RelativeColumn(1.1f); columns.RelativeColumn(1.4f);
+                    columns.RelativeColumn(1.4f); columns.RelativeColumn(1f); columns.ConstantColumn(30);
+                });
+                IContainer Head(IContainer c) => c.Background("#f0fdfa").Border(0.6f).BorderColor("#99f6e4").PaddingVertical(2).PaddingHorizontal(3);
+                IContainer Cell(IContainer c) => c.Border(0.6f).BorderColor("#cbd5e1").Height(17);
+                table.Header(header =>
+                {
+                    header.Cell().Element(Head).AlignCenter().Text("Serie").FontSize(7.5f).Bold();
+                    header.Cell().Element(Head).AlignCenter().Text("Objetivo").FontSize(7.5f).Bold();
+                    header.Cell().Element(Head).AlignCenter().Text("Peso (kg)").FontSize(7.5f).Bold();
+                    header.Cell().Element(Head).AlignCenter().Text("Reps hechas").FontSize(7.5f).Bold();
+                    header.Cell().Element(Head).AlignCenter().Text("RIR").FontSize(7.5f).Bold();
+                    header.Cell().Element(Head).AlignCenter().Text("Hecho").FontSize(6.5f).Bold();
+                });
+                for (var set = 1; set <= exercise.Sets; set++)
+                {
+                    table.Cell().Element(Cell).AlignCenter().AlignMiddle().Text(set.ToString()).FontSize(8).Bold().FontColor("#475569");
+                    table.Cell().Element(Cell).AlignCenter().AlignMiddle().Text($"{exercise.Reps} reps").FontSize(8).FontColor("#64748b");
+                    table.Cell().Element(Cell);
+                    table.Cell().Element(Cell);
+                    table.Cell().Element(Cell);
+                    table.Cell().Element(Cell);
+                }
+            });
+        });
+    }
+
+    // Esquema del macrociclo: barra proporcional por fases (intensas = incluidas en este documento) y leyenda con objetivos.
     private static void ComposeMacrocycleOverview(ColumnDescriptor col, TrainingPlanPdf plan)
     {
-        if (plan.MacrocyclePhases.Count == 0 || !plan.MacrocycleStart.HasValue) return;
-        col.Item().PaddingTop(4).Background("#e6fffb").Padding(7).Text("ESQUEMA DEL MACROCICLO").Bold().FontSize(11).FontColor("#0f766e");
-        col.Item().Text($"{plan.MacrocycleName} · {plan.MacrocycleModel} · {plan.MacrocycleStart:dd/MM/yyyy} — {(plan.MacrocycleEnd?.ToString("dd/MM/yyyy") ?? "Sin fecha final")}").Bold();
-        col.Item().Row(row =>
+        var phases = plan.MacrocyclePhases;
+        if (phases.Count == 0)
         {
-            foreach (var phase in plan.MacrocyclePhases)
+            if (plan.Mesocycles.Count == 0) return;
+            phases = plan.Mesocycles.Select(m => new TrainingPhasePdf(m.Name, m.Sequence, m.Start, m.End ?? m.Start, m.Objective, "general")).ToList();
+        }
+
+        col.Item().PaddingTop(4).Text("ESQUEMA DEL MACROCICLO").Bold().FontSize(13).FontColor("#0f766e");
+        if (!string.IsNullOrWhiteSpace(plan.MacrocycleName))
+            col.Item().Text($"{plan.MacrocycleName} · {plan.MacrocycleStart:dd/MM/yyyy} — {(plan.MacrocycleEnd?.ToString("dd/MM/yyyy") ?? "sin fecha final")}").FontSize(8.5f).FontColor("#475569");
+
+        col.Item().ShowEntire().Column(block =>
+        {
+            block.Spacing(6);
+            block.Item().Row(row =>
             {
-                var days = Math.Max(1, phase.End.DayNumber - phase.Start.DayNumber + 1);
-                var active = phase.Start <= plan.PeriodEnd && phase.End >= plan.PeriodStart;
-                row.RelativeItem((float)days).Background(active ? "#0d9488" : "#cbd5e1").Padding(4).Column(segment =>
+                foreach (var phase in phases)
                 {
-                    segment.Item().Text(phase.Name).Bold().FontSize(7).FontColor(active ? "#ffffff" : "#1f2937");
-                    segment.Item().Text($"{phase.Start:dd/MM}–{phase.End:dd/MM}").FontSize(6).FontColor(active ? "#ffffff" : "#334155");
+                    var days = Math.Max(1, phase.End.DayNumber - phase.Start.DayNumber + 1);
+                    var active = phase.Start <= plan.PeriodEnd && phase.End >= plan.PeriodStart;
+                    var colors = PhaseColors(phase.Type);
+                    row.RelativeItem((float)days).Border(0.5f).BorderColor("#ffffff")
+                        .Background(active ? colors.Strong : colors.Pale).Padding(4).Column(segment =>
+                    {
+                        segment.Item().Text(phase.Name).Bold().FontSize(7).FontColor(active ? "#ffffff" : "#334155");
+                        segment.Item().Text($"{phase.Start:dd/MM}–{phase.End:dd/MM}").FontSize(6).FontColor(active ? "#ffffff" : "#475569");
+                    });
+                }
+            });
+
+            foreach (var phase in phases)
+            {
+                var active = phase.Start <= plan.PeriodEnd && phase.End >= plan.PeriodStart;
+                var colors = PhaseColors(phase.Type);
+                block.Item().Row(row =>
+                {
+                    row.ConstantItem(9).Height(9).Background(colors.Strong);
+                    row.RelativeItem().PaddingLeft(6).Text(text =>
+                    {
+                        text.Span($"{phase.Sequence}. {phase.Name}").Bold().FontSize(8.5f);
+                        text.Span($"  {PhaseTypeLabel(phase.Type)} · {phase.Start:dd/MM/yy}–{phase.End:dd/MM/yy} · {Math.Max(1, (phase.End.DayNumber - phase.Start.DayNumber + 1) / 7)} sem")
+                            .FontSize(8).FontColor("#64748b");
+                        if (active) text.Span("  (en este documento)").FontSize(7.5f).Bold().FontColor("#0f766e");
+                        if (!string.IsNullOrWhiteSpace(phase.Objective)) text.Span($"\n{phase.Objective}").FontSize(8).FontColor("#475569");
+                    });
                 });
             }
+            block.Item().Text("Color intenso: fases que coinciden con el periodo de este documento.").FontSize(7).FontColor("#64748b");
         });
-        foreach (var phase in plan.MacrocyclePhases)
-            col.Item().Text($"{phase.Sequence}. {phase.Name} ({phase.Type}) · {phase.Start:dd/MM/yyyy}–{phase.End:dd/MM/yyyy}" +
-                (string.IsNullOrWhiteSpace(phase.Objective) ? "" : $" · {phase.Objective}")).FontSize(8);
-        if (!string.IsNullOrWhiteSpace(plan.MacrocycleNotes)) col.Item().Text(plan.MacrocycleNotes).FontSize(8).FontColor("#555555");
-        col.Item().Text("En verde: fases que coinciden con el periodo de este documento.").FontSize(7).FontColor("#0f766e");
     }
 
     private sealed class TrainingPlanPdf

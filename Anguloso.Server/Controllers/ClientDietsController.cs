@@ -590,7 +590,7 @@ public class ClientDietsController : ControllerBase
     [EnableRateLimiting("expensive")]
     // El PDF se genera a partir de datos ya filtrados por el acceso autorizado al paciente.
     public async Task<IActionResult> GetConsultationPdf(int clientId, [FromQuery] DateOnly? date = null,
-        [FromQuery] DateOnly? startDate = null, [FromQuery] DateOnly? endDate = null)
+        [FromQuery] DateOnly? startDate = null, [FromQuery] DateOnly? endDate = null, [FromQuery] bool includeTraining = true)
     {
         if (!User.IsInRole("superadmin") && !await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT"))
             return Forbid();
@@ -626,7 +626,8 @@ public class ClientDietsController : ControllerBase
                 consultationDate,
                 _context,
                 trainingStart,
-                trainingEnd);
+                trainingEnd,
+                includeTraining);
 
             var clientName = string.IsNullOrWhiteSpace(client.full_name)
                 ? $"Cliente_{clientId}"

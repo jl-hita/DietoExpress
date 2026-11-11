@@ -13,6 +13,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatTabChangeEvent } from '@angular/material/tabs';
 import Chart from 'chart.js/auto';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { ConsultationPdfDialogComponent, ConsultationPdfDialogData, ConsultationPdfDialogResult } from './consultation-pdf-dialog.component';
 import { RouterLink } from '@angular/router';
 import { DietSelectDialogComponent } from './diet-select-dialog.component';
 import { BioimpedanceImportDialogComponent } from './bioimpedance-import-dialog.component';
@@ -109,8 +110,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   followupGoalMetric = 'adherence';
   followupGoalTarget: number | null = 80;
   followupGoalPhase: 'baseline' | 'building' | 'maintenance' | 'review' = 'building';
-  trainingPdfStartDate = this.defaultTrainingPdfPeriod().start;
-  trainingPdfEndDate = this.defaultTrainingPdfPeriod().end;
+  consultationPdfLoading = false;
   followupGoalStartDate = this.localDateInput();
   followupGoalTargetDate = '';
   followupGoalNotes = '';
@@ -729,25 +729,47 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Informe de consulta. Si el paciente tiene planificación de entrenamiento se pregunta el periodo de rutinas
+   * a incluir; si no la tiene se descarga directamente un PDF sin sección de entrenamiento.
+   */
   downloadConsultationPdf(): void {
-    if (!this.clientId) return;
+    if (!this.clientId || this.consultationPdfLoading) return;
+    const clientId = this.clientId;
+    this.consultationPdfLoading = true;
+    this.svc.getTrainingPlans(clientId).subscribe(plans => {
+      if (!plans.length) {
+        this.requestConsultationPdf(clientId, false);
+        return;
+      }
+      this.consultationPdfLoading = false;
+      this.dialog.open<ConsultationPdfDialogComponent, ConsultationPdfDialogData, ConsultationPdfDialogResult | undefined>(
+        ConsultationPdfDialogComponent, { width: '460px', maxWidth: '95vw', data: { plans } }
+      ).afterClosed().subscribe(result => {
+        if (!result) return;
+        this.consultationPdfLoading = true;
+        this.requestConsultationPdf(clientId, result.includeTraining, result.startDate, result.endDate);
+      });
+    });
+  }
 
+  private requestConsultationPdf(clientId: number, includeTraining: boolean, startDate?: string, endDate?: string): void {
     const date = this.localDateInput();
-    if (!this.trainingPdfStartDate || !this.trainingPdfEndDate || this.trainingPdfEndDate < this.trainingPdfStartDate) {
-      this.snack.open('Selecciona un periodo de entrenamiento válido', 'Cerrar', { duration: 3000 });
-      return;
-    }
-    this.svc.downloadConsultationPdf(this.clientId, date, this.trainingPdfStartDate, this.trainingPdfEndDate).subscribe({
+    this.svc.downloadConsultationPdf(clientId, date, startDate, endDate, includeTraining).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const sanitizedClientName = (this.client?.fullName || 'Paciente').replace(/\\s+/g, '_');
+        const sanitizedClientName = (this.client?.fullName || 'Paciente').replace(/\s+/g, '_');
         a.download = `Informe_Consulta_${sanitizedClientName}_${date}.pdf`;
         a.click();
         window.URL.revokeObjectURL(url);
+        this.consultationPdfLoading = false;
       },
-      error: () => this.snack.open('Error al generar el informe de consulta', 'Cerrar', { duration: 3000 })
+      error: () => {
+        this.consultationPdfLoading = false;
+        this.snack.open('Error al generar el informe de consulta', 'Cerrar', { duration: 3000 });
+      }
     });
   }
 
@@ -997,16 +1019,6 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     addTrend('Peso', ordered.map(c => c.weight), ' kg');
 
     return trends.slice(0, 4);
-  }
-
-  private defaultTrainingPdfPeriod(): { start: string; end: string } {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
-    const end = new Date(start);
-    end.setDate(end.getDate() + 27);
-    const format = (value: Date) => value.getFullYear() + '-' + String(value.getMonth() + 1).padStart(2, '0') + '-' + String(value.getDate()).padStart(2, '0');
-    return { start: format(start), end: format(end) };
   }
 
   private localDateInput(): string {
