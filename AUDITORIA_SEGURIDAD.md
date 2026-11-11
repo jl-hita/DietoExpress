@@ -189,6 +189,20 @@ Pendiente del portal de pacientes (no corregido):
 - Notificar al profesional o al paciente por email cuando se produzcan bloqueos repetidos.
 - Valorar sustituir el PIN por un código de un solo uso enviado por email en la web (la app puede conservar el PIN con sesión larga y biometría del dispositivo).
 
+### Acceso biométrico de pacientes (app Android)
+
+Funcionalidad nueva pedida por el propietario. Se ha diseñado como credencial ligada al dispositivo (estilo passkey) y no como «recordar el PIN»:
+
+- La app crea en el Keystore un par EC P-256 cuya clave privada solo se puede usar tras huella o rostro (`BIOMETRIC_STRONG`) y no sale del móvil. El servidor guarda solo la clave pública.
+- Para entrar, el servidor emite un desafío de 2 minutos firmado con HMAC; la app lo firma y el servidor verifica la firma. Cada desafío sirve una sola vez (el instante de emisión debe ser posterior al último usado por el dispositivo, comprobado con un UPDATE atómico).
+- No hay ningún secreto reutilizable almacenado en el móvil ni en el servidor: un volcado de la BD no permite entrar.
+- El alta exige una sesión de paciente vigente, está limitada a 5 dispositivos y avisa al paciente por email. Se revoca desde la app, y el servidor revoca todos los dispositivos cuando el profesional cambia el PIN del paciente.
+- Si se añaden huellas nuevas en el móvil, la clave se invalida y la app pide entrar con el PIN y reactivarlo.
+- El bloqueo por PIN no se aplica al acceso biométrico (prueba posesión del dispositivo, no del PIN), pero sí el límite de peticiones por IP.
+- Cambio interno: todos los métodos de acceso del paciente emiten la sesión mediante `PatientSessionService`.
+- Clave de derivación del desafío: `Security:BiometricKey` o, si no existe, `Jwt:Key`; rotarla solo invalida desafíos en vuelo (2 minutos).
+- **No verificado:** el flujo completo con un móvil real y el servidor. Hay tests unitarios de la criptografía en ambos lados y compilación de la app, pero conviene probar alta, acceso, revocación y cambio de huellas en un dispositivo.
+
 ### Decisiones de diseño del 2FA
 
 - El secreto TOTP se cifra con AES-GCM, ligado al id de usuario, con una clave derivada por HKDF de `Security:TwoFactorKey` (o de `Jwt:Key` si no existe). No depende del anillo de claves de DataProtection, que puede perderse al restaurar un servidor, y un volcado de la BD por sí solo no revela los secretos.

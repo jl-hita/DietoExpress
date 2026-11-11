@@ -3,6 +3,7 @@ namespace Anguloso.Server.Models;
 
 // Campos de seguridad de la cuenta (bloqueo progresivo y segundo factor). Se mantienen fuera del archivo generado por EF Power Tools
 // para que una regeneración del modelo no los elimine. El esquema lo crea DatabaseBootstrap.UpgradeAccountSecuritySchemaV1.
+#pragma warning disable CS8981
 public partial class users
 {
     /// <summary>Intentos fallidos consecutivos de contraseña o código 2FA.</summary>
