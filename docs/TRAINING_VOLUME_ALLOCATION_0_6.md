@@ -185,3 +185,8 @@ Referencia principal: Currier et al., ACSM Position Stand 2026, DOI 10.1249/MSS.
 - El adaptador de feedback muscular utiliza el mismo techo de series por ejercicio que el generador: tres para fuerza y cinco para hipertrofia/condición general. Así una respuesta de poco estímulo no puede convertir un ejercicio de fuerza de tres series en uno de cuatro.
 - El mapeador del adaptador de volumen recibe el historial de sesiones de fuerza más recientes primero. Una prescripción reciente no estructurada bloquea el uso de historial antiguo; una fila antigua no estructurada solo recorta el historial útil y no invalida tres exposiciones recientes válidas. Los controladores excluyen sesiones no destinadas a fuerza.
 - Estas correcciones son reglas de coherencia del producto y de calidad de datos; no añaden umbrales fisiológicos ni cambian la estrategia reactiva de descarga.
+
+
+### Coherencia durante una descarga reactiva — 11/11/2026
+
+Cuando se aplica una descarga reactiva de siete días, la política bloquea durante esa ventana otros cambios automáticos de carga o volumen: reducciones generales, cambios de RIR, restauraciones y ajustes musculares de +1/-1 serie. Así un feedback aislado durante la propia descarga no puede contrarrestarla ni apilar otro cambio sobre las mismas sesiones futuras. Al terminar la ventana, la evaluación vuelve a depender del feedback nuevo y de sus cooldowns; esto no introduce una descarga por calendario. Es una guarda de coherencia del producto, no una regla fisiológica ni una pauta de ACSM.
