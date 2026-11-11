@@ -672,8 +672,8 @@ public class ClientDietsController : ControllerBase
             c.archived_at == null && (User.IsInRole("superadmin") || (tenantId.HasValue && c.tenant_id == tenantId.Value)), cancellationToken);
         if (client == null) return NotFound("Client not found.");
         var planBelongsToClient = await _context.Database.SqlQueryRaw<int?>(
-            """SELECT p.id AS "Value" FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id
-               WHERE p.id = {0} AND f.client_id = {1}""", planId, clientId).SingleOrDefaultAsync(cancellationToken);
+            "SELECT p.id AS \"Value\" FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id WHERE p.id = {0} AND f.client_id = {1}",
+            planId, clientId).SingleOrDefaultAsync(cancellationToken);
         if (!planBelongsToClient.HasValue) return NotFound("Training plan not found.");
 
         try
