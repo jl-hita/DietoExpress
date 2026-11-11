@@ -871,6 +871,7 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             UpgradeSaaSSchemaV8(context, logger);
             UpgradeSaaSSchemaV9(context, logger);
             UpgradeAccountSecuritySchemaV1(context, logger);
+            UpgradePerformanceSchemaV1(context, logger);
             UpgradeMessagingSchemaV2(context, logger);
             UpgradeAutomationSchemaV1(context, logger);
             UpgradeAutomationSchemaV2(context, logger);
@@ -1899,6 +1900,35 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         ");
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('account-security-v1-lockout-2fa') ON CONFLICT (id) DO NOTHING;");
         logger.LogInformation("Migración de seguridad de cuentas (bloqueo progresivo y 2FA) aplicada correctamente.");
+    }
+
+    /// <summary>
+    /// Índices de rendimiento: claves foráneas de dietas y recetas sin índice (cada carga o borrado de una dieta recorría
+    /// meal_items/recipe_items enteras) y búsquedas de texto con trigramas que ignoran tildes.
+    /// </summary>
+    public static void UpgradePerformanceSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE EXTENSION IF NOT EXISTS pg_trgm;
+            CREATE EXTENSION IF NOT EXISTS unaccent;
+
+            -- unaccent no es IMMUTABLE y no se puede indexar; este envoltorio sí.
+            CREATE OR REPLACE FUNCTION immutable_unaccent(text) RETURNS text
+                LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT
+                AS $$ SELECT public.unaccent('public.unaccent', $1) $$;
+
+            CREATE INDEX IF NOT EXISTS idx_meal_items_meal_id ON meal_items(meal_id);
+            CREATE INDEX IF NOT EXISTS idx_meal_items_food_id ON meal_items(food_id) WHERE food_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_recipe_items_recipe_id ON recipe_items(recipe_id);
+            CREATE INDEX IF NOT EXISTS idx_recipe_items_food_id ON recipe_items(food_id);
+
+            CREATE INDEX IF NOT EXISTS idx_foods_name_unaccent_trgm ON foods USING gin (immutable_unaccent(name) gin_trgm_ops);
+            CREATE INDEX IF NOT EXISTS idx_clients_full_name_unaccent_trgm ON clients USING gin (immutable_unaccent(full_name) gin_trgm_ops);
+            CREATE INDEX IF NOT EXISTS idx_clients_email_trgm ON clients USING gin (email gin_trgm_ops);
+            CREATE INDEX IF NOT EXISTS idx_clients_phone_trgm ON clients USING gin (phone gin_trgm_ops);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('performance-v1-indexes-search') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de índices de rendimiento y búsqueda aplicada correctamente.");
     }
 
     /// <summary>Separa las conversaciones por etapa de asignación para evitar que un nuevo nutricionista herede el historial privado anterior.</summary>

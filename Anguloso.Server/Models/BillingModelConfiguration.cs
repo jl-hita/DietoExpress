@@ -6,6 +6,8 @@ public partial class angulosodbContext
 {
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasDbFunction(typeof(SqlFunctions).GetMethod(nameof(SqlFunctions.ImmutableUnaccent), new[] { typeof(string) })!)
+            .HasName("immutable_unaccent");
         ConfigureFoodCulinaryProfile(modelBuilder);
         ConfigureFoodDietaryProfile(modelBuilder);
         modelBuilder.Entity<patient_checkins>(entity =>

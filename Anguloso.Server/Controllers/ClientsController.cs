@@ -63,9 +63,9 @@ public class ClientsController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
-            var pattern = $"%{searchTerm}%";
+            var pattern = SqlSearch.Contains(searchTerm);
             query = query.Where(c =>
-                EF.Functions.ILike(c.full_name, pattern) ||
+                EF.Functions.ILike(SqlFunctions.ImmutableUnaccent(c.full_name), SqlFunctions.ImmutableUnaccent(pattern)) ||
                 EF.Functions.ILike(c.email, pattern) ||
                 EF.Functions.ILike(c.phone, pattern));
         }
