@@ -252,9 +252,14 @@ public class ConsultationPdfService
                 using var mesoCommand = connection.CreateCommand();
                 mesoCommand.CommandText = """
                     SELECT name, sequence_number, start_date, end_date, objective, notes
-                    FROM training_mesocycles WHERE plan_id = @planId ORDER BY sequence_number, id
+                    FROM training_mesocycles
+                    WHERE plan_id = @planId AND start_date <= @endDate
+                      AND (end_date IS NULL OR end_date >= @startDate)
+                    ORDER BY sequence_number, id
                     """;
                 var planParam = mesoCommand.CreateParameter(); planParam.ParameterName = "planId"; planParam.Value = plan.Id; mesoCommand.Parameters.Add(planParam);
+                var mesoStartParam = mesoCommand.CreateParameter(); mesoStartParam.ParameterName = "startDate"; mesoStartParam.Value = startDate.ToDateTime(TimeOnly.MinValue); mesoCommand.Parameters.Add(mesoStartParam);
+                var mesoEndParam = mesoCommand.CreateParameter(); mesoEndParam.ParameterName = "endDate"; mesoEndParam.Value = endDate.ToDateTime(TimeOnly.MinValue); mesoCommand.Parameters.Add(mesoEndParam);
                 using var mesoReader = mesoCommand.ExecuteReader();
                 while (mesoReader.Read())
                     plan.Mesocycles.Add(new TrainingMesoPdf(
