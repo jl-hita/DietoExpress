@@ -12,6 +12,7 @@ import { Profile } from '../../modelos/profile';
 import { AddressSuggestion } from '../../modelos/address';
 import { TIME_ZONE_OPTIONS, TimeZonePreferenceService } from '../../servicios/time-zone-preference.service';
 import { AddressAutocompleteComponent } from '../address-autocomplete/address-autocomplete.component';
+import { TwoFactorSettingsComponent } from './two-factor-settings.component';
 
 // Angular Material
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -46,7 +47,8 @@ import { MatSelectModule } from '@angular/material/select';
     MatSlideToggleModule,
     MatAutocompleteModule,
     MatSelectModule,
-    AddressAutocompleteComponent
+    AddressAutocompleteComponent,
+    TwoFactorSettingsComponent
   ]
 })
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.

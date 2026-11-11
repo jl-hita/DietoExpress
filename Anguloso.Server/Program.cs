@@ -72,6 +72,9 @@ builder.Services.AddScoped<SupportEnhancementService>();
         builder.Services.AddSingleton<AutomationService>();
         builder.Services.AddScoped<PatientPortalAccessService>(); builder.Services.AddScoped<PatientPortalEmailService>(); builder.Services.AddScoped<AppointmentEmailService>(); builder.Services.AddScoped<PatientDocumentService>(); builder.Services.AddSingleton<PatientDocumentTemplateSeeder>(); builder.Services.AddScoped<PrivacyOperationsService>(); builder.Services.AddScoped<LegalGovernanceService>();
         builder.Services.AddDataProtection();
+        // Cifrado del secreto TOTP y desafío del segundo factor; falla al arrancar si no hay clave suficiente.
+        builder.Services.AddSingleton(TwoFactorCrypto.FromConfiguration(builder.Configuration));
+        builder.Services.AddScoped<AccountSecurityService>();
         builder.Services.AddHttpClient();
 
         // La tabla config de PostgreSQL es la fuente de verdad de los proveedores de direcciones.

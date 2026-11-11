@@ -20,3 +20,5 @@ h1 { color:#123b39; font-size:34px; letter-spacing:-1px; margin:10px 0 7px; }
 .register-prompt button { font-weight:700; }
 .back-link { margin:22px 0 0; font-size:13px; }
 @media(max-width:480px){ .auth-shell{padding:22px 14px}.auth-card{padding:28px 20px}.auth-brand{margin-bottom:24px;} }
+
+.two-factor-hint { margin:0; font-size:13px; color:#64748b; line-height:1.5; }

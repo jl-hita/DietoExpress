@@ -11,6 +11,7 @@ import { HttpClient } from '@angular/common/http';
 import { AuthService, AuthUser } from '../../servicios/auth.service';
 import { environment } from '../../../environments/environments';
 import { LegalDocument, LegalService } from '../../servicios/legal.service';
+import { TwoFactorService, isTwoFactorChallenge } from '../../servicios/two-factor.service';
 
 declare const google: any;
 
@@ -30,6 +31,9 @@ export class LoginComponent {
   private googleClientId: string | null = null;
   legalTerms: LegalDocument | null = null;
   googleTermsAccepted = false;
+  // Si la cuenta tiene verificación en dos pasos, el primer paso solo devuelve un desafío y aquí se pide el código.
+  challengeToken: string | null = null;
+  twoFactorCode = '';
 
   constructor(
     private fb: FormBuilder,
@@ -38,7 +42,8 @@ export class LoginComponent {
     private router: Router,
     private snackBar: MatSnackBar,
     private ngZone: NgZone,
-    private legalService: LegalService
+    private legalService: LegalService,
+    private twoFactorService: TwoFactorService
   ) {
     this.legalService.getCurrent().subscribe({ next: docs => this.legalTerms = docs.find(d => d.key === 'saas_terms') ?? null, error: () => this.legalTerms = null });
     this.form = this.fb.group({
@@ -121,11 +126,7 @@ export class LoginComponent {
     // No bloqueamos aquí el login Google: el backend distingue entre una cuenta
     // existente (no requiere nueva aceptación) y un alta nueva (428 si no se ha aceptado).
     this.googleLogin(idToken).subscribe({
-      next: (res) => {
-        this.authService.login(res);
-        this.snackBar.open(`Bienvenido ${res.username}`, 'Cerrar', { duration: 3000 });
-        this.ngZone.run(() => this.router.navigate(this.getPostLoginRoute(res.role))); // cada rol entra en su dashboard
-      },
+      next: (res) => this.ngZone.run(() => this.handleLoginResponse(res)),
       error: (err) => {
         console.error(err);
         if (err?.status === 428) {
@@ -145,25 +146,70 @@ export class LoginComponent {
     this.http.post<any>(`${this.baseUrl}/auth/login`, this.form.value)
     .subscribe({
       next: (res) => {
-        this.authService.login(res); // la sesión se mantiene en la cookie HttpOnly
-        if (res.archivedSupport) {
-          this.snackBar.open('Cuenta archivada. Puedes comunicarte con tu clínica desde soporte.', 'Cerrar', { duration: 5000 });
-          this.router.navigate(['/archived-support']);
-          this.loading = false;
-          return;
-        }
-        console.log("ID -> " + res.id);
-        console.log("User -> " + res.username);
-        console.log("Role -> " + res.role);
-        this.snackBar.open("Bienvenido " + res.username, 'Cerrar', { duration: 3000 });
-        this.router.navigate(this.getPostLoginRoute(res.role)); // cada rol entra en su dashboard
+        this.loading = false;
+        this.handleLoginResponse(res);
       },
       error: (err) => {
         console.error(err);
-        this.snackBar.open(err.error || 'Usuario o contraseña incorrectos', 'Cerrar', { duration: 3000 });
+        this.snackBar.open(typeof err.error === 'string' && err.error ? err.error : 'Usuario o contraseña incorrectos', 'Cerrar', { duration: 4000 });
         this.loading = false;
       }
     });
+  }
+
+  // Segundo paso: código de la app autenticadora o código de recuperación.
+  verifyTwoFactor() {
+    const code = this.twoFactorCode.trim();
+    if (!this.challengeToken || !code) return;
+
+    this.loading = true;
+    this.twoFactorService.verifyLogin(this.challengeToken, code).subscribe({
+      next: (res) => {
+        this.loading = false;
+        this.handleLoginResponse(res);
+      },
+      error: (err) => {
+        this.loading = false;
+        const message = typeof err.error === 'string' && err.error ? err.error : 'Código no válido.';
+        // Un desafío caducado obliga a repetir el primer paso.
+        if (err.status === 401 && message.includes('caducado')) this.cancelTwoFactor();
+        this.snackBar.open(message, 'Cerrar', { duration: 5000 });
+      }
+    });
+  }
+
+  cancelTwoFactor() {
+    this.challengeToken = null;
+    this.twoFactorCode = '';
+    // El formulario de contraseña se vuelve a crear, así que el botón de Google hay que dibujarlo de nuevo.
+    setTimeout(() => this.renderGoogleButton());
+  }
+
+  private renderGoogleButton() {
+    const button = document.getElementById('googleBtn');
+    if (button && typeof google !== 'undefined' && google?.accounts?.id) {
+      google.accounts.id.renderButton(button, { theme: 'outline', size: 'large' });
+    }
+  }
+
+  // Punto común de los tres caminos de acceso (contraseña, Google y segundo factor).
+  private handleLoginResponse(res: any) {
+    if (isTwoFactorChallenge(res)) {
+      this.challengeToken = res.challengeToken;
+      this.twoFactorCode = '';
+      return;
+    }
+
+    this.challengeToken = null;
+    this.twoFactorCode = '';
+    this.authService.login(res); // la sesión se mantiene en la cookie HttpOnly
+    if (res.archivedSupport) {
+      this.snackBar.open('Cuenta archivada. Puedes comunicarte con tu clínica desde soporte.', 'Cerrar', { duration: 5000 });
+      this.router.navigate(['/archived-support']);
+      return;
+    }
+    this.snackBar.open('Bienvenido ' + res.username, 'Cerrar', { duration: 3000 });
+    this.router.navigate(this.getPostLoginRoute(res.role)); // cada rol entra en su dashboard
   }
 
   googleLogin(idToken: string) {
