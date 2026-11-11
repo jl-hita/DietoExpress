@@ -20,7 +20,7 @@ public sealed class TrainingPeriodizationRegressionTests
     public void TrainingModule_IsOptInAndUsesSeparateExecutionRecords()
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
 
         Assert.Contains("training_profiles", bootstrap);
@@ -53,7 +53,7 @@ public sealed class TrainingPeriodizationRegressionTests
     [Fact]
     public void ConsultationQuickRoutine_IsAtomicAndRequiresSelfManagedTraining()
     {
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var consultation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ProfessionalConsultationsController.cs"));
         var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "guided-consultation", "guided-consultation.component.ts"));
 
@@ -76,7 +76,7 @@ public sealed class TrainingPeriodizationRegressionTests
     [Fact]
     public void TrainingPlans_CanBeEditedDeletedAndCreatedAsSimpleRoutines()
     {
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
 
         Assert.Contains("[HttpPut(\"plans/{planId:int}\")]", controller);
@@ -98,7 +98,7 @@ public sealed class TrainingPeriodizationRegressionTests
     [Fact]
     public void TrainingPlanPublication_IsExplicitAndRequiresReviewedBlocks()
     {
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
 
         Assert.Contains("[HttpPost(\"plans/{planId:int}/publish\")]", controller);
@@ -116,7 +116,7 @@ public sealed class TrainingPeriodizationRegressionTests
     [Fact]
     public void GeneratedMesocycle_IsPersistedAtomicallyAndRequiresProfessionalReview()
     {
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingProgramGenerator.cs"));
 
         Assert.Contains("[HttpPost(\"plans/{planId:int}/generate-mesocycle\")]", controller);
@@ -142,7 +142,7 @@ public sealed class TrainingPeriodizationRegressionTests
     public void GeneratedPrescriptions_AreStoredAsStructuredJsonAndRemainBackwardCompatible()
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var portalController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
 
         Assert.Contains("UpgradeTrainingPeriodizationSchemaV6(context, logger)", bootstrap);
@@ -201,7 +201,7 @@ public sealed class TrainingPeriodizationRegressionTests
     [Fact]
     public void PlanTemplates_PreserveStructuredExercisePrescriptionWhenCopied()
     {
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
 
         Assert.Contains("exercise_prescription_data::text", controller);
         Assert.Contains("JsonElement? ExercisePrescriptionData = null", controller);
@@ -214,7 +214,7 @@ public sealed class TrainingPeriodizationRegressionTests
     public void SessionTemplates_PreserveStructuredPrescriptionsAndClearThemWhenTextChanges()
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
 
         Assert.Contains("UpgradeTrainingPeriodizationSchemaV7(context, logger)", bootstrap);
@@ -279,7 +279,7 @@ public sealed class TrainingPeriodizationRegressionTests
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
         var splitSchema = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingPlanSplitSchema.cs"));
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
         var analyzer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingProgramQualityAnalyzer.cs"));
 
@@ -341,7 +341,7 @@ public sealed class TrainingPeriodizationRegressionTests
     {
         var userModel = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Models", "users.cs"));
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var directoryController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "DirectoryController.cs"));
         var settings = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "settings", "settings.component.html"));
         var directoryUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "directory", "directory.component.html"));
@@ -421,7 +421,7 @@ public sealed class TrainingPeriodizationRegressionTests
     {
         var schema = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingMacrocycleSchema.cs"));
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
 
         Assert.Contains("CREATE TABLE IF NOT EXISTS training_macrocycles", schema);
@@ -446,7 +446,7 @@ public sealed class TrainingPeriodizationRegressionTests
     [Fact]
     public void WeeklyEditorCanAddAndSafelyDeleteOnlyUnrecordedFutureSessions()
     {
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var trainingUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
 
         Assert.Contains("[HttpDelete(\"sessions/{sessionId:int}\")]", controller);

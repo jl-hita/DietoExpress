@@ -74,7 +74,7 @@ public sealed class TrainingAdaptationReviewWorkflowTests
     [Fact]
     public void ReviewWorkflowRequiresExplicitProfessionalDecisionAndOnlyTargetsFutureUnrecordedSessions()
     {
-        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var controller = TrainingControllerSource.ReadAll();
         var portalController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
         var component = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
