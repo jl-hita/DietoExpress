@@ -52,18 +52,11 @@ public sealed class ExerciseLibraryTransferController(
             {
                 using (var archive = new ZipArchive(file, ZipArchiveMode.Create, leaveOpen: true))
                 {
+                    var exerciseBytes = JsonSerializer.SerializeToUtf8Bytes(exercises, JsonOptions);
+                    exerciseHash = Convert.ToHexString(SHA256.HashData(exerciseBytes)).ToLowerInvariant();
                     var exerciseEntry = archive.CreateEntry("exercises.json", CompressionLevel.Optimal);
                     await using (var entryStream = exerciseEntry.Open())
-                    {
-                        await JsonSerializer.SerializeAsync(entryStream, exercises, JsonOptions, cancellationToken);
-                    }
-
-                    await using (var hashStream = new MemoryStream())
-                    {
-                        await using (var exerciseStream = exerciseEntry.Open())
-                            await exerciseStream.CopyToAsync(hashStream, cancellationToken);
-                        exerciseHash = Convert.ToHexString(SHA256.HashData(hashStream.ToArray())).ToLowerInvariant();
-                    }
+                        await entryStream.WriteAsync(exerciseBytes, cancellationToken);
 
                     var imageCount = 0;
                     foreach (var exercise in exercises)
