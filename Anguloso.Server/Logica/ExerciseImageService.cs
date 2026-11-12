@@ -54,7 +54,7 @@ public sealed class ExerciseImageService
                 if (!flat.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String)
                     return null;
                 var path = value.GetString()!;
-                var normalized = path.Replace('\\\\', '/').ToLowerInvariant();
+                var normalized = path.Replace('\\', '/').ToLowerInvariant();
                 if (!SafeRepDbPath.IsMatch(path) ||
                     normalized.Split('/').Any(segment => segment is "premium-samples" or "evaluation" or "evaluation-only"))
                     return null;
