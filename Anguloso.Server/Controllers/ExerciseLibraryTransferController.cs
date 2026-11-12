@@ -31,7 +31,7 @@ public sealed class ExerciseLibraryTransferController(
         var endpoint = configuration["TrazoTransfer:Endpoint"];
         var apiKey = configuration["TrazoTransfer:ApiKey"];
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var target) ||
-            target.Scheme != Uri.UriSchemeHttps && !target.IsLoopback ||
+            !(target.Scheme == Uri.UriSchemeHttps || (target.Scheme == Uri.UriSchemeHttp && target.IsLoopback)) ||
             string.IsNullOrWhiteSpace(apiKey))
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new
             {
