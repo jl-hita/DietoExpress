@@ -85,7 +85,7 @@ public sealed class ExerciseLibraryTransferController(
                             var imageEntry = archive.CreateEntry(path, CompressionLevel.Optimal);
                             await using (var imageStream = imageEntry.Open())
                                 await imageStream.WriteAsync(bytes, cancellationToken);
-                            imageManifest.Add(new { exerciseId = exercise.Id, slot, path, contentType = image.ContentType, size = bytes.Length, sha256 = hash });
+                            imageManifest.Add(new { exerciseId = exercise.Id, slot, path, contentType = image.ContentType, source = image.Source, size = bytes.Length, sha256 = hash });
                             imageCount++;
                         }
                     }
