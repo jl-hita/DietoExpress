@@ -751,8 +751,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.adminService.transferExerciseLibraryToTrazo().subscribe({
       next: result => {
         this.exerciseTransferRunning = false;
-        const count = result.imported ?? result.exerciseCount;
-        this.snackBar.open(`Transferencia completada: ${count} ejercicios y ${result.imageCount} imágenes.`, 'Cerrar', { duration: 7000 });
+        const count = result.imported === undefined ? result.exerciseCount : result.imported + (result.updated ?? 0) + (result.preserved ?? 0);
+        const images = result.imagesImported ?? result.imageCount;
+        this.snackBar.open(`Transferencia completada: ${count} ejercicios procesados (${result.imported ?? 0} nuevos, ${result.updated ?? 0} actualizados, ${result.preserved ?? 0} preservados) y ${images} imágenes importadas.`, 'Cerrar', { duration: 9000 });
       },
       error: error => {
         this.exerciseTransferRunning = false;
