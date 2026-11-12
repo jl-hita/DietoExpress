@@ -1833,7 +1833,7 @@ public sealed class ExerciseCatalogService
         }
     }
 
-    public async Task<IReadOnlyList<ExerciseCatalogExportItem>> ExportCatalogAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ExerciseCatalogExportItem>> ExportCatalogAsync(CancellationToken cancellationToken = default, bool approvedGlobalOnly = false)
     {
         await EnsureSchemaAsync(cancellationToken);
         const string sql = """
@@ -1845,6 +1845,7 @@ public sealed class ExerciseCatalogService
                    reviewed_required_equipment::text, reviewed_selection_priority, review_notes, reviewed_at, reviewed_by,
                    source_payload->>'contributor', source_payload::text
             FROM exercise_catalog
+            WHERE (@approved_only = FALSE OR (owner_user_id IS NULL AND author = 'superadmin' AND review_status = 'approved' AND reviewed = TRUE))
             ORDER BY source, name_es NULLS LAST, name_en
             """;
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
@@ -1854,6 +1855,7 @@ public sealed class ExerciseCatalogService
         {
             var items = new List<ExerciseCatalogExportItem>();
             await using var command = new NpgsqlCommand(sql, connection);
+            command.Parameters.AddWithValue("approved_only", approvedGlobalOnly);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {

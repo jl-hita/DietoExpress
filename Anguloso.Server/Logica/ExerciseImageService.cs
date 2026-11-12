@@ -49,8 +49,17 @@ public sealed class ExerciseImageService
             using var document = JsonDocument.Parse(imagesJson);
             if (!document.RootElement.TryGetProperty("flat", out var flat) || flat.ValueKind != JsonValueKind.Object)
                 return result;
-            string? Path(string name) => flat.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
-                && SafeRepDbPath.IsMatch(value.GetString()!) ? value.GetString() : null;
+            string? Path(string name)
+            {
+                if (!flat.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String)
+                    return null;
+                var path = value.GetString()!;
+                var normalized = path.Replace('\\', '/').ToLowerInvariant();
+                if (!SafeRepDbPath.IsMatch(path) ||
+                    normalized.Split('/').Any(segment => segment.Contains("premium", StringComparison.Ordinal) || segment.Contains("evaluation", StringComparison.Ordinal)))
+                    return null;
+                return path;
+            }
             var first = Path("start") ?? Path("main");
             if (first is not null) result[0] = first;
             var second = Path("peak");
@@ -149,7 +158,7 @@ public sealed class ExerciseImageService
             var contentType = DetectImageContentType(bytes);
             if (contentType is null) return null;
             await StoreAsync(exerciseId, slot, bytes, contentType, "repdb-free", null, overwrite: false, cancellationToken);
-            return new ExerciseImage(bytes, contentType);
+            return new ExerciseImage(bytes, contentType, "repdb-free");
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidOperationException)
         {
@@ -421,12 +430,12 @@ public sealed class ExerciseImageService
         NpgsqlConnection connection, string exerciseId, int slot, CancellationToken cancellationToken)
     {
         await using var command = new NpgsqlCommand(
-            "SELECT data, content_type FROM exercise_images WHERE exercise_id = @id AND slot = @slot", connection);
+            "SELECT data, content_type, source FROM exercise_images WHERE exercise_id = @id AND slot = @slot", connection);
         command.Parameters.AddWithValue("id", exerciseId);
         command.Parameters.AddWithValue("slot", (short)slot);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         return await reader.ReadAsync(cancellationToken)
-            ? new ExerciseImage((byte[])reader[0], reader.GetString(1))
+            ? new ExerciseImage((byte[])reader[0], reader.GetString(1), reader.GetString(2))
             : null;
     }
 
@@ -451,4 +460,4 @@ public sealed class ExerciseImageService
     }
 }
 
-public sealed record ExerciseImage(byte[] Data, string ContentType);
+public sealed record ExerciseImage(byte[] Data, string ContentType, string Source = "custom");
