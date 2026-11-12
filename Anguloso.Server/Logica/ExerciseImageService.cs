@@ -49,8 +49,17 @@ public sealed class ExerciseImageService
             using var document = JsonDocument.Parse(imagesJson);
             if (!document.RootElement.TryGetProperty("flat", out var flat) || flat.ValueKind != JsonValueKind.Object)
                 return result;
-            string? Path(string name) => flat.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
-                && SafeRepDbPath.IsMatch(value.GetString()!) ? value.GetString() : null;
+            string? Path(string name)
+            {
+                if (!flat.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String)
+                    return null;
+                var path = value.GetString()!;
+                var normalized = path.Replace('\\\\', '/').ToLowerInvariant();
+                if (!SafeRepDbPath.IsMatch(path) ||
+                    normalized.Split('/').Any(segment => segment is "premium-samples" or "evaluation" or "evaluation-only"))
+                    return null;
+                return path;
+            }
             var first = Path("start") ?? Path("main");
             if (first is not null) result[0] = first;
             var second = Path("peak");
