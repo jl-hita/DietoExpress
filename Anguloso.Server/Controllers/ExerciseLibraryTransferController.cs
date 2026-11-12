@@ -113,6 +113,11 @@ public sealed class ExerciseLibraryTransferController(
                 }
             }
 
+            var archiveSize = new FileInfo(tempPath).Length;
+            if (archiveSize > 512L * 1024L * 1024L)
+                return StatusCode(StatusCodes.Status413PayloadTooLarge,
+                    new { error = "La biblioteca supera el límite de transferencia de 512 MB." });
+
             var importUri = new Uri(target, "api/internal/exercise-catalog/import");
             using var request = new HttpRequestMessage(HttpMethod.Post, importUri);
             request.Headers.Add("X-Trazo-Import-Key", apiKey);
