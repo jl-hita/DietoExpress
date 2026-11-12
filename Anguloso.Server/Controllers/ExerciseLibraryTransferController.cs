@@ -66,10 +66,16 @@ public sealed class ExerciseLibraryTransferController(
                             exercise.Id.Any(ch => !(char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_')))
                             throw new InvalidDataException($"Invalid exercise identifier '{exercise.Id}'.");
 
+                        var expectedRepDbSlots = ExerciseImageService.ResolveRepDbSlotPaths(exercise.Images.GetRawText());
                         for (var slot = 0; slot <= ExerciseImageService.MaximumSlot; slot++)
                         {
                             var image = await images.GetImageAsync(exercise.Id, slot, cancellationToken);
-                            if (image is null) continue;
+                            if (image is null)
+                            {
+                                if (expectedRepDbSlots.ContainsKey(slot))
+                                    throw new InvalidDataException($"RepDB image {exercise.Id}/{slot} could not be materialized; transfer aborted to avoid an incomplete library.");
+                                continue;
+                            }
 
                             var extension = image.ContentType switch
                             {
