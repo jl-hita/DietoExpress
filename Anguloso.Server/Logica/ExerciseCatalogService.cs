@@ -1845,7 +1845,7 @@ public sealed class ExerciseCatalogService
                    reviewed_required_equipment::text, reviewed_selection_priority, review_notes, reviewed_at, reviewed_by,
                    source_payload->>'contributor', source_payload::text
             FROM exercise_catalog
-            WHERE (@approved_only = FALSE OR (owner_user_id IS NULL AND review_status = 'approved' AND reviewed = TRUE))
+            WHERE (@approved_only = FALSE OR (owner_user_id IS NULL AND author = 'superadmin' AND review_status = 'approved' AND reviewed = TRUE))
             ORDER BY source, name_es NULLS LAST, name_en
             """;
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
