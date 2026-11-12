@@ -86,6 +86,9 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
         <button mat-stroked-button color="primary" (click)="loadData()">
           <mat-icon>refresh</mat-icon> Actualizar
         </button>
+        <button mat-stroked-button color="accent" (click)="transferExerciseLibraryToTrazo()" [disabled]="exerciseTransferRunning">
+          <mat-icon>sync_alt</mat-icon> {{ exerciseTransferRunning ? 'Transfiriendo biblioteca…' : 'Enviar biblioteca a TRAZO' }}
+        </button>
       </div>
 
       <!-- KPI Metrics Cards -->
@@ -738,6 +741,26 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   configsFor(category: string): AdminConfig[] { return this.configs.filter(c => c.categoria === category); }
   private configTimers = new Map<number, ReturnType<typeof setTimeout>>();
   private searchTimer?: ReturnType<typeof setTimeout>;
+
+  exerciseTransferRunning = false;
+
+  transferExerciseLibraryToTrazo(): void {
+    if (this.exerciseTransferRunning) return;
+    if (!confirm('Se transferirá a TRAZO la biblioteca global de ejercicios aprobados, incluidas las imágenes disponibles. No se incluirán ejercicios privados ni pendientes. ¿Continuar?')) return;
+    this.exerciseTransferRunning = true;
+    this.adminService.transferExerciseLibraryToTrazo().subscribe({
+      next: result => {
+        this.exerciseTransferRunning = false;
+        const count = result.imported ?? result.exerciseCount;
+        this.snackBar.open(`Transferencia completada: ${count} ejercicios y ${result.imageCount} imágenes.`, 'Cerrar', { duration: 7000 });
+      },
+      error: error => {
+        this.exerciseTransferRunning = false;
+        const message = error?.error?.error || 'No se pudo transferir la biblioteca a TRAZO.';
+        this.snackBar.open(message, 'Cerrar', { duration: 8000 });
+      }
+    });
+  }
 
   searchTerm = '';
   statusFilter = '';
