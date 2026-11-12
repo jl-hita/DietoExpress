@@ -56,7 +56,7 @@ public sealed class ExerciseImageService
                 var path = value.GetString()!;
                 var normalized = path.Replace('\\', '/').ToLowerInvariant();
                 if (!SafeRepDbPath.IsMatch(path) ||
-                    normalized.Split('/').Any(segment => segment is "premium-samples" or "evaluation" or "evaluation-only"))
+                    normalized.Split('/').Any(segment => segment.Contains("premium", StringComparison.Ordinal) || segment.Contains("evaluation", StringComparison.Ordinal)))
                     return null;
                 return path;
             }
