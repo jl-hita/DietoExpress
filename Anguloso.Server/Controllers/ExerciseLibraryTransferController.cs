@@ -77,6 +77,9 @@ public sealed class ExerciseLibraryTransferController(
                                 continue;
                             }
 
+                            if (image.Source == "repdb-free")
+                                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+
                             var extension = image.ContentType switch
                             {
                                 "image/webp" => "webp",
