@@ -180,8 +180,8 @@ export class AdminService {
     return this.http.post<{ message: string }>(`${this.setupUrl}/init`, data);
   }
 
-  transferExerciseLibraryToTrazo(): Observable<{ exerciseCount: number; imageCount: number; imported?: number; updated?: number }> {
-    return this.http.post<{ exerciseCount: number; imageCount: number; imported?: number; updated?: number }>(
+  transferExerciseLibraryToTrazo(): Observable<{ exerciseCount: number; imageCount: number; imported?: number; updated?: number; preserved?: number; imagesImported?: number; imagesPreserved?: number }> {
+    return this.http.post<{ exerciseCount: number; imageCount: number; imported?: number; updated?: number; preserved?: number; imagesImported?: number; imagesPreserved?: number }>(
       '/api/admin/exercise-library-transfer/trazo', {}
     );
   }
