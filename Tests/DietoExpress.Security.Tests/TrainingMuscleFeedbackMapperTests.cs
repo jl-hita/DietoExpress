@@ -29,6 +29,27 @@ public sealed class TrainingMuscleFeedbackMapperTests
     }
 
     [Fact]
+    public void MapperAndPlannedVolumeUseOnlyReviewedMeaningfulSecondaryStimulus()
+    {
+        const string rowPrescription = """{"exercises":[{"exerciseId":"seated-cable-row","sets":3,"primaryMuscleGroups":["Lats","UpperBack"],"secondaryMuscleGroups":["Biceps","Forearms"]}]}""";
+
+        var exposures = TrainingMuscleFeedbackMapper.Map([
+            new(new DateOnly(2026, 11, 6), "completed",
+                """[{"exerciseId":"seated-cable-row","stimulus":"low","discomfort":"none","preFatigue":"recovered"}]""",
+                rowPrescription)
+        ]);
+
+        var exposure = Assert.Single(exposures);
+        Assert.Equal(new[] { "Biceps", "Lats", "UpperBack" }, exposure.EffectiveMuscles);
+
+        var planned = TrainingMuscleFeedbackMapper.CountPlannedEffectiveSets([rowPrescription]);
+        Assert.Equal(3, planned["Biceps"]);
+        Assert.Equal(3, planned["Lats"]);
+        Assert.Equal(3, planned["UpperBack"]);
+        Assert.False(planned.ContainsKey("Forearms"));
+    }
+
+    [Fact]
     public void UnusableNewestPrescriptionBlocksOlderFeedbackHistory()
     {
         var exposures = TrainingMuscleFeedbackMapper.Map([
