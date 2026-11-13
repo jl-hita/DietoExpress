@@ -66,6 +66,31 @@ public sealed class TrainingMuscleFeedbackTests
     }
 
     [Fact]
+    public void ReviewedSecondaryCompoundSetsPreventRedundantDirectMuscleIncrease()
+    {
+        const string row = """{"exercises":[{"exerciseId":"seated-cable-row","sets":3,"primaryMuscleGroups":["Lats","UpperBack"],"secondaryMuscleGroups":["Biceps"]}]}""";
+        const string curl = """{"exercises":[{"exerciseId":"machine-bicep-curl","sets":2,"primaryMuscleGroups":["Biceps"],"secondaryMuscleGroups":[]}]}""";
+        var planned = TrainingMuscleFeedbackMapper.CountPlannedEffectiveSets([row, curl])
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        var ceilings = planned.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+
+        Assert.Equal(5, planned["Biceps"]); // 3 reviewed row sets + 2 direct curl sets.
+
+        var result = TrainingMuscleFeedbackAdapter.Evaluate(
+            [
+                E(2, "seated-cable-row", "Biceps", sets: 3, stimulus: "low"),
+                E(2, "machine-bicep-curl", "Biceps", sets: 2, stimulus: "low"),
+                E(4, "seated-cable-row", "Biceps", sets: 3, stimulus: "low"),
+                E(4, "machine-bicep-curl", "Biceps", sets: 2, stimulus: "low")
+            ],
+            planned,
+            ceilings);
+
+        Assert.DoesNotContain(result, decision =>
+            decision.Action == TrainingMuscleFeedbackAction.AddSet && decision.Muscle == "Biceps");
+    }
+
+    [Fact]
     public void StrengthFeedbackCannotAddAFourthSetToAnExercise()
     {
         var result = TrainingMuscleFeedbackAdapter.Evaluate(

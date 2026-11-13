@@ -44,7 +44,7 @@ public static class TrainingMuscleFeedbackAdapter
         // Keep blocked exercises in muscle evidence: filtering them out could hide pain and
         // incorrectly make the remaining exercises look uniformly under-stimulated.
         var byMuscle = chronological
-            .SelectMany(item => item.PrimaryMuscles.Select(muscle => (Muscle: muscle, Item: item)))
+            .SelectMany(item => item.EffectiveMuscles.Select(muscle => (Muscle: muscle, Item: item)))
             .GroupBy(pair => pair.Muscle, StringComparer.Ordinal);
 
         foreach (var muscleGroup in byMuscle.OrderBy(group => group.Key, StringComparer.Ordinal))
@@ -110,7 +110,7 @@ public enum TrainingMuscleFeedbackAction { AddSet, ReduceSet, SuggestSwap, Pause
 /// <param name="PreFatigue">recovered | loaded.</param>
 /// <param name="SessionCompleted">False for partial or not-completed sessions; these never count as volume evidence.</param>
 public sealed record TrainingMuscleFeedbackExposure(
-    DateOnly Date, string ExerciseId, IReadOnlyList<string> PrimaryMuscles, int Sets,
+    DateOnly Date, string ExerciseId, IReadOnlyList<string> EffectiveMuscles, int Sets,
     string? Stimulus, string? Discomfort, string? PreFatigue, bool SessionCompleted = true);
 
 public sealed record TrainingMuscleFeedbackDecision(

@@ -40,14 +40,14 @@ public static class TrainingMuscleFeedbackMapper
             var completed = string.Equals(item.Record.Outcome, "completed", StringComparison.OrdinalIgnoreCase);
             foreach (var exercise in item.Exercises)
             {
-                if (exercise.PrimaryMuscles.Count == 0)
+                if (exercise.EffectiveMuscles.Count == 0)
                     continue;
 
                 item.Feedback.TryGetValue(exercise.ExerciseId, out var feedback);
                 exposures.Add(new TrainingMuscleFeedbackExposure(
                     item.Record.Date,
                     exercise.ExerciseId,
-                    exercise.PrimaryMuscles,
+                    exercise.EffectiveMuscles,
                     exercise.Sets,
                     feedback.ValueKind == JsonValueKind.Object ? ReadString(feedback, "stimulus") : null,
                     feedback.ValueKind == JsonValueKind.Object ? ReadString(feedback, "discomfort") : null,
@@ -57,6 +57,25 @@ public static class TrainingMuscleFeedbackMapper
         }
 
         return exposures;
+    }
+
+    /// <summary>
+    /// Counts planned weekly sets using the same reviewed primary/secondary stimulus audit
+    /// as the generator, so feedback-driven increases respect the effective-volume ceiling.
+    /// </summary>
+    public static IReadOnlyDictionary<string, int> CountPlannedEffectiveSets(IEnumerable<string> prescriptionJsons)
+    {
+        ArgumentNullException.ThrowIfNull(prescriptionJsons);
+        var totals = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var json in prescriptionJsons)
+        {
+            var exercises = ReadPrescription(json);
+            if (exercises is null) continue;
+            foreach (var exercise in exercises)
+            foreach (var muscle in exercise.EffectiveMuscles)
+                totals[muscle] = totals.GetValueOrDefault(muscle) + exercise.Sets;
+        }
+        return totals;
     }
 
     private static IReadOnlyList<PrescribedExercise>? ReadPrescription(string? json)
@@ -83,19 +102,21 @@ public static class TrainingMuscleFeedbackMapper
                     !exercise.TryGetProperty("sets", out var setsElement) ||
                     setsElement.ValueKind != JsonValueKind.Number ||
                     !setsElement.TryGetInt32(out var sets) || sets is < 1 or > 100 ||
-                    !exercise.TryGetProperty("primaryMuscleGroups", out var musclesElement) ||
-                    musclesElement.ValueKind != JsonValueKind.Array ||
+                    !exercise.TryGetProperty("primaryMuscleGroups", out var primaryMusclesElement) ||
+                    primaryMusclesElement.ValueKind != JsonValueKind.Array ||
                     !ids.Add(id))
                     return null;
 
-                var muscles = musclesElement.EnumerateArray()
-                    .Where(value => value.ValueKind == JsonValueKind.String)
-                    .Select(value => value.GetString())
-                    .Where(value => !string.IsNullOrWhiteSpace(value))
-                    .Select(value => value!)
-                    .Distinct(StringComparer.Ordinal)
+                var primary = ReadMuscleGroups(primaryMusclesElement);
+                var secondary = exercise.TryGetProperty("secondaryMuscleGroups", out var secondaryElement) &&
+                                secondaryElement.ValueKind == JsonValueKind.Array
+                    ? ReadMuscleGroups(secondaryElement)
+                    : Array.Empty<TrainingMuscleGroup>();
+                var effective = TrainingExerciseStimulus.GetEffectiveMuscles(id, primary, secondary)
+                    .Select(muscle => muscle.ToString())
+                    .OrderBy(muscle => muscle, StringComparer.Ordinal)
                     .ToArray();
-                result.Add(new PrescribedExercise(id, sets, muscles));
+                result.Add(new PrescribedExercise(id, sets, effective));
             }
 
             return result.Count == 0 ? null : result;
@@ -108,6 +129,27 @@ public static class TrainingMuscleFeedbackMapper
         {
             return null;
         }
+    }
+
+    private static IReadOnlyList<TrainingMuscleGroup> ReadMuscleGroups(JsonElement values)
+    {
+        var muscles = new HashSet<TrainingMuscleGroup>();
+        foreach (var value in values.EnumerateArray())
+        {
+            TrainingMuscleGroup? parsed = null;
+            if (value.ValueKind == JsonValueKind.String &&
+                Enum.TryParse<TrainingMuscleGroup>(value.GetString(), true, out var named) &&
+                Enum.IsDefined(named))
+                parsed = named;
+            else if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var numeric))
+            {
+                var numbered = (TrainingMuscleGroup)numeric;
+                if (Enum.IsDefined(numbered)) parsed = numbered;
+            }
+
+            if (parsed.HasValue) muscles.Add(parsed.Value);
+        }
+        return muscles.OrderBy(muscle => muscle).ToArray();
     }
 
     private static IReadOnlyDictionary<string, JsonElement> ReadFeedback(string? json)
@@ -152,7 +194,7 @@ public static class TrainingMuscleFeedbackMapper
     private sealed record PrescribedExercise(
         string ExerciseId,
         int Sets,
-        IReadOnlyList<string> PrimaryMuscles);
+        IReadOnlyList<string> EffectiveMuscles);
 }
 
 public sealed record TrainingMuscleFeedbackRecord(

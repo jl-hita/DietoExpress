@@ -784,7 +784,7 @@ public sealed class TrainingPortalController : ControllerBase
         if (!Enum.TryParse<Anguloso.Server.Logica.TrainingExperience>(experienceText, true, out var experience))
             experience = Anguloso.Server.Logica.TrainingExperience.Beginner;
 
-        var plannedByMuscle = new Dictionary<string, int>(StringComparer.Ordinal);
+        var upcomingPrescriptions = new List<string>();
         await using (var upcoming = Command("""
             SELECT s.exercise_prescription_data::text FROM training_sessions s
             WHERE s.plan_id = @planId AND s.session_type = 'strength'
@@ -793,21 +793,17 @@ public sealed class TrainingPortalController : ControllerBase
             """, ("planId", planId)))
         await using (var upcomingReader = await upcoming.ExecuteReaderAsync(cancellationToken))
             while (await upcomingReader.ReadAsync(cancellationToken))
-                try
-                {
-                    using var doc = JsonDocument.Parse(upcomingReader.GetString(0));
-                    foreach (var exercise in doc.RootElement.GetProperty("exercises").EnumerateArray())
-                    {
-                        var sets = exercise.TryGetProperty("sets", out var s) && s.TryGetInt32(out var n) ? n : 0;
-                        if (exercise.TryGetProperty("primaryMuscleGroups", out var m) && m.ValueKind == JsonValueKind.Array)
-                            foreach (var muscle in m.EnumerateArray().Select(x => x.GetString()!))
-                                plannedByMuscle[muscle] = plannedByMuscle.GetValueOrDefault(muscle) + sets;
-                    }
-                }
-                catch (Exception exception) when (exception is JsonException or KeyNotFoundException or InvalidOperationException) { }
+                upcomingPrescriptions.Add(upcomingReader.GetString(0));
+
+        // Match the generator's exercise-specific effective-stimulus accounting. Counting only
+        // primary labels here could add a direct set even when a compound already fills the
+        // muscle's effective weekly ceiling through a reviewed secondary contribution.
+        var plannedByMuscle = Anguloso.Server.Logica.TrainingMuscleFeedbackMapper
+            .CountPlannedEffectiveSets(upcomingPrescriptions)
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var ceilings = Anguloso.Server.Logica.TrainingProgramVolumeAllocator.GetWeeklyCeilings(goal, experience)
             .ToDictionary(pair => pair.Key.ToString(), pair => (int)pair.Value, StringComparer.Ordinal);
-        // A muscle explicitly present as primary work in this reviewed plan is opt-in, even if
+        // A muscle explicitly present as effective work in this reviewed plan is opt-in, even if
         // it has no default quota (e.g. direct core). Keep feedback-driven increases bounded.
         foreach (var (muscle, plannedSets) in plannedByMuscle)
             ceilings.TryAdd(muscle, plannedSets + 2);
