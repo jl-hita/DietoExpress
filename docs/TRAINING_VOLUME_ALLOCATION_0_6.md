@@ -190,3 +190,18 @@ Referencia principal: Currier et al., ACSM Position Stand 2026, DOI 10.1249/MSS.
 ### Coherencia durante una descarga reactiva — 11/11/2026
 
 Cuando se aplica una descarga reactiva de siete días, la política bloquea durante esa ventana otros cambios automáticos de carga o volumen: reducciones generales, cambios de RIR, restauraciones y ajustes musculares de +1/-1 serie. Así un feedback aislado durante la propia descarga no puede contrarrestarla ni apilar otro cambio sobre las mismas sesiones futuras. Al terminar la ventana, la evaluación vuelve a depender del feedback nuevo y de sus cooldowns; esto no introduce una descarga por calendario. Es una guarda de coherencia del producto, no una regla fisiológica ni una pauta de ACSM.
+
+## Coherencia del feedback muscular con el volumen efectivo — 13/11/2026
+
+El asignador calcula la dosis semanal con `TrainingExerciseStimulus`: cuenta las series primarias y solo las contribuciones secundarias dinámicas revisadas por ID de ejercicio. El adaptador de feedback muscular debe usar la misma contabilidad.
+
+Se detectó una discrepancia: el feedback y el volumen planificado futuro se agrupaban solo por `primaryMuscleGroups`, pero el techo semanal procedía de los objetivos de volumen efectivo. En un plan con remo/jalón y curl, por ejemplo, las series del tirón podían contar para bíceps en el generador pero no en el límite del adaptador; una respuesta de poco estímulo en el curl podía proponer una serie adicional aunque el volumen efectivo previsto ya alcanzase el techo.
+
+La corrección:
+
+- El mapeador de feedback obtiene los músculos efectivos mediante la misma tabla revisada de `TrainingExerciseStimulus`.
+- El volumen de las sesiones futuras se calcula con esa misma función; no se infiere estímulo a partir del nombre del ejercicio.
+- Solo cuentan las contribuciones secundarias aprobadas por ID (por ejemplo, bíceps en remos/jalones y tríceps en presses). Agarre, estabilización y co-contracción incidental siguen excluidos.
+- La señal de feedback sigue siendo por ejercicio, no una medición independiente de cada músculo. Por tanto, se aplica a los músculos que el modelo considera efectivamente estimulados por ese ejercicio; es una heurística de producto que debe revisarse si cambia el formato de feedback.
+
+Se añaden regresiones para comprobar que un remo contribuye a bíceps cuando está auditado, que los antebrazos no reciben crédito por el agarre y que las series secundarias previstas impiden un aumento redundante de volumen directo. No cambia ningún endpoint ni DTO; el contrato Android permanece igual.
