@@ -18,3 +18,19 @@ The export contains only global exercises with `owner_user_id IS NULL`, `review_
 The ZIP contains `manifest.json`, `exercises.json` and image files. SHA-256 checksums and image sizes are validated by TRAZO before any database transaction starts. Transfer failure is reported in the dashboard; no local archive is retained.
 
 RepDB attribution is preserved in the import metadata and exposed by TRAZO. Keep this workflow private and do not publish, redistribute or offer the imported RepDB data/assets as a dataset, archive or bulk-download service. Confirm that the exact RepDB licence accepted for DietoExpress permits this private cross-application transfer.
+
+## Receiving exercises created in TRAZO (reverse direction)
+
+DietoExpress also accepts the exercises that were created in TRAZO. TRAZO builds the archive and posts it to
+`POST /api/internal/trazo-exercise-library/import` with the header `X-Trazo-Transfer-Key`. The key is the same
+secret as the transfer to TRAZO: `TrazoTransfer__ApiKey` (no new setting is needed on this side). Without it the
+endpoint answers `503`; with a wrong key, `401`. The check runs before the archive is read.
+
+- The archive (`manifest.json`, `exercises.json`, `images/...`, schemaVersion 1, source `TRAZO`) is validated completely
+  before any database work: SHA-256 hashes, identifiers, image signatures and sizes, and the same rules as the curated
+  additions (valid pattern, muscles and goals; at least three instructions).
+- New exercises are inserted as approved, reviewed global exercises with source `dietoexpress-curated` and the reviewer
+  label `TRAZO transfer v{n}`. A later transfer refreshes an exercise only if it carries that label with a lower version,
+  so RepDB exercises, DietoExpress additions and anything edited by a person are never overwritten.
+- Images are stored as `custom` images, and only in empty slots.
+- The response reports `exercisesInserted`, `exercisesUpdated`, `exercisesSkipped`, `imagesStored` and `imagesSkipped`.
