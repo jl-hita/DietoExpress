@@ -25,135 +25,167 @@
         <mat-icon>dashboard</mat-icon><span>Inicio</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
+    <div class="menu-item" *ngIf="showWorkspace">
       <a mat-list-item routerLink="/clients" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>group</mat-icon><span>Clientes</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
+    <div class="menu-item" *ngIf="showWorkspace">
       <a mat-list-item routerLink="/appointments" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>event</mat-icon><span>Agenda y citas</span><span class="message-unread-badge" *ngIf="pendingAppointmentsCount > 0" aria-label="Solicitudes de cita pendientes">{{ pendingAppointmentsCount > 99 ? '99+' : pendingAppointmentsCount }}</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
-      <a mat-list-item routerLink="/diets" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>restaurant</mat-icon><span>Dietas</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
-      <a mat-list-item routerLink="/training-invitations" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>fitness_center</mat-icon><span>Entrenamientos</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
-      <a mat-list-item routerLink="/training-inbox" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>rate_review</mat-icon><span>Pendientes de entrenamiento</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
-      <a mat-list-item routerLink="/exercise-contributions" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>playlist_add</mat-icon><span>Proponer ejercicios</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
-      <a mat-list-item routerLink="/exercise-manager" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>fitness_center</mat-icon><span>Gestor de ejercicios</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
+    <div class="menu-item" *ngIf="showWorkspace">
       <a mat-list-item routerLink="/messages" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>chat</mat-icon><span>Mensajes</span><span class="message-unread-badge" *ngIf="unreadMessagesCount > 0" aria-label="Mensajes sin leer">{{ unreadMessagesCount > 99 ? '99+' : unreadMessagesCount }}</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
-      <a mat-list-item routerLink="/documents" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>description</mat-icon><span>Documentación</span>
-      </a>
+    <div class="nav-group" [class.group-active]="isGroupActive('planning')" *ngIf="showWorkspace">
+      <button type="button" class="group-header" (click)="toggleGroup('planning')" [attr.aria-expanded]="isGroupOpen('planning')" aria-controls="nav-group-planning">
+        <mat-icon>event_note</mat-icon><span>Planificación</span>
+        <mat-icon class="chevron" [class.open]="isGroupOpen('planning')">expand_more</mat-icon>
+      </button>
+      <div class="group-body" id="nav-group-planning" *ngIf="isGroupOpen('planning')">
+        <div class="menu-item">
+          <a mat-list-item routerLink="/diets" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>restaurant</mat-icon><span>Dietas</span>
+          </a>
+        </div>
+        <div class="menu-item">
+          <a mat-list-item routerLink="/training-invitations" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>fitness_center</mat-icon><span>Entrenamientos</span>
+          </a>
+        </div>
+        <div class="menu-item" *ngIf="showTrainingInbox">
+          <a mat-list-item routerLink="/training-inbox" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>rate_review</mat-icon><span>Pendientes de entrenamiento</span>
+          </a>
+        </div>
+        <div class="menu-item">
+          <a mat-list-item routerLink="/exercise-contributions" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>playlist_add</mat-icon><span>Proponer ejercicios</span>
+          </a>
+        </div>
+        <div class="menu-item">
+          <a mat-list-item routerLink="/exercise-manager" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>sports_gymnastics</mat-icon><span>Gestor de ejercicios</span>
+          </a>
+        </div>
+      </div>
     </div>
-    <div class="menu-item" *ngIf="isNutritionist">
-      <a mat-list-item routerLink="/directory-interests" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>person_search</mat-icon><span>Personas interesadas</span>
-      </a>
+    <div class="nav-group" [class.group-active]="isGroupActive('practice')" *ngIf="showWorkspace || showInterests || showStatistics || showDirectoryProfile">
+      <button type="button" class="group-header" (click)="toggleGroup('practice')" [attr.aria-expanded]="isGroupOpen('practice')" aria-controls="nav-group-practice">
+        <mat-icon>work</mat-icon><span>Mi práctica</span>
+        <mat-icon class="chevron" [class.open]="isGroupOpen('practice')">expand_more</mat-icon>
+      </button>
+      <div class="group-body" id="nav-group-practice" *ngIf="isGroupOpen('practice')">
+        <div class="menu-item" *ngIf="showWorkspace">
+          <a mat-list-item routerLink="/documents" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>description</mat-icon><span>Documentación</span>
+          </a>
+        </div>
+        <div class="menu-item" *ngIf="showStatistics">
+          <a mat-list-item routerLink="/statistics" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>insights</mat-icon><span>Estadísticas</span>
+          </a>
+        </div>
+        <div class="menu-item" *ngIf="showWorkspace">
+          <a mat-list-item routerLink="/automations" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>auto_awesome</mat-icon><span>Automatizaciones</span>
+          </a>
+        </div>
+        <div class="menu-item" *ngIf="showInterests">
+          <a mat-list-item routerLink="/directory-interests" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>person_search</mat-icon><span>Personas interesadas</span>
+          </a>
+        </div>
+        <div class="menu-item" *ngIf="showDirectoryProfile">
+          <a mat-list-item routerLink="/directory-profile" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>public</mat-icon><span>{{ isClinic ? 'Directorio de la clínica' : 'Publicar mi perfil' }}</span>
+          </a>
+        </div>
+      </div>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isClinic || isSuperAdmin">
-      <a mat-list-item routerLink="/statistics" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>insights</mat-icon><span>Estadísticas</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
-      <a mat-list-item routerLink="/automations" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>auto_awesome</mat-icon><span>Automatizaciones</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isNutritionist || isClinic">
-      <a mat-list-item routerLink="/directory-profile" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>public</mat-icon><span>{{ isClinic ? 'Directorio de la clínica' : 'Publicar mi perfil' }}</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isClinic || isSuperAdmin">
-      <a mat-list-item routerLink="/support" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>support_agent</mat-icon><span>Soporte</span><span class="message-unread-badge" *ngIf="isSuperAdmin && newSupportTicketsCount > 0" aria-label="Tickets nuevos sin atender">{{ newSupportTicketsCount > 99 ? '99+' : newSupportTicketsCount }}</span>
-      </a>
-    </div>
-    <div class="menu-item">
-      <a mat-list-item routerLink="/settings" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>settings</mat-icon><span>Ajustes</span>
-      </a>
-    </div>
-    <div class="menu-item">
-      <a mat-list-item routerLink="/billing" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>workspace_premium</mat-icon><span>Suscripción</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="!isSuperAdmin && (isProfessionalAccount || isFreeAccount)">
-      <a mat-list-item routerLink="/legal-manage" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>gavel</mat-icon><span>Legal</span>
-      </a>
-    </div>
-    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
-      <a mat-list-item routerLink="/admin/directory-verification" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>fact_check</mat-icon><span>Verificación del directorio</span><span class="message-unread-badge" *ngIf="directoryReviewCount > 0" aria-label="Revisiones del directorio pendientes">{{ directoryReviewCount > 99 ? '99+' : directoryReviewCount }}</span>
-      </a>
-    </div>
-    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
-      <a mat-list-item routerLink="/admin/food-data-quality" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>fact_check</mat-icon><span>Calidad de alimentos</span>
-      </a>
-    </div>
-    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
-      <a mat-list-item routerLink="/admin/exercises" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>fitness_center</mat-icon><span>Revisión de ejercicios</span>
-      </a>
-    </div>
-    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
-      <a mat-list-item routerLink="/admin/directory-verification/review" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>description</mat-icon><span>Revisión documental</span>
-      </a>
-    </div>
-    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
-      <a mat-list-item routerLink="/admin/legal" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>gavel</mat-icon><span>Legal</span>
-      </a>
+    <div class="nav-group" [class.group-active]="isGroupActive('account')" *ngIf="true">
+      <button type="button" class="group-header" (click)="toggleGroup('account')" [attr.aria-expanded]="isGroupOpen('account')" aria-controls="nav-group-account">
+        <mat-icon>manage_accounts</mat-icon><span>Cuenta</span>
+        <mat-icon class="chevron" [class.open]="isGroupOpen('account')">expand_more</mat-icon>
+      </button>
+      <div class="group-body" id="nav-group-account" *ngIf="isGroupOpen('account')">
+        <div class="menu-item">
+          <a mat-list-item routerLink="/settings" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>settings</mat-icon><span>Ajustes</span>
+          </a>
+        </div>
+        <div class="menu-item">
+          <a mat-list-item routerLink="/billing" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>workspace_premium</mat-icon><span>Suscripción</span>
+          </a>
+        </div>
+        <div class="menu-item" *ngIf="!isSuperAdmin && (isProfessionalAccount || isFreeAccount)">
+          <a mat-list-item routerLink="/legal-manage" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>gavel</mat-icon><span>Legal</span>
+          </a>
+        </div>
+        <div class="menu-item" *ngIf="showSupport">
+          <a mat-list-item routerLink="/support" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>support_agent</mat-icon><span>Soporte</span><span class="message-unread-badge" *ngIf="isSuperAdmin && newSupportTicketsCount > 0" aria-label="Tickets nuevos sin atender">{{ newSupportTicketsCount > 99 ? '99+' : newSupportTicketsCount }}</span>
+          </a>
+        </div>
+      </div>
     </div>
     <div class="menu-item superadmin-item" *ngIf="isClinic">
       <a mat-list-item routerLink="/clinic" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>business</mat-icon><span>Panel de clínica</span>
       </a>
     </div>
-    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
-      <a mat-list-item routerLink="/admin" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>admin_panel_settings</mat-icon><span>Panel SuperAdmin</span>
-      </a>
-    </div>
-    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
-      <a mat-list-item routerLink="/admin/logs" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>description</mat-icon><span>Logs del sistema</span>
-      </a>
-    </div>
-    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
-      <a mat-list-item routerLink="/admin/plans" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>sell</mat-icon><span>Planes SaaS</span>
-      </a>
+    <div class="nav-group" [class.group-active]="isGroupActive('admin')" *ngIf="isSuperAdmin">
+      <button type="button" class="group-header" (click)="toggleGroup('admin')" [attr.aria-expanded]="isGroupOpen('admin')" aria-controls="nav-group-admin">
+        <mat-icon>admin_panel_settings</mat-icon><span>Administración</span><span class="message-unread-badge group-badge" *ngIf="!isGroupOpen('admin') && directoryReviewCount > 0" aria-label="Avisos pendientes en Administración">{{ directoryReviewCount > 99 ? '99+' : directoryReviewCount }}</span>
+        <mat-icon class="chevron" [class.open]="isGroupOpen('admin')">expand_more</mat-icon>
+      </button>
+      <div class="group-body" id="nav-group-admin" *ngIf="isGroupOpen('admin')">
+        <div class="menu-item">
+          <a mat-list-item routerLink="/admin" routerLinkActive="active-link" [routerLinkActiveOptions]="{ exact: true }" (click)="navigateAndClose()">
+            <mat-icon>admin_panel_settings</mat-icon><span>Panel SuperAdmin</span>
+          </a>
+        </div>
+        <div class="menu-item">
+          <a mat-list-item routerLink="/admin/directory-verification" routerLinkActive="active-link" [routerLinkActiveOptions]="{ exact: true }" (click)="navigateAndClose()">
+            <mat-icon>verified_user</mat-icon><span>Verificación del directorio</span><span class="message-unread-badge" *ngIf="directoryReviewCount > 0" aria-label="Revisiones del directorio pendientes">{{ directoryReviewCount > 99 ? '99+' : directoryReviewCount }}</span>
+          </a>
+        </div>
+        <div class="menu-item">
+          <a mat-list-item routerLink="/admin/directory-verification/review" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>fact_check</mat-icon><span>Revisión documental</span>
+          </a>
+        </div>
+        <div class="menu-item">
+          <a mat-list-item routerLink="/admin/food-data-quality" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>nutrition</mat-icon><span>Calidad de alimentos</span>
+          </a>
+        </div>
+        <div class="menu-item">
+          <a mat-list-item routerLink="/admin/exercises" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>fitness_center</mat-icon><span>Revisión de ejercicios</span>
+          </a>
+        </div>
+        <div class="menu-item">
+          <a mat-list-item routerLink="/admin/legal" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>balance</mat-icon><span>Legal (admin)</span>
+          </a>
+        </div>
+        <div class="menu-item">
+          <a mat-list-item routerLink="/admin/logs" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>receipt_long</mat-icon><span>Logs del sistema</span>
+          </a>
+        </div>
+        <div class="menu-item">
+          <a mat-list-item routerLink="/admin/plans" routerLinkActive="active-link" (click)="navigateAndClose()">
+            <mat-icon>sell</mat-icon><span>Planes SaaS</span>
+          </a>
+        </div>
+      </div>
     </div>
     <div class="menu-item logout-link">
       <a mat-list-item (click)="logout()" style="cursor: pointer;">

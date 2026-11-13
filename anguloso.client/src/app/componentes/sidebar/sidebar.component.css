@@ -61,3 +61,18 @@ mat-nav-list {padding-top:8px!important;display:flex;flex-direction:column;gap:6
 
 
 .message-unread-badge { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 999px; background: #dc2626; color: #fff!important; font-size: 11px; font-weight: 800; line-height: 1; }
+
+/* Secciones plegables */
+.nav-group { display:flex; flex-direction:column; }
+.group-header { display:flex; align-items:center; gap:12px; width:100%; box-sizing:border-box; padding:10px 14px; border:0; border-radius:10px; background:transparent; color:#f8fafc; font-family:'Outfit',sans-serif; font-size:14px; font-weight:600; cursor:pointer; text-align:left; transition:background .2s ease; }
+.group-header:hover { background:rgba(255,255,255,.08); }
+.group-header:focus-visible { outline:2px solid #0d9488; outline-offset:2px; }
+.group-header mat-icon { color:#cbd5e1; font-size:20px; width:20px; height:20px; flex:none; }
+.group-header .chevron { margin-left:auto; transition:transform .2s ease; }
+.group-header .group-badge + .chevron { margin-left:8px; }
+.group-header .chevron.open { transform:rotate(180deg); }
+.nav-group.group-active > .group-header span:first-of-type { color:#fff; }
+.nav-group.group-active > .group-header mat-icon:first-child { color:#2dd4bf; }
+.group-body { display:flex; flex-direction:column; gap:4px; margin:4px 0 4px 20px; padding-left:8px; border-left:1px solid #1e293b; }
+.group-body .menu-item a { font-size:13.5px!important; padding:8px 12px!important; }
+@media(max-width:768px){ .group-header { min-height:44px; } }

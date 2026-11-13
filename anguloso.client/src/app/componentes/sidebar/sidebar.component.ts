@@ -2,14 +2,23 @@ import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, EventEmitter, OnDestroy, OnInit, Output, ChangeDetectionStrategy, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
-import { Subscription, interval, startWith, switchMap, catchError, forkJoin, of } from 'rxjs';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { Subscription, interval, startWith, switchMap, catchError, forkJoin, of, filter } from 'rxjs';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../servicios/auth.service';
 import { Profile } from '../../modelos/profile';
 import { ProfileService } from '../../servicios/profile.service';
 import { LicenseService, LicenseStatus } from '../../servicios/license.service';
+
+// Secciones plegables del menú: prefijos de ruta para abrir automáticamente la sección activa.
+const NAV_GROUP_ROUTES: Record<string, string[]> = {
+  planning: ['/diets', '/training-invitations', '/training-inbox', '/exercise-contributions', '/exercise-manager'],
+  practice: ['/documents', '/statistics', '/automations', '/directory-interests', '/directory-profile'],
+  account: ['/settings', '/billing', '/legal-manage', '/support'],
+  admin: ['/admin']
+};
+const NAV_GROUPS_STORAGE_KEY = 'sidebar.openGroups';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -42,7 +51,16 @@ export class SidebarComponent implements OnInit, OnDestroy {
     private http: HttpClient
   ) { }
 
+  private openGroups = new Set<string>();
+
   ngOnInit(): void {
+    this.openGroups = this.loadOpenGroups();
+    this.openActiveGroup(this.router.url);
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(e => this.openActiveGroup(e.urlAfterRedirects));
+
     this.profileService.profile$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(profile => {
       this.profile = profile;
     });
@@ -128,6 +146,47 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const plan = this.authService.getSubscriptionPlan();
     return (this.isNutritionist || this.isClinic)
       && (plan === 'demo_nutri' || plan === 'nutri_full' || plan === 'clinic_full');
+  }
+
+  get showWorkspace(): boolean { return this.isProfessionalAccount || this.isFreeAccount || this.isSuperAdmin; }
+  get showTrainingInbox(): boolean { return this.isProfessionalAccount || this.isFreeAccount; }
+  get showStatistics(): boolean { return this.showWorkspace || this.isClinic; }
+  get showInterests(): boolean { return this.isNutritionist; }
+  get showDirectoryProfile(): boolean { return this.isNutritionist || this.isClinic; }
+  get showSupport(): boolean { return this.showStatistics; }
+
+  isGroupOpen(id: string): boolean { return this.openGroups.has(id); }
+
+  isGroupActive(id: string): boolean { return this.groupMatches(id, this.router.url); }
+
+  toggleGroup(id: string): void {
+    if (!this.openGroups.delete(id)) this.openGroups.add(id);
+    this.saveOpenGroups();
+  }
+
+  private groupMatches(id: string, url: string): boolean {
+    const path = url.split(/[?#]/)[0];
+    return (NAV_GROUP_ROUTES[id] ?? []).some(prefix => path === prefix || path.startsWith(prefix + '/'));
+  }
+
+  private openActiveGroup(url: string): void {
+    const active = Object.keys(NAV_GROUP_ROUTES).find(id => this.groupMatches(id, url));
+    if (active && !this.openGroups.has(active)) {
+      this.openGroups.add(active);
+      this.saveOpenGroups();
+    }
+  }
+
+  private loadOpenGroups(): Set<string> {
+    try {
+      const raw = localStorage.getItem(NAV_GROUPS_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []);
+    } catch { return new Set(); }
+  }
+
+  private saveOpenGroups(): void {
+    try { localStorage.setItem(NAV_GROUPS_STORAGE_KEY, JSON.stringify([...this.openGroups])); } catch { /* almacenamiento no disponible */ }
   }
 
   logout() {
