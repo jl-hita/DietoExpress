@@ -74,3 +74,15 @@ Diez bloques seguidos: hero con maqueta del panel, tira de funciones, «platafor
 - ~~Número de días de la prueba~~: resuelto, es de 30 días y la web lo lee del catálogo (no está escrito en el código).
 - ~~Si el precio se anuncia con o sin IVA~~: resuelto, los precios incluyen IVA y la web lo indica.
 - Si hay testimonios, capturas reales o un vídeo que podamos usar.
+
+## Rediseño de la landing (2026-11-13)
+
+- Estructura nueva: hero → franja del ciclo completo → cómo funciona (3 pasos) → dietas → entrenamiento → seguimiento → agenda y
+  videoconsulta → app del paciente → automatizaciones → clínicas → herramientas → seguridad → planes → preguntas → cierre.
+- Una sola llamada a la acción («Probar N días gratis», con los días leídos del catálogo de planes) y botón fijo en móvil.
+- Preguntas frecuentes con datos estructurados FAQ y SoftwareApplication, título, descripción y Open Graph propios (el componente
+  los pone al entrar y restaura la descripción al salir).
+- Las maquetas son HTML/CSS con texto legible (≥ 11 px) y datos ficticios. **Siguen siendo maquetas**: sustituirlas por capturas
+  reales con `landing.content.ts` (la sección «Capturas» ya existe y aparece sola cuando hay material).
+- La app Android se anuncia «en prueba cerrada» sin enlace a la tienda; añadir el botón de Google Play cuando esté publicada.
+- Pendiente: testimonios reales, bloque «¿Vienes de otro programa?» cuando exista la migración, traducción ES/EN/CA.

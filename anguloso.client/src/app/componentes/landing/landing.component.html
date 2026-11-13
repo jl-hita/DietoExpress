@@ -3,32 +3,43 @@
     <a class="brand" routerLink="/" aria-label="DietoExpress"><img src="/dietoexpress-logo-light.svg" alt="DietoExpress · Gestión profesional de nutrición y entrenamiento" /></a>
     <nav class="nav-links" aria-label="Navegación principal">
       <a href="#funciones">Funciones</a>
+      <a href="#dietas">Dietas</a>
+      <a href="#entrenamiento">Entrenamiento</a>
+      <a href="#app">App del paciente</a>
+      <a href="#clinicas">Clínicas</a>
       <a href="#video" *ngIf="video">Vídeo</a>
       <a href="#capturas" *ngIf="screenshots.length">Capturas</a>
       <a href="#opiniones" *ngIf="testimonials.length">Opiniones</a>
-      <a href="#entrenamiento">Entrenamiento</a>
       <a href="#planes">Planes y precios</a>
+      <a href="#preguntas">Preguntas</a>
     </nav>
     <div class="nav-actions">
       <a class="nav-patient" routerLink="/patient">Soy paciente</a>
       <button class="nav-login" mat-button (click)="iniciarSesion()"><span class="login-desktop">Iniciar sesión</span><span class="login-mobile">Entrar</span></button>
-      <button class="nav-signup" mat-flat-button color="primary" (click)="crearCuenta()"><span class="signup-desktop">Crear cuenta gratis</span><span class="signup-mobile">Crear cuenta</span></button>
+      <button class="nav-signup" mat-flat-button color="primary" (click)="crearCuenta()"><span class="signup-desktop">{{ ctaLabel() }}</span><span class="signup-mobile">Probar gratis</span></button>
     </div>
   </header>
 
   <main>
+    <!-- HERO -->
     <section class="hero">
       <div class="hero-copy">
-        <span class="eyebrow">SOFTWARE PROFESIONAL PARA NUTRICIÓN, ENTRENAMIENTO Y CLÍNICAS</span>
-        <h1>Tu consulta, <span>más inteligente y más visible.</span></h1>
-        <p class="lead">Diseña planes nutricionales, genera un macrociclo de entrenamiento completo con todas sus rutinas en segundos y acompaña la evolución de cada persona. Gestiona pacientes, citas y seguimiento, y facilita que nuevos clientes te encuentren: todo conectado en una sola plataforma.</p>
+        <span class="eyebrow">NUTRICIÓN · ENTRENAMIENTO · CLÍNICAS</span>
+        <h1>Del primer paciente al plan completo, <span>en una sola plataforma.</span></h1>
+        <p class="lead">Genera dietas ajustadas a cada persona y macrociclos de entrenamiento con todas sus rutinas. Gestiona agenda, videoconsultas y seguimiento, y dale a tus pacientes una app propia con su plan siempre a mano.</p>
         <div class="hero-actions">
-          <button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Empezar gratis <mat-icon>arrow_forward</mat-icon></button>
-          <a mat-stroked-button routerLink="/nutricionistas">Buscar nutricionista</a>
+          <button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">{{ ctaLabel() }} <mat-icon>arrow_forward</mat-icon></button>
+          <a mat-stroked-button class="ghost-cta" href="#funciones">Ver qué incluye</a>
         </div>
-        <div class="trust"><mat-icon>check_circle</mat-icon><span>Prueba gratuita · Empieza sin complicaciones</span></div>
+        <div class="trust"><mat-icon>check_circle</mat-icon><span>{{ trustLine() }}</span></div>
+        <ul class="hero-points" aria-label="Lo esencial">
+          <li><mat-icon>restaurant_menu</mat-icon>Dietas que respetan alergias y preferencias</li>
+          <li><mat-icon>fitness_center</mat-icon>Macrociclos completos con sus rutinas</li>
+          <li><mat-icon>smartphone</mat-icon>App Android para tus pacientes</li>
+        </ul>
       </div>
-      <div class="hero-visual">
+
+      <div class="hero-visual" aria-hidden="true">
         <div class="glow"></div>
         <div class="app-window dashboard-window">
           <div class="window-bar"><i></i><i></i><i></i><span class="mock-brand"><img src="/favicon.svg" alt="" />DietoExpress · Panel de control</span></div>
@@ -39,6 +50,7 @@
               <div class="side-item"><mat-icon>groups</mat-icon><span>Pacientes</span></div>
               <div class="side-item"><mat-icon>event</mat-icon><span>Agenda</span></div>
               <div class="side-item"><mat-icon>restaurant_menu</mat-icon><span>Dietas</span></div>
+              <div class="side-item"><mat-icon>fitness_center</mat-icon><span>Entreno</span></div>
               <div class="side-item"><mat-icon>chat</mat-icon><span>Mensajes</span></div>
             </aside>
             <div class="mock-content">
@@ -46,25 +58,358 @@
               <div class="stat-grid">
                 <div class="stat-card"><mat-icon>groups</mat-icon><small>Pacientes activos</small><b>48</b><em>+6 este mes</em></div>
                 <div class="stat-card"><mat-icon>event</mat-icon><small>Citas de hoy</small><b>7</b><em>2 online</em></div>
-                <div class="stat-card"><mat-icon>notifications</mat-icon><small>Pendientes</small><b>4</b><em>Para revisar</em></div>
+                <div class="stat-card"><mat-icon>notifications</mat-icon><small>Para revisar</small><b>4</b><em>2 check-ins</em></div>
               </div>
               <div class="mock-panel"><div class="panel-head"><b>Próximas citas</b><span>Ver agenda</span></div>
                 <div class="client-row"><div class="person">AM</div><div><b>Ana Martínez</b><small>10:00 · Seguimiento</small></div><strong>Confirmada</strong></div>
-                <div class="client-row"><div class="person">CG</div><div><b>Carlos García</b><small>12:30 · Online</small></div><strong>Confirmada</strong></div>
-                <div class="client-row"><div class="person">LS</div><div><b>Lucía Sánchez</b><small>17:00 · Consulta</small></div><strong>Pendiente</strong></div>
+                <div class="client-row"><div class="person">CG</div><div><b>Carlos García</b><small>12:30 · Videoconsulta</small></div><strong>Confirmada</strong></div>
+                <div class="client-row"><div class="person">LS</div><div><b>Lucía Sánchez</b><small>17:00 · Primera consulta</small></div><strong class="warn">Pendiente</strong></div>
               </div>
             </div>
           </div>
         </div>
-        <div class="floating-card"><mat-icon>bolt</mat-icon><div><b>Paciente actualizado</b><small>Automatización completada · hace 4 min</small></div></div>
+
+        <div class="phone hero-phone">
+          <div class="phone-screen">
+            <div class="ph-status"><span>10:31</span><span class="ph-dots"><i></i><i></i><i></i></span></div>
+            <div class="ph-head"><span class="ph-brand"><img src="/favicon.svg" alt="" />DIETOEXPRESS</span><span class="ph-avatar">AM</span></div>
+            <div class="ph-title">Hola, Ana</div>
+            <div class="ph-hero-card"><small>Próximo entrenamiento</small><b>Tren superior A</b><span>Hoy · 45 min</span></div>
+            <div class="ph-macros">
+              <div><small>Energía</small><b>2.050</b><em>kcal</em></div>
+              <div><small>Proteína</small><b>135</b><em>g</em></div>
+            </div>
+            <div class="ph-tabbar"><span class="on"><mat-icon>home</mat-icon></span><span><mat-icon>restaurant</mat-icon></span><span><mat-icon>fitness_center</mat-icon></span><span><mat-icon>show_chart</mat-icon></span><span><mat-icon>event</mat-icon></span></div>
+          </div>
+        </div>
+
+        <div class="floating-card"><mat-icon>task_alt</mat-icon><div><b>Dieta generada</b><small>0 conflictos con alergias</small></div></div>
       </div>
     </section>
 
-    <section class="proof-strip">
-      <span>DE LA PRIMERA VISITA AL SEGUIMIENTO</span>
-      <div><b>Dietas adaptadas</b><b>Macrociclos de entrenamiento completos</b><b>App Android para clientes</b><b>Videoconsultas</b><b>Lista de la compra</b><b>Seguimiento</b></div>
+    <!-- FRANJA -->
+    <section class="proof-strip" aria-label="Qué incluye">
+      <span>TODO EL CICLO DE LA CONSULTA</span>
+      <ul>
+        <li><mat-icon>person_search</mat-icon>Captación</li>
+        <li><mat-icon>event_available</mat-icon>Agenda</li>
+        <li><mat-icon>videocam</mat-icon>Videoconsulta</li>
+        <li><mat-icon>restaurant_menu</mat-icon>Dietas</li>
+        <li><mat-icon>fitness_center</mat-icon>Entrenamiento</li>
+        <li><mat-icon>smartphone</mat-icon>App del paciente</li>
+        <li><mat-icon>bolt</mat-icon>Automatizaciones</li>
+      </ul>
     </section>
 
+    <!-- CÓMO FUNCIONA -->
+    <section class="steps-section" id="funciones">
+      <div class="section-heading">
+        <span class="eyebrow">CÓMO FUNCIONA</span>
+        <h2>De la ficha al seguimiento, sin saltar entre herramientas.</h2>
+        <p>Menos tiempo montando planes y rellenando hojas de cálculo. Más tiempo con tus pacientes.</p>
+      </div>
+      <ol class="steps">
+        <li *ngFor="let s of steps; let i = index" class="step">
+          <span class="step-n">{{ i + 1 }}</span>
+          <div class="step-icon"><mat-icon>{{ s.icon }}</mat-icon></div>
+          <h3>{{ s.title }}</h3>
+          <p>{{ s.text }}</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- DIETAS -->
+    <section class="showcase" id="dietas">
+      <div class="showcase-copy">
+        <span class="eyebrow">NUTRICIÓN</span>
+        <h2>Dietas a medida, sin partir de una hoja en blanco.</h2>
+        <p>El generador parte de la energía y los macronutrientes de tu paciente y tiene en cuenta alergias, intolerancias, alimentos que le gustan y que rechaza, y las reglas de su especialización. Tú ves cada comida, la corriges y decides cuándo publicarla.</p>
+        <ul class="ticks">
+          <li><mat-icon>check_circle</mat-icon><span><b>Seguridad primero:</b> avisos de incompatibilidad con alergias e intolerancias antes de guardar.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Especialización:</b> nutrición deportiva, pérdida de peso y otras reglas dietéticas activas.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Base de alimentos amplia</b> que combina BEDCA, Open Food Facts y USDA.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Del plan a la nevera:</b> lista de la compra automática y PDF con tu marca.</span></li>
+        </ul>
+        <button mat-flat-button color="primary" (click)="crearCuenta()">{{ ctaLabel() }}</button>
+      </div>
+      <div class="showcase-visual" aria-hidden="true">
+        <div class="app-window diet-window">
+          <div class="window-bar"><i></i><i></i><i></i><span class="mock-brand"><img src="/favicon.svg" alt="" />DietoExpress · Dieta de Ana Martínez</span></div>
+          <div class="diet-body">
+            <div class="diet-main">
+              <div class="chips">
+                <span class="chip alert"><mat-icon>block</mat-icon>Intolerancia: lactosa</span>
+                <span class="chip"><mat-icon>thumb_down</mat-icon>Evita: coliflor</span>
+                <span class="chip good"><mat-icon>thumb_up</mat-icon>Prefiere: pescado</span>
+              </div>
+              <div class="day-tabs"><b>Lun</b><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span></div>
+              <div class="meal-row"><div class="meal-ico"><mat-icon>free_breakfast</mat-icon></div><div><b>Desayuno</b><small>Tostada integral, aguacate y huevo · café con bebida de avena</small></div><em>420 kcal</em></div>
+              <div class="meal-row"><div class="meal-ico"><mat-icon>apple</mat-icon></div><div><b>Media mañana</b><small>Yogur sin lactosa con nueces y fruta</small></div><em>230 kcal</em></div>
+              <div class="meal-row"><div class="meal-ico"><mat-icon>lunch_dining</mat-icon></div><div><b>Comida</b><small>Salmón al horno, quinoa y brócoli salteado</small></div><em>690 kcal</em></div>
+              <div class="meal-row"><div class="meal-ico"><mat-icon>dinner_dining</mat-icon></div><div><b>Cena</b><small>Crema de calabaza y tortilla de espinacas</small></div><em>480 kcal</em></div>
+              <div class="diet-ok"><mat-icon>verified</mat-icon>Revisada: sin conflictos con alergias ni intolerancias</div>
+            </div>
+            <aside class="diet-side">
+              <div class="ring" style="--p1:30%;--p2:75%"><div><b>2.050</b><small>kcal/día</small></div></div>
+              <ul class="macro-legend">
+                <li><i class="m1"></i>Proteínas<b>135 g</b></li>
+                <li><i class="m2"></i>Hidratos<b>230 g</b></li>
+                <li><i class="m3"></i>Grasas<b>68 g</b></li>
+              </ul>
+              <div class="side-btn"><mat-icon>picture_as_pdf</mat-icon>Exportar PDF</div>
+              <div class="side-btn alt"><mat-icon>shopping_cart</mat-icon>Lista de la compra</div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ENTRENAMIENTO -->
+    <section class="showcase reverse band" id="entrenamiento">
+      <div class="showcase-copy">
+        <span class="eyebrow">ENTRENAMIENTO</span>
+        <h2>Un macrociclo entero, con todas sus rutinas, en un solo paso.</h2>
+        <p>Define el objetivo y las fases, y DietoExpress genera la planificación completa: mesociclos, microciclos y cada sesión con sus ejercicios, series, repeticiones y descansos. Si ya tenías bloques planificados, se respetan y solo se completan los que faltan.</p>
+        <ul class="ticks">
+          <li><mat-icon>check_circle</mat-icon><span><b>Objetivos:</b> fuerza, hipertrofia, resistencia, pérdida de peso, salud y condición física.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Calendario semanal</b> con sesiones previstas, minutos planificados y sesiones completadas.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Progresión con datos reales:</b> series, carga, repeticiones, RIR y molestias que registra tu cliente.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Tú decides:</b> las propuestas de adaptación se revisan antes de aplicarse.</span></li>
+        </ul>
+        <button mat-flat-button color="primary" (click)="crearCuenta()">{{ ctaLabel() }}</button>
+      </div>
+      <div class="showcase-visual" aria-hidden="true">
+        <div class="app-window train-window">
+          <div class="window-bar"><i></i><i></i><i></i><span class="mock-brand"><img src="/favicon.svg" alt="" />DietoExpress · Planificación · Carlos García</span></div>
+          <div class="train-body">
+            <div class="train-head"><div><small>MACROCICLO · HIPERTROFIA</small><b>12 semanas · 4 sesiones por semana</b></div><span class="badge-ok"><mat-icon>auto_awesome</mat-icon>Generado</span></div>
+            <div class="phases">
+              <div class="phase p1" style="flex:5"><b>Acumulación</b><small>5 semanas</small></div>
+              <div class="phase p2" style="flex:4"><b>Intensificación</b><small>4 semanas</small></div>
+              <div class="phase p3" style="flex:1"><b>Descarga</b><small>1 sem</small></div>
+              <div class="phase p4" style="flex:2"><b>Pico</b><small>2 sem</small></div>
+            </div>
+            <div class="week-label">Semana 3 · Acumulación</div>
+            <div class="week">
+              <div class="session on"><small>LUN</small><b>Tren superior A</b><span>6 ejercicios · 58 min</span></div>
+              <div class="session"><small>MAR</small><b>Tren inferior A</b><span>5 ejercicios · 52 min</span></div>
+              <div class="session"><small>JUE</small><b>Tren superior B</b><span>6 ejercicios · 55 min</span></div>
+              <div class="session"><small>VIE</small><b>Tren inferior B</b><span>5 ejercicios · 50 min</span></div>
+            </div>
+            <table class="ex-table">
+              <thead><tr><th>Ejercicio</th><th>Series</th><th>Reps</th><th>RIR</th><th>Desc.</th></tr></thead>
+              <tbody>
+                <tr><td>Press banca con mancuernas</td><td>4</td><td>8–10</td><td>2</td><td>2′</td></tr>
+                <tr><td>Remo con barra</td><td>4</td><td>8–10</td><td>2</td><td>2′</td></tr>
+                <tr><td>Press militar sentado</td><td>3</td><td>10–12</td><td>1–2</td><td>90″</td></tr>
+                <tr><td>Elevaciones laterales</td><td>3</td><td>12–15</td><td>1</td><td>60″</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEGUIMIENTO -->
+    <section class="showcase" id="seguimiento">
+      <div class="showcase-copy">
+        <span class="eyebrow">SEGUIMIENTO</span>
+        <h2>Ve la evolución de cada paciente de un vistazo.</h2>
+        <p>Peso, composición corporal, perímetros y check-ins en una sola ficha, con gráficas que se entienden en la consulta. Y cuando algo requiere tu atención, te llega el aviso: no tienes que ir a buscarlo.</p>
+        <ul class="ticks">
+          <li><mat-icon>check_circle</mat-icon><span><b>Expediente completo:</b> datos antropométricos, bioimpedancia, documentación e historial.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Check-ins semanales</b> que el paciente envía desde su móvil y tú revisas.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Consulta guiada:</b> contexto del paciente, acuerdos y tareas en un mismo flujo.</span></li>
+        </ul>
+      </div>
+      <div class="showcase-visual" aria-hidden="true">
+        <div class="app-window detail-window">
+          <div class="window-bar"><i></i><i></i><i></i><span class="mock-brand"><img src="/favicon.svg" alt="" />DietoExpress · Paciente · Ana Martínez</span></div>
+          <div class="detail-body">
+            <div class="profile-head"><div class="big-avatar">AM</div><div><small>PACIENTE</small><h3>Ana Martínez</h3><span>Objetivo: pérdida de peso · 34 años</span></div><span class="pill">Plan activo</span></div>
+            <div class="tabs"><b>Resumen</b><span>Dieta</span><span>Entreno</span><span>Mediciones</span><span>Mensajes</span></div>
+            <div class="detail-grid">
+              <div class="detail-box"><small>Peso</small><b>68,4 kg</b><em class="down">▼ 3,6 kg en 8 sem</em></div>
+              <div class="detail-box"><small>Grasa corporal</small><b>26,1 %</b><em class="down">▼ 2,3 puntos</em></div>
+              <div class="detail-box"><small>Cintura</small><b>76 cm</b><em class="down">▼ 5 cm</em></div>
+            </div>
+            <div class="chart-box">
+              <div class="chart-head"><b>Evolución del peso</b><span>Últimas 8 semanas</span></div>
+              <svg viewBox="0 0 400 120" role="img" aria-hidden="true" preserveAspectRatio="none">
+                <defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d9488" stop-opacity=".28"/><stop offset="1" stop-color="#0d9488" stop-opacity="0"/></linearGradient></defs>
+                <path d="M0 22 L57 30 L114 41 L171 48 L228 66 L285 74 L342 88 L400 96 L400 120 L0 120 Z" fill="url(#wg)"/>
+                <path d="M0 22 L57 30 L114 41 L171 48 L228 66 L285 74 L342 88 L400 96" fill="none" stroke="#0d9488" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+                <circle cx="400" cy="96" r="5" fill="#0d9488"/>
+              </svg>
+            </div>
+            <div class="checkin"><mat-icon>fact_check</mat-icon><div><b>Check-in recibido · hoy</b><small>Energía 8/10 · Sueño 7 h · Adherencia alta</small></div><span class="pill soft">Revisar</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AGENDA Y VIDEOCONSULTA -->
+    <section class="showcase reverse band" id="agenda">
+      <div class="showcase-copy">
+        <span class="eyebrow">AGENDA Y CONSULTA ONLINE</span>
+        <h2>Citas, reservas y videoconsulta, todo conectado.</h2>
+        <p>Configura tu disponibilidad y deja que tus pacientes reserven. La videoconsulta se abre desde la propia cita, sin enlaces externos ni herramientas aparte, y sigue con el plan y los mensajes entre sesiones.</p>
+        <ul class="ticks">
+          <li><mat-icon>check_circle</mat-icon><span><b>Reservas públicas</b> con protección frente a dobles reservas.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Videoconsulta integrada</b> con audio y vídeo; el acceso se habilita 15 minutos antes.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Google Calendar</b> sincronizado con tu agenda.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Recordatorios</b> a tus pacientes 24 h y 2 h antes de la cita.</span></li>
+        </ul>
+      </div>
+      <div class="showcase-visual" aria-hidden="true">
+        <div class="app-window agenda-window">
+          <div class="window-bar"><i></i><i></i><i></i><span class="mock-brand"><img src="/favicon.svg" alt="" />DietoExpress · Agenda</span></div>
+          <div class="agenda-body">
+            <div class="agenda-grid">
+              <div class="ag-head"><span></span><b>Lun</b><b class="today">Mar 14</b><b>Mié</b><b>Jue</b><b>Vie</b></div>
+              <div class="ag-row"><span>09:00</span><i></i><i><u class="ev e1">Ana M.<small>Seguimiento</small></u></i><i></i><i><u class="ev e2">Pablo R.<small>Presencial</small></u></i><i></i></div>
+              <div class="ag-row"><span>10:00</span><i><u class="ev e2">Marta L.<small>Presencial</small></u></i><i></i><i><u class="ev e1">Iván S.<small>Seguimiento</small></u></i><i></i><i><u class="ev e3">Julia T.<small>Online</small></u></i></div>
+              <div class="ag-row"><span>12:30</span><i></i><i><u class="ev e3 live">Carlos G.<small>Videoconsulta</small></u></i><i></i><i><u class="ev e1">Eva P.<small>Seguimiento</small></u></i><i></i></div>
+              <div class="ag-row"><span>17:00</span><i><u class="ev e3">Raúl V.<small>Online</small></u></i><i><u class="ev e2">Lucía S.<small>1.ª consulta</small></u></i><i></i><i></i><i><u class="ev e2">Noa F.<small>Presencial</small></u></i></div>
+            </div>
+            <div class="video-card">
+              <div class="video-stage"><div class="vid-main"><mat-icon>person</mat-icon></div><div class="vid-self"><mat-icon>person</mat-icon></div></div>
+              <div class="video-ctl"><span><mat-icon>mic</mat-icon></span><span><mat-icon>videocam</mat-icon></span><span class="end"><mat-icon>call_end</mat-icon></span></div>
+              <small>Videoconsulta con Carlos García · 12:30</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- APP ANDROID -->
+    <section class="app-section" id="app">
+      <div class="app-copy">
+        <span class="eyebrow light">LA APP DE TUS PACIENTES</span>
+        <h2>Tu plan, en el bolsillo de tu paciente.</h2>
+        <p>Una app Android propia y sencilla: tu paciente ve qué le toca comer y entrenar, registra sus series, sigue su evolución y habla contigo. Tú lo ves en tu panel.</p>
+        <div class="app-grid">
+          <div><mat-icon>restaurant_menu</mat-icon><b>Su dieta</b><small>Plan por días, macros por comida y PDF.</small></div>
+          <div><mat-icon>fitness_center</mat-icon><b>Entreno guiado</b><small>Registro por serie: carga, repeticiones y RIR.</small></div>
+          <div><mat-icon>show_chart</mat-icon><b>Su progreso</b><small>Peso, medidas y revisión semanal.</small></div>
+          <div><mat-icon>videocam</mat-icon><b>Videoconsulta</b><small>Entra desde la cita, sin enlaces.</small></div>
+          <div><mat-icon>shopping_cart</mat-icon><b>Lista de la compra</b><small>Con avisos de alérgenos.</small></div>
+          <div><mat-icon>fingerprint</mat-icon><b>Acceso con huella</b><small>Rápido y seguro, sin contraseñas.</small></div>
+        </div>
+        <div class="store-note"><mat-icon>science</mat-icon><div><b>En prueba cerrada</b><small>Muy pronto en Google Play. Mientras tanto, tus pacientes acceden desde el navegador con el portal web.</small></div></div>
+      </div>
+
+      <div class="phones" aria-hidden="true">
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="ph-status"><span>10:31</span><span class="ph-dots"><i></i><i></i><i></i></span></div>
+            <div class="ph-head"><span class="ph-brand"><img src="/favicon.svg" alt="" />DIETOEXPRESS</span><span class="ph-avatar">AM</span></div>
+            <div class="ph-title">Hola, Ana</div>
+            <div class="ph-hero-card"><small>Próximo entrenamiento</small><b>Tren superior A</b><span>Lunes · 58 min</span></div>
+            <div class="ph-quick">
+              <div><mat-icon>event</mat-icon><b>Mis citas</b><small>Martes · 10:00</small></div>
+              <div><mat-icon>description</mat-icon><b>Documentos</b><small>1 por firmar</small></div>
+              <div><mat-icon>shopping_cart</mat-icon><b>Compra</b><small>Ingredientes</small></div>
+              <div><mat-icon>chat</mat-icon><b>Mensajes</b><small>Tu profesional</small></div>
+            </div>
+            <div class="ph-tabbar"><span class="on"><mat-icon>home</mat-icon></span><span><mat-icon>restaurant</mat-icon></span><span><mat-icon>fitness_center</mat-icon></span><span><mat-icon>show_chart</mat-icon></span><span><mat-icon>event</mat-icon></span></div>
+          </div>
+        </div>
+
+        <div class="phone mid">
+          <div class="phone-screen">
+            <div class="ph-status"><span>10:32</span><span class="ph-dots"><i></i><i></i><i></i></span></div>
+            <div class="ph-head"><span class="ph-brand"><img src="/favicon.svg" alt="" />DIETOEXPRESS</span><span class="ph-avatar">AM</span></div>
+            <div class="ph-title">Mi dieta</div>
+            <div class="ph-goals"><small>OBJETIVOS DIARIOS</small>
+              <div><span>Energía</span><b>2.050 kcal</b></div><div><span>Proteínas</span><b>135 g</b></div><div><span>Hidratos</span><b>230 g</b></div><div><span>Grasas</span><b>68 g</b></div>
+            </div>
+            <div class="ph-days"><b>Día 1</b><span>Día 2</span><span>Día 3</span><span>Día 4</span></div>
+            <div class="ph-meal"><h4>Desayuno</h4><div><span>Tostada integral</span><em>180 kcal</em></div><div><span>Aguacate, ½ ud.</span><em>120 kcal</em></div><div><span>Huevo cocido</span><em>78 kcal</em></div></div>
+            <div class="ph-meal"><h4>Comida</h4><div><span>Salmón al horno</span><em>310 kcal</em></div></div>
+            <div class="ph-tabbar"><span><mat-icon>home</mat-icon></span><span class="on"><mat-icon>restaurant</mat-icon></span><span><mat-icon>fitness_center</mat-icon></span><span><mat-icon>show_chart</mat-icon></span><span><mat-icon>event</mat-icon></span></div>
+          </div>
+        </div>
+
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="ph-status"><span>10:33</span><span class="ph-dots"><i></i><i></i><i></i></span></div>
+            <div class="ph-head"><span class="ph-brand"><img src="/favicon.svg" alt="" />DIETOEXPRESS</span><span class="ph-avatar">AM</span></div>
+            <div class="ph-title">Press banca</div>
+            <div class="ph-set-head"><span>Serie 2 de 4</span><b>8–10 reps · RIR 2</b></div>
+            <div class="ph-sets">
+              <div class="done"><span>1</span><b>22 kg</b><em>10 reps</em><mat-icon>check_circle</mat-icon></div>
+              <div class="cur"><span>2</span><b>22 kg</b><em>9 reps</em><mat-icon>edit</mat-icon></div>
+              <div><span>3</span><b>—</b><em>—</em><mat-icon>radio_button_unchecked</mat-icon></div>
+              <div><span>4</span><b>—</b><em>—</em><mat-icon>radio_button_unchecked</mat-icon></div>
+            </div>
+            <div class="ph-rest"><mat-icon>timer</mat-icon><div><small>Descanso</small><b>1:42</b></div></div>
+            <div class="ph-btn">Guardar serie</div>
+            <div class="ph-tabbar"><span><mat-icon>home</mat-icon></span><span><mat-icon>restaurant</mat-icon></span><span class="on"><mat-icon>fitness_center</mat-icon></span><span><mat-icon>show_chart</mat-icon></span><span><mat-icon>event</mat-icon></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AUTOMATIZACIONES -->
+    <section class="showcase" id="automatizaciones">
+      <div class="showcase-copy">
+        <span class="eyebrow">AUTOMATIZACIONES</span>
+        <h2>Que nada se te olvide, sin escribir un solo recordatorio.</h2>
+        <p>Activa las reglas que quieras y DietoExpress avisa en el momento justo a tu paciente o a ti. Más de quince automatizaciones listas para usar, con mensajes que puedes personalizar y un registro de todo lo que se ha enviado.</p>
+        <ul class="ticks">
+          <li><mat-icon>check_circle</mat-icon><span><b>Citas:</b> recordatorios 24 h y 2 h antes y aviso de cita no presentada.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Seguimiento:</b> check-ins pendientes y revisión de mediciones con cambios relevantes.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Dietas:</b> aviso antes de que una dieta caduque y para renovarla.</span></li>
+          <li><mat-icon>check_circle</mat-icon><span><b>Onboarding:</b> seguimiento de la información inicial y de la primera cita.</span></li>
+        </ul>
+      </div>
+      <div class="showcase-visual" aria-hidden="true">
+        <div class="app-window auto-window">
+          <div class="window-bar"><i></i><i></i><i></i><span class="mock-brand"><img src="/favicon.svg" alt="" />DietoExpress · Automatizaciones</span></div>
+          <div class="auto-body">
+            <div class="auto-tabs"><b>Reglas</b><span>Plantillas</span><span>Seguimiento</span><span>Actividad</span></div>
+            <div class="rule"><div><b>Recordatorio de cita · 24 h</b><small>Paciente · Email y notificación</small></div><span class="tg on"></span></div>
+            <div class="rule"><div><b>Check-in pendiente</b><small>Paciente · Escala al profesional</small></div><span class="tg on"></span></div>
+            <div class="rule"><div><b>Dieta próxima a caducar</b><small>Profesional y paciente</small></div><span class="tg on"></span></div>
+            <div class="rule"><div><b>Cambio relevante en mediciones</b><small>Profesional</small></div><span class="tg on"></span></div>
+            <div class="rule"><div><b>Cita no presentada</b><small>Profesional</small></div><span class="tg"></span></div>
+            <div class="toast"><mat-icon>notifications_active</mat-icon><div><b>Recordatorio enviado a Ana Martínez</b><small>Cita de mañana a las 10:00 · hace 2 min</small></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLÍNICAS -->
+    <section class="clinic-section band" id="clinicas">
+      <div class="section-heading">
+        <span class="eyebrow">PARA CLÍNICAS Y EQUIPOS</span>
+        <h2>Crece sin perder el control.</h2>
+        <p>Un único espacio para tu equipo, con la información de cada paciente bien separada y cada acceso registrado.</p>
+      </div>
+      <div class="clinic-grid">
+        <article><div class="feature-icon"><mat-icon>business</mat-icon></div><h3>Panel de clínica</h3><p>Administra tu organización, profesionales y pacientes desde un espacio centralizado.</p></article>
+        <article><div class="feature-icon"><mat-icon>group_add</mat-icon></div><h3>Equipo y asignaciones</h3><p>Incorpora nutricionistas, gestiona sus accesos y asigna cada paciente a su profesional.</p></article>
+        <article><div class="feature-icon"><mat-icon>share</mat-icon></div><h3>Recursos compartidos</h3><p>Comparte recetas y dietas con el equipo sin mezclar la información clínica de los pacientes.</p></article>
+        <article><div class="feature-icon"><mat-icon>fact_check</mat-icon></div><h3>Auditoría de accesos</h3><p>Registro de las operaciones sensibles para saber quién ha hecho qué y cuándo.</p></article>
+      </div>
+    </section>
+
+    <!-- HERRAMIENTAS -->
+    <section class="tools-section">
+      <div class="section-heading">
+        <span class="eyebrow">Y ADEMÁS</span>
+        <h2>Todo lo que una consulta necesita, ya incluido.</h2>
+      </div>
+      <div class="tools-grid">
+        <article *ngFor="let t of tools"><div class="feature-icon"><mat-icon>{{ t.icon }}</mat-icon></div><h3>{{ t.title }}</h3><p>{{ t.text }}</p></article>
+      </div>
+      <div class="hero-actions center">
+        <a mat-stroked-button class="ghost-cta" routerLink="/para-nutricionistas">Consigue pacientes con el directorio</a>
+      </div>
+    </section>
+
+    <!-- CONTENIDO REAL (vídeo, capturas, opiniones): solo aparece cuando hay material publicable -->
     <section class="demo-video" id="video" *ngIf="video as demo">
       <div class="section-heading">
         <span class="eyebrow">MÍRALO EN ACCIÓN</span>
@@ -79,22 +424,6 @@
       </figure>
     </section>
 
-    <section class="features" id="funciones">
-      <div class="section-heading">
-        <span class="eyebrow">UNA PLATAFORMA COMPLETA</span>
-        <h2>Mucho más que un gestor de pacientes.</h2>
-        <p>Desde que un paciente te descubre hasta que revisas su evolución, DietoExpress conecta las partes que más tiempo consumen de una consulta de nutrición.</p>
-      </div>
-      <div class="feature-grid">
-        <article class="feature-card"><div class="feature-icon"><mat-icon>groups</mat-icon></div><span class="feature-number">01</span><h3>Gestiona pacientes</h3><p>Fichas, documentación, consentimientos, historial y seguimiento siempre a mano.</p></article>
-        <article class="feature-card featured"><div class="feature-icon"><mat-icon>restaurant_menu</mat-icon></div><span class="feature-number">02</span><h3>Genera dietas en menos tiempo</h3><p>El generador adapta energía y macronutrientes y tiene en cuenta alergias, intolerancias, preferencias y reglas de especialización del paciente.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>event_available</mat-icon></div><span class="feature-number">03</span><h3>Agenda y reservas</h3><p>Disponibilidad, citas, cancelaciones y reservas públicas con protección frente a dobles reservas.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>chat</mat-icon></div><span class="feature-number">04</span><h3>Comunícate con tus pacientes</h3><p>Mensajería profesional y notificaciones para que el seguimiento no dependa de conversaciones dispersas.</p></article>
-        <article class="feature-card featured"><div class="feature-icon"><mat-icon>notifications_active</mat-icon></div><span class="feature-number">05</span><h3>Automatiza el seguimiento</h3><p>Recordatorios, eventos de citas, check-ins, onboarding y avisos para reducir trabajo manual.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>calendar_month</mat-icon></div><span class="feature-number">06</span><h3>Sincroniza tu calendario</h3><p>Integra Google Calendar y mantén tus citas coordinadas con tu agenda habitual.</p></article>
-      </div>
-    </section>
-
     <section class="gallery" id="capturas" *ngIf="screenshots.length">
       <div class="section-heading">
         <span class="eyebrow">ASÍ SE VE DIETOEXPRESS</span>
@@ -106,160 +435,6 @@
           <figcaption *ngIf="shot.caption">{{ shot.caption }}</figcaption>
         </figure>
       </div>
-    </section>
-
-    <section class="showcase" id="como-funciona">
-      <div class="showcase-copy">
-        <span class="eyebrow">DEL PACIENTE POTENCIAL AL PACIENTE EN SEGUIMIENTO</span>
-        <h2>Capta, atiende y fideliza desde un mismo lugar.</h2>
-        <p>Tu perfil puede aparecer ante personas que buscan nutricionista por ubicación, especialidad o consulta online. Desde ahí, el paciente puede consultar disponibilidad, solicitar una cita y continuar contigo mediante documentación, consulta y seguimiento.</p>
-        <ul>
-          <li><mat-icon>check</mat-icon><span>Agenda y disponibilidad configurables</span></li>
-          <li><mat-icon>check</mat-icon><span>Portal del paciente y documentación</span></li>
-          <li><mat-icon>check</mat-icon><span>Mensajería, notificaciones y automatizaciones</span></li>
-          <li><mat-icon>check</mat-icon><span>Videollamada integrada en las citas online confirmadas</span></li>
-        </ul>
-        <button mat-flat-button color="primary" (click)="crearCuenta()">Crear mi cuenta</button>
-      </div>
-      <div class="showcase-visual">
-        <div class="app-window detail-window">
-          <div class="window-bar"><i></i><i></i><i></i><span class="mock-brand"><img src="/favicon.svg" alt="" />DietoExpress · Paciente · Ana Martínez</span></div>
-          <div class="detail-body">
-            <div class="profile-head"><div class="big-avatar">AM</div><div><small>PACIENTE</small><h3>Ana Martínez</h3><span>Objetivo: pérdida de peso</span></div><button mat-stroked-button>Ver portal</button></div>
-            <div class="tabs"><b>Resumen</b><span>Dieta</span><span>Citas</span><span>Mensajes</span></div>
-            <div class="detail-grid"><div class="detail-box"><small>Próxima cita</small><b>Jueves 10:00</b><em>Consulta online</em></div><div class="detail-box"><small>Plan actual</small><b>2.050 kcal</b><em>Déficit moderado</em></div><div class="detail-box"><small>Seguimiento</small><b>64%</b><em>Progreso registrado</em></div></div>
-            <div class="progress-box"><div><b>Última actualización</b><span>Hoy</span></div><div class="progress"><i></i></div></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="features consultation-flow" id="consulta-online">
-      <div class="section-heading">
-        <span class="eyebrow">UNA CONSULTA COMPLETA, NO SOLO UNA VIDEOLLAMADA</span>
-        <h2>De la primera reserva al seguimiento, con todo conectado.</h2>
-        <p>La consulta no termina cuando acaba la llamada. DietoExpress conecta la captación, la cita, la atención online y los planes que ayudan a dar continuidad al trabajo entre sesiones.</p>
-      </div>
-      <div class="feature-grid">
-        <article class="feature-card">
-          <div class="feature-icon"><mat-icon>person_search</mat-icon></div>
-          <span class="feature-number">01</span>
-          <h3>Te descubren y reservan</h3>
-          <p>Los pacientes pueden encontrar tu perfil, consultar disponibilidad y solicitar una cita desde el directorio y la agenda pública.</p>
-        </article>
-        <article class="feature-card featured">
-          <div class="feature-icon"><mat-icon>event_available</mat-icon></div>
-          <span class="feature-number">02</span>
-          <h3>Organiza la atención</h3>
-          <p>Gestiona las solicitudes y citas desde tu agenda, con avisos para revisar nuevas peticiones y calendario conectado con Google Calendar.</p>
-        </article>
-        <article class="feature-card">
-          <div class="feature-icon"><mat-icon>videocam</mat-icon></div>
-          <span class="feature-number">03</span>
-          <h3>Consulta online con audio y vídeo</h3>
-          <p>Abre la videollamada desde la cita en DietoExpress, controla cámara y micrófono y vuelve a conectar si la conexión se interrumpe. El acceso se habilita 15 minutos antes de la cita.</p>
-        </article>
-        <article class="feature-card featured">
-          <div class="feature-icon"><mat-icon>autorenew</mat-icon></div>
-          <span class="feature-number">04</span>
-          <h3>Da continuidad al tratamiento</h3>
-          <p>Comparte el trabajo mediante el portal del paciente, planes nutricionales y de entrenamiento, mensajería y seguimiento entre consultas.</p>
-        </article>
-      </div>
-      <div class="hero-actions" style="justify-content:center;margin-top:32px">
-        <button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Gestionar mi consulta <mat-icon>arrow_forward</mat-icon></button>
-        <a mat-stroked-button routerLink="/nutricionistas">Ver directorio de profesionales</a>
-      </div>
-    </section>
-
-    <section class="showcase" id="app-pacientes">
-      <div class="showcase-copy">
-        <span class="eyebrow">EL SEGUIMIENTO TAMBIÉN VA CONTIGO</span>
-        <h2>Tus clientes tienen DietoExpress también en Android.</h2>
-        <p>No todo ocurre durante la consulta. La app móvil del paciente reúne sus planes y la comunicación con su nutricionista para que pueda consultar qué le toca hacer y mantener el contacto desde el teléfono.</p>
-        <ul>
-          <li><mat-icon>restaurant_menu</mat-icon><span>Consulta la dieta asignada y la documentación de su plan.</span></li>
-          <li><mat-icon>fitness_center</mat-icon><span>Accede a sus rutinas y registra sesiones de entrenamiento.</span></li>
-          <li><mat-icon>shopping_cart</mat-icon><span>Revisa la lista de la compra asociada a su alimentación.</span></li>
-          <li><mat-icon>videocam</mat-icon><span>Entra en las videoconsultas desde la app, sin separar la llamada de la cita.</span></li>
-          <li><mat-icon>chat</mat-icon><span>Se comunica contigo mediante mensajería y recibe avisos de citas y mensajes.</span></li>
-        </ul>
-        <p class="app-note">La app Android complementa el portal web: tu consulta se gestiona desde la plataforma profesional y tus clientes pueden acceder a su seguimiento desde el móvil.</p>
-        <button mat-flat-button color="primary" (click)="crearCuenta()">Conocer DietoExpress</button>
-      </div>
-      <div class="showcase-visual">
-        <div class="app-window detail-window">
-          <div class="window-bar"><i></i><i></i><i></i><span class="mock-brand"><img src="/favicon.svg" alt="" />DietoExpress · App del paciente</span></div>
-          <div class="detail-body">
-            <div class="profile-head"><div class="big-avatar"><mat-icon>phone_iphone</mat-icon></div><div><small>EXPERIENCIA DEL CLIENTE</small><h3>Tu plan, siempre a mano</h3><span>Nutrición · Entrenamiento · Seguimiento</span></div></div>
-            <div class="detail-grid">
-              <div class="detail-box"><small>Alimentación</small><b>Dieta asignada</b><em>Plan y documentos</em></div>
-              <div class="detail-box"><small>Entrenamiento</small><b>Rutina activa</b><em>Sesiones y registro</em></div>
-              <div class="detail-box"><small>Organización</small><b>Lista de la compra</b><em>Para el día a día</em></div>
-            </div>
-            <div class="progress-box"><div><b>Conecta con tu profesional</b><span>Mensajes y videoconsultas</span></div><div class="progress"><i></i></div></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="features" id="pacientes">
-      <div class="section-heading">
-        <span class="eyebrow">CAPTACIÓN DE NUEVOS PACIENTES</span>
-        <h2>No dependas solo de que te encuentren fuera de DietoExpress.</h2>
-        <p>Construye un perfil profesional visible y facilita que nuevos pacientes pasen de descubrirte a solicitar una cita.</p>
-      </div>
-      <div class="feature-grid">
-        <article class="feature-card"><div class="feature-icon"><mat-icon>search</mat-icon></div><span class="feature-number">01</span><h3>Hazte visible</h3><p>Los pacientes pueden explorar profesionales por ubicación, especialidad y modalidad de consulta.</p></article>
-        <article class="feature-card featured"><div class="feature-icon"><mat-icon>person_search</mat-icon></div><span class="feature-number">02</span><h3>Presenta tu propuesta</h3><p>Destaca experiencia, especialidades, modalidad, ubicación pública y disponibilidad para que el paciente sepa por qué elegirte.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>event_available</mat-icon></div><span class="feature-number">03</span><h3>Del interés a la cita</h3><p>El paciente consulta tu disponibilidad, solicita una cita y continúa después desde su portal.</p></article>
-      </div>
-      <div class="hero-actions" style="justify-content:center;margin-top:32px"><a mat-flat-button color="primary" class="primary-cta" routerLink="/nutricionistas">Encontrar nutricionista <mat-icon>arrow_forward</mat-icon></a></div>
-    </section>
-
-    <section class="features" id="clinicas">
-      <div class="section-heading">
-        <span class="eyebrow">PARA PROFESIONALES Y CLÍNICAS</span>
-        <h2>Crece sin perder el control.</h2>
-        <p>Gestiona equipos de nutricionistas y una consulta compartida desde una misma plataforma.</p>
-      </div>
-      <div class="feature-grid">
-        <article class="feature-card"><div class="feature-icon"><mat-icon>business</mat-icon></div><h3>Gestión de clínica</h3><p>Administra tu organización, profesionales y pacientes desde un espacio centralizado.</p></article>
-        <article class="feature-card featured"><div class="feature-icon"><mat-icon>group_add</mat-icon></div><h3>Equipo de nutricionistas</h3><p>Incorpora profesionales, gestiona sus accesos y organiza el crecimiento de tu equipo.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>share</mat-icon></div><h3>Trabajo compartido</h3><p>Comparte recursos y dietas cuando lo necesites manteniendo separada la información de cada paciente.</p></article>
-      </div>
-    </section>
-
-    <section class="features">
-      <div class="section-heading">
-        <span class="eyebrow">NUTRICIÓN MÁS ESPECIALIZADA</span>
-        <h2>Nutrición adaptada a cada paciente.</h2>
-        <p>El generador no trata a todos los pacientes igual: combina objetivos nutricionales con restricciones y especializaciones para ayudarte a construir planes más ajustados.</p>
-      </div>
-      <div class="feature-grid">
-        <article class="feature-card featured"><div class="feature-icon"><mat-icon>fitness_center</mat-icon></div><h3>Nutrición deportiva</h3><p>Objetivos y perfiles específicos para pacientes que entrenan y buscan mejorar rendimiento o composición corporal.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>monitor_weight</mat-icon></div><h3>Pérdida de peso y obesidad</h3><p>Planifica objetivos y seguimiento desde una visión continuada, sin reducir el tratamiento a una simple cifra de calorías.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>shopping_cart</mat-icon></div><h3>Restricciones y preferencias</h3><p>El generador tiene en cuenta alergias, intolerancias, alimentos preferidos y rechazados y reglas dietéticas activas.</p></article>
-      </div>
-    </section>
-
-
-
-    <section class="features" id="entrenamiento">
-      <div class="section-heading">
-        <span class="eyebrow">ENTRENAMIENTO CON SEGUIMIENTO REAL</span>
-        <h2>Un macrociclo completo, con todas sus rutinas, en segundos.</h2>
-        <p>Define el objetivo y las fases, y DietoExpress genera la planificación entera: mesociclos, microciclos y las sesiones con sus ejercicios, series y repeticiones. Tú la revisas, la ajustas y la publicas, y después la progresión se adapta a cómo responde cada persona.</p>
-      </div>
-      <div class="feature-grid">
-        <article class="feature-card featured"><div class="feature-icon"><mat-icon>event_repeat</mat-icon></div><span class="feature-number">01</span><h3>Macrociclo completo en un solo paso</h3><p>Genera de una vez todas las fases del macrociclo con sus mesociclos y rutinas, en lugar de construir semana a semana. Si ya tienes bloques planificados, se respetan y solo se completan los que faltan.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>fitness_center</mat-icon></div><span class="feature-number">02</span><h3>Biblioteca de ejercicios</h3><p>Organiza ejercicios por grupos musculares y utiliza prescripciones claras para que cada sesión sea fácil de consultar y ejecutar.</p></article>
-        <article class="feature-card featured"><div class="feature-icon"><mat-icon>tune</mat-icon></div><span class="feature-number">03</span><h3>Adaptación basada en el rendimiento</h3><p>Registra cómo se completan las series y recoge el feedback sobre esfuerzo, molestias y series omitidas para orientar la progresión.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>fact_check</mat-icon></div><span class="feature-number">04</span><h3>El profesional conserva el control</h3><p>Las propuestas de adaptación pueden revisarse profesionalmente: los datos del entrenamiento informan las decisiones, no sustituyen tu criterio.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>phone_iphone</mat-icon></div><span class="feature-number">05</span><h3>Planes accesibles para el cliente</h3><p>El portal presenta los ejercicios y sus indicaciones de forma estructurada para consultar la rutina y registrar la sesión.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>monitor_heart</mat-icon></div><span class="feature-number">06</span><h3>Nutrición y entrenamiento conectados</h3><p>Gestiona desde el mismo entorno los planes nutricionales, el trabajo de entrenamiento y el seguimiento de tus clientes.</p></article>
-      </div>
-      <div class="hero-actions" style="justify-content:center;margin-top:32px"><button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Probar DietoExpress <mat-icon>arrow_forward</mat-icon></button></div>
     </section>
 
     <section class="testimonials" id="opiniones" *ngIf="testimonials.length">
@@ -278,6 +453,21 @@
       </div>
     </section>
 
+    <!-- SEGURIDAD -->
+    <section class="trust-block">
+      <div class="section-heading">
+        <span class="eyebrow">DATOS DE SALUD, TRATADOS COMO TAL</span>
+        <h2>Seguridad y privacidad desde el diseño.</h2>
+      </div>
+      <div class="trust-grid">
+        <div><mat-icon>shield_lock</mat-icon><h3>Acceso protegido</h3><p>Verificación en dos pasos para profesionales, bloqueo progresivo ante intentos fallidos y enlaces seguros para pacientes.</p></div>
+        <div><mat-icon>domain_verification</mat-icon><h3>Datos aislados</h3><p>La información de cada organización está separada y el acceso depende del rol y de la relación profesional-paciente.</p></div>
+        <div><mat-icon>history_edu</mat-icon><h3>Consentimientos y auditoría</h3><p>Documentación y consentimientos integrados, y registro de las operaciones sensibles. Pensado para el RGPD.</p></div>
+        <div><mat-icon>cloud_done</mat-icon><h3>Copias cifradas</h3><p>Copias de seguridad automáticas almacenadas con cifrado, para que tu consulta no dependa de un solo disco.</p></div>
+      </div>
+    </section>
+
+    <!-- PLANES -->
     <section class="plans" id="planes" *ngIf="plans.length; else plansFallback">
       <div class="section-heading">
         <span class="eyebrow">PLANES Y PRECIOS</span>
@@ -328,24 +518,49 @@
         <div>
           <span class="eyebrow">EMPIEZA SIN COMPLICACIONES</span>
           <h2>Una plataforma profesional para una consulta profesional.</h2>
-          <p>Empieza con una prueba gratuita y descubre DietoExpress. Cuando tu consulta crezca, puedes pasar a un plan profesional o gestionar una clínica con tu equipo.</p>
+          <p>Crea tu cuenta y descubre DietoExpress. Cuando tu consulta crezca, puedes pasar a un plan profesional o gestionar una clínica con tu equipo.</p>
         </div>
-        <button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button>
+        <button mat-flat-button color="primary" (click)="crearCuenta()">{{ ctaLabel() }}</button>
       </section>
     </ng-template>
 
-    <section class="trust-block">
+    <!-- PREGUNTAS -->
+    <section class="faq" id="preguntas">
       <div class="section-heading">
-        <span class="eyebrow">HECHO PARA TRABAJAR CON TRANQUILIDAD</span>
-        <h2>Tu consulta merece una base sólida.</h2>
+        <span class="eyebrow">PREGUNTAS FRECUENTES</span>
+        <h2>Lo que suelen preguntarnos antes de empezar.</h2>
       </div>
-      <div class="trust-grid">
-        <div><mat-icon>security</mat-icon><h3>Seguridad</h3><p>Separación de datos por organización, control de acceso y validaciones en las operaciones sensibles.</p></div>
-        <div><mat-icon>verified_user</mat-icon><h3>Privacidad y documentación</h3><p>Consentimientos, documentación y herramientas para gestionar la relación profesional con el paciente.</p></div>
-        <div><mat-icon>cloud_done</mat-icon><h3>Siempre conectado</h3><p>Accede a tu entorno de trabajo y mantén la información de tu consulta organizada en un único sistema.</p></div>
+      <div class="faq-list">
+        <details *ngFor="let f of faqs()">
+          <summary>{{ f.q }}<mat-icon>expand_more</mat-icon></summary>
+          <p>{{ f.a }}</p>
+        </details>
       </div>
+    </section>
+
+    <!-- CIERRE -->
+    <section class="final-cta">
+      <h2>Empieza hoy a trabajar con una consulta más ordenada.</h2>
+      <p>Crea tu cuenta, da de alta a tu primer paciente y genera su primer plan.</p>
+      <div class="hero-actions center">
+        <button mat-flat-button class="cta-light" (click)="crearCuenta()">{{ ctaLabel() }} <mat-icon>arrow_forward</mat-icon></button>
+        <a mat-stroked-button class="cta-outline" routerLink="/nutricionistas">Buscar nutricionista</a>
+      </div>
+      <small>{{ trustLine() }}</small>
     </section>
   </main>
 
-  <footer><span>© DietoExpress</span><span>Gestión profesional de nutrición y entrenamiento</span><a routerLink="/nutricionistas">Buscar nutricionista</a></footer>
+  <footer>
+    <div class="foot-brand"><img src="/dietoexpress-logo-light.svg" alt="DietoExpress" /><span>Gestión profesional de nutrición y entrenamiento</span></div>
+    <nav class="foot-links" aria-label="Enlaces del pie">
+      <a routerLink="/nutricionistas">Buscar nutricionista</a>
+      <a routerLink="/para-nutricionistas">Para nutricionistas</a>
+      <a routerLink="/patient">Soy paciente</a>
+      <a routerLink="/login">Iniciar sesión</a>
+      <a routerLink="/legal">Información legal</a>
+    </nav>
+    <span class="copy">© DietoExpress</span>
+  </footer>
+
+  <div class="sticky-cta"><button mat-flat-button color="primary" (click)="crearCuenta()">{{ ctaLabel() }}</button></div>
 </div>
