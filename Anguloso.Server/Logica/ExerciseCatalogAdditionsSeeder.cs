@@ -90,6 +90,21 @@ public static class ExerciseCatalogAdditionsSeeder
         await using (var stream = File.OpenRead(path))
             entries = await JsonSerializer.DeserializeAsync<List<Entry>>(stream, cancellationToken: cancellationToken) ?? new();
 
+        return await UpsertEntriesAsync(connection, logger, entries, DefaultOptions, cancellationToken);
+    }
+
+    /// <summary>How a batch of entries is labelled; the update guard only touches rows labelled with the same prefix.</summary>
+    public sealed record UpsertOptions(string ReviewerPrefix, string Origin, string SchemaPrefix, string Notes);
+
+    public static readonly UpsertOptions DefaultOptions = new(
+        ReviewerPrefix, "DietoExpress", "dietoexpress-additions-v",
+        "Ejercicio básico añadido por DietoExpress: no figura en el catálogo RepDB.");
+
+    /// <summary>Upsert of already loaded entries (the curated file, or a validated transfer from another system).</summary>
+    public static async Task<Result> UpsertEntriesAsync(
+        NpgsqlConnection connection, ILogger logger, IEnumerable<Entry> entries, UpsertOptions options,
+        CancellationToken cancellationToken = default)
+    {
         var shouldClose = connection.State != System.Data.ConnectionState.Open;
         if (shouldClose) await connection.OpenAsync(cancellationToken);
         int inserted = 0, updated = 0, skipped = 0;
@@ -100,7 +115,7 @@ public static class ExerciseCatalogAdditionsSeeder
                 var error = Validate(e);
                 if (error != null) { logger.LogWarning("Ejercicio adicional {Id} ignorado: {Error}", e.Id, error); skipped++; continue; }
 
-                var payload = JsonSerializer.Serialize(new { curated = true, origin = "DietoExpress", id = e.Id, version = e.Version });
+                var payload = JsonSerializer.Serialize(new { curated = true, origin = options.Origin, id = e.Id, version = e.Version });
                 await using var command = new NpgsqlCommand(
                     "INSERT INTO exercise_catalog (exercise_id, source, author, source_schema_version, source_payload, name_en, name_es, description_es, " +
                     "instructions_es, tips_es, category, force_type, mechanic, difficulty, equipment, body_part, primary_muscles, secondary_muscles, goals, tags, " +
@@ -121,12 +136,12 @@ public static class ExerciseCatalogAdditionsSeeder
                     "reviewed_required_equipment = EXCLUDED.reviewed_required_equipment, reviewed_selection_priority = EXCLUDED.reviewed_selection_priority, " +
                     "review_notes = EXCLUDED.review_notes, reviewed_at = NOW(), reviewed_by = EXCLUDED.reviewed_by, updated_at = NOW() " +
                     "WHERE exercise_catalog.source = @source " +
-                    "AND exercise_catalog.reviewed_by ~ '^DietoExpress curated additions v[0-9]+$' " +
+                    "AND exercise_catalog.reviewed_by = @reviewer_prefix || substring(exercise_catalog.reviewed_by from '[0-9]+$') " +
                     "AND substring(exercise_catalog.reviewed_by from '[0-9]+$')::int < @version " +
                     "RETURNING (xmax = 0)", connection);
                 command.Parameters.AddWithValue("id", e.Id);
                 command.Parameters.AddWithValue("source", Source);
-                command.Parameters.AddWithValue("schema", "dietoexpress-additions-v" + e.Version);
+                command.Parameters.AddWithValue("schema", options.SchemaPrefix + e.Version);
                 command.Parameters.AddWithValue("payload", NpgsqlDbType.Text, payload);
                 command.Parameters.AddWithValue("name_en", e.NameEn);
                 command.Parameters.AddWithValue("name_es", e.NameEs);
@@ -144,12 +159,13 @@ public static class ExerciseCatalogAdditionsSeeder
                 command.Parameters.AddWithValue("met", e.Met);
                 command.Parameters.AddWithValue("unilateral", e.IsUnilateral);
                 command.Parameters.AddWithValue("bodyweight", e.IsBodyweight);
-                command.Parameters.AddWithValue("notes", "Ejercicio básico añadido por DietoExpress: no figura en el catálogo RepDB.");
+                command.Parameters.AddWithValue("notes", options.Notes);
                 command.Parameters.AddWithValue("pattern", e.MovementPattern);
                 command.Parameters.AddWithValue("experience", e.MinimumExperience);
                 command.Parameters.AddWithValue("required", NpgsqlDbType.Text, JsonSerializer.Serialize(e.RequiredEquipment));
                 command.Parameters.AddWithValue("priority", e.SelectionPriority);
-                command.Parameters.AddWithValue("reviewer", ReviewerPrefix + e.Version);
+                command.Parameters.AddWithValue("reviewer", options.ReviewerPrefix + e.Version);
+                command.Parameters.AddWithValue("reviewer_prefix", options.ReviewerPrefix);
                 command.Parameters.AddWithValue("version", e.Version);
 
                 var wasInsert = await command.ExecuteScalarAsync(cancellationToken);

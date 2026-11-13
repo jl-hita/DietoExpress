@@ -393,6 +393,36 @@ public sealed class ExerciseImageService
         return deleted > 0;
     }
 
+    /// <summary>
+    /// Stores an image received from another system (TRAZO) for an approved catalog exercise. Insert-only: an existing
+    /// image of the slot, whatever its origin, is never replaced. Returns false when nothing was stored.
+    /// </summary>
+    public async Task<bool> StoreImportedImageAsync(string exerciseId, int slot, byte[] data, CancellationToken cancellationToken = default)
+    {
+        var contentType = DetectImageContentType(data);
+        if (contentType is null || slot is < 0 or > MaximumSlot || data.Length is 0 or > MaximumImageBytes ||
+            string.IsNullOrWhiteSpace(exerciseId) || exerciseId.Length > 100)
+            return false;
+        var stored = false;
+        await WithConnectionAsync(async connection =>
+        {
+            await using var command = new NpgsqlCommand("""
+                INSERT INTO exercise_images(exercise_id, slot, content_type, data, byte_size, sha256, source, uploaded_by_user_id)
+                SELECT @id, @slot, @type, @data, @size, @hash, 'custom', NULL
+                WHERE EXISTS (SELECT 1 FROM exercise_catalog WHERE exercise_id = @id AND review_status = 'approved')
+                ON CONFLICT (exercise_id, slot) DO NOTHING
+                """, connection);
+            command.Parameters.AddWithValue("id", exerciseId);
+            command.Parameters.AddWithValue("slot", (short)slot);
+            command.Parameters.AddWithValue("type", contentType);
+            command.Parameters.AddWithValue("data", data);
+            command.Parameters.AddWithValue("size", data.Length);
+            command.Parameters.AddWithValue("hash", Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant());
+            stored = await command.ExecuteNonQueryAsync(cancellationToken) > 0;
+        });
+        return stored;
+    }
+
     private async Task StoreAsync(
         string exerciseId, int slot, byte[] data, string contentType, string source, int? userId, bool overwrite,
         CancellationToken cancellationToken)
