@@ -205,3 +205,23 @@ La corrección:
 - La señal de feedback sigue siendo por ejercicio, no una medición independiente de cada músculo. Por tanto, se aplica a los músculos que el modelo considera efectivamente estimulados por ese ejercicio; es una heurística de producto que debe revisarse si cambia el formato de feedback.
 
 Se añaden regresiones para comprobar que un remo contribuye a bíceps cuando está auditado, que los antebrazos no reciben crédito por el agarre y que las series secundarias previstas impiden un aumento redundante de volumen directo. No cambia ningún endpoint ni DTO; el contrato Android permanece igual.
+
+
+## Matriz ampliada de splits — 14/11/2026
+
+La evaluación de catálogo v8 cubre las **11 combinaciones de distribución y días que admite el generador**: automática (2–4 días), cuerpo completo (2–4), torso/pierna (2 y 4) y Push/Pull/Legs (3, 5 y 6). Se combinan con cinco perfiles de equipamiento, tres objetivos, tres niveles de experiencia y presupuestos de 35, 60 y 90 minutos: **1.485 escenarios de cuatro semanas**.
+
+La matriz anterior de 405 escenarios solo ejercitaba la distribución automática de 2–4 días. Aunque había pruebas unitarias para PPL de 3, 5 y 6 días, no existía evaluación de calidad con el catálogo curado real para esos splits ni para las variantes explícitas FullBody/UpperLower. La ampliación cierra ese hueco de cobertura; no cambia la selección ni la prescripción del generador.
+
+El artefacto identifica ahora el split de cada escenario y comprueba que cada semana contenga exactamente el número de sesiones solicitado, además de respetar el límite temporal por sesión. Los resultados siguen siendo una evaluación de software y metadatos curados, no una validación fisiológica individual ni una exportación de la PostgreSQL desplegada.
+
+
+## Cobertura real del split FullBody — 14/11/2026
+
+La matriz v8 detectó que las dos sesiones FullBody anteriores alternaban grupos completos: A concentraba empuje horizontal, remo y bisagra; B concentraba empuje/tracción vertical y trabajo unilateral. En escenarios de dos días esto dejaba algunos grupos principales con una sola exposición semanal, aunque el plan se llamase FullBody.
+
+Se ha corregido la plantilla para que ambas sesiones incluyan sentadilla, bisagra, empuje horizontal, remo horizontal, empuje vertical y tracción vertical. El orden A/B alterna qué patrón aparece primero, mientras la selección conserva ejercicios estables durante el bloque y rota entre variantes compatibles cuando hay alternativas revisadas. El trabajo unilateral pasa a ser una variante opcional cuando el presupuesto y los déficits lo permiten; no desplaza los patrones básicos.
+
+La matriz de catálogo añade una regresión que exige esos seis patrones en cada sesión de los escenarios FullBody de dos días, para los cinco perfiles de equipamiento, tres objetivos, tres niveles y tres presupuestos. El límite temporal sigue siendo vinculante: no se añaden series para ocultar déficits y los accesorios se omiten antes de excederlo.
+
+Esta decisión de producto busca que «FullBody» signifique cuerpo completo en cada sesión. No afirma que ACSM exija usar los seis patrones concretos; el Position Stand 2026 recomienda entrenar con esfuerzo alto al menos dos veces por semana e implicar los principales grupos musculares. La frecuencia por músculo y la dosis efectiva siguen siendo diagnósticos de planificación, no mínimos universales.

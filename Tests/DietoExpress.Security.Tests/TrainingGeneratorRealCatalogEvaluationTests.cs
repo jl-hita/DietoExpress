@@ -169,7 +169,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             foreach (var profile in ScenarioProfiles(candidates))
             foreach (var goal in Enum.GetValues<TrainingGoal>())
             foreach (var experience in Enum.GetValues<TrainingExperience>())
-            foreach (var days in DaySets())
+            foreach (var (days, split) in SupportedSplitDaySets())
             foreach (var durationMinutes in new[] { 35, 60, 90 })
             {
                 var request = new TrainingProgramGenerationRequest(
@@ -182,7 +182,8 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     profile.AvailableEquipment,
                     profile.ExcludedExerciseIds,
                     null,
-                    false);
+                    false,
+                    split);
                 var generated = TrainingProgramGenerator.Generate(request, candidates);
                 var sessions = generated.Prescription?.Sessions ?? [];
                 var maximumEstimatedMinutes = sessions.Count == 0
@@ -227,12 +228,13 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     .ToArray();
 
                 scenarioResults.Add(new RealCatalogScenarioResult(
-                    $"profile-{profile.Name.ToLowerInvariant()}-goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}-minutes-{durationMinutes}",
+                    $"profile-{profile.Name.ToLowerInvariant()}{(split == TrainingProgramSplit.Automatic ? string.Empty : $"-split-{split.ToString().ToLowerInvariant()}")}-goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}-minutes-{durationMinutes}",
                     profile.Name,
                     profile.AvailableEquipment,
                     profile.ExcludedExerciseIds,
                     goal.ToString(),
                     experience.ToString(),
+                    split.ToString(),
                     days.Count,
                     durationMinutes,
                     generated.Succeeded,
@@ -254,7 +256,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var report = new RealCatalogEvaluationReport(
-            "training-generator-real-catalog-evaluation-v7",
+            "training-generator-real-catalog-evaluation-v8",
             DateTimeOffset.UtcNow,
             ExerciseCatalogService.SourceUrl,
             reviewStats?.repDbTotal ?? 0,
@@ -311,8 +313,17 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 .Max()
         }));
 
-        Assert.Equal("training-generator-real-catalog-evaluation-v7", report.SchemaVersion);
-        Assert.Equal(405, report.ScenarioCount);
+        Assert.Equal("training-generator-real-catalog-evaluation-v8", report.SchemaVersion);
+        Assert.Equal(1485, report.ScenarioCount);
+        Assert.Equal(11, scenarioResults.Select(result => (result.Split, result.TrainingDaysPerWeek)).Distinct().Count());
+        Assert.Contains(scenarioResults, result => result.Split == TrainingProgramSplit.PushPullLegs.ToString() && result.TrainingDaysPerWeek == 5);
+        Assert.Contains(scenarioResults, result => result.Split == TrainingProgramSplit.PushPullLegs.ToString() && result.TrainingDaysPerWeek == 6);
+        Assert.All(scenarioResults, result =>
+        {
+            Assert.Equal(result.TrainingDaysPerWeek * 4, result.Sessions.Count);
+            Assert.All(result.Sessions.GroupBy(session => session.WeekNumber), week =>
+                Assert.Equal(result.TrainingDaysPerWeek, week.Count()));
+        });
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.GenerationErrorCount);
         Assert.Equal(report.CatalogTotal, report.CatalogApproved);
@@ -345,6 +356,31 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             Assert.True(result.MaximumEstimatedMinutes <= result.RequestedDurationMinutes,
                 $"{result.ScenarioId} estimated {result.MaximumEstimatedMinutes} minutes for a {result.RequestedDurationMinutes}-minute limit.");
         });
+
+        // FullBody means the main loaded movement patterns are trained in each workout,
+        // not split into mutually exclusive A/B muscle groups.
+        var patternByExerciseId = candidates.ToDictionary(
+            candidate => candidate.ExerciseId, candidate => candidate.MovementPattern, StringComparer.Ordinal);
+        var requiredFullBodyPatterns = new[]
+        {
+            TrainingMovementPattern.Squat,
+            TrainingMovementPattern.Hinge,
+            TrainingMovementPattern.HorizontalPush,
+            TrainingMovementPattern.HorizontalPull,
+            TrainingMovementPattern.VerticalPush,
+            TrainingMovementPattern.VerticalPull
+        };
+        var fullBodyTwoDayScenarios = scenarioResults.Where(result =>
+            result.Split == TrainingProgramSplit.FullBody.ToString() && result.TrainingDaysPerWeek == 2).ToArray();
+        Assert.NotEmpty(fullBodyTwoDayScenarios);
+        foreach (var scenario in fullBodyTwoDayScenarios)
+        foreach (var session in scenario.Sessions)
+        {
+            var selectedPatterns = session.Exercises
+                .Select(exercise => patternByExerciseId[exercise.ExerciseId])
+                .ToHashSet();
+            Assert.All(requiredFullBodyPatterns, pattern => Assert.Contains(pattern, selectedPatterns));
+        }
     }
 
     private static IReadOnlyList<RealCatalogScenarioProfile> ScenarioProfiles(
@@ -382,11 +418,21 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         image.ValueKind == JsonValueKind.String &&
         !string.IsNullOrWhiteSpace(image.GetString());
 
-    private static IReadOnlyList<DayOfWeek>[] DaySets() =>
+    // Exercise every supported split/day-count combination with the same five equipment profiles,
+    // three goals, three experience levels and three session-duration budgets (1,485 scenarios total).
+    private static IReadOnlyList<(IReadOnlyList<DayOfWeek> Days, TrainingProgramSplit Split)> SupportedSplitDaySets() =>
     [
-        [DayOfWeek.Monday, DayOfWeek.Thursday],
-        [DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday],
-        [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday]
+        (new[] { DayOfWeek.Monday, DayOfWeek.Thursday }, TrainingProgramSplit.Automatic),
+        (new[] { DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday }, TrainingProgramSplit.Automatic),
+        (new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday }, TrainingProgramSplit.Automatic),
+        (new[] { DayOfWeek.Monday, DayOfWeek.Thursday }, TrainingProgramSplit.FullBody),
+        (new[] { DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday }, TrainingProgramSplit.FullBody),
+        (new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday }, TrainingProgramSplit.FullBody),
+        (new[] { DayOfWeek.Monday, DayOfWeek.Thursday }, TrainingProgramSplit.UpperLower),
+        (new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday }, TrainingProgramSplit.UpperLower),
+        (new[] { DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday }, TrainingProgramSplit.PushPullLegs),
+        (new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday }, TrainingProgramSplit.PushPullLegs),
+        (new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday }, TrainingProgramSplit.PushPullLegs)
     ];
 
     private sealed class FixedHttpClientFactory(HttpClient client) : IHttpClientFactory
@@ -401,6 +447,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         IReadOnlyList<string> ExcludedExerciseIds,
         string Goal,
         string Experience,
+        string Split,
         int TrainingDaysPerWeek,
         int RequestedDurationMinutes,
         bool Succeeded,

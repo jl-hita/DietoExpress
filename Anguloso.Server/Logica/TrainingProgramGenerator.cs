@@ -1001,13 +1001,16 @@ public static class TrainingProgramGenerator
     // split/day combinations return an empty list and are rejected earlier in ValidateRequest.
     private static IReadOnlyList<SessionTemplate> BuildSplit(int daysPerWeek, TrainingProgramSplit requestedSplit)
     {
+        // Every full-body session repeats the main loaded patterns instead of alternating whole
+        // muscle groups across days. This keeps chest, back, shoulders and both lower-body patterns
+        // represented in each session; the exercise selector rotates among compatible reviewed variants.
         var fullBodyA = new SessionTemplate("Cuerpo completo A",
-            [TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.Hinge, TrainingMovementPattern.Core]);
-        // B templates reverse the order of coexisting large groups (push/pull, quads/posterior chain)
-        // so the muscle that was trained second in A is trained fresh first in B. The squat stays
-        // first in full-body sessions; only the upper-body pair is swapped.
+            [TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull,
+             TrainingMovementPattern.Hinge, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]);
+        // B keeps the same full-body coverage but changes order so different movements are trained fresh first.
         var fullBodyB = new SessionTemplate("Cuerpo completo B",
-            [TrainingMovementPattern.Squat, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
+            [TrainingMovementPattern.Hinge, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.VerticalPush,
+             TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.Core]);
         var upperA = new SessionTemplate("Tren superior A",
             [TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]);
         var lowerA = new SessionTemplate("Tren inferior A",
