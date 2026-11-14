@@ -356,6 +356,31 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             Assert.True(result.MaximumEstimatedMinutes <= result.RequestedDurationMinutes,
                 $"{result.ScenarioId} estimated {result.MaximumEstimatedMinutes} minutes for a {result.RequestedDurationMinutes}-minute limit.");
         });
+
+        // FullBody means the main loaded movement patterns are trained in each workout,
+        // not split into mutually exclusive A/B muscle groups.
+        var patternByExerciseId = candidates.ToDictionary(
+            candidate => candidate.ExerciseId, candidate => candidate.MovementPattern, StringComparer.Ordinal);
+        var requiredFullBodyPatterns = new[]
+        {
+            TrainingMovementPattern.Squat,
+            TrainingMovementPattern.Hinge,
+            TrainingMovementPattern.HorizontalPush,
+            TrainingMovementPattern.HorizontalPull,
+            TrainingMovementPattern.VerticalPush,
+            TrainingMovementPattern.VerticalPull
+        };
+        var fullBodyTwoDayScenarios = scenarioResults.Where(result =>
+            result.Split == TrainingProgramSplit.FullBody.ToString() && result.TrainingDaysPerWeek == 2).ToArray();
+        Assert.NotEmpty(fullBodyTwoDayScenarios);
+        foreach (var scenario in fullBodyTwoDayScenarios)
+        foreach (var session in scenario.Sessions)
+        {
+            var selectedPatterns = session.Exercises
+                .Select(exercise => patternByExerciseId[exercise.ExerciseId])
+                .ToHashSet();
+            Assert.All(requiredFullBodyPatterns, pattern => Assert.Contains(pattern, selectedPatterns));
+        }
     }
 
     private static IReadOnlyList<RealCatalogScenarioProfile> ScenarioProfiles(

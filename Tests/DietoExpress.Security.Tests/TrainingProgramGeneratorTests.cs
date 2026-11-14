@@ -41,20 +41,30 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Equal(8, result.Prescription.Sessions.Count);
     }
 
-    [Fact]
-    public void TwoDayFullBodySplitBalancesTwoSquatExposuresWithOneHipHingeExposure()
+    [Theory]
+    [InlineData(TrainingProgramSplit.Automatic)]
+    [InlineData(TrainingProgramSplit.FullBody)]
+    public void TwoDayFullBodySplitTrainsEveryMajorMovementPatternInEachSession(TrainingProgramSplit split)
     {
         var result = TrainingProgramGenerator.Generate(
-            Request() with { DurationWeeks = 1 }, Catalog());
+            Request() with { DurationWeeks = 1, Split = split }, Catalog());
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
-        var exercises = result.Prescription!.Sessions
-            .SelectMany(session => session.Exercises)
-            .ToArray();
+        Assert.Equal(2, result.Prescription!.Sessions.Count);
 
-        Assert.Equal(2, exercises.Count(exercise => exercise.ExerciseId == "squat-basic"));
-        Assert.Single(exercises, exercise => exercise.ExerciseId == "exercise-hinge");
-        Assert.Single(exercises, exercise => exercise.ExerciseId == "exercise-singleleg");
+        var requiredPatternExerciseIds = new[]
+        {
+            "squat-basic",
+            "exercise-horizontalpush",
+            "exercise-horizontalpull",
+            "exercise-hinge",
+            "exercise-verticalpush",
+            "exercise-verticalpull"
+        };
+
+        foreach (var session in result.Prescription.Sessions)
+        foreach (var exerciseId in requiredPatternExerciseIds)
+            Assert.Contains(session.Exercises, exercise => exercise.ExerciseId == exerciseId);
     }
 
     [Fact]
