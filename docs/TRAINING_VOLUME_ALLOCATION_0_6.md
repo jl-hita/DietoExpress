@@ -205,3 +205,12 @@ La corrección:
 - La señal de feedback sigue siendo por ejercicio, no una medición independiente de cada músculo. Por tanto, se aplica a los músculos que el modelo considera efectivamente estimulados por ese ejercicio; es una heurística de producto que debe revisarse si cambia el formato de feedback.
 
 Se añaden regresiones para comprobar que un remo contribuye a bíceps cuando está auditado, que los antebrazos no reciben crédito por el agarre y que las series secundarias previstas impiden un aumento redundante de volumen directo. No cambia ningún endpoint ni DTO; el contrato Android permanece igual.
+
+
+## Matriz ampliada de splits — 14/11/2026
+
+La evaluación de catálogo v8 cubre las **11 combinaciones de distribución y días que admite el generador**: automática (2–4 días), cuerpo completo (2–4), torso/pierna (2 y 4) y Push/Pull/Legs (3, 5 y 6). Se combinan con cinco perfiles de equipamiento, tres objetivos, tres niveles de experiencia y presupuestos de 35, 60 y 90 minutos: **1.485 escenarios de cuatro semanas**.
+
+La matriz anterior de 405 escenarios solo ejercitaba la distribución automática de 2–4 días. Aunque había pruebas unitarias para PPL de 3, 5 y 6 días, no existía evaluación de calidad con el catálogo curado real para esos splits ni para las variantes explícitas FullBody/UpperLower. La ampliación cierra ese hueco de cobertura; no cambia la selección ni la prescripción del generador.
+
+El artefacto identifica ahora el split de cada escenario y comprueba que cada semana contenga exactamente el número de sesiones solicitado, además de respetar el límite temporal por sesión. Los resultados siguen siendo una evaluación de software y metadatos curados, no una validación fisiológica individual ni una exportación de la PostgreSQL desplegada.
