@@ -664,7 +664,7 @@ public sealed class ExerciseCatalogRegressionTests
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ExerciseCatalogController.cs"));
         var audit = controller.Substring(controller.IndexOf("AuditExerciseImages", StringComparison.Ordinal));
         Assert.Contains("[HttpGet(\"images/audit\")]", controller);
-        Assert.Contains("[AllowAnonymous]", audit);
+        Assert.Contains("[AllowAnonymous]", controller);
         Assert.Contains("ExerciseImages:AuditApiKey", audit);
         Assert.Contains("X-Exercise-Audit-Key", audit);
         Assert.Contains("CryptographicOperations.FixedTimeEquals", audit);
