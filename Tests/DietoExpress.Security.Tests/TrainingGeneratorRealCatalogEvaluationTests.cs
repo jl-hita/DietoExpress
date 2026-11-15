@@ -21,7 +21,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
     public TrainingGeneratorRealCatalogEvaluationTests(ITestOutputHelper output) => _output = output;
 
     [Fact]
-    public async Task AutoCuratedRepDbCatalogGeneratesAcrossThe405ScenarioMatrix()
+    public async Task AutoCuratedRepDbCatalogGeneratesAcrossTheSupportedSplitMatrix()
     {
         var baseConnectionString = Environment.GetEnvironmentVariable("DIETOEXPRESS_IDEMPOTENCY_TEST_CONNECTION");
         if (string.IsNullOrWhiteSpace(baseConnectionString))
@@ -374,13 +374,62 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             result.Split == TrainingProgramSplit.FullBody.ToString() && result.TrainingDaysPerWeek == 2).ToArray();
         Assert.NotEmpty(fullBodyTwoDayScenarios);
         foreach (var scenario in fullBodyTwoDayScenarios)
-        foreach (var session in scenario.Sessions)
         {
-            var selectedPatterns = session.Exercises
-                .Select(exercise => patternByExerciseId[exercise.ExerciseId])
-                .ToHashSet();
-            Assert.All(requiredFullBodyPatterns, pattern => Assert.Contains(pattern, selectedPatterns));
+            var hasCompatibleVerticalPull = HasCompatibleVerticalPull(candidates, scenario);
+            foreach (var session in scenario.Sessions)
+            {
+                var selectedPatterns = session.Exercises
+                    .Select(exercise => patternByExerciseId[exercise.ExerciseId])
+                    .ToHashSet();
+                foreach (var pattern in requiredFullBodyPatterns)
+                {
+                    if (pattern == TrainingMovementPattern.VerticalPull && !hasCompatibleVerticalPull)
+                    {
+                        // Do not invent equipment or violate the user's experience level.
+                        // The generator retains a horizontal row when no vertical-pull option exists.
+                        Assert.Contains(TrainingMovementPattern.HorizontalPull, selectedPatterns);
+                        continue;
+                    }
+                    Assert.Contains(pattern, selectedPatterns);
+                }
+            }
         }
+    }
+
+
+    private static bool HasCompatibleVerticalPull(
+        IReadOnlyCollection<TrainingExerciseCandidate> candidates,
+        RealCatalogScenarioResult scenario)
+    {
+        var availableEquipment = scenario.AvailableEquipment
+            .Select(NormalizeEquipmentToken)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var excluded = scenario.ExcludedExerciseIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var goal = Enum.Parse<TrainingGoal>(scenario.Goal);
+        var experience = Enum.Parse<TrainingExperience>(scenario.Experience);
+
+        return candidates.Any(candidate =>
+            candidate.MovementPattern == TrainingMovementPattern.VerticalPull &&
+            (candidate.IsReviewed || candidate.IsOwnedByCurrentProfessional) &&
+            candidate.SuitableGoals.Contains(goal) &&
+            (int)candidate.MinimumExperience <= (int)experience &&
+            !excluded.Contains(candidate.ExerciseId) &&
+            candidate.RequiredEquipment.All(required => IsEquipmentAvailable(required, availableEquipment)));
+    }
+
+    private static string NormalizeEquipmentToken(string value) =>
+        string.Join("-", value.Trim().ToLowerInvariant()
+            .Replace('_', ' ')
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+    private static bool IsEquipmentAvailable(string required, IReadOnlySet<string> available)
+    {
+        var token = NormalizeEquipmentToken(required);
+        if (available.Contains(token)) return true;
+        if (token.Equals("machine", StringComparison.OrdinalIgnoreCase))
+            return available.Any(value => value.Equals("machine", StringComparison.OrdinalIgnoreCase) ||
+                                          value.EndsWith("-machine", StringComparison.OrdinalIgnoreCase));
+        return token.EndsWith("-machine", StringComparison.OrdinalIgnoreCase) && available.Contains("machine");
     }
 
     private static IReadOnlyList<RealCatalogScenarioProfile> ScenarioProfiles(

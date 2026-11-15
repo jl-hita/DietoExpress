@@ -222,6 +222,16 @@ La matriz v8 detectó que las dos sesiones FullBody anteriores alternaban grupos
 
 Se ha corregido la plantilla para que ambas sesiones incluyan sentadilla, bisagra, empuje horizontal, remo horizontal, empuje vertical y tracción vertical. El orden A/B alterna qué patrón aparece primero, mientras la selección conserva ejercicios estables durante el bloque y rota entre variantes compatibles cuando hay alternativas revisadas. El trabajo unilateral pasa a ser una variante opcional cuando el presupuesto y los déficits lo permiten; no desplaza los patrones básicos.
 
-La matriz de catálogo añade una regresión que exige esos seis patrones en cada sesión de los escenarios FullBody de dos días, para los cinco perfiles de equipamiento, tres objetivos, tres niveles y tres presupuestos. El límite temporal sigue siendo vinculante: no se añaden series para ocultar déficits y los accesorios se omiten antes de excederlo.
+La matriz de catálogo exige los cinco patrones básicos en cada sesión FullBody de dos días y exige tracción vertical cuando existe un ejercicio compatible con material, objetivo, nivel y exclusiones. Si no existe, se conserva la tracción horizontal en lugar de inventar equipamiento o asignar una variante por encima del nivel del usuario. El límite temporal sigue siendo vinculante: no se añaden series para ocultar déficits y los accesorios se omiten antes de excederlo.
 
 Esta decisión de producto busca que «FullBody» signifique cuerpo completo en cada sesión. No afirma que ACSM exija usar los seis patrones concretos; el Position Stand 2026 recomienda entrenar con esfuerzo alto al menos dos veces por semana e implicar los principales grupos musculares. La frecuencia por músculo y la dosis efectiva siguen siendo diagnósticos de planificación, no mínimos universales.
+
+
+## Correcciones de la auditoría de splits v8 — 15/11/2026
+
+La validación v8 detectó dos supuestos que debían expresarse mejor:
+
+- La tracción vertical no es obligatoria si el catálogo no ofrece una variante compatible con el material, objetivo, experiencia y exclusiones. Por ejemplo, un principiante sin polea ni máquina asistida no debe recibir dominadas/chin-ups reservadas a nivel intermedio. En ese caso se mantiene el remo horizontal; la matriz comprueba esta excepción explícitamente.
+- El PPL de cinco días pasa a un híbrido PPL + torso/pierna: Empuje, Tracción, Pierna, Tren superior y Tren inferior. Así el segundo estímulo inferior no queda comprimido en una única sesión de 30–40 series, y el volumen puede repartirse con el mismo presupuesto por sesión. PPL de tres y seis días conserva su estructura clásica.
+
+La matriz de cinco perfiles no incluye un perfil estrictamente limitado a bandas y peso corporal: el perfil doméstico también dispone de barra, mancuernas y barra de dominadas. El catálogo curado contiene curl femoral con banda, pero aún no ofrece suficientes patrones compuestos con bandas para acreditar una rutina completa exclusivamente con ese material. No se deben excluir esas alternativas; hay que enriquecer y revisar el catálogo antes de afirmar que el modo bandas-only está cubierto.

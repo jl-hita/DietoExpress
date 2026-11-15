@@ -1033,7 +1033,10 @@ public static class TrainingProgramGenerator
             TrainingProgramSplit.FullBody when daysPerWeek == 2 => [fullBodyA, fullBodyB],
             TrainingProgramSplit.FullBody when daysPerWeek == 3 => [fullBodyA, fullBodyB, fullBodyA with { Title = "Cuerpo completo C" }],
             TrainingProgramSplit.FullBody when daysPerWeek == 4 => [fullBodyA, fullBodyB, fullBodyA with { Title = "Cuerpo completo C" }, fullBodyB with { Title = "Cuerpo completo D" }],
-            TrainingProgramSplit.PushPullLegs when daysPerWeek == 5 => [push, pull, legs, pushB, pullB],
+            // Five days use a PPL + upper/lower hybrid: keep the classic first three days,
+            // then distribute the second upper/lower exposures instead of stacking both
+            // push days and both pull days while leaving a single overloaded leg day.
+            TrainingProgramSplit.PushPullLegs when daysPerWeek == 5 => [push, pull, legs, upperB, lowerB],
             TrainingProgramSplit.UpperLower when daysPerWeek == 2 => [upperA, lowerA],
             TrainingProgramSplit.UpperLower when daysPerWeek == 4 => [upperA, lowerA, upperB, lowerB],
             TrainingProgramSplit.PushPullLegs when daysPerWeek == 3 => [push, pull, legs],

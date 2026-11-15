@@ -800,7 +800,10 @@ public sealed class TrainingProgramGeneratorTests
         var reverseNordics = weekOneSessions.SelectMany(session => session.Exercises)
             .Where(exercise => exercise.ExerciseId == "reverse-nordic-curl")
             .ToArray();
-        Assert.Single(reverseNordics);
+        // The same useful isolation may be repeated on separate days to distribute the weekly dose.
+        Assert.Equal(2, reverseNordics.Length);
+        Assert.All(weekOneSessions, session =>
+            Assert.Single(session.Exercises.Where(exercise => exercise.ExerciseId == "reverse-nordic-curl")));
         Assert.Contains(TrainingMuscleGroup.Quadriceps, reverseNordics[0].PrimaryMuscleGroups);
         Assert.Contains(generated.Prescription.Sessions.SelectMany(session => session.Exercises),
             exercise => exercise.ExerciseId == "squat-basic");
@@ -835,7 +838,11 @@ public sealed class TrainingProgramGeneratorTests
         var directQuadAccessories = weekOneSessions.SelectMany(session => session.Exercises)
             .Where(exercise => exercise.ExerciseId == "leg-extension")
             .ToArray();
-        Assert.Single(directQuadAccessories);
+        // One direct quad exposure per training day is preferable to concentrating the
+        // accessory in a single session; duplicate prescriptions inside one session are forbidden.
+        Assert.Equal(2, directQuadAccessories.Length);
+        Assert.All(weekOneSessions, session =>
+            Assert.Single(session.Exercises.Where(exercise => exercise.ExerciseId == "leg-extension")));
         Assert.Equal(new[] { TrainingMuscleGroup.Quadriceps }, directQuadAccessories[0].PrimaryMuscleGroups);
     }
 
@@ -1298,6 +1305,12 @@ public sealed class TrainingProgramGeneratorTests
         {
             Assert.Contains(sessions, session => session.Title.StartsWith("Tracción", StringComparison.Ordinal));
             Assert.Contains(sessions, session => session.Title.StartsWith("Pierna", StringComparison.Ordinal));
+            if (dayCount == 5)
+            {
+                // Five-day PPL is a hybrid: PPL plus one upper and one lower exposure.
+                Assert.Single(sessions, session => session.Title.StartsWith("Tren superior", StringComparison.Ordinal));
+                Assert.Single(sessions, session => session.Title.StartsWith("Tren inferior", StringComparison.Ordinal));
+            }
         }
         if (split == TrainingProgramSplit.UpperLower)
         {
