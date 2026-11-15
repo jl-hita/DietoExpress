@@ -13,7 +13,7 @@ Configure the same secret in TRAZO as `DietoExpressImport__ApiKey`. The DietoExp
 
 ## Scope and integrity
 
-The export contains only global exercises with `owner_user_id IS NULL`, `review_status = approved` and `reviewed = true`. Pending/rejected exercises and professional-owned contributions are excluded. The effective reviewed metadata, source record and available image slots are transferred. RepDB image slots are fetched through the existing single-image read-through method before inclusion.
+The export contains only global exercises with `owner_user_id IS NULL`, `review_status = approved` and `reviewed = true`. It includes the DietoExpress superadmin-curated catalog and exercises originally created in TRAZO, identified by the `reviewed_by` label `TRAZO transfer v{n}`. Other DietoExpress-authored additions, pending/rejected exercises and professional-owned contributions remain excluded. The effective reviewed metadata, source record and available image slots are transferred. RepDB image slots are fetched through the existing single-image read-through method before inclusion.
 
 The ZIP contains `manifest.json`, `exercises.json` and image files. SHA-256 checksums and image sizes are validated by TRAZO before any database transaction starts. Transfer failure is reported in the dashboard; no local archive is retained.
 
