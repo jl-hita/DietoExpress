@@ -341,8 +341,8 @@ public sealed class ExerciseImageService
         return (copied, failed);
     }
 
-    /// <summary>Approved catalog exercises that have no picture at all (stored or derivable). For the superadmin to complete.</summary>
-    public async Task<IReadOnlyList<(string ExerciseId, string Name, string Source)>> GetExercisesWithoutImagesAsync(CancellationToken cancellationToken = default)
+    /// <summary>Catalog exercises without any stored or derivable image. Optionally includes every review status and owner.</summary>
+    public async Task<IReadOnlyList<(string ExerciseId, string Name, string Source)>> GetExercisesWithoutImagesAsync(CancellationToken cancellationToken = default, bool includeAllStatuses = false)
     {
         await EnsureSchemaAsync(cancellationToken);
         var result = new List<(string, string, string)>();
@@ -352,10 +352,11 @@ public sealed class ExerciseImageService
                 SELECT c.exercise_id, COALESCE(c.name_es, c.name_en), c.source,
                        CASE WHEN c.source = 'repdb-free' THEN c.images::text END
                 FROM exercise_catalog c
-                WHERE c.review_status = 'approved'
+                WHERE (@include_all_statuses OR c.review_status = 'approved')
                   AND NOT EXISTS (SELECT 1 FROM exercise_images i WHERE i.exercise_id = c.exercise_id)
                 ORDER BY c.exercise_id
                 """, connection);
+            command.Parameters.AddWithValue("include_all_statuses", includeAllStatuses);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
                 if (ResolveRepDbSlotPaths(reader.IsDBNull(3) ? null : reader.GetString(3)).Count == 0)
