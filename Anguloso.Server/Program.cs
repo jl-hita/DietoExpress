@@ -330,8 +330,9 @@ builder.Services.AddScoped<SupportEnhancementService>();
                     if (bedcaCount == 0)
                         throw new InvalidOperationException("La importación BEDCA terminó sin insertar ningún alimento.");
 
-                    context.Database.ExecuteSqlRaw(
-                        "INSERT INTO schema_migrations(id) VALUES ('bedca-import-complete:" + bedcaCount + "') ON CONFLICT (id) DO NOTHING");
+                    var bedcaMarkerId = $"bedca-import-complete:{bedcaCount}";
+                    context.Database.ExecuteSql(
+                        $"INSERT INTO schema_migrations(id) VALUES ({bedcaMarkerId}) ON CONFLICT (id) DO NOTHING");
                     logger.LogInformation("Catálogo BEDCA listo: {Count} alimentos. {Resultado}", bedcaCount, resultado);
                 }
                 else
