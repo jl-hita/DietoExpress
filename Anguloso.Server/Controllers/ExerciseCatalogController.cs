@@ -191,7 +191,7 @@ public sealed class ExerciseCatalogController : ControllerBase
         var expectedBytes = System.Text.Encoding.UTF8.GetBytes(expectedKey);
         var suppliedBytes = System.Text.Encoding.UTF8.GetBytes(suppliedKey);
         if (expectedBytes.Length != suppliedBytes.Length ||
-            !CryptographicOperations.FixedTimeEquals(expectedBytes, suppliedBytes))
+            !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expectedBytes, suppliedBytes))
             return Unauthorized();
 
         try
