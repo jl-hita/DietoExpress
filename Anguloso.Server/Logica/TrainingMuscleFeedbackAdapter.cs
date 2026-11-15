@@ -105,6 +105,10 @@ public static class TrainingMuscleFeedbackAdapter
 
 public enum TrainingMuscleFeedbackAction { AddSet, ReduceSet, SuggestSwap, PauseExercise }
 
+/// <param name="Date">Fecha de la sesión de entrenamiento.</param>
+/// <param name="ExerciseId">Identificador estable del ejercicio.</param>
+/// <param name="EffectiveMuscles">Músculos a los que se atribuye el trabajo efectivo del ejercicio.</param>
+/// <param name="Sets">Número de series realizadas o prescritas para la exposición.</param>
 /// <param name="Stimulus">low | adequate | high (null = not answered).</param>
 /// <param name="Discomfort">none | mild | strong.</param>
 /// <param name="PreFatigue">recovered | loaded.</param>
