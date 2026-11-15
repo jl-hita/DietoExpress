@@ -72,6 +72,17 @@ public class PublicPlansController : ControllerBase
 
 public sealed record PublicPlansResponse(IReadOnlyList<PublicPlanDto> Plans);
 
+/// <summary>Datos comerciales de un plan que se puede contratar públicamente.</summary>
+/// <param name="Code">Código interno del plan.</param>
+/// <param name="Name">Nombre público del plan.</param>
+/// <param name="Description">Descripción pública opcional.</param>
+/// <param name="MonthlyPrice">Precio mensual.</param>
+/// <param name="YearlyPrice">Precio anual.</param>
+/// <param name="MaxNutritionists">Número máximo de nutricionistas, si existe límite.</param>
+/// <param name="MaxClientsPerNutritionist">Número máximo de clientes por nutricionista, si existe límite.</param>
+/// <param name="MaxTotalClients">Número máximo total de clientes, si existe límite.</param>
+/// <param name="TrialDays">Días de prueba gratuita del plan; nulo si el plan no tiene prueba.</param>
+/// <param name="Features">Códigos de las funcionalidades incluidas.</param>
 public sealed record PublicPlanDto(
     string Code,
     string Name,
@@ -81,6 +92,5 @@ public sealed record PublicPlanDto(
     int? MaxNutritionists,
     int? MaxClientsPerNutritionist,
     int? MaxTotalClients,
-    /// <summary>Días de prueba gratuita del plan; nulo si el plan no tiene prueba.</summary>
     int? TrialDays,
     IReadOnlyList<string> Features);
