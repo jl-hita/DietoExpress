@@ -457,6 +457,10 @@ public sealed partial class TrainingPeriodizationController
     {
         if (generation.RotationIndex is null && sequenceNumber.HasValue)
             generation = generation with { RotationIndex = Math.Max(0, sequenceNumber.Value - 1) };
+        // The plan id is the selection seed: the same for every block of the plan, so the engine's tie-breaks keep the
+        // lifts stable across blocks and still differ from plan to plan.
+        if (generation.SelectionSeed == 0)
+            generation = generation with { SelectionSeed = planId };
         if (generation.LoadReferences is null)
         {
             var clientId = await _context.Database.SqlQueryRaw<int?>(

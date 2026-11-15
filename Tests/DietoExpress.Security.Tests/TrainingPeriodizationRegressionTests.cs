@@ -127,8 +127,9 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("INSERT INTO training_sessions", controller);
         Assert.Contains("No se han conservado cambios parciales", controller);
         Assert.Contains("requiresProfessionalReview = true", controller);
-        Assert.Contains("selectedThisWeek.Add(candidate.ExerciseId);", generator);
-        Assert.DoesNotContain("selectedThisWeek.Add(candidate.ExerciseId);\n\n                    selectedThisWeek.Add(candidate.ExerciseId);", generator);
+        const string registerSelection = "selectedThisWeek[candidate.ExerciseId] = selectedThisWeek.GetValueOrDefault(candidate.ExerciseId) + 1;";
+        Assert.Contains(registerSelection, generator);
+        Assert.Equal(1, generator.Split(registerSelection).Length - 1);
         var ui = TrainingComponentSource.ReadAll();
         Assert.Contains("Generar mesociclo automático", ui);
         Assert.Contains("previewGeneratedMesocycle(plan)", ui);
