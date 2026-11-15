@@ -173,8 +173,8 @@ public sealed class ExerciseCatalogController : ControllerBase
     }
 
     /// <summary>
-    /// Public, read-only feed for auditing missing exercise illustrations.
-    /// Returns only approved global catalog records; no image bytes are exported.
+    /// Public, read-only feed containing only catalog exercises with no stored or derivable image,
+    /// regardless of review status, ownership or source.
     /// </summary>
     [HttpGet("images/audit")]
     [AllowAnonymous]
@@ -182,21 +182,17 @@ public sealed class ExerciseCatalogController : ControllerBase
     {
         try
         {
-            var items = await _catalog.ExportCatalogAsync(cancellationToken, approvedGlobalOnly: true);
-            var missing = await _images.GetExercisesWithoutImagesAsync(cancellationToken);
-            var globalIds = items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
-            var missingGlobal = missing
-                .Where(item => globalIds.Contains(item.ExerciseId))
-                .Select(item => new { exerciseId = item.ExerciseId, name = item.Name, source = item.Source })
+            var missing = await _images.GetExercisesWithoutImagesAsync(cancellationToken, includeAllStatuses: true);
+            var missingIds = missing.Select(item => item.ExerciseId).ToHashSet(StringComparer.Ordinal);
+            var items = (await _catalog.ExportCatalogAsync(cancellationToken))
+                .Where(item => missingIds.Contains(item.Id))
                 .ToArray();
 
             Response.Headers.CacheControl = "no-store";
             return Ok(new
             {
                 generatedAtUtc = DateTimeOffset.UtcNow,
-                totalApprovedGlobalExercises = items.Count,
-                totalWithoutImages = missingGlobal.Length,
-                missing = missingGlobal,
+                totalWithoutImages = items.Length,
                 items
             });
         }
