@@ -173,27 +173,13 @@ public sealed class ExerciseCatalogController : ControllerBase
     }
 
     /// <summary>
-    /// Private, read-only audit feed for generating first-party exercise illustrations.
-    /// The key is supplied through server configuration and is never stored in source control.
-    /// Only approved global catalog records are returned; RepDB image bytes are never bulk-exported.
+    /// Public, read-only feed for auditing missing exercise illustrations.
+    /// Returns only approved global catalog records; no image bytes are exported.
     /// </summary>
     [HttpGet("images/audit")]
     [AllowAnonymous]
-    public async Task<IActionResult> AuditExerciseImages(
-        [FromServices] IConfiguration configuration,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> AuditExerciseImages(CancellationToken cancellationToken)
     {
-        var expectedKey = configuration["ExerciseImages:AuditApiKey"];
-        var suppliedKey = Request.Headers["X-Exercise-Audit-Key"].ToString();
-        if (string.IsNullOrWhiteSpace(expectedKey) || expectedKey.Length < 32)
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "El endpoint de auditoría no está configurado." });
-
-        var expectedBytes = System.Text.Encoding.UTF8.GetBytes(expectedKey);
-        var suppliedBytes = System.Text.Encoding.UTF8.GetBytes(suppliedKey);
-        if (expectedBytes.Length != suppliedBytes.Length ||
-            !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expectedBytes, suppliedBytes))
-            return Unauthorized();
-
         try
         {
             var items = await _catalog.ExportCatalogAsync(cancellationToken, approvedGlobalOnly: true);
@@ -216,7 +202,7 @@ public sealed class ExerciseCatalogController : ControllerBase
         }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "Failed to create the protected exercise image audit feed.");
+            _logger.LogError(exception, "Failed to create the public exercise image audit feed.");
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "No se pudo generar la auditoría de imágenes." });
         }
     }
