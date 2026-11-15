@@ -659,6 +659,19 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
+    public void ExerciseLibraryExport_IncludesOnlyGlobalApprovedExercisesAndTrazoOriginAdditions()
+    {
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ExerciseCatalogService.cs"));
+        var export = service.Substring(service.IndexOf("ExportCatalogAsync(", StringComparison.Ordinal));
+
+        Assert.Contains("owner_user_id IS NULL", export);
+        Assert.Contains("review_status = 'approved'", export);
+        Assert.Contains("reviewed = TRUE", export);
+        Assert.Contains("author = 'superadmin' OR reviewed_by LIKE 'TRAZO transfer v%'", export);
+        Assert.DoesNotContain("author = 'DietoExpress' OR", export);
+    }
+
+    [Fact]
     public void ExerciseImageAudit_IsPublicReadOnlyAndFiltersOnlyExercisesWithoutImages()
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ExerciseCatalogController.cs"));
