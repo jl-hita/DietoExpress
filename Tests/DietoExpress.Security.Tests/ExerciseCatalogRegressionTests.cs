@@ -658,4 +658,19 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("nordic-hamstring-curl", service);
     }
 
+    [Fact]
+    public void ExerciseImageAudit_UsesConfiguredFixedTimeKeyAndExportsApprovedGlobalCatalogOnly()
+    {
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ExerciseCatalogController.cs"));
+        var audit = controller.Substring(controller.IndexOf("AuditExerciseImages", StringComparison.Ordinal));
+        Assert.Contains("[HttpGet(\"images/audit\")]", controller);
+        Assert.Contains("[AllowAnonymous]", audit);
+        Assert.Contains("ExerciseImages:AuditApiKey", audit);
+        Assert.Contains("X-Exercise-Audit-Key", audit);
+        Assert.Contains("CryptographicOperations.FixedTimeEquals", audit);
+        Assert.Contains("approvedGlobalOnly: true", audit);
+        Assert.Contains("CacheControl = \"no-store\"", audit);
+        Assert.DoesNotContain("DataBase64", audit);
+    }
+
 }
