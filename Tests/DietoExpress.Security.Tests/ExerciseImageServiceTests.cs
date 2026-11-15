@@ -110,7 +110,7 @@ public sealed class ExerciseImageSeedTests
         var project = File.ReadAllText(Path.Combine(dir.FullName, "Anguloso.Server", "Anguloso.Server.csproj"));
         Assert.Contains("seed\\exercise-images-curated.jsonl", project);
         var seed = File.ReadAllLines(Path.Combine(dir.FullName, "Anguloso.Server", "seed", "exercise-images-curated.jsonl"));
-        Assert.Equal(7, seed.Length);
+        Assert.Equal(47, seed.Length);
         foreach (var line in seed)
             Assert.True(ExerciseImageService.TryParseSeedLine(line, out _, out _), "La semilla debe contener SVG seguros con SHA-256 válido.");
     }
