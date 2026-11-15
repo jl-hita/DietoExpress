@@ -1,6 +1,6 @@
 # Public exercise image audit feed
 
-The read-only endpoint provides the approved global exercise catalog and identifies records that do not yet have an available illustration.
+The read-only endpoint returns **only exercises that have no available illustration**, irrespective of review status, ownership or source.
 
 ## Endpoint
 
@@ -8,9 +8,9 @@ The read-only endpoint provides the approved global exercise catalog and identif
 
 No authentication or API key is required.
 
-The endpoint returns the complete approved **global** exercise catalog (including bilingual names, descriptions, instructions, muscle/equipment metadata, review provenance and source image metadata), plus a `missing` array with approved global exercises that have no available image.
+The `items` array contains the complete catalog metadata for every exercise with neither a stored image nor a derivable RepDB image. Pending, approved and rejected records are included, as are professional-owned contributions. Exercises that already have an image are excluded.
 
-It intentionally excludes pending/rejected records and professional-owned contributions. It does not return image bytes or create a bulk RepDB image export. RepDB image licensing permits in-app use, not redistribution as a dataset.
+The endpoint does not return image bytes or create a bulk RepDB image export. RepDB image licensing permits in-app use, not redistribution as a dataset.
 
 The endpoint is read-only. Generated illustrations should be reviewed and added to Trazo's curated image seed, not written directly into either production database. Responses use `Cache-Control: no-store`.
 
