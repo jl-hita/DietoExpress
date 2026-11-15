@@ -172,6 +172,55 @@ public sealed class ExerciseCatalogController : ControllerBase
         return File(buffer, "application/gzip", "exercise-images-seed.jsonl.gz");
     }
 
+    /// <summary>
+    /// Private, read-only audit feed for generating first-party exercise illustrations.
+    /// The key is supplied through server configuration and is never stored in source control.
+    /// Only approved global catalog records are returned; RepDB image bytes are never bulk-exported.
+    /// </summary>
+    [HttpGet("images/audit")]
+    [AllowAnonymous]
+    public async Task<IActionResult> AuditExerciseImages(
+        [FromServices] IConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        var expectedKey = configuration["ExerciseImages:AuditApiKey"];
+        var suppliedKey = Request.Headers["X-Exercise-Audit-Key"].ToString();
+        if (string.IsNullOrWhiteSpace(expectedKey) || expectedKey.Length < 32)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "El endpoint de auditoría no está configurado." });
+
+        var expectedBytes = System.Text.Encoding.UTF8.GetBytes(expectedKey);
+        var suppliedBytes = System.Text.Encoding.UTF8.GetBytes(suppliedKey);
+        if (expectedBytes.Length != suppliedBytes.Length ||
+            !CryptographicOperations.FixedTimeEquals(expectedBytes, suppliedBytes))
+            return Unauthorized();
+
+        try
+        {
+            var items = await _catalog.ExportCatalogAsync(cancellationToken, approvedGlobalOnly: true);
+            var missing = await _images.GetExercisesWithoutImagesAsync(cancellationToken);
+            var globalIds = items.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+            var missingGlobal = missing
+                .Where(item => globalIds.Contains(item.ExerciseId))
+                .Select(item => new { exerciseId = item.ExerciseId, name = item.Name, source = item.Source })
+                .ToArray();
+
+            Response.Headers.CacheControl = "no-store";
+            return Ok(new
+            {
+                generatedAtUtc = DateTimeOffset.UtcNow,
+                totalApprovedGlobalExercises = items.Count,
+                totalWithoutImages = missingGlobal.Length,
+                missing = missingGlobal,
+                items
+            });
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to create the protected exercise image audit feed.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "No se pudo generar la auditoría de imágenes." });
+        }
+    }
+
     /// <summary>Superadmin: approved exercises that still have no picture (to upload one with PUT {id}/images/{slot}).</summary>
     [HttpGet("images/missing")]
     [Authorize(Roles = "superadmin")]
