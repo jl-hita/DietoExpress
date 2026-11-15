@@ -659,7 +659,7 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
-    public void ExerciseImageAudit_IsPublicReadOnlyAndExportsApprovedGlobalCatalogOnly()
+    public void ExerciseImageAudit_IsPublicReadOnlyAndFiltersOnlyExercisesWithoutImages()
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ExerciseCatalogController.cs"));
         var audit = controller.Substring(controller.IndexOf("AuditExerciseImages", StringComparison.Ordinal));
@@ -667,7 +667,10 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("[AllowAnonymous]", controller);
         Assert.DoesNotContain("ExerciseImages:AuditApiKey", audit);
         Assert.DoesNotContain("X-Exercise-Audit-Key", audit);
-        Assert.Contains("approvedGlobalOnly: true", audit);
+        Assert.Contains("includeAllStatuses: true", audit);
+        Assert.Contains("ExportCatalogAsync(cancellationToken)", audit);
+        Assert.Contains("missingIds.Contains(item.Id)", audit);
+        Assert.DoesNotContain("approvedGlobalOnly: true", audit);
         Assert.Contains("CacheControl = \"no-store\"", audit);
         Assert.DoesNotContain("DataBase64", audit);
     }
