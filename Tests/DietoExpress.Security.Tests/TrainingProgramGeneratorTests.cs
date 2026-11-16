@@ -803,7 +803,7 @@ public sealed class TrainingProgramGeneratorTests
         // The same useful isolation may be repeated on separate days to distribute the weekly dose.
         Assert.Equal(2, reverseNordics.Length);
         Assert.All(weekOneSessions, session =>
-            Assert.Single(session.Exercises.Where(exercise => exercise.ExerciseId == "reverse-nordic-curl")));
+            Assert.Single(session.Exercises, exercise => exercise.ExerciseId == "reverse-nordic-curl"));
         Assert.Contains(TrainingMuscleGroup.Quadriceps, reverseNordics[0].PrimaryMuscleGroups);
         Assert.Contains(generated.Prescription.Sessions.SelectMany(session => session.Exercises),
             exercise => exercise.ExerciseId == "squat-basic");
@@ -842,7 +842,7 @@ public sealed class TrainingProgramGeneratorTests
         // accessory in a single session; duplicate prescriptions inside one session are forbidden.
         Assert.Equal(2, directQuadAccessories.Length);
         Assert.All(weekOneSessions, session =>
-            Assert.Single(session.Exercises.Where(exercise => exercise.ExerciseId == "leg-extension")));
+            Assert.Single(session.Exercises, exercise => exercise.ExerciseId == "leg-extension"));
         Assert.Equal(new[] { TrainingMuscleGroup.Quadriceps }, directQuadAccessories[0].PrimaryMuscleGroups);
     }
 
