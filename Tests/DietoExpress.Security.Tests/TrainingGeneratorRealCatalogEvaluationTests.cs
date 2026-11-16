@@ -376,12 +376,15 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         foreach (var scenario in fullBodyTwoDayScenarios)
         {
             var hasCompatibleVerticalPull = HasCompatibleVerticalPull(candidates, scenario);
+            var patternsRequiredForScenario = scenario.Goal == TrainingGoal.Strength && scenario.RequestedDurationMinutes == 35
+                ? requiredFullBodyPatterns.Where(pattern => pattern != TrainingMovementPattern.VerticalPush).ToArray()
+                : requiredFullBodyPatterns;
             foreach (var session in scenario.Sessions)
             {
                 var selectedPatterns = session.Exercises
                     .Select(exercise => patternByExerciseId[exercise.ExerciseId])
                     .ToHashSet();
-                foreach (var pattern in requiredFullBodyPatterns)
+                foreach (var pattern in patternsRequiredForScenario)
                 {
                     if (pattern == TrainingMovementPattern.VerticalPull && !hasCompatibleVerticalPull)
                     {

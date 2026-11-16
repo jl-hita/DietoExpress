@@ -46,7 +46,11 @@ public static class TrainingProgramGenerator
             .Distinct()
             .OrderBy(day => ((int)day + 6) % 7)
             .ToArray();
-        var split = BuildSplit(days.Length, request.Split);
+        // At the minimum 35-minute budget, strength FullBody/Automatic sessions use a compact
+        // loaded-pattern template. Preserve squat, hinge, bench/press, row and vertical pull;
+        // do not compress compound rest intervals or let the estimate exceed the user's limit.
+        var compactStrengthSession = request.Goal == TrainingGoal.Strength && request.MaximumSessionDurationMinutes == 35;
+        var split = BuildSplit(days.Length, request.Split, compactStrengthSession);
         var excluded = new HashSet<string>(request.ExcludedExerciseIds, StringComparer.OrdinalIgnoreCase);
         var equipment = new HashSet<string>(
             request.AvailableEquipment
@@ -999,18 +1003,34 @@ public static class TrainingProgramGenerator
     // Weekly templates. Every template lists the movement patterns a session must cover; titles
     // are also used later to restrict accessory muscles (e.g. "superior", "Empuje"). Unsupported
     // split/day combinations return an empty list and are rejected earlier in ValidateRequest.
-    private static IReadOnlyList<SessionTemplate> BuildSplit(int daysPerWeek, TrainingProgramSplit requestedSplit)
+    private static IReadOnlyList<SessionTemplate> BuildSplit(
+        int daysPerWeek,
+        TrainingProgramSplit requestedSplit,
+        bool compactStrengthSession)
     {
         // Every full-body session repeats the main loaded patterns instead of alternating whole
-        // muscle groups across days. This keeps chest, back, shoulders and both lower-body patterns
-        // represented in each session; the exercise selector rotates among compatible reviewed variants.
-        var fullBodyA = new SessionTemplate("Cuerpo completo A",
-            [TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull,
-             TrainingMovementPattern.Hinge, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]);
-        // B keeps the same full-body coverage but changes order so different movements are trained fresh first.
-        var fullBodyB = new SessionTemplate("Cuerpo completo B",
-            [TrainingMovementPattern.Hinge, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.VerticalPush,
-             TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.Core]);
+        // muscle groups across days. At 35 minutes in strength, keep the five most transferable
+        // loaded patterns (squat, hinge, horizontal push/pull and vertical pull). Horizontal pressing
+        // still trains the anterior deltoids/triceps; the vertical press is omitted rather than
+        // shortening compound rest or disguising an over-budget session. At longer budgets both
+        // vertical directions remain in every full-body session.
+        var fullBodyAPatterns = compactStrengthSession
+            ? new[] { TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPush,
+                TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.Hinge,
+                TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core }
+            : new[] { TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPush,
+                TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.Hinge,
+                TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core };
+        // B keeps the same coverage but changes order so different movements are trained fresh first.
+        var fullBodyBPatterns = compactStrengthSession
+            ? new[] { TrainingMovementPattern.Hinge, TrainingMovementPattern.VerticalPull,
+                TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPull,
+                TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.Core }
+            : new[] { TrainingMovementPattern.Hinge, TrainingMovementPattern.VerticalPull,
+                TrainingMovementPattern.VerticalPush, TrainingMovementPattern.Squat,
+                TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.Core };
+        var fullBodyA = new SessionTemplate("Cuerpo completo A", fullBodyAPatterns);
+        var fullBodyB = new SessionTemplate("Cuerpo completo B", fullBodyBPatterns);
         var upperA = new SessionTemplate("Tren superior A",
             [TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]);
         var lowerA = new SessionTemplate("Tren inferior A",

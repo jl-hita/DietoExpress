@@ -235,3 +235,12 @@ La validación v8 detectó dos supuestos que debían expresarse mejor:
 - El PPL de cinco días pasa a un híbrido PPL + torso/pierna: Empuje, Tracción, Pierna, Tren superior y Tren inferior. Así el segundo estímulo inferior no queda comprimido en una única sesión de 30–40 series, y el volumen puede repartirse con el mismo presupuesto por sesión. PPL de tres y seis días conserva su estructura clásica.
 
 La matriz de cinco perfiles no incluye un perfil estrictamente limitado a bandas y peso corporal: el perfil doméstico también dispone de barra, mancuernas y barra de dominadas. El catálogo curado contiene curl femoral con banda, pero aún no ofrece suficientes patrones compuestos con bandas para acreditar una rutina completa exclusivamente con ese material. No se deben excluir esas alternativas; hay que enriquecer y revisar el catálogo antes de afirmar que el modo bandas-only está cubierto.
+
+
+## Sesiones FullBody de fuerza con 35 minutos — 16/11/2026
+
+La matriz v8 encontró que repetir seis patrones cargados en cada sesión FullBody podía dejar algunas sesiones de fuerza en 36 minutos estimados cuando el límite solicitado era 35. No se debe resolver acortando artificialmente los descansos de los básicos ni redondeando hacia abajo la duración.
+
+En el presupuesto mínimo de 35 minutos, las plantillas FullBody/Automática de fuerza conservan sentadilla, bisagra, empuje horizontal, remo horizontal y tracción vertical. Se omite el empuje vertical en esa sesión compacta: el empuje horizontal ya aporta trabajo a deltoides anteriores y tríceps, mientras se mantienen los básicos cargables prioritarios y la tracción vertical para dorsales. Con presupuestos superiores se conservan las seis direcciones/patrones. Es una decisión operativa del producto para respetar el tiempo, no una prescripción de ACSM ni una regla universal de selección.
+
+Las regresiones verifican que las dos sesiones de fuerza de 35 minutos mantienen esos cinco patrones y respetan el límite. La matriz de catálogo aplica la misma excepción únicamente a fuerza con 35 minutos; no relaja los requisitos de los demás objetivos o presupuestos. Los aislamientos de cuádriceps de las pruebas unitarias no se duplican automáticamente: cuando ambos días ya contienen sentadilla y bisagra, una única exposición directa puede ser suficiente para el objetivo explícito y evita añadir trabajo redundante.
