@@ -123,6 +123,23 @@ public sealed class TrainingProgramQualityDiagnosticsTests
     }
 
     [Fact]
+    public void MissingMuscleWarningDescribesPlanCoverageNotCatalogAvailability()
+    {
+        var session = Session(1, DayOfWeek.Monday, "Torso",
+            Exercise("bench-press", "Press banca", 2,
+                [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps]));
+
+        var result = TrainingProgramVolumeAllocator.Allocate(
+            [session], TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null, 60);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.Contains(result.Warnings, warning =>
+            warning.Contains("el plan no incluye ningún ejercicio", StringComparison.Ordinal));
+        Assert.DoesNotContain(result.Warnings, warning =>
+            warning.Contains("no hay ningún ejercicio disponible", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ThirtyWorkingSetsDoNotTriggerTheSessionDensityWarning()
     {
         var exercises = Enumerable.Range(1, 6)

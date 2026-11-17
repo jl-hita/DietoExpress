@@ -11,15 +11,12 @@ public static class TrainingProgramVolumeAllocator
     private const int MinimumSetsPerExercise = 1;
     private const int MaximumSetsPerExercise = 5;
     private const int MaximumSetsPerExerciseForStrength = 3;
-    // The first lift of a strength session is its main lift: it may reach five sets (3-5 is the usual strength dose
-    // for the lift being trained), while the remaining exercises keep the three-set ceiling.
-    private const int MaximumSetsForStrengthPrimaryLift = 5;
     // A session that uses less than this share of the time the user offered may raise its compound lifts up to the
     // weekly ceiling of the muscles involved (never beyond it).
     private const decimal TimeFillUtilisation = 0.70m;
     // No default allocation takes a muscle beyond this weekly effective volume, whether it is the target of the
     // exercise or a synergist. Only an explicit professional target can go higher.
-    private const decimal AbsoluteWeeklySetCeiling = 20m;
+    internal const decimal AbsoluteWeeklySetCeiling = 20m;
     // Duration model: reps x 2.5 s + rest between sets + 45 s transition per exercise + 5 min
     // session overhead (warm-up). It decides how many extra sets fit in a session.
     private const decimal SecondsPerRepEstimate = 2.5m;
@@ -75,7 +72,7 @@ public static class TrainingProgramVolumeAllocator
             {
                 Exercises = session.Exercises.Select(exercise => exercise with
                 {
-                    Sets = Math.Clamp(exercise.Sets, MinimumSetsPerExercise, MaximumSetsFor(exercise, goal, accessoryExerciseIds is not null))
+                    Sets = Math.Clamp(exercise.Sets, MinimumSetsPerExercise, GetMaximumSetsPerExercise(goal))
                 }).ToArray()
             });
         foreach (var week in output.Keys.Select(key => key.WeekNumber).Distinct().Order())
@@ -92,7 +89,7 @@ public static class TrainingProgramVolumeAllocator
             var primaryVolume = CalculateEffectiveVolume(weekSessions);
 
             foreach (var muscle in applicableTargets.Keys.Where(muscle => !stimulatedMuscles.Contains(muscle)))
-                warnings.Add($"Semana {week}: no hay ningún ejercicio disponible con estímulo suficiente para {muscle}; no se inventa cobertura a partir de una participación incidental.");
+                warnings.Add($"Semana {week}: el plan no incluye ningún ejercicio con estímulo efectivo para {muscle}; puede existir un candidato en el catálogo, pero no se ha seleccionado dentro de los límites de material, experiencia, exclusiones, tiempo y equilibrio. No se inventa cobertura a partir de una participación incidental.");
 
             // Greedy allocation chooses the exercise that best addresses the largest remaining
             // normalized muscle deficit, while respecting per-exercise and per-session limits.
@@ -108,7 +105,7 @@ public static class TrainingProgramVolumeAllocator
                     for (var exerciseIndex = 0; exerciseIndex < session.Exercises.Count; exerciseIndex++)
                     {
                         var exercise = session.Exercises[exerciseIndex];
-                        if (exercise.Sets >= MaximumSetsFor(exercise, goal, accessoryExerciseIds is not null))
+                        if (exercise.Sets >= GetMaximumSetsPerExercise(goal))
                             continue;
                         var addedDuration = AdditionalSetSeconds(exercise);
                         if (duration + addedDuration > maximumSessionDurationMinutes * 60m)
@@ -173,7 +170,7 @@ public static class TrainingProgramVolumeAllocator
                         {
                             var exercise = session.Exercises[exerciseIndex];
                             if (accessoryExerciseIds.Contains(exercise.ExerciseId) ||
-                                exercise.Sets >= MaximumSetsFor(exercise, goal, true) ||
+                                exercise.Sets >= GetMaximumSetsPerExercise(goal) ||
                                 duration + AdditionalSetSeconds(exercise) > limit)
                                 continue;
                             var tracked = TrainingExerciseStimulus.GetEffectiveMuscles(
@@ -250,15 +247,6 @@ public static class TrainingProgramVolumeAllocator
     /// </summary>
     public static int GetMaximumSetsPerExercise(TrainingGoal goal) =>
         goal == TrainingGoal.Strength ? MaximumSetsPerExerciseForStrength : MaximumSetsPerExercise;
-
-    /// <summary>
-    /// Ceiling for one exercise. In a generated plan (the generator tells the allocator which exercises are
-    /// accessories) the main lift of a strength session may reach five sets; everything else keeps the shared ceiling.
-    /// </summary>
-    internal static int MaximumSetsFor(TrainingExercisePrescription exercise, TrainingGoal goal, bool generatedPlan) =>
-        generatedPlan && goal == TrainingGoal.Strength && exercise.Order == 1
-            ? MaximumSetsForStrengthPrimaryLift
-            : GetMaximumSetsPerExercise(goal);
 
     public static IReadOnlyDictionary<TrainingMuscleGroup, decimal> CalculateEffectiveVolume(
         IEnumerable<TrainingSessionPrescription> sessions)

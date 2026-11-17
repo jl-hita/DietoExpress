@@ -9,8 +9,8 @@ namespace Anguloso.Server.Logica;
 ///  2. Pick the weekly split (<see cref="BuildSplit"/>) and, per session, one exercise per movement
 ///     pattern from the reviewed catalog (goal, level, equipment, exclusions; best SelectionPriority,
 ///     optionally rotated within a small curated pool, see <see cref="RotateCuratedPool"/>).
-///  3. Add 1–4 accessory exercises per session according to the session time budget and the
-///     weekly muscle deficit (<see cref="AddOptionalAccessoryExercises"/>).
+///  3. Build all base sessions, then add 1–4 accessory exercises with visibility of the complete weekly
+///     compound work and the session time budget (<see cref="AddOptionalAccessoryExercises"/>).
 ///  4. <see cref="TrainingProgramVolumeAllocator"/> distributes working sets towards weekly targets
 ///     under time and per-exercise limits.
 ///  5. Warm-up guidance, then either the explicit deload or the intra-block progression
@@ -27,9 +27,6 @@ public static class TrainingProgramGenerator
     private const int WarmupAndTransitionsMinutes = 5;
     private const decimal QuadAccessoryGluteTargetBufferSets = 6m;
     public const string EngineVersion = "0.10.0";
-    // The main lift of a strength session is raised above three sets only while the session's compound lifts stay
-    // within this share of the time offered.
-    private const decimal StrengthMainLiftTimeShare = 0.85m;
 
     public static TrainingProgramGenerationResult Generate(
         TrainingProgramGenerationRequest request,
@@ -224,35 +221,6 @@ public static class TrainingProgramGenerator
                         candidate.SecondaryMuscleGroups.ToArray()));
                 }
 
-                // The main lift of a strength session gets its dose from the lift, not from the weekly muscle
-                // accounting: three sets for beginners, four for intermediates and five for advanced lifters, as
-                // long as the session keeps a margin inside the time offered. It is set before the accessories are
-                // chosen so they see what the session already trains.
-                if (request.Goal == TrainingGoal.Strength && prescriptions.Count > 0)
-                {
-                    var mainLiftSets = request.Experience switch
-                    {
-                        TrainingExperience.Beginner => 3,
-                        TrainingExperience.Intermediate => 4,
-                        _ => 5
-                    };
-                    for (var mainSets = mainLiftSets; mainSets > prescriptions[0].Sets; mainSets--)
-                    {
-                        var raised = prescriptions.Select((exercise, index) => index == 0 ? exercise with { Sets = mainSets } : exercise).ToArray();
-                        var raisedSession = new TrainingSessionPrescription(
-                            week, days[dayIndex], sessionTemplate.Title, WarmupAndTransitionsMinutes, raised);
-                        if (TrainingProgramVolumeAllocator.EstimateDurationSeconds(raisedSession) >
-                            request.MaximumSessionDurationMinutes * 60m * StrengthMainLiftTimeShare)
-                            continue;
-                        prescriptions[0] = raised[0];
-                        break;
-                    }
-                }
-
-                AddOptionalAccessoryExercises(
-                    request, catalog, equipment, excluded, sessions,
-                    prescriptions, week, days[dayIndex], sessionTemplate.Title, days.Length);
-
                 // Final duration is calculated after weekly sets have been allocated.
                 sessions.Add(new TrainingSessionPrescription(
                     week,
@@ -261,6 +229,20 @@ public static class TrainingProgramGenerator
                     WarmupAndTransitionsMinutes,
                     prescriptions));
             }
+        }
+
+        // Build every base session first. Accessory selection must see the complete weekly compound work,
+        // including sessions later in the split; otherwise an early day can add an isolation exercise before
+        // future squats/hinges/presses/rows have been accounted for, and the allocator cannot remove that base dose.
+        for (var sessionIndex = 0; sessionIndex < sessions.Count; sessionIndex++)
+        {
+            var session = sessions[sessionIndex];
+            var currentExercises = session.Exercises.ToList();
+            var otherSessions = sessions.Where((_, index) => index != sessionIndex).ToArray();
+            AddOptionalAccessoryExercises(
+                request, catalog, equipment, excluded, otherSessions,
+                currentExercises, session.WeekNumber, session.Day, session.Title, days.Length);
+            sessions[sessionIndex] = session with { Exercises = currentExercises };
         }
 
         // Accessory and core exercises: the allocator gives weekly volume to the compound lifts before them.
@@ -1285,8 +1267,9 @@ public static class TrainingProgramGenerator
                 beginner ? 3m : 2m, pattern == TrainingMovementPattern.Core ? 60 : 90,
                 TrainingProgressionRule.DoubleProgression);
         // Internal product heuristic (not an ACSM-prescribed figure): in strength plans the first compound of each
-        // session is the session's main lift. It starts at three sets (the allocator may raise it to five) and, for
-        // non-beginners on a lift that accepts high loads, uses lower repetitions and longer rest. Beginners, and
+        // session is the main lift and is ordered first, but it shares the same three-set ceiling as every other
+        // strength exercise. For non-beginners on a lift that accepts high loads it uses lower repetitions and
+        // longer rest. Beginners, and
         // profiles whose equipment has no heavy lift for that slot, keep the 5-8 range.
         if (goal == TrainingGoal.Strength && isPrimaryLift)
             return isHeavyLift && !beginner
