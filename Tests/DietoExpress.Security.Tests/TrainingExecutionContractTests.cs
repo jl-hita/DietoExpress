@@ -84,4 +84,23 @@ public sealed class TrainingExecutionContractTests
         Assert.Contains("completedWorkingSets != exercise.CompletedSets", controller);
         Assert.Contains("exercise_feedback = COALESCE(EXCLUDED.exercise_feedback", controller);
     }
+
+    [Fact]
+    public void SessionAdaptationHistoryUsesScheduledDateRatherThanEditTimestamp()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "Anguloso.Server", "Program.cs")))
+            root = root.Parent;
+        Assert.NotNull(root);
+
+        var controller = File.ReadAllText(Path.Combine(root!.FullName, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
+        var start = controller.IndexOf("SELECT r.outcome, r.non_completion_reason", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        var end = controller.IndexOf("LIMIT 3", start, StringComparison.Ordinal);
+        Assert.True(end > start);
+        var query = controller[start..end];
+
+        Assert.Contains("ORDER BY s.scheduled_date DESC, s.id DESC", query);
+        Assert.DoesNotContain("r.updated_at", query);
+    }
 }
