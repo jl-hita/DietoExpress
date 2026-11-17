@@ -165,6 +165,10 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 $"Only {generalFitnessCandidateCount} approved curated RepDB candidates are suitable for general fitness.");
             Assert.True(candidateCount >= 50,
                 $"The curated RepDB catalog returned only {candidateCount} approved generator candidates.");
+            var directCoreExerciseIds = candidates
+                .Where(candidate => candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Abdominals))
+                .Select(candidate => candidate.ExerciseId)
+                .ToHashSet(StringComparer.Ordinal);
 
             foreach (var profile in ScenarioProfiles(candidates))
             foreach (var goal in Enum.GetValues<TrainingGoal>())
@@ -186,6 +190,8 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     split);
                 var generated = TrainingProgramGenerator.Generate(request, candidates);
                 var sessions = generated.Prescription?.Sessions ?? [];
+                Assert.DoesNotContain(sessions.SelectMany(session => session.Exercises),
+                    exercise => directCoreExerciseIds.Contains(exercise.ExerciseId));
                 var maximumEstimatedMinutes = sessions.Count == 0
                     ? (int?)null
                     : sessions.Max(session => session.EstimatedDurationMinutes);

@@ -232,8 +232,11 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Contains("tras exclusiones=", error);
     }
 
-    [Fact]
-    public void OneCoreExerciseAWeekByDefaultAndNoDirectCoreAccessories()
+    [Theory]
+    [InlineData(TrainingGoal.GeneralFitness)]
+    [InlineData(TrainingGoal.Hypertrophy)]
+    [InlineData(TrainingGoal.Strength)]
+    public void DirectCoreExercisesAreExcludedByDefaultButIndirectCoreWorkRemainsEligible(TrainingGoal goal)
     {
         var catalog = Catalog()
             .Select(exercise => exercise.MovementPattern == TrainingMovementPattern.Squat
@@ -251,14 +254,12 @@ public sealed class TrainingProgramGeneratorTests
             .ToArray();
 
         var result = TrainingProgramGenerator.Generate(
-            Request() with { DurationWeeks = 1 }, catalog);
+            Request() with { DurationWeeks = 1, Goal = goal }, catalog);
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         var exercises = result.Prescription!.Sessions.SelectMany(session => session.Exercises).ToArray();
 
-        // Engine 0.10.0: hypertrophy and general-fitness plans carry one core exercise a week by default
-        // (it used to be opt-in). Direct core accessories still need an explicit professional priority.
-        Assert.Single(exercises, exercise => exercise.ExerciseId == "exercise-core");
+        Assert.DoesNotContain(exercises, exercise => exercise.ExerciseId == "exercise-core");
         Assert.DoesNotContain(exercises, exercise => exercise.ExerciseId == "direct-ab-crunch");
         Assert.Contains(exercises, exercise =>
             exercise.ExerciseId == "squat-basic" &&
