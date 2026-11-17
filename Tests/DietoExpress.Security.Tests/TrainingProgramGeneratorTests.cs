@@ -129,10 +129,14 @@ public sealed class TrainingProgramGeneratorTests
             new(1, DayOfWeek.Monday, "Comparación", 60,
                 [comparableExercise with { RestSeconds = restSeconds }]);
 
-        var generalEstimate = TrainingProgramVolumeAllocator.EstimateDurationSeconds(
-            ComparableSession(generalMainLift.RestSeconds));
-        var strengthEstimate = TrainingProgramVolumeAllocator.EstimateDurationSeconds(
-            ComparableSession(strengthMainLift.RestSeconds));
+        var estimator = typeof(TrainingProgramVolumeAllocator).GetMethod(
+            "EstimateDurationSeconds", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(estimator);
+        decimal Estimate(TrainingSessionPrescription session) =>
+            (decimal)estimator!.Invoke(null, [session])!;
+
+        var generalEstimate = Estimate(ComparableSession(generalMainLift.RestSeconds));
+        var strengthEstimate = Estimate(ComparableSession(strengthMainLift.RestSeconds));
         Assert.True(strengthEstimate > generalEstimate);
         Assert.All(strength.Prescription.Sessions, session => Assert.InRange(session.EstimatedDurationMinutes, 1, 60));
     }
