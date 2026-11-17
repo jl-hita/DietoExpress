@@ -100,7 +100,7 @@ public sealed class TrainingPortalController : ControllerBase
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
             WHERE f.client_id = @clientId AND f.enabled = TRUE AND p.status = 'active' AND r.outcome IS NOT NULL
-            ORDER BY r.updated_at DESC
+            ORDER BY s.scheduled_date DESC, s.id DESC
             LIMIT 3
             """, ("clientId", clientId)))
         await using (var feedbackReader = await feedbackCommand.ExecuteReaderAsync(cancellationToken))
