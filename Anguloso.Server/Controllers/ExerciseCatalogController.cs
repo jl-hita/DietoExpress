@@ -173,11 +173,11 @@ public sealed class ExerciseCatalogController : ControllerBase
     }
 
     /// <summary>
-    /// Public, read-only feed containing only catalog exercises with no stored or derivable image,
-    /// regardless of review status, ownership or source.
+    /// Superadmin-only, read-only feed for controlled auditing of catalog exercises with no stored or derivable image,
+    /// including pending/rejected entries and professional-owned contributions.
     /// </summary>
     [HttpGet("images/audit")]
-    [AllowAnonymous]
+    [Authorize(Roles = "superadmin")]
     public async Task<IActionResult> AuditExerciseImages(CancellationToken cancellationToken)
     {
         try
