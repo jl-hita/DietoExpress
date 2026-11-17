@@ -208,7 +208,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         Assert.Contains(result.Warnings, warning =>
             warning.Contains("Calves", StringComparison.Ordinal) &&
-            warning.Contains("no hay ningún ejercicio disponible", StringComparison.Ordinal));
+            warning.Contains("no incluye ningún ejercicio con estímulo efectivo", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -294,7 +294,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.True(explicitCore.Succeeded, string.Join("; ", explicitCore.Errors));
         Assert.Contains(explicitCore.Warnings, warning =>
             warning.Contains("Abdominals", StringComparison.Ordinal) &&
-            warning.Contains("no hay ningún ejercicio disponible", StringComparison.Ordinal));
+            warning.Contains("no incluye ningún ejercicio con estímulo efectivo", StringComparison.Ordinal));
     }
 
     [Fact]
