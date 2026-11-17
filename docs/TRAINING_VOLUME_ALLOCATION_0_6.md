@@ -285,6 +285,10 @@ La ejecución del SHA `0d46be7b897ed9f57236024d0329cad23155694a` tuvo 1.181 prue
 
 También se protegió `GET /api/exercise-catalog/images/audit`: antes era anónimo y devolvía el objeto completo de exportación, incluidos campos de revisión, contribuyente y `source_payload`, para ejercicios pendientes/rechazados y aportaciones profesionales. Ahora requiere el rol `superadmin`; la prueba y esta documentación reflejan esa restricción.
 
+### Orden temporal del adaptador global
+
+La consulta que alimenta la recomendación de contexto de sesión debe ordenar por `training_sessions.scheduled_date DESC, id DESC`, no por `training_session_records.updated_at`: editar hoy un registro antiguo no debe convertirlo en la exposición más reciente. El controlador se ha corregido y `TrainingExecutionContractTests` fija esta regresión.
+
 ### Pendientes
 
 - Repetir CI y revisar el artefacto del HEAD más reciente; el artefacto v8 anterior no valida commits posteriores.
