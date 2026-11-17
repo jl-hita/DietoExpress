@@ -112,9 +112,28 @@ public sealed class TrainingProgramGeneratorTests
 
         Assert.True(general.Succeeded, string.Join("; ", general.Errors));
         Assert.True(strength.Succeeded, string.Join("; ", strength.Errors));
-        Assert.True(
-            strength.Prescription!.Sessions.Max(x => x.EstimatedDurationMinutes) >
-            general.Prescription!.Sessions.Max(x => x.EstimatedDurationMinutes));
+
+        var generalMainLift = general.Prescription!.Sessions[0].Exercises[0];
+        var strengthMainLift = strength.Prescription!.Sessions[0].Exercises[0];
+        Assert.True(strengthMainLift.RestSeconds > generalMainLift.RestSeconds);
+
+        // Compare identical work so the assertion isolates the estimator's rest-time contribution,
+        // rather than comparing whole plans that may legitimately contain different exercises/sets.
+        var comparableExercise = strengthMainLift with
+        {
+            Sets = 3,
+            MinRepetitions = 5,
+            MaxRepetitions = 8
+        };
+        TrainingSessionPrescription ComparableSession(int restSeconds) =>
+            new(1, DayOfWeek.Monday, "Comparación", 60,
+                [comparableExercise with { RestSeconds = restSeconds }]);
+
+        var generalEstimate = TrainingProgramVolumeAllocator.EstimateDurationSeconds(
+            ComparableSession(generalMainLift.RestSeconds));
+        var strengthEstimate = TrainingProgramVolumeAllocator.EstimateDurationSeconds(
+            ComparableSession(strengthMainLift.RestSeconds));
+        Assert.True(strengthEstimate > generalEstimate);
         Assert.All(strength.Prescription.Sessions, session => Assert.InRange(session.EstimatedDurationMinutes, 1, 60));
     }
 
@@ -1101,7 +1120,7 @@ public sealed class TrainingProgramGeneratorTests
             })
             .ToArray();
         var request = new TrainingProgramGenerationRequest(
-            TrainingGoal.Strength, TrainingExperience.Advanced, new DateOnly(2026, 10, 26), 4,
+            TrainingGoal.Hypertrophy, TrainingExperience.Advanced, new DateOnly(2026, 10, 26), 4,
             [DayOfWeek.Monday, DayOfWeek.Thursday], 90, ["barbell", "dumbbell", "machine", "cable"], [])
         {
             Split = TrainingProgramSplit.FullBody
