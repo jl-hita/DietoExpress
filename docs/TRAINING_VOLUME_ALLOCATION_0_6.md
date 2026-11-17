@@ -244,3 +244,51 @@ La matriz v8 encontró que repetir seis patrones cargados en cada sesión FullBo
 En el presupuesto mínimo de 35 minutos, las plantillas FullBody/Automática de fuerza conservan sentadilla, bisagra, empuje horizontal, remo horizontal y tracción vertical. Se omite el empuje vertical en esa sesión compacta: el empuje horizontal ya aporta trabajo a deltoides anteriores y tríceps, mientras se mantienen los básicos cargables prioritarios y la tracción vertical para dorsales. Con presupuestos superiores se conservan las seis direcciones/patrones. Es una decisión operativa del producto para respetar el tiempo, no una prescripción de ACSM ni una regla universal de selección.
 
 Las regresiones verifican que las dos sesiones de fuerza de 35 minutos mantienen esos cinco patrones y respetan el límite. La matriz de catálogo aplica la misma excepción únicamente a fuerza con 35 minutos; no relaja los requisitos de los demás objetivos o presupuestos. Los aislamientos de cuádriceps de las pruebas unitarias no se duplican automáticamente: cuando ambos días ya contienen sentadilla y bisagra, una única exposición directa puede ser suficiente para el objetivo explícito y evita añadir trabajo redundante.
+
+## Auditoría completa de splits y catálogo curado — 17/11/2026
+
+Artefacto `training-generator-real-catalog-evaluation-v8`, generado por la ejecución de CI del SHA `0d46be7b897ed9f57236024d0329cad23155694a` (run [44057489285](https://github.com/jl-hita/DietoExpress/actions/runs/44057489285)). El artefacto se publicó aunque el job terminara fallando en cuatro aserciones de pruebas.
+
+- Motor: `0.10.0`; 1.485 escenarios de cuatro semanas, 1.485 generaciones correctas, cero errores estructurales.
+- Catálogo de evaluación: 97 candidatos curados; 63 IDs distintos seleccionados en el conjunto de escenarios. No equivale a la exportación completa de PostgreSQL.
+- 9.299 advertencias acumuladas: 4.856 déficits frente a objetivos internos de dosis, 3.288 avisos de frecuencia en fuerza, 460 semanas sin estímulo directo de gemelos, 390 ajustes conservadores de objetivos por tiempo y 305 sesiones que superan el umbral interno de 30 series.
+- Se evaluaron 20.520 sesiones: mediana de 13 series de trabajo, percentil 90 de 22 y máximo de 41. La duración mediana fue de 33 minutos, el percentil 90 de 52 y el máximo de 89. Ninguna superó el presupuesto solicitado; 1.885 quedaron exactamente en el límite.
+
+### Volumen efectivo observado
+
+Medianas por semana en los 495 escenarios de hipertrofia (todos los perfiles, splits, niveles y presupuestos), usando exclusivamente el mapa de contribuciones secundarias significativas de `TrainingExerciseStimulus`, no todas las etiquetas secundarias del catálogo:
+
+| Grupo | Series efectivas medianas/semana |
+|---|---:|
+| Pecho | 10 |
+| Dorsales | 11 |
+| Espalda alta | 10 |
+| Deltoides | 10 |
+| Glúteos | 14 |
+| Cuádriceps | 10 |
+| Isquiotibiales | 8 |
+| Bíceps | 12 |
+| Tríceps | 14 |
+| Gemelos | 4 |
+
+Los déficits se concentraron en pecho (1.124 advertencias), espalda alta (1.036), deltoides (700), dorsales (584) e isquiotibiales (568). Son avisos repetidos por escenario y semana, no casos independientes. El déficit mediano de isquiotibiales y la distribución de 41 series en una sesión avanzada de dos días merecen revisión específica; no se deben resolver aumentando indiscriminadamente el número de ejercicios.
+
+Los 3.288 avisos de frecuencia aparecen exclusivamente en fuerza: sobre todo Upper/Lower de dos días (1.620) y Push/Pull/Legs de tres días (1.588), donde cada grupo principal recibe una sola exposición semanal. ACSM 2026 resume la recomendación de entrenar todos los grandes grupos musculares al menos dos días por semana; por ello estos splits deben mostrarse como una elección menos alineada con el objetivo de fuerza, no como una frecuencia universalmente inadecuada para hipertrofia. Fuente oficial: [infografía ACSM del Position Stand 2026](https://www.acsm.org/wp-content/uploads/2026/03/Resistance-Training-Position-Stand-infographic.pdf).
+
+### Equipamiento y catálogo
+
+Los cinco perfiles evaluados no incluyen uno estrictamente limitado a bandas y peso corporal. El perfil doméstico también dispone de mancuernas, barra y otros elementos. En los 97 candidatos curados solo aparece una variante con banda; no se puede afirmar que el modo bandas-only esté validado. El dataset público RepDB sí contiene, por ejemplo, `banded-standing-row` (remo de pie con banda), pero no está incluido en esta selección curada y debe pasar revisión de metadatos antes de utilizarse: [registro público RepDB](https://exercise-dataset.com/exercises/banded-standing-row/). No se deben descartar las bandas; hay que ampliar la selección revisada y añadir un perfil de prueba realmente limitado a ese material.
+
+### Regresiones de CI y seguridad
+
+La ejecución del SHA `0d46be7b897ed9f57236024d0329cad23155694a` tuvo 1.181 pruebas .NET correctas y cuatro fallidas. Las cuatro fallidas eran supuestos de pruebas desactualizados: dos buscaban un texto de advertencia antiguo; una comparaba la duración máxima de dos planes completos con distinta composición en lugar de aislar el efecto del descanso; otra pedía un accesorio apto solo para hipertrofia en una solicitud de fuerza. Se han corregido esas regresiones en los commits posteriores de esta PR; la validación debe repetirse sobre el HEAD más reciente.
+
+También se protegió `GET /api/exercise-catalog/images/audit`: antes era anónimo y devolvía el objeto completo de exportación, incluidos campos de revisión, contribuyente y `source_payload`, para ejercicios pendientes/rechazados y aportaciones profesionales. Ahora requiere el rol `superadmin`; la prueba y esta documentación reflejan esa restricción.
+
+### Pendientes
+
+- Repetir CI y revisar el artefacto del HEAD más reciente; el artefacto v8 anterior no valida commits posteriores.
+- Revisar la densidad de las sesiones avanzadas de dos días y el déficit de isquiotibiales sin imponer un techo fisiológico arbitrario ni una descarga periódica fija.
+- Añadir y validar un perfil bandas-only después de ampliar la selección curada con ejercicios compatibles revisados.
+- Completar la auditoría individual de la exportación PostgreSQL desplegada. La muestra aislada de 97 candidatos no la sustituye.
+
