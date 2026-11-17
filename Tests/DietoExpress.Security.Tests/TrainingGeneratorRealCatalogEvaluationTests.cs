@@ -192,17 +192,13 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 var sessions = generated.Prescription?.Sessions ?? [];
                 if (generated.Succeeded)
                 {
-                    var weeklyTargets = TrainingProgramVolumeAllocator.GetWeeklyTargets(
-                        goal, experience, null, days.Length, durationMinutes);
                     foreach (var weekSessions in sessions.GroupBy(session => session.WeekNumber))
                     {
                         var effectiveVolume = TrainingProgramVolumeAllocator.CalculateEffectiveVolume(weekSessions);
                         foreach (var (muscle, sets) in effectiveVolume)
                         {
-                            if (!weeklyTargets.ContainsKey(muscle))
-                                continue;
                             Assert.True(sets <= TrainingProgramVolumeAllocator.AbsoluteWeeklySetCeiling,
-                                $"{profile.Name}/{split}/{goal}/{experience}/{days.Length}d/{durationMinutes}m " +
+                                $"{profile.Name}/{split}/{goal}/{experience}/{days.Count}d/{durationMinutes}m " +
                                 $"week {weekSessions.Key}: {muscle} reached {sets} effective sets, above the " +
                                 $"{TrainingProgramVolumeAllocator.AbsoluteWeeklySetCeiling} default review ceiling.");
                         }

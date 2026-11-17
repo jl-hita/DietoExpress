@@ -16,7 +16,7 @@ public static class TrainingProgramVolumeAllocator
     private const decimal TimeFillUtilisation = 0.70m;
     // No default allocation takes a muscle beyond this weekly effective volume, whether it is the target of the
     // exercise or a synergist. Only an explicit professional target can go higher.
-    internal const decimal AbsoluteWeeklySetCeiling = 20m;
+    public const decimal AbsoluteWeeklySetCeiling = 20m;
     // Duration model: reps x 2.5 s + rest between sets + 45 s transition per exercise + 5 min
     // session overhead (warm-up). It decides how many extra sets fit in a session.
     private const decimal SecondsPerRepEstimate = 2.5m;
