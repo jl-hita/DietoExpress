@@ -672,14 +672,13 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
-    public void ExerciseImageAudit_IsPublicReadOnlyAndFiltersOnlyExercisesWithoutImages()
+    public void ExerciseImageAudit_RequiresSuperadminAndFiltersOnlyExercisesWithoutImages()
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ExerciseCatalogController.cs"));
-        var audit = controller.Substring(controller.IndexOf("AuditExerciseImages", StringComparison.Ordinal));
+        var audit = controller.Substring(controller.IndexOf("[HttpGet(\"images/audit\")]", StringComparison.Ordinal));
         Assert.Contains("[HttpGet(\"images/audit\")]", controller);
-        Assert.Contains("[AllowAnonymous]", controller);
-        Assert.DoesNotContain("ExerciseImages:AuditApiKey", audit);
-        Assert.DoesNotContain("X-Exercise-Audit-Key", audit);
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", audit);
+        Assert.DoesNotContain("[AllowAnonymous]", audit);
         Assert.Contains("includeAllStatuses: true", audit);
         Assert.Contains("ExportCatalogAsync(cancellationToken)", audit);
         Assert.Contains("missingIds.Contains(item.Id)", audit);
