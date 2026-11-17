@@ -205,3 +205,42 @@ La corrección:
 - La señal de feedback sigue siendo por ejercicio, no una medición independiente de cada músculo. Por tanto, se aplica a los músculos que el modelo considera efectivamente estimulados por ese ejercicio; es una heurística de producto que debe revisarse si cambia el formato de feedback.
 
 Se añaden regresiones para comprobar que un remo contribuye a bíceps cuando está auditado, que los antebrazos no reciben crédito por el agarre y que las series secundarias previstas impiden un aumento redundante de volumen directo. No cambia ningún endpoint ni DTO; el contrato Android permanece igual.
+
+
+## Matriz ampliada de splits — 14/11/2026
+
+La evaluación de catálogo v8 cubre las **11 combinaciones de distribución y días que admite el generador**: automática (2–4 días), cuerpo completo (2–4), torso/pierna (2 y 4) y Push/Pull/Legs (3, 5 y 6). Se combinan con cinco perfiles de equipamiento, tres objetivos, tres niveles de experiencia y presupuestos de 35, 60 y 90 minutos: **1.485 escenarios de cuatro semanas**.
+
+La matriz anterior de 405 escenarios solo ejercitaba la distribución automática de 2–4 días. Aunque había pruebas unitarias para PPL de 3, 5 y 6 días, no existía evaluación de calidad con el catálogo curado real para esos splits ni para las variantes explícitas FullBody/UpperLower. La ampliación cierra ese hueco de cobertura; no cambia la selección ni la prescripción del generador.
+
+El artefacto identifica ahora el split de cada escenario y comprueba que cada semana contenga exactamente el número de sesiones solicitado, además de respetar el límite temporal por sesión. Los resultados siguen siendo una evaluación de software y metadatos curados, no una validación fisiológica individual ni una exportación de la PostgreSQL desplegada.
+
+
+## Cobertura real del split FullBody — 14/11/2026
+
+La matriz v8 detectó que las dos sesiones FullBody anteriores alternaban grupos completos: A concentraba empuje horizontal, remo y bisagra; B concentraba empuje/tracción vertical y trabajo unilateral. En escenarios de dos días esto dejaba algunos grupos principales con una sola exposición semanal, aunque el plan se llamase FullBody.
+
+Se ha corregido la plantilla para que ambas sesiones incluyan sentadilla, bisagra, empuje horizontal, remo horizontal, empuje vertical y tracción vertical. El orden A/B alterna qué patrón aparece primero, mientras la selección conserva ejercicios estables durante el bloque y rota entre variantes compatibles cuando hay alternativas revisadas. El trabajo unilateral pasa a ser una variante opcional cuando el presupuesto y los déficits lo permiten; no desplaza los patrones básicos.
+
+La matriz de catálogo exige los cinco patrones básicos en cada sesión FullBody de dos días y exige tracción vertical cuando existe un ejercicio compatible con material, objetivo, nivel y exclusiones. Si no existe, se conserva la tracción horizontal en lugar de inventar equipamiento o asignar una variante por encima del nivel del usuario. El límite temporal sigue siendo vinculante: no se añaden series para ocultar déficits y los accesorios se omiten antes de excederlo.
+
+Esta decisión de producto busca que «FullBody» signifique cuerpo completo en cada sesión. No afirma que ACSM exija usar los seis patrones concretos; el Position Stand 2026 recomienda entrenar con esfuerzo alto al menos dos veces por semana e implicar los principales grupos musculares. La frecuencia por músculo y la dosis efectiva siguen siendo diagnósticos de planificación, no mínimos universales.
+
+
+## Correcciones de la auditoría de splits v8 — 15/11/2026
+
+La validación v8 detectó dos supuestos que debían expresarse mejor:
+
+- La tracción vertical no es obligatoria si el catálogo no ofrece una variante compatible con el material, objetivo, experiencia y exclusiones. Por ejemplo, un principiante sin polea ni máquina asistida no debe recibir dominadas/chin-ups reservadas a nivel intermedio. En ese caso se mantiene el remo horizontal; la matriz comprueba esta excepción explícitamente.
+- El PPL de cinco días pasa a un híbrido PPL + torso/pierna: Empuje, Tracción, Pierna, Tren superior y Tren inferior. Así el segundo estímulo inferior no queda comprimido en una única sesión de 30–40 series, y el volumen puede repartirse con el mismo presupuesto por sesión. PPL de tres y seis días conserva su estructura clásica.
+
+La matriz de cinco perfiles no incluye un perfil estrictamente limitado a bandas y peso corporal: el perfil doméstico también dispone de barra, mancuernas y barra de dominadas. El catálogo curado contiene curl femoral con banda, pero aún no ofrece suficientes patrones compuestos con bandas para acreditar una rutina completa exclusivamente con ese material. No se deben excluir esas alternativas; hay que enriquecer y revisar el catálogo antes de afirmar que el modo bandas-only está cubierto.
+
+
+## Sesiones FullBody de fuerza con 35 minutos — 16/11/2026
+
+La matriz v8 encontró que repetir seis patrones cargados en cada sesión FullBody podía dejar algunas sesiones de fuerza en 36 minutos estimados cuando el límite solicitado era 35. No se debe resolver acortando artificialmente los descansos de los básicos ni redondeando hacia abajo la duración.
+
+En el presupuesto mínimo de 35 minutos, las plantillas FullBody/Automática de fuerza conservan sentadilla, bisagra, empuje horizontal, remo horizontal y tracción vertical. Se omite el empuje vertical en esa sesión compacta: el empuje horizontal ya aporta trabajo a deltoides anteriores y tríceps, mientras se mantienen los básicos cargables prioritarios y la tracción vertical para dorsales. Con presupuestos superiores se conservan las seis direcciones/patrones. Es una decisión operativa del producto para respetar el tiempo, no una prescripción de ACSM ni una regla universal de selección.
+
+Las regresiones verifican que las dos sesiones de fuerza de 35 minutos mantienen esos cinco patrones y respetan el límite. La matriz de catálogo aplica la misma excepción únicamente a fuerza con 35 minutos; no relaja los requisitos de los demás objetivos o presupuestos. Los aislamientos de cuádriceps de las pruebas unitarias no se duplican automáticamente: cuando ambos días ya contienen sentadilla y bisagra, una única exposición directa puede ser suficiente para el objetivo explícito y evita añadir trabajo redundante.

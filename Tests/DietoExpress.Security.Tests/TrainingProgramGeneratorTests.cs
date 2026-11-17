@@ -41,20 +41,65 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Equal(8, result.Prescription.Sessions.Count);
     }
 
-    [Fact]
-    public void TwoDayFullBodySplitBalancesTwoSquatExposuresWithOneHipHingeExposure()
+    [Theory]
+    [InlineData(TrainingProgramSplit.Automatic)]
+    [InlineData(TrainingProgramSplit.FullBody)]
+    public void TwoDayFullBodySplitTrainsEveryMajorMovementPatternInEachSession(TrainingProgramSplit split)
     {
         var result = TrainingProgramGenerator.Generate(
-            Request() with { DurationWeeks = 1 }, Catalog());
+            Request() with { DurationWeeks = 1, Split = split }, Catalog());
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
-        var exercises = result.Prescription!.Sessions
-            .SelectMany(session => session.Exercises)
-            .ToArray();
+        Assert.Equal(2, result.Prescription!.Sessions.Count);
 
-        Assert.Equal(2, exercises.Count(exercise => exercise.ExerciseId == "squat-basic"));
-        Assert.Single(exercises, exercise => exercise.ExerciseId == "exercise-hinge");
-        Assert.Single(exercises, exercise => exercise.ExerciseId == "exercise-singleleg");
+        var requiredPatternExerciseIds = new[]
+        {
+            "squat-basic",
+            "exercise-horizontalpush",
+            "exercise-horizontalpull",
+            "exercise-hinge",
+            "exercise-verticalpush",
+            "exercise-verticalpull"
+        };
+
+        foreach (var session in result.Prescription.Sessions)
+        foreach (var exerciseId in requiredPatternExerciseIds)
+            Assert.Contains(session.Exercises, exercise => exercise.ExerciseId == exerciseId);
+    }
+
+    [Theory]
+    [InlineData(TrainingProgramSplit.Automatic)]
+    [InlineData(TrainingProgramSplit.FullBody)]
+    public void ThirtyFiveMinuteStrengthFullBodyPreservesLoadedBasicsWithoutExceedingBudget(TrainingProgramSplit split)
+    {
+        var result = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                Goal = TrainingGoal.Strength,
+                Experience = TrainingExperience.Intermediate,
+                DurationWeeks = 1,
+                Split = split,
+                MaximumSessionDurationMinutes = 35
+            },
+            Catalog());
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        var requiredExerciseIds = new[]
+        {
+            "squat-basic",
+            "exercise-hinge",
+            "exercise-horizontalpush",
+            "exercise-horizontalpull",
+            "exercise-verticalpull"
+        };
+        Assert.Equal(2, result.Prescription!.Sessions.Count);
+        foreach (var session in result.Prescription.Sessions)
+        {
+            foreach (var exerciseId in requiredExerciseIds)
+                Assert.Contains(session.Exercises, exercise => exercise.ExerciseId == exerciseId);
+            Assert.DoesNotContain(session.Exercises, exercise => exercise.ExerciseId == "exercise-verticalpush");
+            Assert.InRange(session.EstimatedDurationMinutes, 1, 35);
+        }
     }
 
     [Fact]
@@ -794,6 +839,8 @@ public sealed class TrainingProgramGeneratorTests
         var reverseNordics = weekOneSessions.SelectMany(session => session.Exercises)
             .Where(exercise => exercise.ExerciseId == "reverse-nordic-curl")
             .ToArray();
+        // One direct exposure is sufficient here because both sessions already contain loaded
+        // squat/hinge work; do not force a duplicate isolation merely to increase frequency.
         Assert.Single(reverseNordics);
         Assert.Contains(TrainingMuscleGroup.Quadriceps, reverseNordics[0].PrimaryMuscleGroups);
         Assert.Contains(generated.Prescription.Sessions.SelectMany(session => session.Exercises),
@@ -829,6 +876,8 @@ public sealed class TrainingProgramGeneratorTests
         var directQuadAccessories = weekOneSessions.SelectMany(session => session.Exercises)
             .Where(exercise => exercise.ExerciseId == "leg-extension")
             .ToArray();
+        // The loaded squat pattern is already present on both days; one direct isolation exposure
+        // is enough for this focused target and avoids forcing redundant weekly work.
         Assert.Single(directQuadAccessories);
         Assert.Equal(new[] { TrainingMuscleGroup.Quadriceps }, directQuadAccessories[0].PrimaryMuscleGroups);
     }
@@ -1294,6 +1343,12 @@ public sealed class TrainingProgramGeneratorTests
         {
             Assert.Contains(sessions, session => session.Title.StartsWith("Tracción", StringComparison.Ordinal));
             Assert.Contains(sessions, session => session.Title.StartsWith("Pierna", StringComparison.Ordinal));
+            if (dayCount == 5)
+            {
+                // Five-day PPL is a hybrid: PPL plus one upper and one lower exposure.
+                Assert.Single(sessions, session => session.Title.StartsWith("Tren superior", StringComparison.Ordinal));
+                Assert.Single(sessions, session => session.Title.StartsWith("Tren inferior", StringComparison.Ordinal));
+            }
         }
         if (split == TrainingProgramSplit.UpperLower)
         {
