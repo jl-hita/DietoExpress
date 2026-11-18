@@ -296,3 +296,12 @@ La consulta que alimenta la recomendación de contexto de sesión debe ordenar p
 - Añadir y validar un perfil bandas-only después de ampliar la selección curada con ejercicios compatibles revisados.
 - Completar la auditoría individual de la exportación PostgreSQL desplegada. La muestra aislada de 97 candidatos no la sustituye.
 
+
+
+## Material de máquinas específico — 18/11/2026
+
+El token genérico `machine` no es un material disponible válido y no funciona como comodín. Una máquina de press de pecho no acredita disponer de una máquina de curl femoral, ni a la inversa. Los ejercicios RepDB curados cuyo origen solo declara `machine` se asignan a un token específico por ID (por ejemplo, `chest-press-machine`, `lat-pulldown-machine` o `hip-abduction-machine`). Si no existe una asignación inequívoca, el registro vuelve a revisión manual y no entra en el generador.
+
+La migración `exercise-catalog-repdb-specific-machine-equipment-v1` actualiza únicamente aprobaciones automáticas RepDB, preserva revisiones humanas y aportaciones profesionales, y elimina la compatibilidad bidireccional del comodín. Los perfiles de evaluación enumeran máquinas concretas; no incluyen `machine`.
+
+La matriz doméstica existente **no es bandas-only**: también ofrece barra, mancuernas y barra de dominadas. El catálogo curado conserva `banded-standing-curl` como aislamiento útil, pero no contiene todavía suficientes patrones compuestos con banda para generar una rutina completa de cuerpo entero solo con bandas y peso corporal. Una prueba específica exige que esa solicitud falle explicando la falta de ejercicios compatibles, en vez de completar el plan con máquinas o material inventado. La cobertura bandas-only queda pendiente de incorporar y revisar ejercicios compuestos adecuados; no se excluyen las variantes de banda disponibles.
