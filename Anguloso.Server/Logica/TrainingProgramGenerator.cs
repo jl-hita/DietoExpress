@@ -71,7 +71,7 @@ public static class TrainingProgramGenerator
                     && x.MovementPattern == pattern
                     && x.SuitableGoals.Contains(request.Goal)
                     && (int)x.MinimumExperience <= (int)request.Experience
-                    && (equipment.Count == 0 || HasRequiredEquipment(x.RequiredEquipment, equipment))
+                    && HasRequiredEquipment(x.RequiredEquipment, equipment)
                     && !excluded.Contains(x.ExerciseId))
                 .ToArray();
             // The hinge is the only compound slot that trains the hamstrings. Whenever the profile has a hinge
@@ -705,23 +705,18 @@ public static class TrainingProgramGenerator
         IReadOnlyList<string> requiredEquipment,
         IReadOnlySet<string> availableEquipment)
     {
+        var requiredTokens = requiredEquipment
+            .Select(NormalizeEquipmentToken)
+            .ToArray();
+
+        // "machine" is not an equipment choice: a chest-press machine cannot satisfy a leg-curl
+        // machine requirement. Unknown generic requirements are rejected even when the user did
+        // not provide an equipment list, so they can never silently enter a generated plan.
+        if (requiredTokens.Any(token => token.Equals("machine", StringComparison.OrdinalIgnoreCase)))
+            return false;
+
         if (availableEquipment.Count == 0) return true;
-
-        return requiredEquipment.All(required =>
-        {
-            var token = NormalizeEquipmentToken(required);
-            if (availableEquipment.Contains(token)) return true;
-
-            // "machine" is the broad gym-equipment option. It satisfies a specific machine
-            // requirement; a specific machine also satisfies a generic machine requirement.
-            if (token.Equals("machine", StringComparison.OrdinalIgnoreCase))
-                return availableEquipment.Any(value =>
-                    value.Equals("machine", StringComparison.OrdinalIgnoreCase)
-                    || value.EndsWith("-machine", StringComparison.OrdinalIgnoreCase));
-
-            return token.EndsWith("-machine", StringComparison.OrdinalIgnoreCase)
-                && availableEquipment.Contains("machine");
-        });
+        return requiredTokens.All(token => availableEquipment.Contains(token));
     }
 
     // Explains WHY no exercise was found by counting candidates after each filter step, so the
