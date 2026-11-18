@@ -96,11 +96,79 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             {
                 await removeMarker.ExecuteNonQueryAsync();
             }
+            // Simulate an older automatic approval that still used the generic machine wildcard.
+            await using (var genericMachines = new NpgsqlCommand("""
+                UPDATE exercise_catalog
+                SET reviewed_required_equipment = '["machine"]'::jsonb,
+                    reviewed_by = 'RepDB automatic metadata v5'
+                WHERE exercise_id = ANY(ARRAY[
+                    'chest-press-machine', 'machine-shoulder-press', 'v-bar-lat-pulldown'
+                ]::varchar[])
+                  AND source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                """, connection))
+            {
+                Assert.Equal(3, await genericMachines.ExecuteNonQueryAsync());
+            }
+            await using (var removeMachineMarker = new NpgsqlCommand(
+                "DELETE FROM schema_migrations WHERE id = 'exercise-catalog-repdb-specific-machine-equipment-v1'", connection))
+            {
+                await removeMachineMarker.ExecuteNonQueryAsync();
+            }
 
             await catalogService.EnsureSeededAsync();
             reviewStats = await catalogService.GetReviewStatsAsync();
             candidates = await catalogService.LoadGeneratorCandidatesAsync(ownerUserId: 0);
             candidateCount = candidates.Count;
+
+            Assert.DoesNotContain(candidates.SelectMany(candidate => candidate.RequiredEquipment),
+                equipment => equipment.Equals("machine", StringComparison.OrdinalIgnoreCase));
+            var specificMachineEquipment = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["assisted-pull-ups"] = "assisted-pull-up-machine",
+                ["chest-press-machine"] = "chest-press-machine",
+                ["chest-supported-machine-row"] = "chest-supported-row-machine",
+                ["hip-abduction"] = "hip-abduction-machine",
+                ["hip-adduction"] = "hip-adduction-machine",
+                ["machine-back-extension"] = "back-extension-machine",
+                ["machine-bicep-curl"] = "bicep-curl-machine",
+                ["machine-calf-raise"] = "calf-raise-machine",
+                ["machine-chest-fly"] = "chest-fly-machine",
+                ["machine-reverse-fly"] = "reverse-fly-machine",
+                ["machine-seated-crunch"] = "ab-crunch-machine",
+                ["machine-shoulder-press"] = "shoulder-press-machine",
+                ["pec-deck"] = "pec-deck-machine",
+                ["plate-loaded-glute-drive"] = "glute-drive-machine",
+                ["seated-calf-raise"] = "seated-calf-raise-machine",
+                ["single-arm-plate-loaded-lateral-raise"] = "plate-loaded-lateral-raise-machine",
+                ["standing-calf-raise"] = "standing-calf-raise-machine",
+                ["v-bar-lat-pulldown"] = "lat-pulldown-machine"
+            };
+            foreach (var (exerciseId, equipmentToken) in specificMachineEquipment)
+                Assert.Equal(new[] { equipmentToken }, candidates.Single(candidate => candidate.ExerciseId == exerciseId).RequiredEquipment);
+
+            var hasRequiredEquipment = typeof(TrainingProgramGenerator).GetMethod(
+                "HasRequiredEquipment", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            Assert.NotNull(hasRequiredEquipment);
+            bool EquipmentMatches(string[] required, string[] available) =>
+                (bool)hasRequiredEquipment!.Invoke(null, new object?[]
+                {
+                    required, available.ToHashSet(StringComparer.OrdinalIgnoreCase)
+                })!;
+            Assert.False(EquipmentMatches(["machine"], ["chest-press-machine"]));
+            Assert.False(EquipmentMatches(["machine"], []));
+            Assert.False(EquipmentMatches(["chest-press-machine"], ["machine"]));
+            Assert.True(EquipmentMatches(["chest-press-machine"], ["chest-press-machine"]));
+
+            var bandCurl = candidates.Single(candidate => candidate.ExerciseId == "banded-standing-curl");
+            Assert.Contains("resistance-band", bandCurl.RequiredEquipment);
+            var bandOnly = TrainingProgramGenerator.Generate(new TrainingProgramGenerationRequest(
+                TrainingGoal.Hypertrophy, TrainingExperience.Beginner, new DateOnly(2026, 11, 16), 4,
+                [DayOfWeek.Monday, DayOfWeek.Thursday], 90,
+                ["resistance-band", "bodyweight"], [], null, false, TrainingProgramSplit.FullBody), candidates);
+            Assert.False(bandOnly.Succeeded);
+            Assert.Contains(bandOnly.Errors, error => error.Contains("No hay ejercicios compatibles", StringComparison.OrdinalIgnoreCase));
 
             // Knee-flexion hamstring curls must be available as isolation accessories, not
             // misclassified as hip hinges where they lose to deadlift/RDL pattern selection.
@@ -452,11 +520,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
     private static bool IsEquipmentAvailable(string required, IReadOnlySet<string> available)
     {
         var token = NormalizeEquipmentToken(required);
-        if (available.Contains(token)) return true;
-        if (token.Equals("machine", StringComparison.OrdinalIgnoreCase))
-            return available.Any(value => value.Equals("machine", StringComparison.OrdinalIgnoreCase) ||
-                                          value.EndsWith("-machine", StringComparison.OrdinalIgnoreCase));
-        return token.EndsWith("-machine", StringComparison.OrdinalIgnoreCase) && available.Contains("machine");
+        return available.Contains(token);
     }
 
     private static IReadOnlyList<RealCatalogScenarioProfile> ScenarioProfiles(
@@ -475,7 +539,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
 
         return
         [
-            new("FullGym", ["barbell", "dumbbell", "bench", "pull_up_bar", "cable", "kettlebell", "ez_bar", "shoulder_press_machine", "ab_wheel", "machine"], []),
+            new("FullGym", ["barbell", "dumbbell", "bench", "pull_up_bar", "cable", "kettlebell", "ez_bar", "trap-bar", "smith-machine", "ab_wheel", "assisted-pull-up-machine", "chest-press-machine", "chest-supported-row-machine", "hip-abduction-machine", "hip-adduction-machine", "back-extension-machine", "bicep-curl-machine", "calf-raise-machine", "chest-fly-machine", "reverse-fly-machine", "ab-crunch-machine", "shoulder-press-machine", "pec-deck-machine", "glute-drive-machine", "seated-calf-raise-machine", "plate-loaded-lateral-raise-machine", "standing-calf-raise-machine", "lat-pulldown-machine", "leg-press-machine", "hack-squat-machine", "leg-curl-machine", "leg-extension-machine"], []),
             new("NoCableOrMachines", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "ez_bar", "bodyweight"], []),
             new("HomeGymWithBandsAndBall", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "ez_bar", "bodyweight", "resistance-band", "stability-ball", "suspension-trainer"], []),
             new("DumbbellsBenchPullup", ["dumbbell", "bench", "pull_up_bar", "bodyweight"], []),
