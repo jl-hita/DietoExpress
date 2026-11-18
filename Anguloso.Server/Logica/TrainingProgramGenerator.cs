@@ -699,8 +699,8 @@ public static class TrainingProgramGenerator
             .Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
-    // Equipment check: every required token must be available. "machine" is the generic gym
-    // option and is interchangeable with any "<something>-machine" token in both directions.
+    // Equipment check: every required token must be available. A generic "machine" token is
+    // invalid; only the exact reviewed machine required by an exercise can satisfy the filter.
     internal static bool HasRequiredEquipment(
         IReadOnlyList<string> requiredEquipment,
         IReadOnlySet<string> availableEquipment)

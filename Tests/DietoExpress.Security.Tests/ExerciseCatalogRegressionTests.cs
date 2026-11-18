@@ -104,6 +104,28 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
+    public void RepDbAutoReviewer_PreservesExplicitBodyweightEquipmentAndRejectsUnknownMachine()
+    {
+        var reviewerType = typeof(TrainingProgramGenerator).Assembly.GetType(
+            "Anguloso.Server.Logica.RepDbExerciseAutoReviewer", throwOnError: true)!;
+        var mapEquipment = reviewerType.GetMethod(
+            "MapEquipment", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró MapEquipment.");
+
+        var pullUpBar = (string[])mapEquipment.Invoke(
+            null, new object?[] { "pull-up", "barra de dominadas", true })!;
+        Assert.Equal(new[] { "pull-up-bar" }, pullUpBar);
+
+        var identifiedMachine = (string[])mapEquipment.Invoke(
+            null, new object?[] { "machine-shoulder-press", "machine", true })!;
+        Assert.Equal(new[] { "shoulder-press-machine" }, identifiedMachine);
+
+        var unknownMachine = mapEquipment.Invoke(
+            null, new object?[] { "unmapped-machine-exercise", "machine", true });
+        Assert.Null(unknownMachine);
+    }
+
+    [Fact]
     public void RepDbExerciseCuration_PreservesAuditedMuscleCorrections()
     {
         var curationType = typeof(TrainingProgramGenerator).Assembly.GetType(

@@ -284,8 +284,9 @@ internal static class RepDbExerciseAutoReviewer
             return [specificMachine];
 
         var v = Normalize(value);
-        if (bodyweight == true || Has(v, "bodyweight", "none", "no equipment", "peso corporal", "ninguno", "sin material"))
-            return [];
+        // Resolve explicit equipment before the broad bodyweight flag. RepDB can mark a movement
+        // as bodyweight while still requiring a pull-up bar, bench or band.
+        if (Has(v, "pull-up bar", "pull up bar", "pull_up_bar", "barra de dominadas")) return ["pull-up-bar"];
         if (Has(v, "trap bar", "trap_bar")) return ["trap-bar"];
         if (Has(v, "barbell", "barra")) return ["barbell"];
         if (Has(v, "dumbbell", "mancuerna")) return ["dumbbell"];
@@ -296,10 +297,10 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(v, "leg curl", "leg_curl")) return ["leg-curl-machine"];
         if (Has(v, "leg extension", "leg_extension")) return ["leg-extension-machine"];
         if (Has(v, "smith")) return ["smith-machine"];
-        // Never broaden an unknown machine to a wildcard. It must be curated by exercise ID or reviewed manually.
+        // Never let a bodyweight flag turn an unidentified machine into an equipment-free exercise.
+        // A specific machine ID above is the only automatic exception; otherwise keep it for manual review.
         if (Has(v, "machine", "máquina", "maquina")) return null;
         if (Has(v, "flat bench", "bench", "banco")) return ["bench"];
-        if (Has(v, "pull-up bar", "pull up bar", "pull_up_bar", "barra de dominadas")) return ["pull-up-bar"];
         if (Has(v, "suspension trainer", "suspension_trainer", "trx")) return ["suspension-trainer"];
         if (Has(v, "loop band", "loop_band", "resistance band", "resistance_band", "band")) return ["resistance-band"];
         if (Has(v, "rings", "gymnastic rings")) return ["rings"];
@@ -315,6 +316,8 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(v, "glute ham developer", "glute_ham_developer")) return ["glute-ham-developer"];
         if (Has(v, "battle rope", "battle_rope")) return ["battle-rope"];
         if (Has(v, "treadmill", "elliptical", "ski erg", "ski_erg", "stair climber", "stair_climber", "bicycle", "stationary bike", "stationary_bike", "jump rope", "jump_rope")) return null;
+        if (bodyweight == true || Has(v, "bodyweight", "none", "no equipment", "peso corporal", "ninguno", "sin material"))
+            return [];
         return null;
     }
 
