@@ -75,7 +75,7 @@ internal static class RepDbExerciseAutoReviewer
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var requiredEquipment = MapEquipment(equipment ?? "", isBodyweight);
+        var requiredEquipment = MapEquipment(id, equipment ?? "", isBodyweight);
         if (requiredEquipment is null) return null;
         // Some RepDB exercises declare extra mandatory equipment in tags rather than equipment.
         // A tibialis raise needs a bench to support the working leg as well as the kettlebell.
@@ -252,8 +252,37 @@ internal static class RepDbExerciseAutoReviewer
         return null;
     }
 
-    private static string[]? MapEquipment(string value, bool? bodyweight)
+    // A generic RepDB value such as "machine" is not sufficient to decide whether a patient has the
+    // equipment. Curated IDs map it to the actual machine required by that exercise. Unknown generic
+    // machine records remain pending for manual review instead of becoming compatible with any gym machine.
+    private static readonly IReadOnlyDictionary<string, string> SpecificMachineEquipmentByExerciseId =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["assisted-pull-ups"] = "assisted-pull-up-machine",
+            ["chest-press-machine"] = "chest-press-machine",
+            ["chest-supported-machine-row"] = "chest-supported-row-machine",
+            ["hip-abduction"] = "hip-abduction-machine",
+            ["hip-adduction"] = "hip-adduction-machine",
+            ["machine-back-extension"] = "back-extension-machine",
+            ["machine-bicep-curl"] = "bicep-curl-machine",
+            ["machine-calf-raise"] = "calf-raise-machine",
+            ["machine-chest-fly"] = "chest-fly-machine",
+            ["machine-reverse-fly"] = "reverse-fly-machine",
+            ["machine-seated-crunch"] = "ab-crunch-machine",
+            ["machine-shoulder-press"] = "shoulder-press-machine",
+            ["pec-deck"] = "pec-deck-machine",
+            ["plate-loaded-glute-drive"] = "glute-drive-machine",
+            ["seated-calf-raise"] = "seated-calf-raise-machine",
+            ["single-arm-plate-loaded-lateral-raise"] = "plate-loaded-lateral-raise-machine",
+            ["standing-calf-raise"] = "standing-calf-raise-machine",
+            ["v-bar-lat-pulldown"] = "lat-pulldown-machine"
+        };
+
+    private static string[]? MapEquipment(string exerciseId, string value, bool? bodyweight)
     {
+        if (SpecificMachineEquipmentByExerciseId.TryGetValue(exerciseId, out var specificMachine))
+            return [specificMachine];
+
         var v = Normalize(value);
         if (bodyweight == true || Has(v, "bodyweight", "none", "no equipment", "peso corporal", "ninguno", "sin material"))
             return [];
@@ -262,29 +291,19 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(v, "dumbbell", "mancuerna")) return ["dumbbell"];
         if (Has(v, "kettlebell", "pesa rusa")) return ["kettlebell"];
         if (Has(v, "cable", "polea")) return ["cable"];
+        if (Has(v, "leg press", "leg_press")) return ["leg-press-machine"];
+        if (Has(v, "hack squat", "hack_squat")) return ["hack-squat-machine"];
+        if (Has(v, "leg curl", "leg_curl")) return ["leg-curl-machine"];
+        if (Has(v, "leg extension", "leg_extension")) return ["leg-extension-machine"];
+        if (Has(v, "smith")) return ["smith-machine"];
+        // Never broaden an unknown machine to a wildcard. It must be curated by exercise ID or reviewed manually.
+        if (Has(v, "machine", "máquina", "maquina")) return null;
         if (Has(v, "flat bench", "bench", "banco")) return ["bench"];
         if (Has(v, "pull-up bar", "pull up bar", "pull_up_bar", "barra de dominadas")) return ["pull-up-bar"];
         if (Has(v, "suspension trainer", "suspension_trainer", "trx")) return ["suspension-trainer"];
         if (Has(v, "loop band", "loop_band", "resistance band", "resistance_band", "band")) return ["resistance-band"];
         if (Has(v, "rings", "gymnastic rings")) return ["rings"];
         if (Has(v, "dip station", "dip_station")) return ["dip-station"];
-        if (Has(v, "leg press", "leg_press")) return ["leg-press-machine"];
-        if (Has(v, "hack squat", "hack_squat")) return ["hack-squat-machine"];
-        if (Has(v, "leg curl", "leg_curl")) return ["leg-curl-machine"];
-        if (Has(v, "leg extension", "leg_extension")) return ["leg-extension-machine"];
-        if (Has(v, "smith")) return ["smith-machine"];
-        if (Has(v, "hip abduction machine", "hip_abduction_machine", "hip adduction machine", "hip_adduction_machine")) return ["machine"];
-        if (Has(v, "back extension machine", "back_extension_machine", "bicep curl machine", "bicep_curl_machine",
-            "chest fly machine", "chest_fly_machine", "preacher curl machine", "preacher_curl_machine",
-            "reverse fly machine", "reverse_fly_machine", "ab crunch machine", "ab_crunch_machine",
-            "shoulder press machine", "shoulder_press_machine", "tricep extension machine", "tricep_extension_machine",
-            "standing calf raise machine", "standing_calf_raise_machine", "seated calf raise machine", "seated_calf_raise_machine",
-            "plate loaded lateral raise machine", "plate_loaded_lateral_raise_machine", "hip thrust machine", "hip_thrust_machine",
-            "plate loaded dip machine", "plate_loaded_dip_machine", "shrug machine", "shrug_machine",
-            "chest press machine", "chest_press_machine", "leg press", "leg_press", "hack squat", "hack_squat",
-            "leg curl", "leg_curl", "leg extension", "leg_extension", "pec deck", "pec_deck")) return ["machine"];
-        if (Has(v, "machine", "máquina", "maquina")) return ["machine"];
-        if (Has(v, "resistance band", "band", "banda elástica", "banda elastica")) return ["resistance-band"];
         if (Has(v, "ez-bar", "ez_bar", "curl bar")) return ["ez-bar"];
         if (Has(v, "medicine ball", "medicine_ball", "balón medicinal", "balon medicinal")) return ["medicine-ball"];
         if (Has(v, "stability ball", "stability_ball")) return ["stability-ball"];
@@ -298,7 +317,6 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(v, "treadmill", "elliptical", "ski erg", "ski_erg", "stair climber", "stair_climber", "bicycle", "stationary bike", "stationary_bike", "jump rope", "jump_rope")) return null;
         return null;
     }
-
 
     /// <summary>
     /// Creates a conservative Spanish catalogue description from available source metadata.
