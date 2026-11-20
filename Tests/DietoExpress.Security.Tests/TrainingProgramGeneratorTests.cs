@@ -494,7 +494,7 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void GenericMachineEquipmentMatchesSpecializedMachineRequirements()
+    public void GenericMachineEquipmentDoesNotSatisfySpecializedMachineRequirements()
     {
         var catalog = Catalog().Select(exercise =>
             exercise.MovementPattern == TrainingMovementPattern.Squat
@@ -505,9 +505,9 @@ public sealed class TrainingProgramGeneratorTests
             Request() with { AvailableEquipment = ["machine"] },
             catalog);
 
-        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
-        Assert.Contains(result.Prescription!.Sessions.SelectMany(session => session.Exercises),
-            exercise => exercise.ExerciseId == "squat-basic");
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error =>
+            error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -543,7 +543,7 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void SpecificMachineEquipmentSatisfiesGenericMachineRequirements()
+    public void SpecificMachineEquipmentDoesNotSatisfyGenericMachineRequirements()
     {
         var catalog = Catalog().Select(exercise =>
             exercise.MovementPattern == TrainingMovementPattern.Squat
@@ -554,7 +554,9 @@ public sealed class TrainingProgramGeneratorTests
             Request() with { AvailableEquipment = ["leg-press-machine"] },
             catalog);
 
-        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error =>
+            error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -591,7 +593,7 @@ public sealed class TrainingProgramGeneratorTests
         var patterns = catalog.ToDictionary(candidate => candidate.ExerciseId, candidate => candidate.MovementPattern,
             StringComparer.Ordinal);
         var result = TrainingProgramGenerator.Generate(
-            Request() with { AvailableEquipment = ["machine"], MaximumSessionDurationMinutes = 90 }, catalog);
+            Request() with { AvailableEquipment = [], MaximumSessionDurationMinutes = 90 }, catalog);
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         foreach (var exercise in result.Prescription!.Sessions.SelectMany(session => session.Exercises))
@@ -1113,10 +1115,10 @@ public sealed class TrainingProgramGeneratorTests
                     TrainingMovementPattern.Accessory, ["dumbbell"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Deltoids], []),
                 new TrainingExerciseCandidate("machine-calf-raise", "catalog-2026-10", "Gemelo en máquina",
-                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingMovementPattern.Accessory, ["calf-raise-machine"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Calves], []),
                 new TrainingExerciseCandidate("leg-extension", "catalog-2026-10", "Extensión de cuádriceps",
-                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingMovementPattern.Accessory, ["leg-extension-machine"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Quadriceps], []),
                 new TrainingExerciseCandidate("shrug", "catalog-2026-10", "Encogimientos",
                     TrainingMovementPattern.Accessory, ["dumbbell"], [TrainingGoal.Hypertrophy],
@@ -1125,7 +1127,7 @@ public sealed class TrainingProgramGeneratorTests
             .ToArray();
         var request = new TrainingProgramGenerationRequest(
             TrainingGoal.Hypertrophy, TrainingExperience.Advanced, new DateOnly(2026, 10, 26), 4,
-            [DayOfWeek.Monday, DayOfWeek.Thursday], 90, ["barbell", "dumbbell", "machine", "cable"], [])
+            [DayOfWeek.Monday, DayOfWeek.Thursday], 90, ["barbell", "dumbbell", "calf-raise-machine", "leg-extension-machine", "cable"], [])
         {
             Split = TrainingProgramSplit.FullBody
         };
@@ -1168,10 +1170,10 @@ public sealed class TrainingProgramGeneratorTests
                     TrainingMovementPattern.Accessory, ["dumbbell"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Deltoids], []),
                 new TrainingExerciseCandidate("machine-calf-raise", "catalog-2026-10", "Gemelo en máquina",
-                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingMovementPattern.Accessory, ["calf-raise-machine"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Calves], []),
                 new TrainingExerciseCandidate("leg-extension", "catalog-2026-10", "Extensión de cuádriceps",
-                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingMovementPattern.Accessory, ["leg-extension-machine"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Quadriceps], [])
             })
             .ToArray();
@@ -1183,7 +1185,7 @@ public sealed class TrainingProgramGeneratorTests
                 Split = TrainingProgramSplit.UpperLower,
                 DurationWeeks = 1,
                 MaximumSessionDurationMinutes = 90,
-                AvailableEquipment = ["barbell", "dumbbell", "machine", "cable"]
+                AvailableEquipment = ["barbell", "dumbbell", "calf-raise-machine", "leg-extension-machine", "cable"]
             },
             catalog);
 

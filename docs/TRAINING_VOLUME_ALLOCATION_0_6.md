@@ -307,3 +307,19 @@ La migración `exercise-catalog-repdb-specific-machine-equipment-v1` actualiza �
 La matriz doméstica existente **no es bandas-only**: también ofrece barra, mancuernas y barra de dominadas. El catálogo curado conserva `banded-standing-curl` como aislamiento útil, pero no contiene todavía suficientes patrones compuestos con banda para generar una rutina completa de cuerpo entero solo con bandas y peso corporal. Una prueba específica exige que esa solicitud falle explicando la falta de ejercicios compatibles, en vez de completar el plan con máquinas o material inventado. La cobertura bandas-only queda pendiente de incorporar y revisar ejercicios compuestos adecuados; no se excluyen las variantes de banda disponibles.
 
 Si RepDB marca un ejercicio como peso corporal pero el campo de equipamiento declara una barra de dominadas, banda u otro soporte, prevalece el requisito explícito. Si declara una máquina genérica sin ID curado, la bandera de peso corporal no puede convertirla en un ejercicio sin material: queda pendiente de revisión manual.
+
+
+### Tokens específicos de máquina en pruebas y evaluaciones
+
+Los perfiles de prueba deben declarar el aparato concreto, igual que los registros curados del catálogo. Referencias utilizadas por la matriz sintética:
+
+| Ejercicio | Token requerido |
+|---|---|
+| Prensa de piernas | `leg-press-machine` |
+| Curl femoral | `leg-curl-machine` |
+| Extensión de cuádriceps | `leg-extension-machine` |
+| Elevación de gemelos | `calf-raise-machine` |
+| Abducción de cadera | `hip-abduction-machine` |
+| Press de hombros | `shoulder-press-machine` |
+
+El token genérico `machine` se mantiene únicamente en pruebas negativas: no acredita disponibilidad de ninguna máquina específica y tampoco debe aceptarse como requisito de un ejercicio curado. Así se evita que una máquina distinta habilite un ejercicio que el usuario no puede realizar.
