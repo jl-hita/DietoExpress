@@ -333,3 +333,10 @@ La ruta de feedback muscular automática debe distinguir una sesión marcada com
 - `skippedSetReason = pain` se conserva como señal de seguridad independiente del campo de molestias. Bloquea los ajustes ordinarios de volumen y produce una propuesta de pausa/revisión.
 - Las omisiones por tiempo, equipamiento, enfermedad, motivación u otros motivos no se reinterpretan como evidencia de dosis insuficiente o excesiva. La adaptación específica por ejercicio mantiene su propia lógica para señales repetidas de fatiga.
 - No cambia ningún endpoint ni DTO. Android ya envía `plannedSets`, `completedSets`, `skippedSetReason` y el detalle de las series de trabajo; el backend endurece únicamente la interpretación de ese feedback.
+
+
+## Adaptaciones automáticas sin cambios efectivos — 21/11/2026
+
+Una propuesta no se considera aplicada por el mero hecho de que la política permita intentarlo. Si no existe ninguna sesión futura estructurada y elegible, o el ajuste no puede modificar realmente una prescripción, `TrainingAutoAdaptationApplier` revierte la transacción y deja la propuesta pendiente (`TryApplyAsync = -1`). No debe marcarse `approved` ni guardar `applied_future_sessions = 0` como si el sistema hubiera aplicado el cambio.
+
+La regresión protege el orden: primero se verifica que al menos una sesión futura cambió; solo después se actualiza el estado de la propuesta. Esto conserva la trazabilidad y permite que un profesional resuelva los casos sin sesiones elegibles. No modifica umbrales de adaptación, cooldowns, descargas ni contratos API/Android.

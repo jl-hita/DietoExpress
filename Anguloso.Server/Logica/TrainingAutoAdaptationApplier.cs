@@ -65,6 +65,14 @@ public sealed class TrainingAutoAdaptationApplier
                 _ => await HoldProgressionAsync(connection, transaction, planId, note, cancellationToken)
             };
 
+            // A proposal is only approved when at least one future session was actually changed.
+            // Otherwise keep it pending for a professional instead of recording a false automatic success.
+            if (changed <= 0)
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+                return -1;
+            }
+
             await using (var update = new NpgsqlCommand("""
                 UPDATE training_adaptation_proposals
                 SET status = 'approved', reviewed_by_user_id = NULL, reviewed_at = NOW(),
