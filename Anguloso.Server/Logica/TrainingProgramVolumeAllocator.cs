@@ -479,10 +479,10 @@ public static class TrainingProgramVolumeAllocator
 
     /// <summary>
     /// Sets a muscle may receive above its central target (the weekly ceiling is target + headroom). In hypertrophy it
-    /// is the tolerance of the agreed range. Strength and general fitness had none, so their plans stopped at the
-    /// minimum dose however much time the user offered; they now have a margin that only the time fill uses.
-    /// Glutes work in every squat, hinge and single-leg lift and reach any ceiling long before quadriceps and
-    /// hamstrings reach their target, which froze those lifts at two sets: their margin is wider.
+    /// is the tolerance of the agreed range. Strength and general fitness use their goal-specific time-fill margin.
+    /// Glutes are co-primary in many lower-body compounds, but they do not inherit the combined quadriceps and
+    /// hamstrings headroom: that previously let general-fitness glute volume reach 20 despite a 4–6 set target.
+    /// Direct quad/hamstring accessories can fill those muscles without silently multiplying glute volume.
     /// </summary>
     private static bool HasExplicitTarget(IReadOnlyList<TrainingMuscleVolumeTarget>? preferences, TrainingMuscleGroup muscle) =>
         (preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
@@ -511,12 +511,9 @@ public static class TrainingProgramVolumeAllocator
         // times a week at 4-5 sets). General fitness: up to three times the target and never more than eight sets
         // above it (4 -> 12), enough for three sets of each exercise in a full-body week.
         decimal Headroom(decimal central) => goal == TrainingGoal.Strength ? central : Math.Min(central * 2m, 8m);
-        if (muscle != TrainingMuscleGroup.Glutes)
-            return Headroom(target);
-        // The squat family is bounded by the quadriceps ceiling and the hinge family by the hamstrings ceiling, so
-        // the glutes never need more than both together.
-        var hamstringsTarget = Math.Max(2m, Math.Ceiling(target * 0.75m));
-        return Math.Min(Headroom(target) + hamstringsTarget + Headroom(hamstringsTarget), glutesLimit);
+        // Glutes follow the same goal-specific headroom as other muscles for Strength/GeneralFitness.
+        // Hypertrophy retains its separate, experience-based range above; all paths still respect the absolute ceiling.
+        return Math.Min(Headroom(target), glutesLimit);
     }
 
     private static decimal DefaultVolumeTimeFactor(int sessionsPerWeek, int maximumSessionDurationMinutes)

@@ -108,6 +108,25 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.Equal(maximum, target + (experience == TrainingExperience.Beginner ? 2m : experience == TrainingExperience.Intermediate ? 3m : 4m));
     }
 
+    [Theory]
+    [InlineData(TrainingGoal.Strength, TrainingExperience.Beginner, 12)]
+    [InlineData(TrainingGoal.Strength, TrainingExperience.Intermediate, 16)]
+    [InlineData(TrainingGoal.Strength, TrainingExperience.Advanced, 16)]
+    [InlineData(TrainingGoal.GeneralFitness, TrainingExperience.Beginner, 12)]
+    [InlineData(TrainingGoal.GeneralFitness, TrainingExperience.Intermediate, 14)]
+    [InlineData(TrainingGoal.GeneralFitness, TrainingExperience.Advanced, 14)]
+    public void GluteCeilingRespectsGoalSpecificHeadroom(
+        TrainingGoal goal, TrainingExperience experience, decimal expectedCeiling)
+    {
+        var targets = GetWeeklyTargets(goal, experience, null);
+        var method = typeof(TrainingProgramVolumeAllocator).GetMethod(
+            "GetUpperHeadroom", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var headroom = (decimal)method.Invoke(null,
+            [goal, experience, null, TrainingMuscleGroup.Glutes, targets[TrainingMuscleGroup.Glutes]])!;
+
+        Assert.Equal(expectedCeiling, targets[TrainingMuscleGroup.Glutes] + headroom);
+    }
+
     [Fact]
     public void StrengthAndGeneralFitnessKeepTheirPreviousConservativeSupplementalTargets()
     {

@@ -10,6 +10,7 @@ public static class TrainingProgramQualityAnalyzer
     // non-blocking and worded as "revisa", leaving the decision to the professional.
     private const int HighEffectiveSetReviewThreshold = 20;
     private const int HighSessionWorkingSetReviewThreshold = 30;
+    private const int HighSessionSetImbalanceReviewThreshold = 12;
     private static readonly TrainingMuscleGroup[] MajorMuscleFrequencyReviewMuscles =
     [
         TrainingMuscleGroup.Chest, TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack,
@@ -192,6 +193,22 @@ public static class TrainingProgramQualityAnalyzer
                 var sessionWorkingSets = session.Exercises.Sum(exercise => exercise.Sets);
                 if (sessionWorkingSets > HighSessionWorkingSetReviewThreshold)
                     warnings.Add($"Semana {week}: '{session.Title}' concentra {sessionWorkingSets} series de trabajo. Supera el umbral interno de revisión de {HighSessionWorkingSetReviewThreshold} series por sesión; no es un límite fisiológico ni una cifra prescrita por ACSM. Revisa la fatiga intra-sesión y la posible redistribución semanal.");
+            }
+
+            if (sessions.Length >= 2)
+            {
+                var sessionSetCounts = sessions.Select(session => new
+                {
+                    session.Title,
+                    WorkingSets = session.Exercises.Sum(exercise => exercise.Sets)
+                }).ToArray();
+                var heaviest = sessionSetCounts.MaxBy(item => item.WorkingSets)!;
+                var lightest = sessionSetCounts.MinBy(item => item.WorkingSets)!;
+                if (heaviest.WorkingSets - lightest.WorkingSets >= HighSessionSetImbalanceReviewThreshold &&
+                    heaviest.WorkingSets >= lightest.WorkingSets * 2)
+                {
+                    warnings.Add($"Semana {week}: el volumen está muy concentrado entre sesiones: '{heaviest.Title}' tiene {heaviest.WorkingSets} series y '{lightest.Title}' {lightest.WorkingSets}. La diferencia supera el umbral interno de revisión de {HighSessionSetImbalanceReviewThreshold} series y duplica la sesión más ligera; revisa si el split y el material justifican esa distribución o si conviene FullBody/UpperLower. No es un límite fisiológico ni una pauta de ACSM.");
+                }
             }
 
             var isStrengthGoal = string.Equals(plan.Goal, "Strength", StringComparison.OrdinalIgnoreCase);
