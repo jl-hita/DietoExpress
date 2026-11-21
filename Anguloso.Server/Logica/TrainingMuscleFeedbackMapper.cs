@@ -44,6 +44,10 @@ public static class TrainingMuscleFeedbackMapper
                     continue;
 
                 item.Feedback.TryGetValue(exercise.ExerciseId, out var feedback);
+                var painReported = feedback.ValueKind == JsonValueKind.Object &&
+                    string.Equals(ReadString(feedback, "skippedSetReason"), "pain", StringComparison.OrdinalIgnoreCase);
+                var exerciseCompleted = completed && !painReported &&
+                    IsExerciseFeedbackComplete(feedback, exercise.Sets);
                 exposures.Add(new TrainingMuscleFeedbackExposure(
                     item.Record.Date,
                     exercise.ExerciseId,
@@ -52,7 +56,8 @@ public static class TrainingMuscleFeedbackMapper
                     feedback.ValueKind == JsonValueKind.Object ? ReadString(feedback, "stimulus") : null,
                     feedback.ValueKind == JsonValueKind.Object ? ReadString(feedback, "discomfort") : null,
                     feedback.ValueKind == JsonValueKind.Object ? ReadString(feedback, "preFatigue") : null,
-                    completed));
+                    exerciseCompleted,
+                    painReported));
             }
         }
 
@@ -129,6 +134,40 @@ public static class TrainingMuscleFeedbackMapper
         {
             return null;
         }
+    }
+
+    private static bool IsExerciseFeedbackComplete(JsonElement feedback, int prescribedSets)
+    {
+        // Missing feedback is neutral: its stimulus fields are null, so it cannot justify an adjustment.
+        if (feedback.ValueKind != JsonValueKind.Object)
+            return true;
+
+        var skippedReason = ReadString(feedback, "skippedSetReason");
+        if (!string.IsNullOrWhiteSpace(skippedReason) &&
+            !string.Equals(skippedReason, "none", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!TryReadInt(feedback, "plannedSets", out var reportedPlannedSets) ||
+            !TryReadInt(feedback, "completedSets", out var completedSets) ||
+            reportedPlannedSets != prescribedSets || completedSets != prescribedSets ||
+            !feedback.TryGetProperty("sets", out var sets) || sets.ValueKind != JsonValueKind.Array)
+            return false;
+
+        var workingSets = sets.EnumerateArray()
+            .Where(set => string.Equals(ReadString(set, "kind"), "working", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        return workingSets.Length == prescribedSets &&
+               workingSets.All(set => set.TryGetProperty("completed", out var completed) &&
+                                      completed.ValueKind == JsonValueKind.True);
+    }
+
+    private static bool TryReadInt(JsonElement element, string property, out int result)
+    {
+        result = 0;
+        return element.ValueKind == JsonValueKind.Object &&
+               element.TryGetProperty(property, out var value) &&
+               value.ValueKind == JsonValueKind.Number &&
+               value.TryGetInt32(out result);
     }
 
     private static IReadOnlyList<TrainingMuscleGroup> ReadMuscleGroups(JsonElement values)

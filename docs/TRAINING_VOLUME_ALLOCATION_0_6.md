@@ -323,3 +323,13 @@ Los perfiles de prueba deben declarar el aparato concreto, igual que los registr
 | Press de hombros | `shoulder-press-machine` |
 
 El token genérico `machine` se mantiene únicamente en pruebas negativas: no acredita disponibilidad de ninguna máquina específica y tampoco debe aceptarse como requisito de un ejercicio curado. Así se evita que una máquina distinta habilite un ejercicio que el usuario no puede realizar.
+
+
+## Evidencia de feedback por ejercicio completo y dolor — 21/11/2026
+
+La ruta de feedback muscular automática debe distinguir una sesión marcada como completada de un ejercicio cuyas series de trabajo realmente se completaron. Un registro de sesión puede estar completo aunque un ejercicio concreto haya omitido series por tiempo, material, fatiga u otro motivo.
+
+- El mapeador solo considera evidencia de volumen completada cuando el feedback del ejercicio confirma que las series planificadas coinciden con la prescripción y todas las series de trabajo están marcadas como completadas. Un feedback ausente sigue siendo neutral; un feedback presente sin recuentos verificables o con series omitidas no puede justificar añadir ni retirar series por esta ruta.
+- `skippedSetReason = pain` se conserva como señal de seguridad independiente del campo de molestias. Bloquea los ajustes ordinarios de volumen y produce una propuesta de pausa/revisión.
+- Las omisiones por tiempo, equipamiento, enfermedad, motivación u otros motivos no se reinterpretan como evidencia de dosis insuficiente o excesiva. La adaptación específica por ejercicio mantiene su propia lógica para señales repetidas de fatiga.
+- No cambia ningún endpoint ni DTO. Android ya envía `plannedSets`, `completedSets`, `skippedSetReason` y el detalle de las series de trabajo; el backend endurece únicamente la interpretación de ese feedback.
