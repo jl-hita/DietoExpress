@@ -257,3 +257,28 @@ La evaluación conserva las series primarias/secundarias brutas y las frecuencia
 - El selector reserva accesorios directos de cuádriceps cuando el volumen de glúteos está a seis series del objetivo o menos y el volumen efectivo de cuádriceps sigue por debajo del centro; este margen anticipa las series adicionales que el asignador puede añadir después a los compuestos.
 - Estos rangos son política inicial del producto inspirada en ACSM 2026, no rangos oficiales del ACSM ni mínimos universales. El Position Stand respalda volúmenes de al menos 10 series y describe rendimientos decrecientes alrededor de 18–20 series semanales.
 
+
+
+## Actualización 2026-11-21: alternativas progresables de bandas y peso corporal
+
+La matriz anterior no contenía un perfil realmente limitado a bandas y peso corporal: HomeGymWithBandsAndBall también ofrecía barra, mancuernas, banco, kettlebell y dominadas. Además, la primera curation excluía band-assisted-pull-ups y no incluía varios compuestos de RepDB con metadatos completos. Eso hacía que la prueba de un usuario con bandas y peso corporal fallara antes de generar una rutina.
+
+Se amplía la curation de 97 a 104 ejercicios con siete IDs presentes en el dataset fuente:
+
+- bodyweight-squat: patrón de sentadilla para perfiles sin carga externa.
+- bodyweight-reverse-lunge: patrón unilateral para días de tren inferior sin mancuernas.
+- banded-overhead-press: empuje vertical con banda.
+- banded-standing-row: remo horizontal con banda.
+- banded-push-up: empuje horizontal con resistencia creciente; nivel mínimo intermedio.
+- band-pull-through: bisagra de cadera con banda, alternativa de carga limitada.
+- band-assisted-pull-ups: progresión hacia dominadas sin asistencia.
+
+Se mantienen las prioridades de selección: los básicos cargables (barra, máquina, polea y mancuernas) siguen ganando frente a bandas o peso corporal cuando ambos son compatibles y comparables. Las alternativas de banda/peso corporal solo ganan cuando el material disponible o el nivel hacen que sean la opción adecuada. band-assisted-pull-ups exige barra de dominadas y banda, aunque el campo de equipo de RepDB solo enumere la banda: sus propias instrucciones requieren anclarla a una barra.
+
+No se incorporan automáticamente todos los ejercicios que contienen “band” en el nombre. banded-romanian-deadlift se describe en RepDB como calentamiento/aprendizaje de bisagra y banded-squat como variante de peso corporal para enseñar la trayectoria de rodilla; no se usan como sustitutos de un básico progresable. Los movimientos de activación/rehabilitación y los estiramientos con banda continúan fuera del generador general.
+
+La evaluación v9 añade un perfil de prueba BandsOnly con resistance-band y bodyweight, sin barra de dominadas. El generador debe producir las sesiones con sentadilla corporal, empujes con banda, remo con banda y bisagra con banda; cuando no hay tracción vertical compatible, conserva el remo horizontal y emite una advertencia explícita en vez de duplicar el mismo ejercicio o fallar toda la rutina. No se afirma cobertura vertical de tracción en ese perfil. La matriz pasa de 1.485 a 1.782 escenarios (seis perfiles, once combinaciones de split/días, tres objetivos, tres niveles y tres presupuestos).
+
+El mapeo de estímulo efectivo añade bíceps como contribución secundaria revisada en el remo con banda y las dominadas asistidas con banda; los otros cinco IDs nuevos cuentan solo sus grupos primarios. La evaluación estructural y de duración sigue sin demostrar idoneidad individual ni sustituir la revisión profesional.
+
+Fuentes de metadatos de RepDB: https://exercise-dataset.com/exercise/bodyweight-squat/, https://exercise-dataset.com/exercise/bodyweight-reverse-lunge/, https://exercise-dataset.com/exercise/banded-overhead-press/, https://exercise-dataset.com/exercise/banded-standing-row/, https://exercise-dataset.com/exercise/banded-push-up/, https://exercise-dataset.com/exercise/band-pull-through/ y https://exercise-dataset.com/exercise/band-assisted-pull-ups/. Se conserva la atribución de RepDB ya existente en la aplicación.

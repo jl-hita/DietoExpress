@@ -75,7 +75,7 @@ internal static class RepDbExerciseAutoReviewer
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var requiredEquipment = MapEquipment(equipment ?? "", isBodyweight);
+        var requiredEquipment = MapEquipment(id, equipment ?? "", isBodyweight);
         if (requiredEquipment is null) return null;
         // Some RepDB exercises declare extra mandatory equipment in tags rather than equipment.
         // A tibialis raise needs a bench to support the working leg as well as the kettlebell.
@@ -102,22 +102,22 @@ internal static class RepDbExerciseAutoReviewer
         // ambiguous substrings (for example "row" inside "crow") from deciding biomechanics.
         var explicitPattern = id.ToLowerInvariant() switch
         {
-            "ohp" or "dumbbell-shoulder-press" or "machine-shoulder-press" => "VerticalPush",
+            "ohp" or "dumbbell-shoulder-press" or "machine-shoulder-press" or "banded-overhead-press" => "VerticalPush",
             "cable-crunch" or "ab-wheel-rollout" or "cable-pallof-press" or "side-plank" or "dumbbell-farmers-walk"
                 or "machine-seated-crunch" or "dead-bug" or "hanging-knee-raise" or "captains-chair-knee-raise" => "Core",
             "machine-back-extension" or "glute-bridge" => "Hinge",
             "db-squat" or "horizontal-leg-press" => "Squat",
             "chest-supported-kettlebell-row" or "kneeling-cable-row" or "one-arm-seated-cable-row" => "HorizontalPull",
-            "lat-pulldown" or "v-bar-lat-pulldown" or "pull-up" or "chin-ups" or "assisted-pull-ups" => "VerticalPull",
+            "lat-pulldown" or "v-bar-lat-pulldown" or "pull-up" or "chin-ups" or "assisted-pull-ups" or "band-assisted-pull-ups" => "VerticalPull",
             "bench-press" or "db-bench-press" or "incline-bench-press" or "incline-db-press"
                 or "smith-machine-bench-press" or "smith-machine-incline-bench-press"
-                or "chest-press-machine" or "push-up" or "knee-push-ups" or "incline-push-ups" => "HorizontalPush",
+                or "chest-press-machine" or "push-up" or "knee-push-ups" or "incline-push-ups" or "banded-push-up" => "HorizontalPush",
             "barbell-row" or "single-arm-db-row" or "chest-supported-db-row"
-                or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" => "HorizontalPull",
-            "squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" => "Squat",
+                or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" or "banded-standing-row" => "HorizontalPull",
+            "squat" or "bodyweight-squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" => "Squat",
             "deadlift" or "hex-bar-deadlift" or "romanian-deadlift"
-                or "dumbbell-romanian-deadlift" or "hip-thrust" or "plate-loaded-glute-drive" => "Hinge",
-            "bulgarian-split-squat" or "reverse-lunge" or "step-ups" => "SingleLeg",
+                or "dumbbell-romanian-deadlift" or "band-pull-through" or "hip-thrust" or "plate-loaded-glute-drive" => "Hinge",
+            "bulgarian-split-squat" or "reverse-lunge" or "bodyweight-reverse-lunge" or "step-ups" => "SingleLeg",
             // Knee-flexion hamstring work is isolation, not a hip hinge. Keep these exercises
             // available to the accessory selector instead of letting deadlift variants displace them.
             "leg-curl" or "seated-leg-curl" or "nordic-hamstring-curl"
@@ -182,7 +182,11 @@ internal static class RepDbExerciseAutoReviewer
             Has(text, "barbell squat", "back squat", "front squat", "sentadilla con barra",
                 "sentadilla trasera", "sentadilla frontal")) return 100;
         if (Has(text, "leg press", "prensa de piernas", "hack squat")) return 98;
-        if (Has(text, "bodyweight", "banded", "resistance band", "trx", "ring", "assisted")) return 62;
+        // A resistance band adds external load and can be progressed. Keep banded compounds
+        // ahead of an easier bodyweight regression for users who can already handle it, while
+        // scalable barbell, machine, cable and free-weight basics retain higher priority.
+        if (Has(text, "band")) return 82;
+        if (Has(text, "bodyweight", "trx", "ring", "assisted")) return 62;
         if (Has(text, "bench press", "press de banca", "lat pulldown", "jalon al pecho",
             "seated cable row", "remo sentado en polea", "romanian deadlift",
             "peso muerto rumano", "deadlift", "peso muerto", "hip thrust",
@@ -252,39 +256,63 @@ internal static class RepDbExerciseAutoReviewer
         return null;
     }
 
-    private static string[]? MapEquipment(string value, bool? bodyweight)
+    // A generic RepDB value such as "machine" is not sufficient to decide whether a patient has the
+    // equipment. Curated IDs map it to the actual machine required by that exercise. Unknown generic
+    // machine records remain pending for manual review instead of becoming compatible with any gym machine.
+    private static readonly IReadOnlyDictionary<string, string> SpecificMachineEquipmentByExerciseId =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["assisted-pull-ups"] = "assisted-pull-up-machine",
+            ["chest-press-machine"] = "chest-press-machine",
+            ["chest-supported-machine-row"] = "chest-supported-row-machine",
+            ["hip-abduction"] = "hip-abduction-machine",
+            ["hip-adduction"] = "hip-adduction-machine",
+            ["machine-back-extension"] = "back-extension-machine",
+            ["machine-bicep-curl"] = "bicep-curl-machine",
+            ["machine-calf-raise"] = "calf-raise-machine",
+            ["machine-chest-fly"] = "chest-fly-machine",
+            ["machine-reverse-fly"] = "reverse-fly-machine",
+            ["machine-seated-crunch"] = "ab-crunch-machine",
+            ["machine-shoulder-press"] = "shoulder-press-machine",
+            ["pec-deck"] = "pec-deck-machine",
+            ["plate-loaded-glute-drive"] = "glute-drive-machine",
+            ["seated-calf-raise"] = "seated-calf-raise-machine",
+            ["single-arm-plate-loaded-lateral-raise"] = "plate-loaded-lateral-raise-machine",
+            ["standing-calf-raise"] = "standing-calf-raise-machine",
+            ["v-bar-lat-pulldown"] = "lat-pulldown-machine"
+        };
+
+    private static string[]? MapEquipment(string exerciseId, string value, bool? bodyweight)
     {
+        // RepDB lists the band as primary equipment, but its instructions require a pull-up bar anchor.
+        if (string.Equals(exerciseId, "band-assisted-pull-ups", StringComparison.OrdinalIgnoreCase))
+            return ["pull-up-bar", "resistance-band"];
+
+        if (SpecificMachineEquipmentByExerciseId.TryGetValue(exerciseId, out var specificMachine))
+            return [specificMachine];
+
         var v = Normalize(value);
-        if (bodyweight == true || Has(v, "bodyweight", "none", "no equipment", "peso corporal", "ninguno", "sin material"))
-            return [];
+        // Resolve explicit equipment before the broad bodyweight flag. RepDB can mark a movement
+        // as bodyweight while still requiring a pull-up bar, bench or band.
+        if (Has(v, "pull-up bar", "pull up bar", "pull_up_bar", "barra de dominadas")) return ["pull-up-bar"];
         if (Has(v, "trap bar", "trap_bar")) return ["trap-bar"];
         if (Has(v, "barbell", "barra")) return ["barbell"];
         if (Has(v, "dumbbell", "mancuerna")) return ["dumbbell"];
         if (Has(v, "kettlebell", "pesa rusa")) return ["kettlebell"];
         if (Has(v, "cable", "polea")) return ["cable"];
-        if (Has(v, "flat bench", "bench", "banco")) return ["bench"];
-        if (Has(v, "pull-up bar", "pull up bar", "pull_up_bar", "barra de dominadas")) return ["pull-up-bar"];
-        if (Has(v, "suspension trainer", "suspension_trainer", "trx")) return ["suspension-trainer"];
-        if (Has(v, "loop band", "loop_band", "resistance band", "resistance_band", "band")) return ["resistance-band"];
-        if (Has(v, "rings", "gymnastic rings")) return ["rings"];
-        if (Has(v, "dip station", "dip_station")) return ["dip-station"];
         if (Has(v, "leg press", "leg_press")) return ["leg-press-machine"];
         if (Has(v, "hack squat", "hack_squat")) return ["hack-squat-machine"];
         if (Has(v, "leg curl", "leg_curl")) return ["leg-curl-machine"];
         if (Has(v, "leg extension", "leg_extension")) return ["leg-extension-machine"];
         if (Has(v, "smith")) return ["smith-machine"];
-        if (Has(v, "hip abduction machine", "hip_abduction_machine", "hip adduction machine", "hip_adduction_machine")) return ["machine"];
-        if (Has(v, "back extension machine", "back_extension_machine", "bicep curl machine", "bicep_curl_machine",
-            "chest fly machine", "chest_fly_machine", "preacher curl machine", "preacher_curl_machine",
-            "reverse fly machine", "reverse_fly_machine", "ab crunch machine", "ab_crunch_machine",
-            "shoulder press machine", "shoulder_press_machine", "tricep extension machine", "tricep_extension_machine",
-            "standing calf raise machine", "standing_calf_raise_machine", "seated calf raise machine", "seated_calf_raise_machine",
-            "plate loaded lateral raise machine", "plate_loaded_lateral_raise_machine", "hip thrust machine", "hip_thrust_machine",
-            "plate loaded dip machine", "plate_loaded_dip_machine", "shrug machine", "shrug_machine",
-            "chest press machine", "chest_press_machine", "leg press", "leg_press", "hack squat", "hack_squat",
-            "leg curl", "leg_curl", "leg extension", "leg_extension", "pec deck", "pec_deck")) return ["machine"];
-        if (Has(v, "machine", "máquina", "maquina")) return ["machine"];
-        if (Has(v, "resistance band", "band", "banda elástica", "banda elastica")) return ["resistance-band"];
+        // Never let a bodyweight flag turn an unidentified machine into an equipment-free exercise.
+        // A specific machine ID above is the only automatic exception; otherwise keep it for manual review.
+        if (Has(v, "machine", "máquina", "maquina")) return null;
+        if (Has(v, "flat bench", "bench", "banco")) return ["bench"];
+        if (Has(v, "suspension trainer", "suspension_trainer", "trx")) return ["suspension-trainer"];
+        if (Has(v, "loop band", "loop_band", "resistance band", "resistance_band", "band")) return ["resistance-band"];
+        if (Has(v, "rings", "gymnastic rings")) return ["rings"];
+        if (Has(v, "dip station", "dip_station")) return ["dip-station"];
         if (Has(v, "ez-bar", "ez_bar", "curl bar")) return ["ez-bar"];
         if (Has(v, "medicine ball", "medicine_ball", "balón medicinal", "balon medicinal")) return ["medicine-ball"];
         if (Has(v, "stability ball", "stability_ball")) return ["stability-ball"];
@@ -296,9 +324,10 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(v, "glute ham developer", "glute_ham_developer")) return ["glute-ham-developer"];
         if (Has(v, "battle rope", "battle_rope")) return ["battle-rope"];
         if (Has(v, "treadmill", "elliptical", "ski erg", "ski_erg", "stair climber", "stair_climber", "bicycle", "stationary bike", "stationary_bike", "jump rope", "jump_rope")) return null;
+        if (bodyweight == true || Has(v, "bodyweight", "none", "no equipment", "peso corporal", "ninguno", "sin material"))
+            return [];
         return null;
     }
-
 
     /// <summary>
     /// Creates a conservative Spanish catalogue description from available source metadata.
@@ -438,6 +467,13 @@ internal static class RepDbExerciseAutoReviewer
         var key = id.ToLowerInvariant();
         string[]? instructions = key switch
         {
+            "banded-push-up" =>
+                ["Coloca la banda elástica por la parte alta de la espalda, justo por debajo del cuello, y sujeta cada extremo bajo la palma correspondiente.",
+                 "Adopta una plancha alta con las manos algo más abiertas que los hombros y el cuerpo alineado desde la cabeza hasta los talones.",
+                 "Flexiona los codos aproximadamente a 45 grados y acerca el pecho al suelo sin perder la alineación.",
+                 "Empuja el suelo y extiende los brazos contra la tensión creciente de la banda hasta volver a la plancha.",
+                 "Mantén el abdomen activo y las caderas niveladas durante toda la repetición.",
+                 "Completa las repeticiones previstas; apoya las rodillas si no puedes conservar la alineación."],
             "push-up" or "knee-push-ups" =>
                 ["Coloca las manos algo más abiertas que los hombros y mantén el cuerpo alineado desde la cabeza hasta las rodillas o los pies.",
                  "Flexiona los codos para acercar el pecho al suelo y empuja después hasta recuperar la posición inicial, sin perder la alineación."],
@@ -449,22 +485,42 @@ internal static class RepDbExerciseAutoReviewer
                 or "chest-press-machine" =>
                 ["Apoya firmemente los pies y la espalda en el banco o respaldo; coloca las manos a una anchura cómoda y controla la posición de los hombros.",
                  "Desciende la carga hacia el pecho de forma controlada y empuja hasta extender los brazos sin bloquear bruscamente los codos."],
+            "banded-standing-row" =>
+                ["Ancla la banda elástica delante de ti, aproximadamente a la altura del pecho, y retrocede hasta notar una tensión ligera con los brazos extendidos.",
+                 "Colócate de pie con los pies a la anchura de las caderas, las rodillas ligeramente flexionadas y el tronco estable.",
+                 "Lleva los codos hacia atrás junto a las costillas hasta acercar las manos a la parte baja del torso.",
+                 "Junta suavemente los omóplatos sin encoger los hombros y vuelve despacio resistiendo la banda."],
             "barbell-row" or "single-arm-db-row" or "chest-supported-db-row"
                 or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" =>
                 ["Adopta una posición estable, mantén la columna neutra y deja que los brazos se extiendan sin perder el control del tronco.",
                  "Lleva los codos hacia atrás acercando la carga al torso y vuelve lentamente a la posición inicial."],
+            "banded-overhead-press" =>
+                ["Pisa el centro de la banda con ambos pies y sujeta los extremos a la altura de los hombros, con las muñecas alineadas.",
+                 "Mantén el tronco firme y las costillas controladas para evitar arquear la zona lumbar.",
+                 "Empuja las manos verticalmente hasta extender los brazos, siguiendo una trayectoria cómoda.",
+                 "Haz una pausa breve arriba y baja las manos a los hombros de forma controlada."],
             "ohp" or "dumbbell-shoulder-press" or "machine-shoulder-press" =>
                 ["Coloca la carga a la altura de los hombros, con el tronco firme y las muñecas alineadas con los antebrazos.",
                  "Empuja verticalmente hasta extender los brazos de forma controlada y baja de nuevo hasta la posición inicial."],
+            "band-assisted-pull-ups" =>
+                ["Pasa la banda por encima de la barra de dominadas y coloca un pie dentro, comprobando que queda bien sujeta.",
+                 "Agarra la barra con las palmas hacia delante y las manos aproximadamente a la anchura de los hombros.",
+                 "Inicia el tirón desde la espalda y lleva el pecho hacia la barra impulsando los codos hacia abajo.",
+                 "Desciende lentamente hasta quedar colgado con los brazos extendidos, evitando que la banda te haga rebotar."],
             "lat-pulldown" or "v-bar-lat-pulldown" or "assisted-pull-ups" or "pull-up" or "chin-ups" =>
                 ["Sujeta la barra con el agarre indicado y estabiliza el tronco, evitando impulsarte o balancearte.",
                  "Lleva los codos hacia abajo hasta acercar la barra o el cuerpo al punto previsto y regresa lentamente con control."],
-            "squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" =>
+            "squat" or "bodyweight-squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" =>
                 ["Coloca los pies en una posición estable y ajusta la carga para poder mantener el recorrido con control.",
                  "Flexiona caderas y rodillas siguiendo la dirección de los pies; empuja el suelo para volver a la posición inicial."],
-            "bulgarian-split-squat" or "reverse-lunge" or "step-ups" =>
+            "bulgarian-split-squat" or "bodyweight-reverse-lunge" or "reverse-lunge" or "step-ups" =>
                 ["Adopta una posición unilateral estable y reparte el apoyo sin perder el equilibrio ni la alineación de la rodilla.",
                  "Desciende o sube de forma controlada, impulsándote con la pierna de trabajo y evitando rebotes."],
+            "band-pull-through" =>
+                ["Ancla la banda a un punto bajo y estable detrás de ti, pasa la banda entre las piernas y aléjate hasta notar tensión.",
+                 "Coloca los pies a la anchura de las caderas y flexiona ligeramente las rodillas, manteniendo la espalda neutra.",
+                 "Lleva la cadera hacia atrás para tensar la banda y después extiéndela llevando la pelvis hacia delante.",
+                 "Contrae los glúteos al terminar sin hiperextender la zona lumbar y regresa lentamente a la bisagra."],
             "deadlift" or "hex-bar-deadlift" or "romanian-deadlift" or "dumbbell-romanian-deadlift"
                 or "hip-thrust" or "barbell-glute-bridge" =>
                 ["Coloca los pies y la carga de forma estable; mantén el abdomen activo y la columna en posición neutra.",

@@ -123,6 +123,64 @@ public sealed class TrainingProgramQualityDiagnosticsTests
     }
 
     [Fact]
+    public void LargeWithinWeekSessionImbalanceProducesANonBlockingReviewWarning()
+    {
+        var plan = Plan("Hypertrophy",
+            Session(1, DayOfWeek.Monday, "Pierna",
+                Exercise("squat", "Sentadilla", 5, [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps], []),
+                Exercise("band-pull-through", "Pull-through con banda", 5, [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings], []),
+                Exercise("reverse-lunge", "Zancada", 5, [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps], []),
+                Exercise("bodyweight-calf-raise", "Gemelos", 5, [TrainingMuscleGroup.Calves], []),
+                Exercise("reverse-nordic-curl", "Reverse Nordic", 5, [TrainingMuscleGroup.Quadriceps], []),
+                Exercise("banded-standing-curl", "Curl femoral con banda", 5, [TrainingMuscleGroup.Hamstrings], [])),
+            Session(1, DayOfWeek.Wednesday, "Empuje",
+                Exercise("banded-push-up", "Flexión con banda", 5, [TrainingMuscleGroup.Chest, TrainingMuscleGroup.Triceps], []),
+                Exercise("banded-overhead-press", "Press con banda", 5, [TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Triceps], [])),
+            Session(1, DayOfWeek.Friday, "Tracción",
+                Exercise("banded-standing-row", "Remo con banda", 5, [TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack], [])));
+
+        var report = TrainingProgramQualityAnalyzer.Analyze(plan);
+
+        Assert.Contains(report.Warnings, warning =>
+            warning.Contains("Pierna", StringComparison.Ordinal) &&
+            warning.Contains("30 series", StringComparison.Ordinal) &&
+            warning.Contains("Tracción", StringComparison.Ordinal) &&
+            warning.Contains("5", StringComparison.Ordinal) &&
+            warning.Contains("umbral interno de revisión de 12", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void BalancedSessionsDoNotProduceTheSessionImbalanceWarning()
+    {
+        var plan = Plan("Hypertrophy",
+            Session(1, DayOfWeek.Monday, "A", Exercise("a", "A", 4, [TrainingMuscleGroup.Chest], []), Exercise("b", "B", 4, [TrainingMuscleGroup.Lats], [])),
+            Session(1, DayOfWeek.Wednesday, "B", Exercise("c", "C", 4, [TrainingMuscleGroup.Quadriceps], []), Exercise("d", "D", 4, [TrainingMuscleGroup.Hamstrings], [])),
+            Session(1, DayOfWeek.Friday, "C", Exercise("e", "E", 4, [TrainingMuscleGroup.Glutes], []), Exercise("f", "F", 4, [TrainingMuscleGroup.Deltoids], [])));
+
+        var report = TrainingProgramQualityAnalyzer.Analyze(plan);
+
+        Assert.DoesNotContain(report.Warnings, warning =>
+            warning.Contains("el volumen está muy concentrado entre sesiones", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void MissingMuscleWarningDescribesPlanCoverageNotCatalogAvailability()
+    {
+        var session = Session(1, DayOfWeek.Monday, "Torso",
+            Exercise("bench-press", "Press banca", 2,
+                [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps]));
+
+        var result = TrainingProgramVolumeAllocator.Allocate(
+            [session], TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null, 60);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.Contains(result.Warnings, warning =>
+            warning.Contains("el plan no incluye ningún ejercicio", StringComparison.Ordinal));
+        Assert.DoesNotContain(result.Warnings, warning =>
+            warning.Contains("no hay ningún ejercicio disponible", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ThirtyWorkingSetsDoNotTriggerTheSessionDensityWarning()
     {
         var exercises = Enumerable.Range(1, 6)

@@ -21,7 +21,6 @@ internal static class RepDbExerciseCuration
         // Explicit low-value/redundant variants; this is not a blanket exclusion of isolation work.
         "cheat-curl",
         "cable-hammer-curl",
-        "band-assisted-pull-ups",
         "crunches",
         "balance-dome-crunch",
         "cross-body-crunch",
@@ -123,33 +122,40 @@ internal static class RepDbExerciseCuration
         "push-up",
         "knee-push-ups",
         "incline-push-ups",
+        "banded-push-up",
         "barbell-row",
         "single-arm-db-row",
         "chest-supported-db-row",
         "seated-cable-row",
         "chest-supported-machine-row",
         "t-bar-row",
+        "banded-standing-row",
         "ohp",
         "dumbbell-shoulder-press",
         "machine-shoulder-press",
+        "banded-overhead-press",
         "lat-pulldown",
         "straight-arm-pulldown",
         "v-bar-lat-pulldown",
         "assisted-pull-ups",
+        "band-assisted-pull-ups",
         "pull-up",
         "chin-ups",
         "squat",
+        "bodyweight-squat",
         "front-squat",
         "goblet-squat",
         "leg-press",
         "hack-squat",
         "bulgarian-split-squat",
         "reverse-lunge",
+        "bodyweight-reverse-lunge",
         "step-ups",
         "deadlift",
         "hex-bar-deadlift",
         "romanian-deadlift",
         "dumbbell-romanian-deadlift",
+        "band-pull-through",
         "hip-thrust",
         "plate-loaded-glute-drive",
         "barbell-glute-bridge",
@@ -225,12 +231,12 @@ internal static class RepDbExerciseCuration
     {
         ["squat"] = ["barbell-box-squat", "bodyweight-squat", "box-squat", "bulgarian-split-squat", "db-squat", "front-squat", "goblet-squat", "hack-squat", "heel-elevated-squat", "smith-machine-squat", "squat", "sumo-squat", "zercher-squat"],
         ["bicep-curl"] = ["barbell-curl", "barbell-preacher-curl", "bicep-curl", "cable-curl", "cable-hammer-curl", "concentration-curl", "ez-bar-curl", "hammer-curl", "incline-db-curl", "machine-bicep-curl", "preacher-curl", "trx-bicep-curl", "reverse-curl", "zottman-curl"],
-        ["row"] = ["barbell-row", "bent-over-db-row", "chest-supported-db-row", "chest-supported-kettlebell-row", "chest-supported-machine-row", "inverted-row", "one-arm-kettlebell-row", "one-arm-seated-cable-row", "seated-cable-row", "single-arm-db-row", "t-bar-row", "trx-row"],
+        ["row"] = ["barbell-row", "banded-standing-row", "bent-over-db-row", "chest-supported-db-row", "chest-supported-kettlebell-row", "chest-supported-machine-row", "inverted-row", "one-arm-kettlebell-row", "one-arm-seated-cable-row", "seated-cable-row", "single-arm-db-row", "t-bar-row", "trx-row"],
         ["bench-press"] = ["bench-press", "cable-chest-press", "chest-press-machine", "close-grip-bench-press", "db-bench-press", "decline-bench-press", "dumbbell-floor-press", "incline-bench-press", "incline-db-press", "smith-machine-bench-press", "smith-machine-incline-bench-press", "trx-chest-press"],
-        ["deadlift"] = ["banded-romanian-deadlift", "bodyweight-good-morning", "cable-pull-through", "deadlift", "dumbbell-deadlift", "dumbbell-romanian-deadlift", "good-morning", "hex-bar-deadlift", "kettlebell-deadlift", "romanian-deadlift", "single-leg-romanian-deadlift", "sumo-deadlift"],
-        ["overhead-press"] = ["arnold-press", "double-kettlebell-overhead-press", "dumbbell-shoulder-press", "machine-shoulder-press", "ohp", "one-arm-dumbbell-shoulder-press", "one-arm-kettlebell-shoulder-press", "seated-barbell-overhead-press", "seated-db-press", "smith-machine-shoulder-press"],
+        ["deadlift"] = ["band-pull-through", "banded-romanian-deadlift", "bodyweight-good-morning", "cable-pull-through", "deadlift", "dumbbell-deadlift", "dumbbell-romanian-deadlift", "good-morning", "hex-bar-deadlift", "kettlebell-deadlift", "romanian-deadlift", "single-leg-romanian-deadlift", "sumo-deadlift"],
+        ["overhead-press"] = ["arnold-press", "banded-overhead-press", "double-kettlebell-overhead-press", "dumbbell-shoulder-press", "machine-shoulder-press", "ohp", "one-arm-dumbbell-shoulder-press", "one-arm-kettlebell-shoulder-press", "seated-barbell-overhead-press", "seated-db-press", "smith-machine-shoulder-press"],
         ["plank"] = ["copenhagen-plank", "copenhagen-plank-raises", "high-plank", "incline-plank-hold", "plank", "plank-knee-tuck", "reverse-plank", "side-plank", "side-plank-leg-lift", "trx-plank", "trx-side-plank"],
-        ["push-up"] = ["archer-push-ups", "close-grip-push-ups", "decline-push-up", "diamond-push-ups", "incline-push-ups", "knee-push-ups", "pike-push-ups", "push-up", "ring-push-up", "wide-grip-push-ups"],
+        ["push-up"] = ["archer-push-ups", "banded-push-up", "close-grip-push-ups", "decline-push-up", "diamond-push-ups", "incline-push-ups", "knee-push-ups", "pike-push-ups", "push-up", "ring-push-up", "wide-grip-push-ups"],
         ["pull-up"] = ["assisted-pull-ups", "band-assisted-pull-ups", "chin-ups", "close-grip-pull-ups", "lat-pulldown", "negative-pull-ups", "neutral-grip-pull-ups", "pull-up", "scapular-pull-ups", "weighted-pull-up", "wide-grip-pull-ups"],
         ["lunge"] = ["barbell-lunge", "barbell-reverse-lunge", "bodyweight-reverse-lunge", "db-lunge", "kettlebell-goblet-lunge", "kettlebell-reverse-lunge", "lunge", "reverse-lunge", "side-lunge", "split-squat", "walking-lunge", "smith-machine-reverse-lunge"],
         ["hip-thrust"] = ["barbell-glute-bridge", "banded-hip-thrust", "dumbbell-hip-thrust", "glute-bridge", "hip-thrust", "plate-loaded-glute-drive", "single-leg-glute-bridge", "single-leg-hip-thrust", "smith-machine-hip-thrust"],
@@ -320,6 +326,14 @@ internal static class RepDbExerciseCuration
                               || x.Equals("strength", StringComparison.OrdinalIgnoreCase));
             if (goals.Count == 0) goals.Add("endurance");
         }
+
+        // RepDB classifies this compound resistance-band row as Strength but currently tags
+        // only hypertrophy in its goal list. Keep the source payload intact and apply this
+        // reviewed local goal override: elastic-band resistance training is a valid strength
+        // modality, including when no cable, barbell or pull-up bar is available.
+        if (id.Equals("banded-standing-row", StringComparison.OrdinalIgnoreCase) &&
+            !goals.Any(goal => goal.Equals("strength", StringComparison.OrdinalIgnoreCase)))
+            goals.Add("strength");
 
         if (id.Equals("extended-side-angle", StringComparison.OrdinalIgnoreCase))
             goals = ["mobility"];

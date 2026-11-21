@@ -27,11 +27,11 @@ public static class TrainingMuscleFeedbackAdapter
         {
             var recent = group.OrderBy(item => item.Date).TakeLast(3).ToArray();
             if (recent.Length == 0) continue;
-            if (EqualsValue(recent[^1].Discomfort, "strong"))
+            if (recent.Any(item => item.PainReported) || EqualsValue(recent[^1].Discomfort, "strong"))
             {
                 blockedExercises.Add(group.Key);
                 decisions.Add(new(TrainingMuscleFeedbackAction.PauseExercise, null, group.Key,
-                    "Has indicado molestias fuertes en este ejercicio. Se pausa su progresión y debe revisarlo una persona antes de seguir."));
+                    "Has indicado dolor o molestias fuertes en este ejercicio. Se pausa su progresión y debe revisarlo una persona antes de seguir."));
             }
             else if (recent.Count(item => EqualsValue(item.Discomfort, "mild")) >= 2)
             {
@@ -59,7 +59,8 @@ public static class TrainingMuscleFeedbackAdapter
                 session.Length > 0 && session.All(item => item.SessionCompleted &&
                     EqualsValue(item.Stimulus, "low") &&
                     EqualsValue(item.PreFatigue, "recovered") &&
-                    EqualsValue(item.Discomfort, "none"));
+                    EqualsValue(item.Discomfort, "none") &&
+                    !item.PainReported);
 
             var last2 = sessions.TakeLast(2).ToArray();
             if (last2.Length == 2 && last2.All(LowAndRecoveredWithoutDiscomfort) && planned < ceiling)
@@ -112,10 +113,12 @@ public enum TrainingMuscleFeedbackAction { AddSet, ReduceSet, SuggestSwap, Pause
 /// <param name="Stimulus">low | adequate | high (null = not answered).</param>
 /// <param name="Discomfort">none | mild | strong.</param>
 /// <param name="PreFatigue">recovered | loaded.</param>
-/// <param name="SessionCompleted">False for partial or not-completed sessions; these never count as volume evidence.</param>
+/// <param name="SessionCompleted">False when the session or this exercise's prescribed working sets were incomplete.</param>
+/// <param name="PainReported">A pain skip reason is a safety blocker even if the discomfort answer is missing.</param>
 public sealed record TrainingMuscleFeedbackExposure(
     DateOnly Date, string ExerciseId, IReadOnlyList<string> EffectiveMuscles, int Sets,
-    string? Stimulus, string? Discomfort, string? PreFatigue, bool SessionCompleted = true);
+    string? Stimulus, string? Discomfort, string? PreFatigue, bool SessionCompleted = true,
+    bool PainReported = false);
 
 public sealed record TrainingMuscleFeedbackDecision(
     TrainingMuscleFeedbackAction Action, string? Muscle, string ExerciseId, string Explanation);

@@ -160,12 +160,19 @@ public static class TrainingExerciseProgressionEngine
             if (load is not null && load != weights[0]) return null;
             load = weights[0];
 
+            var reason = exposure.SkippedSetReason;
+            // An explicit non-load reason (time, equipment, illness, motivation, pain, "other")
+            // makes the exposure unsuitable for inferring that the prescribed weight was too high.
+            // An absent reason is tolerated only when completed sets themselves fell below the rep minimum.
+            if (reason is not null &&
+                !string.Equals(reason, "load_too_heavy", StringComparison.OrdinalIgnoreCase))
+                return null;
+
             var completed = exposure.WorkingSets.Where(set => set.Completed).ToArray();
             var belowMinimum = completed.Any(set => set.Repetitions is < 1 || set.Repetitions < prescription.MinRepetitions);
             var incomplete = completed.Length < prescription.PlannedWorkingSets;
-            var reason = exposure.SkippedSetReason;
-            var reasonPointsToLoad = reason is null or "load_too_heavy" or "other";
-            if (!(belowMinimum || (incomplete && reasonPointsToLoad))) return null;
+            var incompleteBecauseOfLoad = string.Equals(reason, "load_too_heavy", StringComparison.OrdinalIgnoreCase);
+            if (!(belowMinimum || (incomplete && incompleteBecauseOfLoad))) return null;
         }
 
         var current = load!.Value;

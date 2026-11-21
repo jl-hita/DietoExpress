@@ -1,17 +1,13 @@
-# Public exercise image audit feed
-
-The read-only endpoint returns **only exercises that have no available illustration**, irrespective of review status, ownership or source.
+# Auditoría protegida de imágenes del catálogo de ejercicios
 
 ## Endpoint
 
 `GET /api/exercise-catalog/images/audit`
 
-No authentication or API key is required.
+**Acceso restringido:** requiere autenticación y el rol `superadmin`. No es un feed público y no debe marcarse como `AllowAnonymous`.
 
-The `items` array contains the complete catalog metadata for every exercise with neither a stored image nor a derivable RepDB image. Pending, approved and rejected records are included, as are professional-owned contributions. Exercises that already have an image are excluded.
+Devuelve únicamente los ejercicios que no tienen imagen almacenada ni imagen RepDB derivable. Incluye todos los estados de revisión y propietarios porque la auditoría controlada necesita detectar también registros pendientes/rechazados y aportaciones profesionales.
 
-The endpoint does not return image bytes or create a bulk RepDB image export. RepDB image licensing permits in-app use, not redistribution as a dataset.
+La respuesta contiene metadatos completos del catálogo, incluidos campos de revisión, contribuyente y `source_payload`. Por ese motivo debe tratarse como información interna y no publicarse, compartirse ni redistribuirse.
 
-The endpoint is read-only. Generated illustrations should be reviewed and added to Trazo's curated image seed, not written directly into either production database. Responses use `Cache-Control: no-store`.
-
-> Temporary operational choice: this feed is public to simplify the image-generation workflow. Reassess access controls before using it as a general-purpose public API.
+El endpoint es de solo lectura, no devuelve bytes de imagen ni crea una exportación masiva de imágenes RepDB. Usa `Cache-Control: no-store`. Las ilustraciones generadas deben revisarse e incorporarse al seed curado de Trazo, no escribirse directamente en ninguna base de producción.

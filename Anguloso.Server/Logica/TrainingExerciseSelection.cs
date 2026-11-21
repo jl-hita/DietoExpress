@@ -67,8 +67,9 @@ internal static class TrainingExerciseSelection
     private static IEnumerable<string> Tokens(TrainingExerciseCandidate candidate) =>
         candidate.RequiredEquipment.Select(TrainingProgramGenerator.NormalizeEquipmentToken).Where(token => token.Length > 0);
 
+    // A generic "machine" token is invalid; only an identified machine can be ranked as a loaded implement.
     private static bool IsMachineToken(string token) =>
-        token.Equals("machine", StringComparison.OrdinalIgnoreCase) || token.EndsWith("-machine", StringComparison.OrdinalIgnoreCase);
+        token.EndsWith("-machine", StringComparison.OrdinalIgnoreCase);
 
     public static TrainingImplementClass ImplementClass(TrainingExerciseCandidate candidate)
     {

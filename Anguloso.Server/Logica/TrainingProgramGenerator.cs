@@ -9,8 +9,8 @@ namespace Anguloso.Server.Logica;
 ///  2. Pick the weekly split (<see cref="BuildSplit"/>) and, per session, one exercise per movement
 ///     pattern from the reviewed catalog (goal, level, equipment, exclusions; best SelectionPriority,
 ///     optionally rotated within a small curated pool, see <see cref="RotateCuratedPool"/>).
-///  3. Add 1–4 accessory exercises per session according to the session time budget and the
-///     weekly muscle deficit (<see cref="AddOptionalAccessoryExercises"/>).
+///  3. Build all base sessions, then add 1–4 accessory exercises with visibility of the complete weekly
+///     compound work and the session time budget (<see cref="AddOptionalAccessoryExercises"/>).
 ///  4. <see cref="TrainingProgramVolumeAllocator"/> distributes working sets towards weekly targets
 ///     under time and per-exercise limits.
 ///  5. Warm-up guidance, then either the explicit deload or the intra-block progression
@@ -27,9 +27,6 @@ public static class TrainingProgramGenerator
     private const int WarmupAndTransitionsMinutes = 5;
     private const decimal QuadAccessoryGluteTargetBufferSets = 6m;
     public const string EngineVersion = "0.10.0";
-    // The main lift of a strength session is raised above three sets only while the session's compound lifts stay
-    // within this share of the time offered.
-    private const decimal StrengthMainLiftTimeShare = 0.85m;
 
     public static TrainingProgramGenerationResult Generate(
         TrainingProgramGenerationRequest request,
@@ -50,7 +47,11 @@ public static class TrainingProgramGenerator
             .Distinct()
             .OrderBy(day => ((int)day + 6) % 7)
             .ToArray();
-        var split = BuildSplit(days.Length, request.Split);
+        // At the minimum 35-minute budget, strength FullBody/Automatic sessions use a compact
+        // loaded-pattern template. Preserve squat, hinge, bench/press, row and vertical pull;
+        // do not compress compound rest intervals or let the estimate exceed the user's limit.
+        var compactStrengthSession = request.Goal == TrainingGoal.Strength && request.MaximumSessionDurationMinutes == 35;
+        var split = BuildSplit(days.Length, request.Split, compactStrengthSession);
         var excluded = new HashSet<string>(request.ExcludedExerciseIds, StringComparer.OrdinalIgnoreCase);
         var equipment = new HashSet<string>(
             request.AvailableEquipment
@@ -70,7 +71,7 @@ public static class TrainingProgramGenerator
                     && x.MovementPattern == pattern
                     && x.SuitableGoals.Contains(request.Goal)
                     && (int)x.MinimumExperience <= (int)request.Experience
-                    && (equipment.Count == 0 || HasRequiredEquipment(x.RequiredEquipment, equipment))
+                    && HasRequiredEquipment(x.RequiredEquipment, equipment)
                     && !excluded.Contains(x.ExerciseId))
                 .ToArray();
             // The hinge is the only compound slot that trains the hamstrings. Whenever the profile has a hinge
@@ -123,9 +124,14 @@ public static class TrainingProgramGenerator
                         var hasHorizontalPull = requiredPatterns.Take(patternIndex)
                             .Contains(TrainingMovementPattern.HorizontalPull);
                         if (hasHorizontalPull)
+                        {
+                            selectionWarnings.Add($"{sessionTemplate.Title}: no hay un ejercicio de tracción vertical compatible con el material, el nivel y las exclusiones; se conserva la tracción horizontal disponible sin duplicarla.");
                             continue;
+                        }
 
                         compatibleCandidates = Compatible(TrainingMovementPattern.HorizontalPull);
+                        if (compatibleCandidates.Length > 0)
+                            selectionWarnings.Add($"{sessionTemplate.Title}: no hay un ejercicio de tracción vertical compatible; se sustituye por una tracción horizontal.");
                     }
 
                     // The same idea for the two patterns a limitation or a small home gym can leave empty: overhead
@@ -220,35 +226,6 @@ public static class TrainingProgramGenerator
                         candidate.SecondaryMuscleGroups.ToArray()));
                 }
 
-                // The main lift of a strength session gets its dose from the lift, not from the weekly muscle
-                // accounting: three sets for beginners, four for intermediates and five for advanced lifters, as
-                // long as the session keeps a margin inside the time offered. It is set before the accessories are
-                // chosen so they see what the session already trains.
-                if (request.Goal == TrainingGoal.Strength && prescriptions.Count > 0)
-                {
-                    var mainLiftSets = request.Experience switch
-                    {
-                        TrainingExperience.Beginner => 3,
-                        TrainingExperience.Intermediate => 4,
-                        _ => 5
-                    };
-                    for (var mainSets = mainLiftSets; mainSets > prescriptions[0].Sets; mainSets--)
-                    {
-                        var raised = prescriptions.Select((exercise, index) => index == 0 ? exercise with { Sets = mainSets } : exercise).ToArray();
-                        var raisedSession = new TrainingSessionPrescription(
-                            week, days[dayIndex], sessionTemplate.Title, WarmupAndTransitionsMinutes, raised);
-                        if (TrainingProgramVolumeAllocator.EstimateDurationSeconds(raisedSession) >
-                            request.MaximumSessionDurationMinutes * 60m * StrengthMainLiftTimeShare)
-                            continue;
-                        prescriptions[0] = raised[0];
-                        break;
-                    }
-                }
-
-                AddOptionalAccessoryExercises(
-                    request, catalog, equipment, excluded, sessions,
-                    prescriptions, week, days[dayIndex], sessionTemplate.Title, days.Length);
-
                 // Final duration is calculated after weekly sets have been allocated.
                 sessions.Add(new TrainingSessionPrescription(
                     week,
@@ -257,6 +234,20 @@ public static class TrainingProgramGenerator
                     WarmupAndTransitionsMinutes,
                     prescriptions));
             }
+        }
+
+        // Build every base session first. Accessory selection must see the complete weekly compound work,
+        // including sessions later in the split; otherwise an early day can add an isolation exercise before
+        // future squats/hinges/presses/rows have been accounted for, and the allocator cannot remove that base dose.
+        for (var sessionIndex = 0; sessionIndex < sessions.Count; sessionIndex++)
+        {
+            var session = sessions[sessionIndex];
+            var currentExercises = session.Exercises.ToList();
+            var otherSessions = sessions.Where((_, index) => index != sessionIndex).ToArray();
+            AddOptionalAccessoryExercises(
+                request, catalog, equipment, excluded, otherSessions,
+                currentExercises, session.WeekNumber, session.Day, session.Title, days.Length);
+            sessions[sessionIndex] = session with { Exercises = currentExercises };
         }
 
         // Accessory and core exercises: the allocator gives weekly volume to the compound lifts before them.
@@ -637,9 +628,8 @@ public static class TrainingProgramGenerator
 
     /// <summary>
     /// The movement patterns each session of the week really trains, in order.
-    /// Core: one direct core exercise a week by default in general fitness and hypertrophy (in the session with
-    /// fewer patterns, the first of them on a tie), none in strength, every session when the professional
-    /// prioritizes the abdominal wall.
+    /// Core: no direct abdominal exercise by default for any goal. It is included in every session only
+    /// when the professional explicitly prioritizes the abdominal wall.
     /// Strength: the session opens with a main lift that can be loaded heavily, and the sessions of the week open
     /// with different patterns when they can (squat, press, deadlift) instead of three squat-first days.
     /// </summary>
@@ -649,21 +639,13 @@ public static class TrainingProgramGenerator
         Func<TrainingMovementPattern, TrainingExerciseCandidate[]> compatible)
     {
         var everySessionHasCore = HasExplicitCorePriority(request.MuscleVolumeTargets);
-        var coreSession = request.Goal == TrainingGoal.Strength
-            ? -1
-            : Enumerable.Range(0, split.Count)
-                .Where(index => split[index].Patterns.Contains(TrainingMovementPattern.Core))
-                .OrderBy(index => split[index].Patterns.Count)
-                .ThenBy(index => index)
-                .DefaultIfEmpty(-1)
-                .First();
 
         var openedWith = new HashSet<TrainingMovementPattern>();
         var result = new IReadOnlyList<TrainingMovementPattern>[split.Count];
         for (var index = 0; index < split.Count; index++)
         {
             var patterns = split[index].Patterns
-                .Where(pattern => pattern != TrainingMovementPattern.Core || everySessionHasCore || index == coreSession)
+                .Where(pattern => pattern != TrainingMovementPattern.Core || everySessionHasCore)
                 .ToList();
             if (request.Goal == TrainingGoal.Strength && patterns.Count > 0)
             {
@@ -722,29 +704,24 @@ public static class TrainingProgramGenerator
             .Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
-    // Equipment check: every required token must be available. "machine" is the generic gym
-    // option and is interchangeable with any "<something>-machine" token in both directions.
+    // Equipment check: every required token must be available. A generic "machine" token is
+    // invalid; only the exact reviewed machine required by an exercise can satisfy the filter.
     internal static bool HasRequiredEquipment(
         IReadOnlyList<string> requiredEquipment,
         IReadOnlySet<string> availableEquipment)
     {
+        var requiredTokens = requiredEquipment
+            .Select(NormalizeEquipmentToken)
+            .ToArray();
+
+        // "machine" is not an equipment choice: a chest-press machine cannot satisfy a leg-curl
+        // machine requirement. Unknown generic requirements are rejected even when the user did
+        // not provide an equipment list, so they can never silently enter a generated plan.
+        if (requiredTokens.Any(token => token.Equals("machine", StringComparison.OrdinalIgnoreCase)))
+            return false;
+
         if (availableEquipment.Count == 0) return true;
-
-        return requiredEquipment.All(required =>
-        {
-            var token = NormalizeEquipmentToken(required);
-            if (availableEquipment.Contains(token)) return true;
-
-            // "machine" is the broad gym-equipment option. It satisfies a specific machine
-            // requirement; a specific machine also satisfies a generic machine requirement.
-            if (token.Equals("machine", StringComparison.OrdinalIgnoreCase))
-                return availableEquipment.Any(value =>
-                    value.Equals("machine", StringComparison.OrdinalIgnoreCase)
-                    || value.EndsWith("-machine", StringComparison.OrdinalIgnoreCase));
-
-            return token.EndsWith("-machine", StringComparison.OrdinalIgnoreCase)
-                && availableEquipment.Contains("machine");
-        });
+        return requiredTokens.All(token => availableEquipment.Contains(token));
     }
 
     // Explains WHY no exercise was found by counting candidates after each filter step, so the
@@ -1204,15 +1181,34 @@ public static class TrainingProgramGenerator
     // Weekly templates. Every template lists the movement patterns a session must cover; titles
     // are also used later to restrict accessory muscles (e.g. "superior", "Empuje"). Unsupported
     // split/day combinations return an empty list and are rejected earlier in ValidateRequest.
-    private static IReadOnlyList<SessionTemplate> BuildSplit(int daysPerWeek, TrainingProgramSplit requestedSplit)
+    private static IReadOnlyList<SessionTemplate> BuildSplit(
+        int daysPerWeek,
+        TrainingProgramSplit requestedSplit,
+        bool compactStrengthSession)
     {
-        var fullBodyA = new SessionTemplate("Cuerpo completo A",
-            [TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.Hinge, TrainingMovementPattern.Core]);
-        // B templates reverse the order of coexisting large groups (push/pull, quads/posterior chain)
-        // so the muscle that was trained second in A is trained fresh first in B. The squat stays
-        // first in full-body sessions; only the upper-body pair is swapped.
-        var fullBodyB = new SessionTemplate("Cuerpo completo B",
-            [TrainingMovementPattern.Squat, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.SingleLeg, TrainingMovementPattern.Core]);
+        // Every full-body session repeats the main loaded patterns instead of alternating whole
+        // muscle groups across days. At 35 minutes in strength, keep the five most transferable
+        // loaded patterns (squat, hinge, horizontal push/pull and vertical pull). Horizontal pressing
+        // still trains the anterior deltoids/triceps; the vertical press is omitted rather than
+        // shortening compound rest or disguising an over-budget session. At longer budgets both
+        // vertical directions remain in every full-body session.
+        var fullBodyAPatterns = compactStrengthSession
+            ? new[] { TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPush,
+                TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.Hinge,
+                TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core }
+            : new[] { TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPush,
+                TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.Hinge,
+                TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core };
+        // B keeps the same coverage but changes order so different movements are trained fresh first.
+        var fullBodyBPatterns = compactStrengthSession
+            ? new[] { TrainingMovementPattern.Hinge, TrainingMovementPattern.VerticalPull,
+                TrainingMovementPattern.Squat, TrainingMovementPattern.HorizontalPull,
+                TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.Core }
+            : new[] { TrainingMovementPattern.Hinge, TrainingMovementPattern.VerticalPull,
+                TrainingMovementPattern.VerticalPush, TrainingMovementPattern.Squat,
+                TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.Core };
+        var fullBodyA = new SessionTemplate("Cuerpo completo A", fullBodyAPatterns);
+        var fullBodyB = new SessionTemplate("Cuerpo completo B", fullBodyBPatterns);
         var upperA = new SessionTemplate("Tren superior A",
             [TrainingMovementPattern.HorizontalPush, TrainingMovementPattern.HorizontalPull, TrainingMovementPattern.VerticalPush, TrainingMovementPattern.VerticalPull, TrainingMovementPattern.Core]);
         var lowerA = new SessionTemplate("Tren inferior A",
@@ -1235,7 +1231,10 @@ public static class TrainingProgramGenerator
             TrainingProgramSplit.FullBody when daysPerWeek == 2 => [fullBodyA, fullBodyB],
             TrainingProgramSplit.FullBody when daysPerWeek == 3 => [fullBodyA, fullBodyB, fullBodyA with { Title = "Cuerpo completo C" }],
             TrainingProgramSplit.FullBody when daysPerWeek == 4 => [fullBodyA, fullBodyB, fullBodyA with { Title = "Cuerpo completo C" }, fullBodyB with { Title = "Cuerpo completo D" }],
-            TrainingProgramSplit.PushPullLegs when daysPerWeek == 5 => [push, pull, legs, pushB, pullB],
+            // Five days use a PPL + upper/lower hybrid: keep the classic first three days,
+            // then distribute the second upper/lower exposures instead of stacking both
+            // push days and both pull days while leaving a single overloaded leg day.
+            TrainingProgramSplit.PushPullLegs when daysPerWeek == 5 => [push, pull, legs, upperB, lowerB],
             TrainingProgramSplit.UpperLower when daysPerWeek == 2 => [upperA, lowerA],
             TrainingProgramSplit.UpperLower when daysPerWeek == 4 => [upperA, lowerA, upperB, lowerB],
             TrainingProgramSplit.PushPullLegs when daysPerWeek == 3 => [push, pull, legs],
@@ -1268,8 +1267,9 @@ public static class TrainingProgramGenerator
                 beginner ? 3m : 2m, pattern == TrainingMovementPattern.Core ? 60 : 90,
                 TrainingProgressionRule.DoubleProgression);
         // Internal product heuristic (not an ACSM-prescribed figure): in strength plans the first compound of each
-        // session is the session's main lift. It starts at three sets (the allocator may raise it to five) and, for
-        // non-beginners on a lift that accepts high loads, uses lower repetitions and longer rest. Beginners, and
+        // session is the main lift and is ordered first, but it shares the same three-set ceiling as every other
+        // strength exercise. For non-beginners on a lift that accepts high loads it uses lower repetitions and
+        // longer rest. Beginners, and
         // profiles whose equipment has no heavy lift for that slot, keep the 5-8 range.
         if (goal == TrainingGoal.Strength && isPrimaryLift)
             return isHeavyLift && !beginner
