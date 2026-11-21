@@ -462,7 +462,9 @@ public sealed class ExerciseCatalogRegressionTests
 
         Assert.Contains("'/api/exercise-catalog?limit=100'", ui);
         Assert.DoesNotContain("https://exercise-dataset.com/exercises.json", ui);
-        Assert.Contains("repdb-free-curated-v1", evaluation);
+        Assert.Contains("repdb-curated-fixture-v1", evaluation);
+        Assert.Contains("fixture sintético", evaluation);
+        Assert.Contains("TrainingGeneratorRealCatalogEvaluationTests", evaluation);
         Assert.Contains("step-ups", evaluation);
         Assert.Contains("romanian-deadlift", evaluation);
         Assert.Contains("ab-wheel-rollout", evaluation);
@@ -478,7 +480,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.NotNull(curationType);
         var ids = (string[])curationType!.GetField(
             "CuratedCatalogIds", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
-        Assert.Equal(97, ids.Length);
+        Assert.Equal(104, ids.Length);
         Assert.Equal(ids.Length, ids.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Contains("bench-press", ids);
         Assert.Contains("lat-pulldown", ids);
@@ -488,6 +490,10 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("reverse-nordic-curl", ids);
         Assert.Contains("ball-leg-curl", ids);
         Assert.Contains("banded-standing-curl", ids);
+        Assert.Contains("banded-push-up", ids);
+        Assert.Contains("banded-standing-row", ids);
+        Assert.Contains("banded-overhead-press", ids);
+        Assert.Contains("band-pull-through", ids);
         Assert.Contains("trx-hamstring-curl", ids);
         Assert.Contains("hammer-curl", ids);
         Assert.Contains("hip-abduction", ids);

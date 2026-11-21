@@ -6,8 +6,8 @@ using Xunit;
 namespace DietoExpress.Security.Tests;
 
 /// <summary>
-/// Emits a reproducible, complete JSON corpus for human-assisted review. The report is evidence,
-/// not a claim that structurally valid plans are physiologically optimal.
+/// Emits a reproducible JSON corpus from a small, explicit candidate fixture for human-assisted review.
+/// It is not the real PostgreSQL catalog matrix and does not claim physiological optimality.
 /// </summary>
 public sealed class TrainingGeneratorEvaluationReportTests
 {
@@ -85,14 +85,14 @@ public sealed class TrainingGeneratorEvaluationReportTests
             scenarios.Add(new ScenarioReport(
                 $"goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}-minutes-{durationMinutes}",
                 request,
-                "repdb-free-curated-v1",
+                "repdb-curated-fixture-v1",
                 generated.Succeeded,
                 hardViolations.Distinct().ToArray(),
                 new[]
                 {
-                    "El catálogo de evaluación contiene ejercicios reales de RepDB seleccionados mediante una lista curada y revisión explícita de patrón, material y grupos musculares; no representa el catálogo completo.",
+                    "El catálogo de esta matriz es un fixture sintético de candidatos con IDs y nombres de RepDB y metadatos simplificados definidos en el test; no se carga desde PostgreSQL ni representa el conjunto real de candidatos aprobados.",
                     "El informe conserva series primarias y secundarias por separado; las series efectivas usan el mapeo revisado TrainingExerciseStimulus por ID de ejercicio, sin crédito universal de 0,5. Es una regla explícita de programación, no una equivalencia fisiológica validada por ACSM.",
-                    "La biblioteca completa se conserva en PostgreSQL con su payload original; solo los ejercicios incluidos en la lista curada se consideran aptos para el generador.",
+                    "La auditoría contra el catálogo real de PostgreSQL se ejecuta por separado en TrainingGeneratorRealCatalogEvaluationTests y genera training-generator-real-catalog-evaluation.json; este artefacto sintético no la sustituye.",
                     "La duración es la estimación heurística del motor; no está contrastada con sesiones reales.",
                     "La validación estructural no demuestra idoneidad fisiológica individual."
                 },
@@ -219,7 +219,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
             string id, string name, TrainingMovementPattern pattern, string[] equipment,
             TrainingExperience minimumExperience, int priority,
             TrainingMuscleGroup[] primary, TrainingMuscleGroup[] secondary) =>
-            new(id, "repdb-free-curated-v1", name, pattern, equipment, goals, minimumExperience, priority, true, primary, secondary);
+            new(id, "repdb-curated-fixture-v1", name, pattern, equipment, goals, minimumExperience, priority, true, primary, secondary);
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()

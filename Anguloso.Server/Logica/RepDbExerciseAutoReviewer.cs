@@ -182,7 +182,11 @@ internal static class RepDbExerciseAutoReviewer
             Has(text, "barbell squat", "back squat", "front squat", "sentadilla con barra",
                 "sentadilla trasera", "sentadilla frontal")) return 100;
         if (Has(text, "leg press", "prensa de piernas", "hack squat")) return 98;
-        if (Has(text, "bodyweight", "banded", "resistance band", "trx", "ring", "assisted")) return 62;
+        // A resistance band adds external load and can be progressed. Keep banded compounds
+        // ahead of an easier bodyweight regression for users who can already handle it, while
+        // scalable barbell, machine, cable and free-weight basics retain higher priority.
+        if (Has(text, "band")) return 82;
+        if (Has(text, "bodyweight", "trx", "ring", "assisted")) return 62;
         if (Has(text, "bench press", "press de banca", "lat pulldown", "jalon al pecho",
             "seated cable row", "remo sentado en polea", "romanian deadlift",
             "peso muerto rumano", "deadlift", "peso muerto", "hip thrust",

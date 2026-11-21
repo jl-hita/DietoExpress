@@ -24,7 +24,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
             .Where(id => !(bool)isReviewed.Invoke(null, [id])!)
             .ToArray();
 
-        Assert.Equal(97, catalogIds.Length);
+        Assert.Equal(104, catalogIds.Length);
         Assert.Empty(unreviewed);
     }
 

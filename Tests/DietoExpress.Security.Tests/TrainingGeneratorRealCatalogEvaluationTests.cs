@@ -169,7 +169,10 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             Assert.Empty(candidates.Single(candidate => candidate.ExerciseId == "bodyweight-reverse-lunge").RequiredEquipment);
             Assert.Equal(TrainingMovementPattern.VerticalPush, candidates.Single(candidate => candidate.ExerciseId == "banded-overhead-press").MovementPattern);
             Assert.Equal(TrainingMovementPattern.HorizontalPull, candidates.Single(candidate => candidate.ExerciseId == "banded-standing-row").MovementPattern);
-            Assert.Equal(TrainingMovementPattern.HorizontalPush, candidates.Single(candidate => candidate.ExerciseId == "banded-push-up").MovementPattern);
+            var bandedPushUp = candidates.Single(candidate => candidate.ExerciseId == "banded-push-up");
+            Assert.Equal(TrainingMovementPattern.HorizontalPush, bandedPushUp.MovementPattern);
+            Assert.Contains("resistance-band", bandedPushUp.RequiredEquipment);
+            Assert.Equal(TrainingExperience.Intermediate, bandedPushUp.MinimumExperience);
             Assert.Equal(TrainingMovementPattern.Hinge, candidates.Single(candidate => candidate.ExerciseId == "band-pull-through").MovementPattern);
             var bandAssistedPullUps = candidates.Single(candidate => candidate.ExerciseId == "band-assisted-pull-ups");
             Assert.Equal(new[] { "pull-up-bar", "resistance-band" }, bandAssistedPullUps.RequiredEquipment);
