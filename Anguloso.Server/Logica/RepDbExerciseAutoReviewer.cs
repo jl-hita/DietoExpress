@@ -467,6 +467,13 @@ internal static class RepDbExerciseAutoReviewer
         var key = id.ToLowerInvariant();
         string[]? instructions = key switch
         {
+            "banded-push-up" =>
+                ["Coloca la banda elástica por la parte alta de la espalda, justo por debajo del cuello, y sujeta cada extremo bajo la palma correspondiente.",
+                 "Adopta una plancha alta con las manos algo más abiertas que los hombros y el cuerpo alineado desde la cabeza hasta los talones.",
+                 "Flexiona los codos aproximadamente a 45 grados y acerca el pecho al suelo sin perder la alineación.",
+                 "Empuja el suelo y extiende los brazos contra la tensión creciente de la banda hasta volver a la plancha.",
+                 "Mantén el abdomen activo y las caderas niveladas durante toda la repetición.",
+                 "Completa las repeticiones previstas; apoya las rodillas si no puedes conservar la alineación."],
             "push-up" or "knee-push-ups" =>
                 ["Coloca las manos algo más abiertas que los hombros y mantén el cuerpo alineado desde la cabeza hasta las rodillas o los pies.",
                  "Flexiona los codos para acercar el pecho al suelo y empuja después hasta recuperar la posición inicial, sin perder la alineación."],
@@ -478,22 +485,42 @@ internal static class RepDbExerciseAutoReviewer
                 or "chest-press-machine" =>
                 ["Apoya firmemente los pies y la espalda en el banco o respaldo; coloca las manos a una anchura cómoda y controla la posición de los hombros.",
                  "Desciende la carga hacia el pecho de forma controlada y empuja hasta extender los brazos sin bloquear bruscamente los codos."],
+            "banded-standing-row" =>
+                ["Ancla la banda elástica delante de ti, aproximadamente a la altura del pecho, y retrocede hasta notar una tensión ligera con los brazos extendidos.",
+                 "Colócate de pie con los pies a la anchura de las caderas, las rodillas ligeramente flexionadas y el tronco estable.",
+                 "Lleva los codos hacia atrás junto a las costillas hasta acercar las manos a la parte baja del torso.",
+                 "Junta suavemente los omóplatos sin encoger los hombros y vuelve despacio resistiendo la banda."],
             "barbell-row" or "single-arm-db-row" or "chest-supported-db-row"
                 or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" =>
                 ["Adopta una posición estable, mantén la columna neutra y deja que los brazos se extiendan sin perder el control del tronco.",
                  "Lleva los codos hacia atrás acercando la carga al torso y vuelve lentamente a la posición inicial."],
+            "banded-overhead-press" =>
+                ["Pisa el centro de la banda con ambos pies y sujeta los extremos a la altura de los hombros, con las muñecas alineadas.",
+                 "Mantén el tronco firme y las costillas controladas para evitar arquear la zona lumbar.",
+                 "Empuja las manos verticalmente hasta extender los brazos, siguiendo una trayectoria cómoda.",
+                 "Haz una pausa breve arriba y baja las manos a los hombros de forma controlada."],
             "ohp" or "dumbbell-shoulder-press" or "machine-shoulder-press" =>
                 ["Coloca la carga a la altura de los hombros, con el tronco firme y las muñecas alineadas con los antebrazos.",
                  "Empuja verticalmente hasta extender los brazos de forma controlada y baja de nuevo hasta la posición inicial."],
+            "band-assisted-pull-ups" =>
+                ["Pasa la banda por encima de la barra de dominadas y coloca un pie dentro, comprobando que queda bien sujeta.",
+                 "Agarra la barra con las palmas hacia delante y las manos aproximadamente a la anchura de los hombros.",
+                 "Inicia el tirón desde la espalda y lleva el pecho hacia la barra impulsando los codos hacia abajo.",
+                 "Desciende lentamente hasta quedar colgado con los brazos extendidos, evitando que la banda te haga rebotar."],
             "lat-pulldown" or "v-bar-lat-pulldown" or "assisted-pull-ups" or "pull-up" or "chin-ups" =>
                 ["Sujeta la barra con el agarre indicado y estabiliza el tronco, evitando impulsarte o balancearte.",
                  "Lleva los codos hacia abajo hasta acercar la barra o el cuerpo al punto previsto y regresa lentamente con control."],
-            "squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" =>
+            "squat" or "bodyweight-squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" =>
                 ["Coloca los pies en una posición estable y ajusta la carga para poder mantener el recorrido con control.",
                  "Flexiona caderas y rodillas siguiendo la dirección de los pies; empuja el suelo para volver a la posición inicial."],
-            "bulgarian-split-squat" or "reverse-lunge" or "step-ups" =>
+            "bulgarian-split-squat" or "bodyweight-reverse-lunge" or "reverse-lunge" or "step-ups" =>
                 ["Adopta una posición unilateral estable y reparte el apoyo sin perder el equilibrio ni la alineación de la rodilla.",
                  "Desciende o sube de forma controlada, impulsándote con la pierna de trabajo y evitando rebotes."],
+            "band-pull-through" =>
+                ["Ancla la banda a un punto bajo y estable detrás de ti, pasa la banda entre las piernas y aléjate hasta notar tensión.",
+                 "Coloca los pies a la anchura de las caderas y flexiona ligeramente las rodillas, manteniendo la espalda neutra.",
+                 "Lleva la cadera hacia atrás para tensar la banda y después extiéndela llevando la pelvis hacia delante.",
+                 "Contrae los glúteos al terminar sin hiperextender la zona lumbar y regresa lentamente a la bisagra."],
             "deadlift" or "hex-bar-deadlift" or "romanian-deadlift" or "dumbbell-romanian-deadlift"
                 or "hip-thrust" or "barbell-glute-bridge" =>
                 ["Coloca los pies y la carga de forma estable; mantén el abdomen activo y la columna en posición neutra.",

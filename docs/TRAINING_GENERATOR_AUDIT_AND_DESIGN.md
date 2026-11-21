@@ -205,3 +205,10 @@ Completar primero el motor determinista y sus tests, el modelo estructurado de p
 - Esto permite que un ejercicio como el *banded push-up* (nivel intermedio) gane a una flexión básica cuando ambos son compatibles, sin desplazar press banca, press en máquina, remo o jalón cuando el material permite utilizarlos. Los aislamientos siguen usando su ranking específico.
 - El JSON `training-generator-evaluation.json` de 81 escenarios procede de un fixture explícito de candidatos con IDs de RepDB y metadatos simplificados en tests; no se debe presentar como evaluación de la base PostgreSQL real.
 - La matriz de catálogo real se ejecuta en `TrainingGeneratorRealCatalogEvaluationTests` y produce `training-generator-real-catalog-evaluation.json`. Ambos artefactos deben publicarse y revisarse por separado; la matriz real no queda validada si el test falla antes de terminar.
+
+
+## 13. Bandas en fuerza: cobertura real del catálogo (21/11/2026)
+
+- La matriz real de 1.782 escenarios detectó 99 fallos, todos en el perfil `BandsOnly` con objetivo `Strength`: el único remo con banda, `banded-standing-row`, estaba etiquetado por RepDB como categoría `Strength` pero solo con objetivo `Hypertrophy`. La curation local añade `Strength` a ese ejercicio tras revisión; no altera el payload original de RepDB.
+- Se añaden instrucciones de respaldo en español para los siete candidatos nuevos de banda/peso corporal que no tenían fallback en `GenerateInstructionsEs`: flexión con banda, remo con banda, press vertical con banda, dominada asistida, pull-through con banda, sentadilla corporal y zancada inversa corporal.
+- La matriz debe demostrar 1.782/1.782 generaciones, incluidas las 297 combinaciones BandsOnly. Una banda no se considera equivalente a una barra/polea ni se inventa un porcentaje de 1RM; es una alternativa válida cuando el perfil de material no dispone de una opción más escalable.

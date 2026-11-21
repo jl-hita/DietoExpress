@@ -168,7 +168,10 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             Assert.Equal(TrainingMovementPattern.SingleLeg, candidates.Single(candidate => candidate.ExerciseId == "bodyweight-reverse-lunge").MovementPattern);
             Assert.Empty(candidates.Single(candidate => candidate.ExerciseId == "bodyweight-reverse-lunge").RequiredEquipment);
             Assert.Equal(TrainingMovementPattern.VerticalPush, candidates.Single(candidate => candidate.ExerciseId == "banded-overhead-press").MovementPattern);
-            Assert.Equal(TrainingMovementPattern.HorizontalPull, candidates.Single(candidate => candidate.ExerciseId == "banded-standing-row").MovementPattern);
+            var bandedStandingRow = candidates.Single(candidate => candidate.ExerciseId == "banded-standing-row");
+            Assert.Equal(TrainingMovementPattern.HorizontalPull, bandedStandingRow.MovementPattern);
+            Assert.Contains("resistance-band", bandedStandingRow.RequiredEquipment);
+            Assert.Contains(TrainingGoal.Strength, bandedStandingRow.SuitableGoals);
             var bandedPushUp = candidates.Single(candidate => candidate.ExerciseId == "banded-push-up");
             Assert.Equal(TrainingMovementPattern.HorizontalPush, bandedPushUp.MovementPattern);
             Assert.Contains("resistance-band", bandedPushUp.RequiredEquipment);
@@ -197,6 +200,14 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 ["resistance-band", "bodyweight"], [], null, false, TrainingProgramSplit.FullBody), candidates);
             Assert.True(bandOnlyIntermediate.Succeeded, string.Join(" | ", bandOnlyIntermediate.Errors));
             Assert.Contains("banded-push-up", bandOnlyIntermediate.Prescription!.Sessions
+                .SelectMany(session => session.Exercises).Select(exercise => exercise.ExerciseId));
+
+            var bandOnlyStrength = TrainingProgramGenerator.Generate(new TrainingProgramGenerationRequest(
+                TrainingGoal.Strength, TrainingExperience.Beginner, new DateOnly(2026, 11, 16), 4,
+                [DayOfWeek.Monday, DayOfWeek.Thursday], 90,
+                ["resistance-band", "bodyweight"], [], null, false, TrainingProgramSplit.FullBody), candidates);
+            Assert.True(bandOnlyStrength.Succeeded, string.Join(" | ", bandOnlyStrength.Errors));
+            Assert.Contains("banded-standing-row", bandOnlyStrength.Prescription!.Sessions
                 .SelectMany(session => session.Exercises).Select(exercise => exercise.ExerciseId));
 
             var bandOnlyUpperLower = TrainingProgramGenerator.Generate(new TrainingProgramGenerationRequest(
@@ -598,7 +609,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         !string.IsNullOrWhiteSpace(image.GetString());
 
     // Exercise every supported split/day-count combination with the same six equipment profiles,
-    // three goals, three experience levels and three session-duration budgets (1,485 scenarios total).
+    // three goals, three experience levels and three session-duration budgets (1,782 scenarios total).
     private static IReadOnlyList<(IReadOnlyList<DayOfWeek> Days, TrainingProgramSplit Split)> SupportedSplitDaySets() =>
     [
         (new[] { DayOfWeek.Monday, DayOfWeek.Thursday }, TrainingProgramSplit.Automatic),

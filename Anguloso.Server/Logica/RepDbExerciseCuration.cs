@@ -327,6 +327,14 @@ internal static class RepDbExerciseCuration
             if (goals.Count == 0) goals.Add("endurance");
         }
 
+        // RepDB classifies this compound resistance-band row as Strength but currently tags
+        // only hypertrophy in its goal list. Keep the source payload intact and apply this
+        // reviewed local goal override: elastic-band resistance training is a valid strength
+        // modality, including when no cable, barbell or pull-up bar is available.
+        if (id.Equals("banded-standing-row", StringComparison.OrdinalIgnoreCase) &&
+            !goals.Any(goal => goal.Equals("strength", StringComparison.OrdinalIgnoreCase)))
+            goals.Add("strength");
+
         if (id.Equals("extended-side-angle", StringComparison.OrdinalIgnoreCase))
             goals = ["mobility"];
         return JsonSerializer.Serialize(goals);
