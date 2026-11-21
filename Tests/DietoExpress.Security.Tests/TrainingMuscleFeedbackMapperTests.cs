@@ -95,8 +95,8 @@ public sealed class TrainingMuscleFeedbackMapperTests
         const string incompleteFeedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"time","stimulus":"low","discomfort":"none","preFatigue":"recovered","sets":[{"kind":"working","completed":true},{"kind":"working","completed":true},{"kind":"working","completed":false}]}]""";
         var records = new[]
         {
-            new(new DateOnly(2026, 11, 6), "completed", incompleteFeedback, Prescription),
-            new(new DateOnly(2026, 11, 4), "completed", incompleteFeedback, Prescription)
+            new TrainingMuscleFeedbackRecord(new DateOnly(2026, 11, 6), "completed", incompleteFeedback, Prescription),
+            new TrainingMuscleFeedbackRecord(new DateOnly(2026, 11, 4), "completed", incompleteFeedback, Prescription)
         };
 
         var exposures = TrainingMuscleFeedbackMapper.Map(records);
@@ -138,9 +138,9 @@ public sealed class TrainingMuscleFeedbackMapperTests
         const string timeFeedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"time","stimulus":"high","discomfort":"none","preFatigue":"loaded","sets":[{"kind":"working","completed":true},{"kind":"working","completed":true},{"kind":"working","completed":false}]}]""";
         var records = new[]
         {
-            new(new DateOnly(2026, 11, 8), "completed", timeFeedback, Prescription),
-            new(new DateOnly(2026, 11, 6), "completed", timeFeedback, Prescription),
-            new(new DateOnly(2026, 11, 4), "completed", timeFeedback, Prescription)
+            new TrainingMuscleFeedbackRecord(new DateOnly(2026, 11, 8), "completed", timeFeedback, Prescription),
+            new TrainingMuscleFeedbackRecord(new DateOnly(2026, 11, 6), "completed", timeFeedback, Prescription),
+            new TrainingMuscleFeedbackRecord(new DateOnly(2026, 11, 4), "completed", timeFeedback, Prescription)
         };
         var exposures = TrainingMuscleFeedbackMapper.Map(records);
 
