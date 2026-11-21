@@ -163,12 +163,46 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
 
             var bandCurl = candidates.Single(candidate => candidate.ExerciseId == "banded-standing-curl");
             Assert.Contains("resistance-band", bandCurl.RequiredEquipment);
+            Assert.Equal(TrainingMovementPattern.Squat, candidates.Single(candidate => candidate.ExerciseId == "bodyweight-squat").MovementPattern);
+            Assert.Empty(candidates.Single(candidate => candidate.ExerciseId == "bodyweight-squat").RequiredEquipment);
+            Assert.Equal(TrainingMovementPattern.SingleLeg, candidates.Single(candidate => candidate.ExerciseId == "bodyweight-reverse-lunge").MovementPattern);
+            Assert.Empty(candidates.Single(candidate => candidate.ExerciseId == "bodyweight-reverse-lunge").RequiredEquipment);
+            Assert.Equal(TrainingMovementPattern.VerticalPush, candidates.Single(candidate => candidate.ExerciseId == "banded-overhead-press").MovementPattern);
+            Assert.Equal(TrainingMovementPattern.HorizontalPull, candidates.Single(candidate => candidate.ExerciseId == "banded-standing-row").MovementPattern);
+            Assert.Equal(TrainingMovementPattern.HorizontalPush, candidates.Single(candidate => candidate.ExerciseId == "banded-push-up").MovementPattern);
+            Assert.Equal(TrainingMovementPattern.Hinge, candidates.Single(candidate => candidate.ExerciseId == "band-pull-through").MovementPattern);
+            var bandAssistedPullUps = candidates.Single(candidate => candidate.ExerciseId == "band-assisted-pull-ups");
+            Assert.Equal(new[] { "pull-up-bar", "resistance-band" }, bandAssistedPullUps.RequiredEquipment);
+
             var bandOnly = TrainingProgramGenerator.Generate(new TrainingProgramGenerationRequest(
                 TrainingGoal.Hypertrophy, TrainingExperience.Beginner, new DateOnly(2026, 11, 16), 4,
                 [DayOfWeek.Monday, DayOfWeek.Thursday], 90,
                 ["resistance-band", "bodyweight"], [], null, false, TrainingProgramSplit.FullBody), candidates);
-            Assert.False(bandOnly.Succeeded);
-            Assert.Contains(bandOnly.Errors, error => error.Contains("No hay ejercicios compatibles", StringComparison.OrdinalIgnoreCase));
+            Assert.True(bandOnly.Succeeded, string.Join(" | ", bandOnly.Errors));
+            var bandOnlyIds = bandOnly.Prescription!.Sessions.SelectMany(session => session.Exercises)
+                .Select(exercise => exercise.ExerciseId).ToArray();
+            Assert.Contains("bodyweight-squat", bandOnlyIds);
+            Assert.Contains("banded-overhead-press", bandOnlyIds);
+            Assert.Contains("banded-standing-row", bandOnlyIds);
+            Assert.DoesNotContain("band-assisted-pull-ups", bandOnlyIds);
+            Assert.Contains(bandOnly.Prescription.QualityReport!.Warnings,
+                warning => warning.Contains("tracción vertical", StringComparison.OrdinalIgnoreCase));
+
+            var bandOnlyIntermediate = TrainingProgramGenerator.Generate(new TrainingProgramGenerationRequest(
+                TrainingGoal.Hypertrophy, TrainingExperience.Intermediate, new DateOnly(2026, 11, 16), 4,
+                [DayOfWeek.Monday, DayOfWeek.Thursday], 90,
+                ["resistance-band", "bodyweight"], [], null, false, TrainingProgramSplit.FullBody), candidates);
+            Assert.True(bandOnlyIntermediate.Succeeded, string.Join(" | ", bandOnlyIntermediate.Errors));
+            Assert.Contains("banded-push-up", bandOnlyIntermediate.Prescription!.Sessions
+                .SelectMany(session => session.Exercises).Select(exercise => exercise.ExerciseId));
+
+            var bandOnlyUpperLower = TrainingProgramGenerator.Generate(new TrainingProgramGenerationRequest(
+                TrainingGoal.Hypertrophy, TrainingExperience.Beginner, new DateOnly(2026, 11, 16), 4,
+                [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday], 90,
+                ["resistance-band", "bodyweight"], [], null, false, TrainingProgramSplit.UpperLower), candidates);
+            Assert.True(bandOnlyUpperLower.Succeeded, string.Join(" | ", bandOnlyUpperLower.Errors));
+            Assert.Contains("bodyweight-reverse-lunge", bandOnlyUpperLower.Prescription!.Sessions
+                .SelectMany(session => session.Exercises).Select(exercise => exercise.ExerciseId));
 
             // Knee-flexion hamstring curls must be available as isolation accessories, not
             // misclassified as hip hinges where they lose to deadlift/RDL pattern selection.
@@ -348,7 +382,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var report = new RealCatalogEvaluationReport(
-            "training-generator-real-catalog-evaluation-v8",
+            "training-generator-real-catalog-evaluation-v9",
             DateTimeOffset.UtcNow,
             ExerciseCatalogService.SourceUrl,
             reviewStats?.repDbTotal ?? 0,
@@ -405,8 +439,8 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 .Max()
         }));
 
-        Assert.Equal("training-generator-real-catalog-evaluation-v8", report.SchemaVersion);
-        Assert.Equal(1485, report.ScenarioCount);
+        Assert.Equal("training-generator-real-catalog-evaluation-v9", report.SchemaVersion);
+        Assert.Equal(1782, report.ScenarioCount);
         Assert.Equal(11, scenarioResults.Select(result => (result.Split, result.TrainingDaysPerWeek)).Distinct().Count());
         Assert.Contains(scenarioResults, result => result.Split == TrainingProgramSplit.PushPullLegs.ToString() && result.TrainingDaysPerWeek == 5);
         Assert.Contains(scenarioResults, result => result.Split == TrainingProgramSplit.PushPullLegs.ToString() && result.TrainingDaysPerWeek == 6);
@@ -422,6 +456,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         Assert.Equal(0, report.CatalogPending);
         Assert.Equal(0, report.CatalogRejected);
         Assert.Equal(report.CatalogTotal, report.GeneratorCandidateCount);
+        Assert.Equal(104, report.GeneratorCandidateCount);
         Assert.Empty(report.CatalogImageMissingIds);
         var beginnerHomeScenario = scenarioResults.Single(result =>
             result.ScenarioId == "profile-homegymwithbandsandball-goal-hypertrophy-experience-beginner-days-2-minutes-90");
@@ -542,6 +577,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             new("FullGym", ["barbell", "dumbbell", "bench", "pull_up_bar", "cable", "kettlebell", "ez_bar", "trap-bar", "smith-machine", "ab_wheel", "assisted-pull-up-machine", "chest-press-machine", "chest-supported-row-machine", "hip-abduction-machine", "hip-adduction-machine", "back-extension-machine", "bicep-curl-machine", "calf-raise-machine", "chest-fly-machine", "reverse-fly-machine", "ab-crunch-machine", "shoulder-press-machine", "pec-deck-machine", "glute-drive-machine", "seated-calf-raise-machine", "plate-loaded-lateral-raise-machine", "standing-calf-raise-machine", "lat-pulldown-machine", "leg-press-machine", "hack-squat-machine", "leg-curl-machine", "leg-extension-machine"], []),
             new("NoCableOrMachines", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "ez_bar", "bodyweight"], []),
             new("HomeGymWithBandsAndBall", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "ez_bar", "bodyweight", "resistance-band", "stability-ball", "suspension-trainer"], []),
+            new("BandsOnly", ["resistance-band", "bodyweight"], []),
             new("DumbbellsBenchPullup", ["dumbbell", "bench", "pull_up_bar", "bodyweight"], []),
             new("RestrictedWithExclusions", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "bodyweight"], excludedFallbacks)
         ];
@@ -558,7 +594,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         image.ValueKind == JsonValueKind.String &&
         !string.IsNullOrWhiteSpace(image.GetString());
 
-    // Exercise every supported split/day-count combination with the same five equipment profiles,
+    // Exercise every supported split/day-count combination with the same six equipment profiles,
     // three goals, three experience levels and three session-duration budgets (1,485 scenarios total).
     private static IReadOnlyList<(IReadOnlyList<DayOfWeek> Days, TrainingProgramSplit Split)> SupportedSplitDaySets() =>
     [

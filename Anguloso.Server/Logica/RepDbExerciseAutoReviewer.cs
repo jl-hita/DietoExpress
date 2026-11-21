@@ -102,22 +102,22 @@ internal static class RepDbExerciseAutoReviewer
         // ambiguous substrings (for example "row" inside "crow") from deciding biomechanics.
         var explicitPattern = id.ToLowerInvariant() switch
         {
-            "ohp" or "dumbbell-shoulder-press" or "machine-shoulder-press" => "VerticalPush",
+            "ohp" or "dumbbell-shoulder-press" or "machine-shoulder-press" or "banded-overhead-press" => "VerticalPush",
             "cable-crunch" or "ab-wheel-rollout" or "cable-pallof-press" or "side-plank" or "dumbbell-farmers-walk"
                 or "machine-seated-crunch" or "dead-bug" or "hanging-knee-raise" or "captains-chair-knee-raise" => "Core",
             "machine-back-extension" or "glute-bridge" => "Hinge",
             "db-squat" or "horizontal-leg-press" => "Squat",
             "chest-supported-kettlebell-row" or "kneeling-cable-row" or "one-arm-seated-cable-row" => "HorizontalPull",
-            "lat-pulldown" or "v-bar-lat-pulldown" or "pull-up" or "chin-ups" or "assisted-pull-ups" => "VerticalPull",
+            "lat-pulldown" or "v-bar-lat-pulldown" or "pull-up" or "chin-ups" or "assisted-pull-ups" or "band-assisted-pull-ups" => "VerticalPull",
             "bench-press" or "db-bench-press" or "incline-bench-press" or "incline-db-press"
                 or "smith-machine-bench-press" or "smith-machine-incline-bench-press"
-                or "chest-press-machine" or "push-up" or "knee-push-ups" or "incline-push-ups" => "HorizontalPush",
+                or "chest-press-machine" or "push-up" or "knee-push-ups" or "incline-push-ups" or "banded-push-up" => "HorizontalPush",
             "barbell-row" or "single-arm-db-row" or "chest-supported-db-row"
-                or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" => "HorizontalPull",
-            "squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" => "Squat",
+                or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" or "banded-standing-row" => "HorizontalPull",
+            "squat" or "bodyweight-squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" => "Squat",
             "deadlift" or "hex-bar-deadlift" or "romanian-deadlift"
-                or "dumbbell-romanian-deadlift" or "hip-thrust" or "plate-loaded-glute-drive" => "Hinge",
-            "bulgarian-split-squat" or "reverse-lunge" or "step-ups" => "SingleLeg",
+                or "dumbbell-romanian-deadlift" or "band-pull-through" or "hip-thrust" or "plate-loaded-glute-drive" => "Hinge",
+            "bulgarian-split-squat" or "reverse-lunge" or "bodyweight-reverse-lunge" or "step-ups" => "SingleLeg",
             // Knee-flexion hamstring work is isolation, not a hip hinge. Keep these exercises
             // available to the accessory selector instead of letting deadlift variants displace them.
             "leg-curl" or "seated-leg-curl" or "nordic-hamstring-curl"
@@ -280,6 +280,10 @@ internal static class RepDbExerciseAutoReviewer
 
     private static string[]? MapEquipment(string exerciseId, string value, bool? bodyweight)
     {
+        // RepDB lists the band as primary equipment, but its instructions require a pull-up bar anchor.
+        if (string.Equals(exerciseId, "band-assisted-pull-ups", StringComparison.OrdinalIgnoreCase))
+            return ["pull-up-bar", "resistance-band"];
+
         if (SpecificMachineEquipmentByExerciseId.TryGetValue(exerciseId, out var specificMachine))
             return [specificMachine];
 

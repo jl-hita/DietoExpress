@@ -202,7 +202,7 @@ public static class TrainingPrescriptionValidator
 /// Exercise-specific stimulus audit for weekly hypertrophy volume. Primary muscles always count.
 /// A secondary muscle counts only when the exercise loads it dynamically through a meaningful
 /// range of motion; stabilizers, grip-only work and incidental co-contraction do not count.
-/// This is a conservative, explicit curation of the 97-exercise RepDB generator catalog, not
+/// This is a conservative, explicit curation of the 104-exercise RepDB generator catalog, not
 /// a universal biomechanical classifier.
 /// </summary>
 internal static class TrainingExerciseStimulus
@@ -240,6 +240,8 @@ internal static class TrainingExerciseStimulus
             ["assisted-pull-ups"] = [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Lats],
             ["pull-up"] = [TrainingMuscleGroup.Biceps],
             ["chin-ups"] = [TrainingMuscleGroup.Biceps],
+            ["banded-standing-row"] = [TrainingMuscleGroup.Biceps],
+            ["band-assisted-pull-ups"] = [TrainingMuscleGroup.Biceps],
 
             // Knee-dominant compounds: both quads and glutes can receive meaningful dynamic work.
             ["squat"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps],
@@ -274,6 +276,7 @@ internal static class TrainingExerciseStimulus
     // enough dynamic stimulus to add a full hypertrophy set to another muscle.
     private static readonly HashSet<string> ReviewedWithoutMeaningfulSecondary =
     [
+        "bodyweight-squat", "bodyweight-reverse-lunge", "banded-overhead-press", "banded-push-up", "band-pull-through",
         "straight-arm-pulldown", "hip-thrust", "plate-loaded-glute-drive", "barbell-glute-bridge",
         "cable-fly", "db-fly", "pec-deck", "lateral-raise", "cable-lateral-raise", "shrug",
         "barbell-curl", "hammer-curl", "incline-db-curl", "preacher-curl", "cable-curl",

@@ -124,9 +124,14 @@ public static class TrainingProgramGenerator
                         var hasHorizontalPull = requiredPatterns.Take(patternIndex)
                             .Contains(TrainingMovementPattern.HorizontalPull);
                         if (hasHorizontalPull)
+                        {
+                            selectionWarnings.Add($"{sessionTemplate.Title}: no hay un ejercicio de tracción vertical compatible con el material, el nivel y las exclusiones; se conserva la tracción horizontal disponible sin duplicarla.");
                             continue;
+                        }
 
                         compatibleCandidates = Compatible(TrainingMovementPattern.HorizontalPull);
+                        if (compatibleCandidates.Length > 0)
+                            selectionWarnings.Add($"{sessionTemplate.Title}: no hay un ejercicio de tracción vertical compatible; se sustituye por una tracción horizontal.");
                     }
 
                     // The same idea for the two patterns a limitation or a small home gym can leave empty: overhead
