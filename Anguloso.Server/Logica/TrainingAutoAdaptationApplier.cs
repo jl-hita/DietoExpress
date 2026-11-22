@@ -33,6 +33,27 @@ public sealed class TrainingAutoAdaptationApplier
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         try
         {
+            // Serialize attempts for the same proposal. A retry can find the still-pending row
+            // while another request is applying it; lock and validate it before touching sessions.
+            await using (var proposalLock = new NpgsqlCommand("""
+                SELECT status, action
+                FROM training_adaptation_proposals
+                WHERE id = @proposalId AND plan_id = @planId
+                FOR UPDATE
+                """, connection, transaction))
+            {
+                proposalLock.Parameters.AddWithValue("proposalId", proposalId);
+                proposalLock.Parameters.AddWithValue("planId", planId);
+                await using var reader = await proposalLock.ExecuteReaderAsync(cancellationToken);
+                if (!await reader.ReadAsync(cancellationToken) ||
+                    !string.Equals(reader.GetString(0), "pending", StringComparison.Ordinal) ||
+                    !string.Equals(reader.GetString(1), action, StringComparison.Ordinal))
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    return -1;
+                }
+            }
+
             var decision = TrainingAutoAdaptationPolicy.Decide(
                 action, exerciseIds, DateTimeOffset.UtcNow, await LoadRecentAsync(connection, transaction, planId, cancellationToken));
             if (!decision.ShouldApply)
@@ -77,13 +98,17 @@ public sealed class TrainingAutoAdaptationApplier
                 UPDATE training_adaptation_proposals
                 SET status = 'approved', reviewed_by_user_id = NULL, reviewed_at = NOW(),
                     review_notes = @notes, applied_future_sessions = @applied
-                WHERE id = @id AND status = 'pending'
+                WHERE id = @id AND plan_id = @planId AND action = @action AND status = 'pending'
                 """, connection, transaction))
             {
                 update.Parameters.AddWithValue("notes", $"auto:{TrainingAutoAdaptationPolicy.DescribeKind(decision.Kind)}|Aplicada automáticamente por el sistema; un profesional puede revisarla o deshacerla.");
                 update.Parameters.AddWithValue("applied", changed);
                 update.Parameters.AddWithValue("id", proposalId);
-                await update.ExecuteNonQueryAsync(cancellationToken);
+                update.Parameters.AddWithValue("planId", planId);
+                update.Parameters.AddWithValue("action", action);
+                var updatedProposal = await update.ExecuteNonQueryAsync(cancellationToken);
+                if (updatedProposal != 1)
+                    throw new InvalidOperationException("La propuesta dejó de estar pendiente antes de confirmar la adaptación.");
             }
             await transaction.CommitAsync(cancellationToken);
             return changed;
