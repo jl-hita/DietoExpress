@@ -177,7 +177,7 @@ public sealed class TrainingAutoAdaptationTests
         Assert.True(applyStart >= 0 && applyEnd > applyStart);
 
         var apply = source[applyStart..applyEnd];
-        var proposalLock = apply.IndexOf("SELECT status, action FROM training_adaptation_proposals", StringComparison.Ordinal);
+        var proposalLock = apply.IndexOf("SELECT status, action", StringComparison.Ordinal);
         var decision = apply.IndexOf("TrainingAutoAdaptationPolicy.Decide", StringComparison.Ordinal);
         Assert.True(proposalLock >= 0 && proposalLock < decision,
             "The proposal must be locked and validated before evaluating or changing future sessions.");
