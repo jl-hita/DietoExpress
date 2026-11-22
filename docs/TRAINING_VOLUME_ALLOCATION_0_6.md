@@ -340,3 +340,12 @@ La ruta de feedback muscular automática debe distinguir una sesión marcada com
 Una propuesta no se considera aplicada por el mero hecho de que la política permita intentarlo. Si no existe ninguna sesión futura estructurada y elegible, o el ajuste no puede modificar realmente una prescripción, `TrainingAutoAdaptationApplier` revierte la transacción y deja la propuesta pendiente (`TryApplyAsync = -1`). No debe marcarse `approved` ni guardar `applied_future_sessions = 0` como si el sistema hubiera aplicado el cambio.
 
 La regresión protege el orden: primero se verifica que al menos una sesión futura cambió; solo después se actualiza el estado de la propuesta. Esto conserva la trazabilidad y permite que un profesional resuelva los casos sin sesiones elegibles. No modifica umbrales de adaptación, cooldowns, descargas ni contratos API/Android.
+
+
+## Aplicación automática idempotente bajo concurrencia — 22/11/2026
+
+La propuesta de adaptación se bloquea con `SELECT ... FOR UPDATE` antes de evaluar la política o modificar sesiones futuras. Esto serializa los reintentos que pueden encontrar la misma propuesta pendiente después de un `INSERT ... ON CONFLICT DO NOTHING`: la segunda ejecución espera y, cuando obtiene el bloqueo, comprueba que la propuesta siga pendiente y que coincidan el plan y la acción.
+
+Después de modificar sesiones, la actualización de la propuesta debe afectar exactamente una fila. Si el estado cambió durante la operación o la propuesta ya no corresponde al plan/acción, se lanza un error y se revierte la transacción completa; no quedan sesiones modificadas con una propuesta sin confirmar.
+
+Esta protección es de idempotencia y consistencia transaccional. No cambia los criterios de fatiga/progresión, los cooldowns, la política de descarga ni ningún endpoint, DTO o contrato Android.
