@@ -11,12 +11,13 @@ public sealed class TrainingAdaptationExtensionsTests
         new(TrainingSessionOutcome.Completed, Recovery: recovery, SessionRpe: rpe, SetCompletionRatio: ratio);
 
     [Fact]
-    public void ThreeSessionsWithCombinedStressSignalsProposeADeloadNeverAnAutomaticOne()
+    public void ThreeSessionsWithCombinedStressSignalsProposeReactiveDeloadWithCooldown()
     {
         var decision = TrainingAdaptationPolicy.Evaluate([
             Stress(rpe: 9), Stress(), Stress(ratio: 0.9m, rpe: 9)]);
         Assert.Equal(TrainingAdaptationAction.ProposeDeload, decision.Action);
-        Assert.Contains("no se aplica automáticamente", decision.Explanation);
+        Assert.Contains("descarga conservadora de 7 días", decision.Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("28 días", decision.Explanation, StringComparison.Ordinal);
     }
 
     [Fact]
