@@ -38,7 +38,7 @@ public static class TrainingAdaptationPolicy
                 + (stressWindow.Any(x => x.SetCompletionRatio is < 0.8m) ? 1 : 0);
             if (kinds >= 2)
                 return Decision(TrainingAdaptationAction.ProposeDeload,
-                    "Las tres últimas sesiones muestran señales de estrés combinadas (recuperación insuficiente, esfuerzo muy alto o series sin completar). Valora con tu profesional una semana de descarga; no se aplica automáticamente.");
+                    "Las tres últimas sesiones muestran señales de estrés combinadas (recuperación insuficiente, esfuerzo muy alto o series incompletas por fatiga). Se propone una descarga conservadora de 7 días; el sistema la aplicará automáticamente si han pasado al menos 28 días desde la última. Un profesional puede revisarla o deshacerla.");
         }
 
         var latest = recentFeedback[^1];
@@ -79,8 +79,23 @@ public static class TrainingAdaptationPolicy
             new(action, explanation);
     }
 
-    private static bool IsStressed(TrainingSessionFeedback feedback) =>
-        feedback.Recovery is TrainingRecoveryRating.Insufficient || feedback.SessionRpe is >= 9 || feedback.SetCompletionRatio is < 0.8m;
+    private static bool IsStressed(TrainingSessionFeedback feedback)
+    {
+        // Illness can explain low recovery and high effort independently of training dose;
+        // do not turn an illness-affected session into an automatic deload signal.
+        if (feedback.NonCompletionReason is TrainingNonCompletionReason.Illness)
+            return false;
+
+        // Missed sets only indicate training stress when they were omitted because of fatigue
+        // (or no external reason was recorded). Time, equipment, motivation and other causes
+        // must not count as evidence that the prescribed volume was excessive.
+        var incompleteDueToTraining = feedback.SetCompletionRatio is < 0.8m &&
+            feedback.NonCompletionReason is TrainingNonCompletionReason.None or TrainingNonCompletionReason.Fatigue;
+
+        return feedback.Recovery is TrainingRecoveryRating.Insufficient ||
+               feedback.SessionRpe is >= 9 ||
+               incompleteDueToTraining;
+    }
 
     private static bool HasInvalidValues(TrainingSessionFeedback feedback) =>
         !Enum.IsDefined(feedback.Outcome) ||
