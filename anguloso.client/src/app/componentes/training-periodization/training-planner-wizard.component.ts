@@ -155,7 +155,7 @@ import { GeneratedProgram, GenerationRequest, TrainingMesocycle } from './traini
               <p *ngIf="!currentPreview.qualityReport" class="planner-validation">La vista previa no incluye un informe de calidad. No se permite guardar este bloque.</p>
               <p *ngIf="currentPreview.qualityReport && !(currentPreview.qualityReport.warnings.length)">La vista previa no ha devuelto advertencias de calidad.</p>
               <ul *ngIf="currentPreview.qualityReport?.warnings.length"><li *ngFor="let warning of currentPreview.qualityReport?.warnings">{{ warning }}</li></ul>
-              <label *ngIf="currentPreview.qualityReport.warnings?.length" class="planner-check"><input type="checkbox" [(ngModel)]="acknowledgeWarnings"> He revisado los avisos y quiero guardar este borrador.</label>
+              <label *ngIf="currentPreview.qualityReport?.warnings.length" class="planner-check"><input type="checkbox" [(ngModel)]="acknowledgeWarnings"> He revisado los avisos y quiero guardar este borrador.</label>
             </div>
           </article>
           <p *ngIf="mesocycleError" class="planner-validation" role="alert">{{ mesocycleError }}</p>
