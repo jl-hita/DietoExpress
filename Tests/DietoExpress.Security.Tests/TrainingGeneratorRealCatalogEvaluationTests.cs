@@ -286,11 +286,23 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 .Select(candidate => candidate.ExerciseId)
                 .ToHashSet(StringComparer.Ordinal);
 
-            foreach (var profile in ScenarioProfiles(candidates))
+            // Derive the expected cardinality from the same explicit matrix dimensions used
+            // to generate scenarios. Adding a split or equipment profile must not leave a stale
+            // hard-coded scenario count behind.
+            var scenarioProfiles = ScenarioProfiles(candidates);
+            var supportedSplitDaySets = SupportedSplitDaySets();
+            var durationBudgets = new[] { 35, 60, 90 };
+            var expectedScenarioCount = scenarioProfiles.Count
+                * Enum.GetValues<TrainingGoal>().Length
+                * Enum.GetValues<TrainingExperience>().Length
+                * supportedSplitDaySets.Count
+                * durationBudgets.Length;
+
+            foreach (var profile in scenarioProfiles)
             foreach (var goal in Enum.GetValues<TrainingGoal>())
             foreach (var experience in Enum.GetValues<TrainingExperience>())
-            foreach (var (days, split) in SupportedSplitDaySets())
-            foreach (var durationMinutes in new[] { 35, 60, 90 })
+            foreach (var (days, split) in supportedSplitDaySets)
+            foreach (var durationMinutes in durationBudgets)
             {
                 var request = new TrainingProgramGenerationRequest(
                     goal,
@@ -454,8 +466,13 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }));
 
         Assert.Equal("training-generator-real-catalog-evaluation-v10", report.SchemaVersion);
-        Assert.Equal(1782, report.ScenarioCount);
-        Assert.Equal(11, scenarioResults.Select(result => (result.Split, result.TrainingDaysPerWeek)).Distinct().Count());
+        Assert.Equal(expectedScenarioCount, report.ScenarioCount);
+        Assert.Equal(supportedSplitDaySets.Count,
+            scenarioResults.Select(result => (result.Split, result.TrainingDaysPerWeek)).Distinct().Count());
+        Assert.Equal(scenarioProfiles.Count,
+            scenarioResults.Select(result => result.EquipmentProfile).Distinct().Count());
+        Assert.Equal(report.ScenarioCount,
+            scenarioResults.Select(result => result.ScenarioId).Distinct().Count());
         Assert.Contains(scenarioResults, result => result.Split == TrainingProgramSplit.PushPullLegs.ToString() && result.TrainingDaysPerWeek == 5);
         Assert.Contains(scenarioResults, result => result.Split == TrainingProgramSplit.PushPullLegs.ToString() && result.TrainingDaysPerWeek == 6);
         Assert.All(scenarioResults, result =>
