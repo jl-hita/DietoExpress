@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -122,7 +123,7 @@ export class ExerciseManagerComponent implements OnInit {
         this.loading = false;
         this.error = e?.name === 'TimeoutError'
           ? 'La consulta del catálogo ha tardado demasiado. Comprueba la conexión e inténtalo de nuevo.'
-          : e?.error?.error || 'No se pudo cargar el catálogo de ejercicios.';
+          : apiErrorMessage(e, 'No se pudo cargar el catálogo de ejercicios.');
         this.changeDetector.detectChanges();
       }
     });
@@ -156,7 +157,7 @@ export class ExerciseManagerComponent implements OnInit {
       : this.http.post('/api/exercise-catalog/contributions', payload);
     request.subscribe({
       next: () => { this.saving = false; this.draft = null; this.snack.open('Ejercicio guardado.', 'Cerrar', { duration: 2500 }); this.search(); },
-      error: e => { this.saving = false; this.snack.open(e?.error?.error || 'No se pudo guardar el ejercicio.', 'Cerrar', { duration: 4000 }); }
+      error: e => { this.saving = false; this.snack.open(apiErrorMessage(e, 'No se pudo guardar el ejercicio.'), 'Cerrar', { duration: 4000 }); }
     });
   }
 }

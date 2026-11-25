@@ -535,7 +535,7 @@ public sealed class BillingController : ControllerBase
             case "invoice.paid":
             {
                 var providerInvoiceId = ReadString(data, "id");
-                var providerSubscriptionId = ReadString(data, "subscription");
+                var providerSubscriptionId = ReadInvoiceSubscriptionId(data);
 
                 if (string.IsNullOrWhiteSpace(providerInvoiceId) || string.IsNullOrWhiteSpace(providerSubscriptionId))
                     return;
@@ -588,7 +588,7 @@ public sealed class BillingController : ControllerBase
 
             case "invoice.payment_failed":
             {
-                var providerSubscriptionId = ReadString(data, "subscription");
+                var providerSubscriptionId = ReadInvoiceSubscriptionId(data);
                 if (string.IsNullOrWhiteSpace(providerSubscriptionId))
                     return;
 
@@ -720,11 +720,11 @@ public sealed class BillingController : ControllerBase
                 }
                 subscription.updated_at = DateTime.UtcNow;
 
-                if (data.TryGetProperty("current_period_start", out var start) && start.ValueKind == JsonValueKind.Number)
-                    subscription.current_period_start = DateTimeOffset.FromUnixTimeSeconds(start.GetInt64()).UtcDateTime;
+                if (ReadPeriodBoundary(data, "current_period_start") is { } periodStart)
+                    subscription.current_period_start = periodStart;
 
-                if (data.TryGetProperty("current_period_end", out var end) && end.ValueKind == JsonValueKind.Number)
-                    subscription.current_period_end = DateTimeOffset.FromUnixTimeSeconds(end.GetInt64()).UtcDateTime;
+                if (ReadPeriodBoundary(data, "current_period_end") is { } periodEnd)
+                    subscription.current_period_end = periodEnd;
 
                 if (data.TryGetProperty("trial_end", out var trialEnd) && trialEnd.ValueKind == JsonValueKind.Number)
                     subscription.trial_end = DateTimeOffset.FromUnixTimeSeconds(trialEnd.GetInt64()).UtcDateTime;
@@ -781,9 +781,12 @@ public sealed class BillingController : ControllerBase
             return;
 
         int? tenantId = ReadIntMetadata(data, "tenant_id");
-        var providerSubscriptionId = eventType == "checkout.session.completed"
-            ? ReadString(data, "subscription")
-            : ReadString(data, "id") ?? ReadString(data, "subscription");
+        var providerSubscriptionId = eventType switch
+        {
+            "checkout.session.completed" => ReadString(data, "subscription"),
+            "invoice.paid" or "invoice.payment_failed" => ReadInvoiceSubscriptionId(data),
+            _ => ReadString(data, "id") ?? ReadString(data, "subscription")
+        };
 
         if (!tenantId.HasValue && !string.IsNullOrWhiteSpace(providerSubscriptionId))
         {
@@ -876,6 +879,31 @@ public sealed class BillingController : ControllerBase
                 }
             }
         }
+    }
+
+    // Las versiones recientes de la API de Stripe movieron la suscripción de la factura a parent.subscription_details.
+    private static string? ReadInvoiceSubscriptionId(JsonElement invoice)
+    {
+        var direct = ReadString(invoice, "subscription");
+        if (!string.IsNullOrWhiteSpace(direct)) return direct;
+        return invoice.TryGetProperty("parent", out var parent) && parent.ValueKind == JsonValueKind.Object &&
+               parent.TryGetProperty("subscription_details", out var details) && details.ValueKind == JsonValueKind.Object
+            ? ReadString(details, "subscription")
+            : null;
+    }
+
+    // Y el periodo de facturación pasó de la suscripción a sus elementos.
+    private static DateTime? ReadPeriodBoundary(JsonElement subscription, string property)
+    {
+        if (subscription.TryGetProperty(property, out var direct) && direct.ValueKind == JsonValueKind.Number)
+            return DateTimeOffset.FromUnixTimeSeconds(direct.GetInt64()).UtcDateTime;
+        if (!subscription.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Object ||
+            !items.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
+            return null;
+        foreach (var item in data.EnumerateArray())
+            if (item.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.Number)
+                return DateTimeOffset.FromUnixTimeSeconds(value.GetInt64()).UtcDateTime;
+        return null;
     }
 
     private static bool IsStripeEventNewer(subscriptions subscription, DateTime? eventCreatedAt, string eventId)

@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
 import { Router } from '@angular/router';
@@ -52,7 +53,7 @@ export class DashboardComponent implements OnInit {
     this.error.set(null);
     this.service.get().subscribe({
       next:d=>{this.data.set(d);this.loading.set(false);},
-      error:e=>{this.error.set(e?.error?.message||'No hemos podido cargar tu dashboard.');this.loading.set(false);}
+      error:e=>{this.error.set(apiErrorMessage(e, 'No hemos podido cargar tu dashboard.'));this.loading.set(false);}
     });
   }
 

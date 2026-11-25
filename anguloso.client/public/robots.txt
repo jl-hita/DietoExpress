@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /patient
+Disallow: /portal
+Disallow: /video-consultation/
+Allow: /

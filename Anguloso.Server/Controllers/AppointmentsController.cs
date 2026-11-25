@@ -122,7 +122,7 @@ public class AppointmentsController : ControllerBase
             .OrderByDescending(a => a.starts_at)
             .Take(100)
             .ToListAsync();
-        return Ok(items.Select(ToDto).ToList());
+        return Ok(items.Select(item => ForPatient(ToDto(item))).ToList());
     }
 
     [Authorize(Roles = "patient")]
@@ -235,7 +235,7 @@ public class AppointmentsController : ControllerBase
                 .LogError(ex, "No se pudo registrar la automatización de solicitud de cita {AppointmentId}.", appointment.id);
         }
 
-        return Ok(await ToDtoQuery(appointment.id));
+        return Ok(ForPatient(await ToDtoQuery(appointment.id)));
     }
 
     [Authorize(Roles = "patient")]
@@ -289,6 +289,51 @@ public class AppointmentsController : ControllerBase
             "Cita cancelada",
             $"Has cancelado tu cita del {dateText}.",
             "/patient?tab=appointments");
+
+        // Un cambio de nutricionista ligado a esta cita deja de estar pendiente.
+        await _context.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE patient_nutritionist_transfer_workflows
+            SET status = 'cancelled', resolved_at = NOW()
+            WHERE appointment_id = {appointment.id}
+              AND status IN ('pending_professional','awaiting_patient_confirmation')");
+
+        // El evento anula los recordatorios programados al confirmar la cita.
+        try
+        {
+            await _automationService.PublishEventAsync(
+                appointment.tenant_id,
+                "appointment.cancelled",
+                "appointment",
+                appointment.id.ToString(),
+                new AutomationService.AppointmentStatusPayload(appointment.id, appointment.client_id, appointment.nutritionist_id, appointment.starts_at, appointment.modality),
+                $"appointment:{appointment.id}:appointment.cancelled");
+            await _automationService.ScheduleActionAsync(
+                appointment.tenant_id,
+                "create_professional_task",
+                new CreateTaskAction(appointment.client_id, appointment.nutritionist_id, "Un paciente ha cancelado una cita",
+                    $"El paciente ha cancelado la cita del {dateText}.", null, "normal", "automation:appointment.cancelled_by_patient"),
+                DateTime.UtcNow,
+                idempotencyKey: $"appointment:{appointment.id}:cancelled-by-patient");
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                .LogError(ex, "No se pudo registrar la cancelación de la cita {AppointmentId} por el paciente.", appointment.id);
+        }
+
+        try
+        {
+            var professionalPush = HttpContext.RequestServices.GetService<ProfessionalPushService>();
+            if (professionalPush != null)
+                await professionalPush.SendNotificationAsync(appointment.tenant_id, appointment.nutritionist_id,
+                    "Cita cancelada por el paciente", $"Un paciente ha cancelado su cita del {dateText}.",
+                    "/appointments", HttpContext.RequestAborted);
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                .LogWarning(ex, "No se pudo avisar al profesional de la cancelación de la cita {AppointmentId}.", appointment.id);
+        }
 
         return NoContent();
     }
@@ -501,6 +546,29 @@ public class AppointmentsController : ControllerBase
             return BadRequest(new { message = "La transición de estado de la cita no es válida." });
 
         var previousStatus = appointment.status;
+
+        // Una reserva pública de un paciente sin profesional lo asigna al confirmarla, no al solicitarla.
+        if (requestedStatus == "confirmed" && previousStatus == "requested" &&
+            appointment.client.tenant_id == appointment.tenant_id &&
+            !await _context.client_nutritionist_assignments.AnyAsync(a => a.client_id == appointment.client_id && a.is_active))
+        {
+            var licenses = HttpContext.RequestServices.GetService<ILicenseService>();
+            if (licenses != null)
+            {
+                var allowed = await licenses.CanAssignClientAsync(appointment.tenant_id, appointment.nutritionist_id, appointment.client_id);
+                if (!allowed.Allowed) return BadRequest(new { message = allowed.Reason });
+            }
+            appointment.client.user_id = appointment.nutritionist_id;
+            _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments
+            {
+                client_id = appointment.client_id,
+                nutritionist_id = appointment.nutritionist_id,
+                assigned_by_user_id = userId.Value,
+                assigned_at = DateTime.UtcNow,
+                is_active = true
+            });
+        }
+
         if (requestedStatus == "confirmed" && previousStatus != "confirmed" &&
             appointment.modality == "online" && string.IsNullOrWhiteSpace(appointment.video_room_name))
         {
@@ -538,7 +606,9 @@ public class AppointmentsController : ControllerBase
         }
 
         appointment.status = requestedStatus;
-        appointment.professional_notes = request.ProfessionalNotes?.Trim();
+        // Sin el campo se conservan las notas: la agenda cambia el estado sin enviarlas.
+        if (request.ProfessionalNotes != null)
+            appointment.professional_notes = request.ProfessionalNotes.Trim();
         appointment.updated_at = DateTime.UtcNow;
 
         // La sala externa se crea antes del commit de la cita, por lo que un fallo de
@@ -598,26 +668,6 @@ public class AppointmentsController : ControllerBase
             };
             if (eventType != null)
             {
-                if (requestedStatus == "confirmed")
-                {
-                    try
-                    {
-                        await _notifications.CreateForPatientAsync(appointment.tenant_id, appointment.client_id,
-                            "appointment_confirmed", "Cita confirmada",
-                            "Tu nutricionista ha confirmado tu cita. Consulta la fecha y los detalles en DietoExpress.",
-                            "/patient?tab=appointments", true, $"appointment:{appointment.id}:confirmed:patient");
-                        var patientPush = HttpContext.RequestServices.GetService<PatientPushService>();
-                        if (patientPush != null)
-                            await patientPush.SendToClientAsync(appointment.client_id, "Cita confirmada",
-                                "Tu nutricionista ha confirmado tu cita. Consulta la fecha y los detalles en DietoExpress.",
-                                "appointments", $"appointment:{appointment.id}:confirmed", HttpContext.RequestAborted);
-                    }
-                    catch (Exception ex)
-                    {
-                        HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
-                            .LogWarning(ex, "No se pudo enviar el push de confirmación para la cita {AppointmentId}.", appointment.id);
-                    }
-                }
                 try
                 {
                     await _automationService.PublishEventAsync(
@@ -753,7 +803,7 @@ public class AppointmentsController : ControllerBase
                 "appointment_confirmed",
                 "Cita confirmada",
                 $"Tu nutricionista ha confirmado tu cita del {dateText}.",
-                "/patient?tab=appointments");
+                "/patient?tab=appointments", true, $"appointment:{appointment.id}:confirmed:patient");
 
             try
             {
@@ -877,7 +927,9 @@ public class AppointmentsController : ControllerBase
             return Conflict(new { message = "No se ha podido determinar la vigencia de la consulta online." });
 
         var maxCallMinutes = Math.Clamp(_videoOptions.MaxCallDurationMinutes, 1, 240);
-        var callDeadline = startedAtUtc.AddMinutes(maxCallMinutes);
+        // Entrar en la sala antes de la hora no consume la duración de la consulta.
+        var countedFrom = startedAtUtc > appointment.starts_at ? startedAtUtc : appointment.starts_at;
+        var callDeadline = countedFrom.AddMinutes(maxCallMinutes);
         var sessionExpiresAt = callDeadline < videoExpiresAtUtc ? callDeadline : videoExpiresAtUtc;
         if (now >= sessionExpiresAt)
             return Conflict(new { message = "La duración máxima de la consulta online ya se ha alcanzado." });
@@ -1090,6 +1142,13 @@ public class AppointmentsController : ControllerBase
 
     private async Task<AppointmentDto> ToDtoQuery(int id) =>
         await _context.patient_appointments.AsNoTracking().Where(a => a.id == id).Select(a => ToDto(a)).FirstAsync();
+
+    // Las notas profesionales son privadas del equipo clínico.
+    private static AppointmentDto ForPatient(AppointmentDto dto)
+    {
+        dto.ProfessionalNotes = null;
+        return dto;
+    }
 
     private static AppointmentDto ToDto(patient_appointments a) => new()
     {

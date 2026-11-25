@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
@@ -118,7 +119,7 @@ export class UserResetComponent implements OnInit {
       error: err => {
         this.loading = false;
         this.snackBar.open(
-          err?.error?.mensaje || err?.error || 'No se pudo restablecer la contraseña.',
+          err?.error?.mensaje || apiErrorMessage(err, 'No se pudo restablecer la contraseña.'),
           'Cerrar',
           { duration: 4000 }
         );

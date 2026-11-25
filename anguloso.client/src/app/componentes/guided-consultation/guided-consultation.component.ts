@@ -1,3 +1,5 @@
+import { apiErrorMessage } from '../../shared/api-error';
+import { localDateInput } from '../../shared/local-date';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -553,7 +555,7 @@ export class GuidedConsultationComponent implements OnInit {
   patientProfileSaveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
   private patientProfileSaveQueued = false;
   private patientProfileSaveCallbacks: Array<() => void> = [];
-  baselineMeasurementDate = new Date().toISOString().slice(0, 10);
+  baselineMeasurementDate = localDateInput();
   baselineWeight: number | null = null;
   baselineHeight: number | null = null;
   baselineWaist: number | null = null;
@@ -739,7 +741,7 @@ export class GuidedConsultationComponent implements OnInit {
               // Sin consulta iniciada (cita no confirmada, documentación pendiente…) la pantalla no
               // tiene nada que editar: se vuelve a la agenda en lugar de dejar pasos que no responden.
               this.loading = false;
-              this.snack.open(err?.error?.message || 'No se ha podido iniciar la consulta.', 'Cerrar', { duration: 5000 });
+              this.snack.open(apiErrorMessage(err, 'No se ha podido iniciar la consulta.'), 'Cerrar', { duration: 5000 });
               this.backToAgenda();
             }
           });
@@ -747,7 +749,7 @@ export class GuidedConsultationComponent implements OnInit {
       },
       error: err => {
         this.loading = false;
-        this.snack.open(err?.error?.message || 'No se ha podido cargar la consulta.', 'Cerrar', { duration: 3500 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido cargar la consulta.'), 'Cerrar', { duration: 3500 });
       }
     });
   }
@@ -871,7 +873,7 @@ export class GuidedConsultationComponent implements OnInit {
       },
       error: err => {
         this.trainingRoutineSaving = false;
-        this.trainingRoutineError = err?.error?.message || 'No se ha podido crear la rutina. Puedes reintentarlo o continuar sin configurar entrenamiento.';
+        this.trainingRoutineError = apiErrorMessage(err, 'No se ha podido crear la rutina. Puedes reintentarlo o continuar sin configurar entrenamiento.');
       }
     });
   }
@@ -993,7 +995,7 @@ export class GuidedConsultationComponent implements OnInit {
         this.patientProfileSaveCallbacks = [];
         this.navigationPending = false;
         if (this.completing) this.completing = false;
-        this.snack.open(err?.error?.message || 'No se ha podido guardar el expediente clínico. No se ha cambiado de paso.', 'Cerrar', { duration: 4500 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido guardar el expediente clínico. No se ha cambiado de paso.'), 'Cerrar', { duration: 4500 });
       }
     });
   }
@@ -1027,7 +1029,7 @@ export class GuidedConsultationComponent implements OnInit {
       },
       error: err => {
         this.savingBaseline = false;
-        this.snack.open(err?.error?.message || 'No se han podido guardar las mediciones.', 'Cerrar', { duration: 4000 });
+        this.snack.open(apiErrorMessage(err, 'No se han podido guardar las mediciones.'), 'Cerrar', { duration: 4000 });
       }
     });
   }
@@ -1091,7 +1093,7 @@ export class GuidedConsultationComponent implements OnInit {
         this.clinicalSaveCallbacks = [];
         this.navigationPending = false;
         if (this.completing) this.completing = false;
-        this.snack.open(err?.error?.message || 'No se ha podido guardar el progreso de la consulta.', 'Cerrar', { duration: 4000 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido guardar el progreso de la consulta.'), 'Cerrar', { duration: 4000 });
       }
     });
   }
@@ -1183,7 +1185,7 @@ export class GuidedConsultationComponent implements OnInit {
         this.currentStep = previousStep;
         this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === previousStep));
         this.savingProgress = false;
-        this.snack.open(err?.error?.message || 'No se ha podido guardar el progreso. El paso anterior se ha mantenido.', 'Cerrar', { duration: 4000 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido guardar el progreso. El paso anterior se ha mantenido.'), 'Cerrar', { duration: 4000 });
       }
     });
   }
@@ -1241,7 +1243,7 @@ export class GuidedConsultationComponent implements OnInit {
       },
       error: err => {
         this.taskCreating = false;
-        this.snack.open(err?.error?.message || 'No se ha podido crear la tarea.', 'Cerrar', { duration: 3000 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido crear la tarea.'), 'Cerrar', { duration: 3000 });
       }
     });
   }
@@ -1264,7 +1266,7 @@ export class GuidedConsultationComponent implements OnInit {
       },
       error: err => {
         this.taskCreating = false;
-        this.snack.open(err?.error?.message || 'No se ha podido crear la tarea.', 'Cerrar', { duration: 3000 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido crear la tarea.'), 'Cerrar', { duration: 3000 });
       }
     });
   }
@@ -1276,7 +1278,7 @@ export class GuidedConsultationComponent implements OnInit {
     this.selectedSlot = null;
     this.portalService.getConsultationSlots(clientId, this.slotDuration, 30).subscribe({
       next: slots => { this.consultationSlots = slots; this.slotsLoading = false; },
-      error: err => { this.consultationSlots = []; this.slotsLoading = false; this.snack.open(err?.error?.message || 'No se han podido consultar los huecos.', 'Cerrar', { duration: 3000 }); }
+      error: err => { this.consultationSlots = []; this.slotsLoading = false; this.snack.open(apiErrorMessage(err, 'No se han podido consultar los huecos.'), 'Cerrar', { duration: 3000 }); }
     });
   }
 
@@ -1301,7 +1303,7 @@ export class GuidedConsultationComponent implements OnInit {
       },
       error: err => {
         this.bookingAppointment = false;
-        this.snack.open(err?.error?.message || 'No se ha podido programar la cita.', 'Cerrar', { duration: 3500 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido programar la cita.'), 'Cerrar', { duration: 3500 });
         this.loadConsultationSlots();
       }
     });
@@ -1330,7 +1332,7 @@ export class GuidedConsultationComponent implements OnInit {
       },
       error: err => {
         this.creatingDiet = false;
-        this.snack.open(err?.error?.message || 'No se ha podido crear la dieta.', 'Cerrar', { duration: 3500 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido crear la dieta.'), 'Cerrar', { duration: 3500 });
       }
     });
   }
@@ -1364,7 +1366,7 @@ export class GuidedConsultationComponent implements OnInit {
       },
       error: err => {
         this.downloadingConsultationPdf = false;
-        this.snack.open(err?.error?.message || 'No se ha podido generar el PDF de la consulta.', 'Cerrar', { duration: 4000 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido generar el PDF de la consulta.'), 'Cerrar', { duration: 4000 });
       }
     });
   }
@@ -1381,7 +1383,7 @@ export class GuidedConsultationComponent implements OnInit {
       },
       error: err => {
         this.sendingPortalLink = false;
-        this.snack.open(err?.error?.message || 'No se ha podido enviar el enlace al portal.', 'Cerrar', { duration: 4500 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido enviar el enlace al portal.'), 'Cerrar', { duration: 4500 });
       }
     });
   }
@@ -1403,7 +1405,7 @@ export class GuidedConsultationComponent implements OnInit {
         },
         error: err => {
           this.completing = false;
-          this.snack.open(err?.error?.message || 'No se ha podido cerrar la consulta.', 'Cerrar', { duration: 3500 });
+          this.snack.open(apiErrorMessage(err, 'No se ha podido cerrar la consulta.'), 'Cerrar', { duration: 3500 });
         }
       });
     }));

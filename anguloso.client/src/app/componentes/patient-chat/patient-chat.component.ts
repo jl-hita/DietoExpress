@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, SimpleChanges, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
@@ -70,7 +71,7 @@ export class PatientChatComponent implements OnChanges, OnInit {
     const url = this.patientMode ? '/api/messages/patient' : '/api/messages/client/' + this.clientId;
     this.http.post<{ id: number }>(url, { body }).subscribe({
       next: () => { this.draft = ''; this.sending = false; this.load(); },
-      error: err => { this.sending = false; this.error = err.error?.message || 'No se ha podido enviar el mensaje.'; }
+      error: err => { this.sending = false; this.error = apiErrorMessage(err, 'No se ha podido enviar el mensaje.'); }
     });
   }
 

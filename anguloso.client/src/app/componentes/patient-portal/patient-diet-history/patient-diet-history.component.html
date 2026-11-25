@@ -32,7 +32,10 @@
                 <h5>{{ meal.name }}</h5>
                 <ul>
                   <li *ngFor="let item of meal.items">
-                    <span *ngIf="item.foodName; else exchange">{{ item.foodName }}<ng-container *ngIf="item.grams"> · {{ item.grams }} g</ng-container></span>
+                    <span *ngIf="item.foodName; else notFood">{{ item.foodName }}<ng-container *ngIf="item.grams"> · {{ item.grams }} g</ng-container></span>
+                    <ng-template #notFood>
+                      <span *ngIf="item.recipeName; else exchange">{{ item.recipeName }}<ng-container *ngIf="item.recipeServings"> · {{ item.recipeServings }} ración(es)</ng-container></span>
+                    </ng-template>
                     <ng-template #exchange>
                       <button type="button" class="link" *ngIf="item.exchangeGroupId; else unknown" (click)="toggleEquivalents(item.id, item.exchangeGroupId)" [attr.aria-expanded]="expandedItemId() === item.id">
                         {{ item.exchangeCount }} intercambio(s) de {{ item.exchangeGroupName }}

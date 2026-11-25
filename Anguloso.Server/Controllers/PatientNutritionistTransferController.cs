@@ -142,6 +142,8 @@ public sealed class PatientNutritionistTransferController : ControllerBase
                     ON t.table_schema = c.table_schema AND t.table_name = c.table_name
                    AND t.column_name = 'tenant_id'
                   WHERE c.table_schema = 'public' AND c.column_name = 'client_id'
+                    -- La trazabilidad y los expedientes de la clínica de origen se quedan en ella.
+                    AND c.table_name NOT IN ('audit_logs', 'privacy_requests', 'patient_nutritionist_change_requests')
                   GROUP BY c.table_schema, c.table_name
                   ORDER BY c.table_name").ToListAsync();
 
@@ -207,6 +209,10 @@ public sealed class PatientNutritionistTransferController : ControllerBase
                 SET status = 'confirmed', consent_at = NOW(), resolved_at = NOW()
                 WHERE id = {workflow.Id} AND status = 'awaiting_patient_confirmation'");
 
+            // El paciente conserva sus planes anteriores como copias cerradas en la clínica de destino.
+            await DietSnapshots.MoveHistoryAsync(_context, workflow.ClientId, workflow.SourceTenantId,
+                workflow.TargetTenantId, workflow.TargetNutritionistId);
+
             await _context.Database.ExecuteSqlInterpolatedAsync($@"
                 INSERT INTO audit_logs (tenant_id, user_id, user_role, action, entity_name, entity_id, client_id, details, created_at)
                 VALUES ({workflow.TargetTenantId}, NULL, 'patient', 'PATIENT_HISTORY_TRANSFER_CONSENT',
@@ -220,6 +226,9 @@ public sealed class PatientNutritionistTransferController : ControllerBase
                 workflow.ClientId, workflow.TargetNutritionistId);
             return Conflict(new { message = "No se ha podido transferir todo el historial de forma segura. Tu relación y tus datos originales se mantienen intactos; contacta con soporte." });
         }
+
+        // Anula los recordatorios programados en la clínica de origen para las citas canceladas por el cambio.
+        await PublishCancelledAsync(cancelledAppointmentIds, workflow.SourceTenantId);
 
         // Google Calendar es un sistema externo: sus eventos se cancelan tras confirmar
         // la transacción local. Un fallo externo no revierte el cambio de nutricionista.
@@ -260,6 +269,27 @@ public sealed class PatientNutritionistTransferController : ControllerBase
         return Ok(new { completed = true, message = "Cambio confirmado y transferencia del historial completada." });
     }
 
+    private async Task PublishCancelledAsync(IReadOnlyCollection<int> appointmentIds, int tenantId)
+    {
+        var automation = HttpContext?.RequestServices?.GetService<AutomationService>();
+        if (automation == null || appointmentIds.Count == 0) return;
+        try
+        {
+            var appointments = await _context.patient_appointments.AsNoTracking()
+                .Where(a => appointmentIds.Contains(a.id) && a.status == "cancelled")
+                .ToListAsync();
+            foreach (var a in appointments)
+                await automation.PublishEventAsync(
+                    tenantId, "appointment.cancelled", "appointment", a.id.ToString(),
+                    new AutomationService.AppointmentStatusPayload(a.id, a.client_id, a.nutritionist_id, a.starts_at, a.modality),
+                    $"appointment:{a.id}:appointment.cancelled");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo registrar la cancelación de citas tras un cambio de nutricionista.");
+        }
+    }
+
     [HttpPost("{id:long}/cancel")]
     public async Task<IActionResult> Cancel(long id)
     {
@@ -291,6 +321,7 @@ public sealed class PatientNutritionistTransferController : ControllerBase
             WHERE id = {workflow.AppointmentId} AND client_id = {clientId.Value}
               AND status IN ('requested','confirmed')");
         await transaction.CommitAsync();
+        await PublishCancelledAsync(new List<int> { workflow.AppointmentId }, workflow.TargetTenantId);
         return Ok(new { cancelled = true, message = "Cambio cancelado. Mantienes tu nutricionista actual y tu historial." });
     }
 }

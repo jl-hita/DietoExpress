@@ -457,6 +457,29 @@ public class ClientDietsController : ControllerBase
         if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
             return NotFound("Diet assignment not found.");
 
+        // Reactivar un plan exige la misma validación que asignarlo: las restricciones del paciente pueden haber cambiado.
+        if (dto.IsActive && assignment.is_active != true)
+        {
+            var dietToReactivate = await _context.diets.AsNoTracking()
+                .Include(d => d.diet_days).ThenInclude(day => day.meals).ThenInclude(meal => meal.meal_items)
+                .FirstOrDefaultAsync(d => d.id == assignment.diet_id && d.archived_at == null);
+            if (dietToReactivate == null)
+                return BadRequest("Una dieta archivada no se puede reactivar.");
+
+            var warnings = await _validationService.ValidateDietCompatibilityAsync(
+                clientId, dietToReactivate, _context, clientTenantId ?? AuthHelpers.GetTenantId(User), userId.Value,
+                User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
+            var blocking = warnings.Where(w =>
+                string.Equals(w.Severity, "High", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(w.AlertType, "AllergenDataUnknown", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (blocking.Count > 0)
+                return Conflict(new
+                {
+                    message = "No se puede reactivar la dieta: contiene incompatibilidades clínicas o alérgenos que no pueden verificarse para este paciente.",
+                    warnings = blocking
+                });
+        }
+
         // Si se está activando, desactivar otras dietas del mismo cliente para evitar violación de la restricción UNIQUE
         if (dto.IsActive)
         {

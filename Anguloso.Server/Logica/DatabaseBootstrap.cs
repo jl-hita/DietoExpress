@@ -866,6 +866,7 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             UpgradeSaaSSchemaV3(context, logger);
             UpgradeFreeTrialLengthV1(context, logger);
             UpgradeFreeTrialDescriptionV1(context, logger);
+            UpgradeFreeTrialRepairV1(context, logger);
             UpgradeSaaSSchemaV4(context, logger);
             UpgradeSaaSSchemaV5(context, logger);
             UpgradeSaaSSchemaV6(context, logger);
@@ -875,6 +876,7 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             UpgradeAccountSecuritySchemaV1(context, logger);
             UpgradePerformanceSchemaV1(context, logger);
             UpgradeMessagingSchemaV2(context, logger);
+            UpgradeMessagingAdminConversationsV1(context, logger);
             UpgradeAutomationSchemaV1(context, logger);
             UpgradeAutomationSchemaV2(context, logger);
             UpgradeAutomationSchemaV3(context, logger);
@@ -931,6 +933,8 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UpgradeTrainingReviewRequestsSchema(context, logger);
             UpgradeFoodCulinaryProfileSchema(context, logger);
             UpgradeFoodDietaryProfileSchema(context, logger);
+            UpgradeTransferAuditOwnershipV1(context, logger);
+            UpgradeAndroidTesterRequestsSchema(context, logger);
             TrainingMacrocycleSchema.Initialize(context);
             TrainingPlanSplitSchema.Initialize(context);
 
@@ -1639,6 +1643,13 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     /// </summary>
     public static void UpgradeSaaSSchemaV2(angulosodbContext context, ILogger logger)
     {
+        // Una sola vez: repetirla en cada arranque vaciaba los días de prueba, reactivaba cuentas suspendidas y pisaba los
+        // planes editados desde SuperAdmin.
+        var alreadyApplied = context.Database
+            .SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'saas-v2-access-model') AS \"Value\"")
+            .Single();
+        if (alreadyApplied) return;
+
         context.Database.ExecuteSqlRaw(@"
             INSERT INTO subscription_plans
                 (code,name,description,monthly_price,yearly_price,max_nutritionists,max_clients_per_nutritionist,max_total_clients,trial_days,active)
@@ -1741,9 +1752,8 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     description = 'Cuenta gratuita para probar DietoExpress durante 7 días'
                 WHERE code = 'free';
             ");
-        }
 
-        context.Database.ExecuteSqlRaw(@"
+            context.Database.ExecuteSqlRaw(@"
             UPDATE subscription_plans
             SET max_clients_per_nutritionist = 1,
                 max_total_clients = 1
@@ -1772,8 +1782,23 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
               AND p.code = 'free'
               AND u.role <> 'superadmin';
         ");
-        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v3-free-trial') ON CONFLICT (id) DO NOTHING;");
-        logger.LogInformation("Migración SaaS saas-v3-free-trial aplicada correctamente.");
+            context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v3-free-trial') ON CONFLICT (id) DO NOTHING;");
+            logger.LogInformation("Migración SaaS saas-v3-free-trial aplicada correctamente.");
+        }
+
+        // En cada arranque solo se refleja la caducidad en la copia derivada de users; nunca se reactiva ni se cambian fechas.
+        context.Database.ExecuteSqlRaw(@"
+            UPDATE users u
+            SET subscription_status = 'expired'
+            FROM subscriptions s, subscription_plans p
+            WHERE s.tenant_id = u.tenant_id
+              AND p.id = s.plan_id
+              AND p.code = 'free'
+              AND s.status = 'active'
+              AND s.expires_at <= NOW()
+              AND u.subscription_status = 'active'
+              AND u.role <> 'superadmin';
+        ");
     }
 
     /// <summary>
@@ -1817,6 +1842,53 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         ");
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('free-trial-description-v1') ON CONFLICT (id) DO NOTHING;");
         logger.LogInformation("Descripción del plan de prueba sin cifra de días (free-trial-description-v1).");
+    }
+
+    /// <summary>
+    /// Repara, una sola vez, lo que dejaron las migraciones del modelo de acceso al repetirse en cada arranque: el plan «free»
+    /// sin días de prueba y las cuentas dadas de alta en ese estado, que nacían caducadas. Las suspensiones que se revirtieron
+    /// no se pueden deducir de los datos.
+    /// </summary>
+    public static void UpgradeFreeTrialRepairV1(angulosodbContext context, ILogger logger)
+    {
+        var alreadyApplied = context.Database
+            .SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'free-trial-repair-v1') AS \"Value\"")
+            .Single();
+        if (alreadyApplied) return;
+
+        context.Database.ExecuteSqlRaw(@"
+            UPDATE subscription_plans
+            SET trial_days = 30
+            WHERE code = 'free' AND trial_days IS NULL;
+
+            UPDATE subscription_plans
+            SET name = 'Prueba profesional',
+                description = 'Prueba completa de Nutri Full'
+            WHERE code = 'free' AND description = 'Cuenta de acceso sin capacidad profesional';
+
+            UPDATE subscriptions s
+            SET expires_at = s.started_at + make_interval(days => p.trial_days)
+            FROM subscription_plans p
+            WHERE p.id = s.plan_id
+              AND p.code = 'free'
+              AND p.trial_days > 0
+              AND s.status = 'active'
+              AND s.expires_at IS NOT NULL
+              AND s.expires_at <= s.started_at + INTERVAL '1 minute';
+
+            UPDATE users u
+            SET subscription_status = 'active'
+            FROM subscriptions s, subscription_plans p
+            WHERE s.tenant_id = u.tenant_id
+              AND p.id = s.plan_id
+              AND p.code = 'free'
+              AND s.status = 'active'
+              AND s.expires_at > NOW()
+              AND u.subscription_status = 'expired'
+              AND u.role <> 'superadmin';
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('free-trial-repair-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Prueba gratuita reparada (free-trial-repair-v1).");
     }
 
     /// <summary>
@@ -1987,6 +2059,69 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         ");
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('performance-v1-indexes-search') ON CONFLICT (id) DO NOTHING;");
         logger.LogInformation("Migración de índices de rendimiento y búsqueda aplicada correctamente.");
+    }
+
+    /// <summary>
+    /// Mueve, una sola vez, los mensajes que quedaron en conversaciones abiertas por un administrador de clínica a la
+    /// conversación del nutricionista asignado, que es la que ve el paciente.
+    /// </summary>
+    public static void UpgradeMessagingAdminConversationsV1(angulosodbContext context, ILogger logger)
+    {
+        var alreadyApplied = context.Database
+            .SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'messaging-admin-conversations-v1') AS \"Value\"")
+            .Single();
+        if (alreadyApplied) return;
+
+        context.Database.ExecuteSqlRaw(@"
+            INSERT INTO patient_conversations(tenant_id, client_id, assigned_nutritionist_id)
+            SELECT DISTINCT source.tenant_id, source.client_id, a.nutritionist_id
+            FROM patient_conversations source
+            JOIN users u ON u.id = source.assigned_nutritionist_id AND u.role = 'clinic_admin'
+            JOIN client_nutritionist_assignments a ON a.client_id = source.client_id AND a.is_active
+                 AND a.nutritionist_id <> source.assigned_nutritionist_id
+            WHERE EXISTS (SELECT 1 FROM patient_messages m WHERE m.conversation_id = source.id)
+            ON CONFLICT DO NOTHING;
+
+            UPDATE patient_messages m
+            SET conversation_id = target.id
+            FROM patient_conversations source
+            JOIN users u ON u.id = source.assigned_nutritionist_id AND u.role = 'clinic_admin'
+            JOIN client_nutritionist_assignments a ON a.client_id = source.client_id AND a.is_active
+                 AND a.nutritionist_id <> source.assigned_nutritionist_id
+            JOIN patient_conversations target ON target.client_id = source.client_id
+                 AND target.assigned_nutritionist_id = a.nutritionist_id AND target.closed_at IS NULL
+                 AND target.tenant_id = source.tenant_id
+            WHERE m.conversation_id = source.id;
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('messaging-admin-conversations-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Mensajes de administradores reunidos en la conversación asignada.");
+    }
+
+    /// <summary>
+    /// Devuelve, una sola vez, a la clínica de origen los registros de auditoría que un cambio de nutricionista movió a la
+    /// clínica de destino.
+    /// </summary>
+    public static void UpgradeTransferAuditOwnershipV1(angulosodbContext context, ILogger logger)
+    {
+        var alreadyApplied = context.Database
+            .SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'transfer-audit-ownership-v1') AS \"Value\"")
+            .Single();
+        if (alreadyApplied) return;
+
+        context.Database.ExecuteSqlRaw(@"
+            UPDATE audit_logs a
+            SET tenant_id = w.source_tenant_id
+            FROM patient_nutritionist_transfer_workflows w, users u
+            WHERE w.status = 'confirmed'
+              AND a.client_id = w.client_id
+              AND a.tenant_id = w.target_tenant_id
+              AND a.created_at < w.resolved_at
+              AND a.action <> 'PATIENT_HISTORY_TRANSFER_CONSENT'
+              AND u.id = a.user_id
+              AND u.tenant_id = w.source_tenant_id;
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('transfer-audit-ownership-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Auditoría de cambios de nutricionista devuelta a la clínica de origen.");
     }
 
     /// <summary>Separa las conversaciones por etapa de asignación para evitar que un nuevo nutricionista herede el historial privado anterior.</summary>
@@ -3753,6 +3888,25 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         logger.LogInformation("Capa curada de perfiles culinarios de alimentos inicializada.");
     }
 
+    /// <summary>Solicitudes de alta de pacientes en la prueba cerrada de la app Android.</summary>
+    public static void UpgradeAndroidTesterRequestsSchema(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS android_tester_requests (
+                id BIGSERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+                requested_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                google_email VARCHAR(254) NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','invited')),
+                consent_confirmed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                invited_at TIMESTAMPTZ NULL
+            );
+            INSERT INTO schema_migrations(id) VALUES ('android-tester-requests-v1') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Solicitudes de testers Android inicializadas.");
+    }
+
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)
     {
         // Contrato mínimo de tablas: si alguna falta después de todas las reconciliaciones,
@@ -3786,7 +3940,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',
                     'billing_coupon_campaigns','billing_coupons','billing_coupon_redemptions',
                     'patient_commercial_communication_preferences',
-                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals','training_review_requests','professional_notifications','food_dietary_profile','food_culinary_profile'
+                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals','training_review_requests','professional_notifications','food_dietary_profile','food_culinary_profile','android_tester_requests'
                 ]) AS required_table
             ) required
             WHERE NOT EXISTS (

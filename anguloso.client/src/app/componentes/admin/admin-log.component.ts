@@ -1,3 +1,4 @@
+import { localDateInput } from '../../shared/local-date';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, ChangeDetectionStrategy, signal, ElementRef, ViewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -310,6 +311,6 @@ export class AdminLogComponent implements OnInit {
   }
 
   private toDateString(date: Date): string {
-    return date.toISOString().slice(0, 10);
+    return localDateInput(date);
   }
 }

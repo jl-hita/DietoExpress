@@ -37,6 +37,9 @@ public class SetupController : ControllerBase
         if (request.Username.Trim().Length > 50 || request.Email.Trim().Length > 150 || request.FullName.Trim().Length > 100)
             return BadRequest("Los datos de configuración superan la longitud permitida.");
 
+        if (request.Username.Contains('@'))
+            return BadRequest("El nombre de usuario no puede contener el carácter @.");
+
         var username = request.Username.Trim().ToLowerInvariant();
         var email = request.Email.Trim().ToLowerInvariant();
         var fullName = request.FullName.Trim();

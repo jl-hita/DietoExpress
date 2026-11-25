@@ -8,6 +8,7 @@ import { provideRouter } from '@angular/router';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
 import { zoneChangeDetectionInterceptor } from './app/interceptors/zone-change-detection.interceptor';
+import { sessionExpiryInterceptor } from './app/interceptors/session-expiry.interceptor';
 import { ApplicationErrorHandler } from './app/servicios/application-error-handler';
 import { I18nService, detectLanguage, readStoredLanguage } from './app/i18n/i18n.service';
 
@@ -23,7 +24,7 @@ bootstrapApplication(AppComponent, {
     // Carga el diccionario del idioma elegido antes de pintar nada, para que no haya un parpadeo con textos en otro idioma.
     provideAppInitializer(() => inject(I18nService).init()),
     { provide: ErrorHandler, useClass: ApplicationErrorHandler },
-    provideHttpClient(withInterceptors([zoneChangeDetectionInterceptor])),
+    provideHttpClient(withInterceptors([zoneChangeDetectionInterceptor, sessionExpiryInterceptor])),
     // Angular 21+ defaults to zoneless change detection. Keep Zone.js-based
     // detection while the existing screens still update ordinary fields from
     // HttpClient subscriptions; the interceptor re-enters the zone for every

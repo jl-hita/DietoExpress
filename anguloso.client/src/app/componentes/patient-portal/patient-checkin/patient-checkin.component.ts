@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../../shared/api-error';
 import { Component, Input, OnChanges, OnInit, SimpleChanges, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule, NgForm } from '@angular/forms';
@@ -110,7 +111,7 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
       error: err => {
         this.eligibilityLoading = false;
         this.checkinEligible = false;
-        this.eligibilityError = err?.error?.message || 'No hemos podido comprobar si ya puedes rellenar la revisión semanal.';
+        this.eligibilityError = apiErrorMessage(err, 'No hemos podido comprobar si ya puedes rellenar la revisión semanal.');
       }
     });
   }
@@ -129,7 +130,7 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
       error: err => {
         this.currentCheckin = null;
         this.checkinLoading = false;
-        this.checkinError = err?.error?.message || 'No hemos podido cargar tu revisión semanal.';
+        this.checkinError = apiErrorMessage(err, 'No hemos podido cargar tu revisión semanal.');
       }
     });
   }
@@ -169,7 +170,7 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
       },
       error: err => {
         this.checkinSaving = false;
-        this.checkinError = err?.error?.message || 'No hemos podido guardar tu revisión semanal. Inténtalo de nuevo.';
+        this.checkinError = apiErrorMessage(err, 'No hemos podido guardar tu revisión semanal. Inténtalo de nuevo.');
       }
     });
   }

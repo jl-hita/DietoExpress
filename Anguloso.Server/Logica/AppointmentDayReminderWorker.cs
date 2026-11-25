@@ -44,7 +44,15 @@ public sealed class AppointmentDayReminderWorker : BackgroundService
         {
             await connection.OpenAsync(ct);
             await using var command = new NpgsqlCommand("""
-                SELECT a.id,a.tenant_id,a.client_id,a.starts_at
+                SELECT a.id,a.tenant_id,a.client_id,a.starts_at,
+                       -- El paciente ya tiene su aviso (o la clínica lo ha desactivado) en las automatizaciones.
+                       (EXISTS (SELECT 1 FROM automation_jobs j
+                                JOIN automation_events e ON e.id=j.event_id AND e.tenant_id=j.tenant_id
+                                WHERE j.tenant_id=a.tenant_id AND e.aggregate_type='appointment' AND e.aggregate_id=a.id::text
+                                  AND j.idempotency_key LIKE '%:reminder-24h' AND j.status <> 'cancelled')
+                        OR EXISTS (SELECT 1 FROM automation_rules r
+                                   WHERE r.tenant_id=a.tenant_id AND r.rule_key='appointment.reminder.24h' AND NOT r.enabled))
+                       AS patient_handled
                 FROM patient_appointments a
                 JOIN clients c ON c.id=a.client_id AND c.tenant_id=a.tenant_id
                 WHERE a.status='confirmed' AND c.archived_at IS NULL
@@ -61,7 +69,7 @@ public sealed class AppointmentDayReminderWorker : BackgroundService
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
                 due.Add(new Reminder(reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2),
-                    DateTime.SpecifyKind(reader.GetDateTime(3), DateTimeKind.Utc)));
+                    DateTime.SpecifyKind(reader.GetDateTime(3), DateTimeKind.Utc), reader.GetBoolean(4)));
         }
 
         foreach (var item in due)
@@ -90,13 +98,16 @@ public sealed class AppointmentDayReminderWorker : BackgroundService
             {
                 using var scope = _scopeFactory.CreateScope();
                 var notifications = scope.ServiceProvider.GetRequiredService<NotificationService>();
-                await notifications.CreateForPatientAsync(item.TenantId, item.ClientId, "appointment_reminder_24h",
+                if (!item.PatientHandled)
+                {
+                    await notifications.CreateForPatientAsync(item.TenantId, item.ClientId, "appointment_reminder_24h",
                     "Mañana tienes una cita", "Te recordamos que tienes una cita mañana. Consulta la hora y los detalles en DietoExpress.",
                     "/patient?tab=appointments", true, $"appointment-reminder-24h:{item.Id}:patient");
                 var push = scope.ServiceProvider.GetRequiredService<PatientPushService>();
                 await push.SendToClientAsync(item.ClientId, "Mañana tienes una cita",
                     "Te recordamos que tienes una cita mañana. Consulta la hora y los detalles en DietoExpress.",
                     "appointments", $"appointment-reminder-24h:{item.Id}:patient", ct);
+                }
                 var professionalPush = scope.ServiceProvider.GetRequiredService<ProfessionalPushService>();
                 await professionalPush.SendNotificationAsync(item.TenantId,
                     await GetNutritionistIdAsync(item.Id, ct),
@@ -133,5 +144,5 @@ public sealed class AppointmentDayReminderWorker : BackgroundService
         return value is null ? throw new InvalidOperationException("No se encontró el profesional de la cita.") : Convert.ToInt32(value);
     }
 
-    private sealed record Reminder(int Id, int TenantId, int ClientId, DateTime StartsAtUtc);
+    private sealed record Reminder(int Id, int TenantId, int ClientId, DateTime StartsAtUtc, bool PatientHandled);
 }

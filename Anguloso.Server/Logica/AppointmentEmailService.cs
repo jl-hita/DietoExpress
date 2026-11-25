@@ -48,7 +48,6 @@ public sealed class AppointmentEmailService
         // no debe invalidar el único enlace que sí pudo haber recibido.
         var previousToken = appointment.client.access_token;
         var previousExpiry = appointment.client.access_token_expires_at;
-        var previousTokenVersion = appointment.client.portal_token_version;
 
         var endsAtUtc = DateTime.SpecifyKind(appointment.ends_at, DateTimeKind.Utc);
         var minimumExpiry = endsAtUtc.AddHours(24);
@@ -98,7 +97,6 @@ public sealed class AppointmentEmailService
         {
             appointment.client.access_token = previousToken;
             appointment.client.access_token_expires_at = previousExpiry;
-            appointment.client.portal_token_version = previousTokenVersion;
             await _context.SaveChangesAsync(CancellationToken.None);
             throw;
         }
@@ -107,7 +105,6 @@ public sealed class AppointmentEmailService
         {
             appointment.client.access_token = previousToken;
             appointment.client.access_token_expires_at = previousExpiry;
-            appointment.client.portal_token_version = previousTokenVersion;
             await _context.SaveChangesAsync(cancellationToken);
             return new AppointmentEmailResult(false, "No se ha podido enviar el email. Revisa la configuración SMTP e inténtalo de nuevo.");
         }

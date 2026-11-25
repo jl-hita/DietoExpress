@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -63,7 +64,7 @@ export class DocumentTemplatesComponent implements OnInit {
     this.loading = true;
     this.http.get<DocumentTemplate[]>('/api/document-templates').subscribe({
       next: x => { this.templates = x; this.loading = false; },
-      error: e => { this.error = e?.error?.message || 'No se pudieron cargar las plantillas.'; this.loading = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudieron cargar las plantillas.'); this.loading = false; }
     });
   }
 
@@ -90,14 +91,14 @@ export class DocumentTemplatesComponent implements OnInit {
         this.saving = false;
         this.load();
       },
-      error: e => { this.error = e?.error?.message || 'No se pudo subir la plantilla.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo subir la plantilla.'); this.saving = false; }
     });
   }
 
   toggle(template: DocumentTemplate): void {
     this.http.patch('/api/document-templates/' + template.id + '/active', { active: !template.isActive }).subscribe({
       next: () => template.isActive = !template.isActive,
-      error: e => this.error = e?.error?.message || 'No se pudo cambiar el estado.'
+      error: e => this.error = apiErrorMessage(e, 'No se pudo cambiar el estado.')
     });
   }
 }

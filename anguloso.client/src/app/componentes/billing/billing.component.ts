@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -688,7 +689,7 @@ export class BillingComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.legalAccepting = false;
-        const message = err?.error?.message || err?.error || 'No se han podido registrar las condiciones.';
+        const message = apiErrorMessage(err, 'No se han podido registrar las condiciones.');
         this.snackBar.open(message, 'Cerrar', { duration: 6000 });
       }
     });
@@ -745,7 +746,7 @@ export class BillingComponent implements OnInit, OnDestroy {
   }
 
   private showError(err: any, fallback: string): void {
-    const message = err?.error?.message || err?.error || fallback;
+    const message = apiErrorMessage(err, fallback);
     this.snackBar.open(message, 'Cerrar', { duration: 6000 });
   }
 }

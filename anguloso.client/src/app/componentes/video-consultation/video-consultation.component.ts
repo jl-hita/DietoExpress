@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnDestroy, Output, ViewChild, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -144,7 +145,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
         else this.quotaWarning = '';
         this.startCallTimer(access.expiresAt); void this.connectToRoom(access.roomUrl, access.token);
       },
-      error: err => { this.connecting = false; this.loading = false; this.connectionState = 'error'; this.error = err?.error?.message || 'No hemos podido autorizar la consulta online.'; }
+      error: err => { this.connecting = false; this.loading = false; this.connectionState = 'error'; this.error = apiErrorMessage(err, 'No hemos podido autorizar la consulta online.'); }
     });
   }
 
@@ -245,7 +246,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
     this.finalizing=true;
     this.portalService.finishVideoConsultation(this.appointmentId, this.patientPortalSession).subscribe({
       next:()=>{this.connectionState='finalized';this.connected=false;this.manualDisconnect=true;if(this.callTimer)clearInterval(this.callTimer);void this.room?.disconnect();this.localAudio?.stop();this.localVideoTrack?.stop();this.finalizing=false;this.returnToConsultation();},
-      error:err=>{this.error=err?.error?.message||'No hemos podido finalizar la videollamada.';this.finalizing=false;}
+      error:err=>{this.error=apiErrorMessage(err, 'No hemos podido finalizar la videollamada.');this.finalizing=false;}
     });
   }
 

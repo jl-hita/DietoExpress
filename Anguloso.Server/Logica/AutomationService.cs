@@ -1589,11 +1589,12 @@ public sealed class AutomationService
                                 $"/video-consultation/{payload.AppointmentId}"),
                             roomReady, evt.Id, $"online:room-ready:patient:{payload.AppointmentId}", cancellationToken: cancellationToken);
                         var professionalRoomReady = await ApplyConfiguredLeadTimeAsync(evt.TenantId, "online_consultation.room_available.professional", payload.StartsAtUtc, 15, cancellationToken);
-                        await ScheduleActionAsync(evt.TenantId, "notify_patient",
-                            new NotifyPatientAction(payload.ClientId, "online_room_available_professional", "Sala de consulta online preparada",
-                                "La sala de la consulta online ya está disponible. Puedes entrar desde la agenda.",
-                                $"/video-consultation/{payload.AppointmentId}"),
-                            professionalRoomReady, evt.Id, $"online:room-ready:professional:{payload.AppointmentId}", cancellationToken: cancellationToken);
+                        if (payload.NutritionistId is int roomProfessionalId)
+                            await ScheduleActionAsync(evt.TenantId, "push_professional",
+                                new ProfessionalPushAction(roomProfessionalId, "Sala de consulta online preparada",
+                                    "La sala de la consulta online ya está disponible. Puedes entrar desde la agenda.",
+                                    $"/video-consultation/{payload.AppointmentId}"),
+                                professionalRoomReady, evt.Id, $"online:room-ready:professional:{payload.AppointmentId}", cancellationToken: cancellationToken);
                     }
 
                     var firstReminder = await ApplyConfiguredLeadTimeAsync(

@@ -710,7 +710,7 @@ Nginx debe:
 2. redirigir a HTTPS;
 3. atender HTTPS;
 4. servir `/var/www/dietoexpress/browser` (manteniendo `/var/www/dietoexpress` como raíz pública y el subdirectorio `browser` del build Angular);
-5. reenviar /api/ al backend;
+5. reenviar /api/, /health/ y /sitemap.xml al backend;
 6. pasar Host, X-Real-IP, X-Forwarded-For y X-Forwarded-Proto;
 7. no exponer el puerto interno de ASP.NET Core.
 
@@ -737,6 +737,22 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Salud y sitemap los genera el backend: sin estos bloques Nginx devuelve la web con 200
+    # y la monitorización no detecta una caída.
+    location /health/ {
+        proxy_pass http://127.0.0.1:<PORT>;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /sitemap.xml {
+        proxy_pass http://127.0.0.1:<PORT>;
+        proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }

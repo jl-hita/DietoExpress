@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
@@ -237,7 +238,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       error: err => {
         this.evidenceUploading = null;
         input.value = '';
-        this.snack.open(err?.error || 'No se pudo enviar el documento.', 'Cerrar', { duration: 5000 });
+        this.snack.open(apiErrorMessage(err, 'No se pudo enviar el documento.'), 'Cerrar', { duration: 5000 });
       }
     });
   }
@@ -323,7 +324,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.passwordSaving = false;
-        this.snack.open(err?.error?.mensaje || err?.error || 'No se pudo cambiar la contraseña.', 'Cerrar', { duration: 4000 });
+        this.snack.open(err?.error?.mensaje || apiErrorMessage(err, 'No se pudo cambiar la contraseña.'), 'Cerrar', { duration: 4000 });
       }
     });
   }

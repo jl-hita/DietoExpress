@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -232,7 +233,7 @@ export class SetupWizardComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        const msg = err.error?.message || err.error || 'Error al configurar el sistema.';
+        const msg = apiErrorMessage(err, 'Error al configurar el sistema.');
         this.snackBar.open(msg, 'Entendido', { duration: 6000 });
       }
     });

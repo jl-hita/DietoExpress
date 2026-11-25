@@ -15,7 +15,8 @@ public sealed class PatientPortalFlowRegressionTests
         }
     }
 
-    private static string Read(string path) => File.ReadAllText(Path.Combine(RepoRoot, path));
+    // Los finales de línea se normalizan para que las comprobaciones multilínea pasen igual en Windows y en Linux.
+    private static string Read(string path) => File.ReadAllText(Path.Combine(RepoRoot, path)).Replace("\r\n", "\n");
 
     [Fact]
     public void PatientMagicLinkExpiryIsIndependentFromPersistentSession()

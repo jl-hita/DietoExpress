@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { Component, OnDestroy, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -757,7 +758,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       },
       error: error => {
         this.exerciseTransferRunning = false;
-        const message = error?.error?.error || 'No se pudo transferir la biblioteca a TRAZO.';
+        const message = apiErrorMessage(error, 'No se pudo transferir la biblioteca a TRAZO.');
         this.snackBar.open(message, 'Cerrar', { duration: 8000 });
       }
     });
@@ -1137,7 +1138,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           this.loadData();
         },
         error: err => {
-          const message = err?.error?.message || err?.error || 'Error al crear la cuenta.';
+          const message = apiErrorMessage(err, 'Error al crear la cuenta.');
           this.snackBar.open(message, 'Cerrar', { duration: 5000 });
         }
       });
@@ -1214,7 +1215,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             if (!confirmed) return;
             this.adminService.deleteUser(user.id,{assignments:[]}).subscribe({
               next:()=>{this.snackBar.open('Cuenta archivada correctamente.','OK',{duration:4000});this.loadData();},
-              error:err=>this.snackBar.open(err?.error?.message||err?.error||'Error al archivar la cuenta.','Cerrar',{duration:5000})
+              error:err=>this.snackBar.open(apiErrorMessage(err, 'Error al archivar la cuenta.'),'Cerrar',{duration:5000})
             });
           });
           return;
@@ -1229,11 +1230,11 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           if(!result)return;
           this.adminService.deleteUser(user.id,result).subscribe({
             next:()=>{this.snackBar.open('Cuenta archivada y pacientes gestionados correctamente.','OK',{duration:4000});this.loadData();},
-            error:err=>this.snackBar.open(err?.error?.message||err?.error||'Error al archivar la cuenta.','Cerrar',{duration:5000})
+            error:err=>this.snackBar.open(apiErrorMessage(err, 'Error al archivar la cuenta.'),'Cerrar',{duration:5000})
           });
         });
       },
-      error:err=>this.snackBar.open(err?.error?.message||err?.error||'No se pudo preparar el archivado.','Cerrar',{duration:5000})
+      error:err=>this.snackBar.open(apiErrorMessage(err, 'No se pudo preparar el archivado.'),'Cerrar',{duration:5000})
     });
   }
 

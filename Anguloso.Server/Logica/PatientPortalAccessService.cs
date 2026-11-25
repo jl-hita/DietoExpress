@@ -34,7 +34,8 @@ public sealed class PatientPortalAccessService
         client.access_token = HashAccessToken(rawToken);
         var expiry = expiresAtUtc ?? DateTime.UtcNow.AddHours(24);
         client.access_token_expires_at = DateTime.SpecifyKind(expiry, DateTimeKind.Utc);
-        client.portal_token_version++;
+        // Emitir un enlace no revoca las sesiones abiertas: cada email de cita o automatización cerraría la sesión de la app
+        // y dejaría de enviar push. La revocación es explícita (cerrar sesión, cambiar el PIN, regenerar el acceso o archivar).
 
         await _context.SaveChangesAsync(cancellationToken);
 
