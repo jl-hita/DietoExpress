@@ -453,7 +453,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 .Max()
         }));
 
-        Assert.Equal("training-generator-real-catalog-evaluation-v9", report.SchemaVersion);
+        Assert.Equal("training-generator-real-catalog-evaluation-v10", report.SchemaVersion);
         Assert.Equal(1782, report.ScenarioCount);
         Assert.Equal(11, scenarioResults.Select(result => (result.Split, result.TrainingDaysPerWeek)).Distinct().Count());
         Assert.Contains(scenarioResults, result => result.Split == TrainingProgramSplit.PushPullLegs.ToString() && result.TrainingDaysPerWeek == 5);
