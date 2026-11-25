@@ -402,6 +402,24 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await connection.OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
 
+        // La fila queda bloqueada hasta el commit: la agenda no puede cancelar la cita a mitad del cierre.
+        await using (var statusCommand = new NpgsqlCommand("""
+            SELECT status FROM patient_appointments
+            WHERE id=@appointment AND tenant_id=@tenant
+            FOR UPDATE;
+            """, connection, transaction))
+        {
+            statusCommand.Parameters.AddWithValue("appointment", appointmentId);
+            statusCommand.Parameters.AddWithValue("tenant", appointment.TenantId);
+            var appointmentStatus = await statusCommand.ExecuteScalarAsync() as string;
+            // "completed" se admite: la agenda permite completar la cita con la consulta todavía en curso.
+            if (appointmentStatus is not ("confirmed" or "completed"))
+            {
+                await transaction.RollbackAsync();
+                return Conflict(new { message = "La consulta solo puede cerrarse si la cita sigue confirmada o completada; no si está cancelada o marcada como no asistida." });
+            }
+        }
+
         await using var command = new NpgsqlCommand("""
             UPDATE professional_consultations
             SET status='completed', current_step='close',

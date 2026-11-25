@@ -145,6 +145,44 @@ describe('GuidedConsultationComponent navigation', () => {
     expect(component.previousAgreements).toEqual([{ label: 'Plan para esta consulta', text: 'Revisar cenas' }]);
   });
 
+  it('una consulta cerrada no guarda el expediente ni nuevas mediciones', () => {
+    component.consultation = serverState('evolution', 'completed');
+    component.clinicalProfile = { id: 7 };
+    component.baselineWeight = 80;
+    component.clientService = { updateClient: vi.fn(), createBiometric: vi.fn() };
+    const callback = vi.fn();
+
+    component.savePatientClinicalProfile(callback);
+    component.saveBaselineMeasurements();
+
+    expect(callback).toHaveBeenCalledOnce();
+    expect(component.clientService.updateClient).not.toHaveBeenCalled();
+    expect(component.clientService.createBiometric).not.toHaveBeenCalled();
+  });
+
+  it.each(['cancelled', 'no_show'])('una cita %s no permite cerrar la consulta', status => {
+    component.data = { ...component.data, appointment: { id: 1, clientId: 7, status } };
+    const confirm = vi.spyOn(window, 'confirm');
+
+    component.completeConsultation();
+
+    expect(component.closeBlockedReason).toBeTruthy();
+    expect(confirm).not.toHaveBeenCalled();
+    expect(component.completing).toBe(false);
+    confirm.mockRestore();
+  });
+
+  it('la próxima cita se crea con la modalidad elegida', () => {
+    portal['createConsultationAppointment' as keyof typeof portal] = vi.fn(() => of({ id: 2 })) as any;
+    component.consultation = serverState('next_appointment', 'completed');
+    component.selectedSlot = '2026-12-01T10:00:00Z';
+    component.nextModality = 'online';
+
+    component.bookNextAppointment();
+
+    expect((portal as any).createConsultationAppointment).toHaveBeenCalledWith(expect.objectContaining({ modality: 'online' }));
+  });
+
   it('ir a la agenda al fallar el inicio no espera guardados', () => {
     component.backToAgenda();
     expect(router.navigate).toHaveBeenCalledWith(['/appointments']);
