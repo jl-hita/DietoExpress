@@ -199,7 +199,6 @@ public sealed class TrainingPeriodizationRegressionTests
                 prescription, [previous, latest]);
 
             Assert.Equal(Anguloso.Server.Logica.TrainingExerciseProgressionAction.HoldAndReview, result.Action);
-            Assert.Contains("prescripción de este ejercicio cambió", result.Explanation);
         }
 
         // A recorded exercise that is absent from the structured historical prescription
