@@ -1292,3 +1292,5 @@
   .followup-goal-phase-editor select { width:100%; max-width:none; }
   .followup-goal-event { grid-template-columns:1fr; gap:3px; }
 }
+
+.archived-badge { background-color: #eceff1; color: #455a64; font-size: 11px; padding: 2px 8px; border-radius: 12px; }

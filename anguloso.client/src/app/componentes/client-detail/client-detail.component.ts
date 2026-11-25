@@ -1475,15 +1475,18 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteDietAssignment(assignmentId?: number) {
-    if (!this.clientId || !assignmentId) return;
-    if (!confirm('¿Estás seguro de que deseas eliminar este registro de asignación? (No eliminará la plantilla de dieta, solo la asignación a este paciente)')) return;
-    this.svc.deleteClientDiet(this.clientId, assignmentId).subscribe({
-      next: () => {
-        this.snack.open('Asignación eliminada', 'Cerrar', { duration: 3000 });
-        this.loadDietsHistory();
-      },
-      error: () => this.snack.open('Error al eliminar la asignación', 'Cerrar', { duration: 3000 })
+  /** Abre o cierra el contenido de un plan del historial. Solo hay uno abierto a la vez. */
+  toggleDietContent(entry: ClientDiet): void {
+    if (!this.clientId || !entry.id) return;
+    const wasOpen = !!entry.diet;
+    // Las claves de intercambios dependen de la posición dentro del plan: no se reutilizan entre planes.
+    this.exchangeFoodsCache = {};
+    this.exchangeSelectedFood = {};
+    this.dietsHistory = this.dietsHistory.map(d => ({ ...d, diet: undefined }));
+    if (wasOpen) return;
+    this.svc.getClientDietDetail(this.clientId, entry.id).subscribe({
+      next: diet => this.dietsHistory = this.dietsHistory.map(d => ({ ...d, diet: d.id === entry.id ? diet : undefined })),
+      error: () => this.snack.open('No se ha podido cargar el contenido del plan', 'Cerrar', { duration: 3000 })
     });
   }
 

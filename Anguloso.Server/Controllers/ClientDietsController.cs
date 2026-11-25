@@ -47,14 +47,15 @@ public class ClientDietsController : ControllerBase
                User.IsInRole("clinic_admin")))));
     }
 
-    private async Task<bool> UserCanAccessDietAsync(int dietId, int userId)
+    /// <param name="includeArchived">Solo para consultar o cerrar asignaciones del historial; una dieta archivada no se puede asignar ni reactivar.</param>
+    private async Task<bool> UserCanAccessDietAsync(int dietId, int userId, bool includeArchived = false)
     {
         var tenantId = AuthHelpers.GetTenantId(User);
         var sharedAllowed = await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS");
 
         return await _context.diets.AnyAsync(d =>
             d.id == dietId &&
-            d.archived_at == null &&
+            (includeArchived || d.archived_at == null) &&
             (User.IsInRole("superadmin") ||
              (tenantId.HasValue && d.tenant_id == tenantId.Value &&
               (d.user_id == userId ||
@@ -116,6 +117,7 @@ public class ClientDietsController : ControllerBase
     }
 
     // GET: api/clients/{clientId}/diets
+    // El historial incluye las dietas archivadas: retirar una dieta de la biblioteca no borra lo que el paciente siguió.
     [HttpGet]
     public async Task<ActionResult<List<ClientDietListDto>>> GetHistory(int clientId)
     {
@@ -133,12 +135,12 @@ public class ClientDietsController : ControllerBase
             .Where(cd => cd.client_id == clientId)
             .Where(cd => _context.diets.Any(d =>
                 d.id == cd.diet_id &&
-                d.archived_at == null &&
                 (User.IsInRole("superadmin") ||
                  (tenantId.HasValue && d.tenant_id == tenantId.Value &&
                   (d.user_id == userId.Value ||
                    (sharedAllowed && d.is_shared))))))
             .OrderByDescending(cd => cd.start_date)
+            .ThenByDescending(cd => cd.id)
             .Select(cd => new ClientDietListDto
             {
                 Id = cd.id,
@@ -149,6 +151,7 @@ public class ClientDietsController : ControllerBase
                 StartDate = cd.start_date.ToDateTime(TimeOnly.MinValue),
                 EndDate = cd.end_date.HasValue ? cd.end_date.Value.ToDateTime(TimeOnly.MinValue) : null,
                 IsActive = cd.is_active ?? false,
+                IsArchived = cd.diet != null && cd.diet.archived_at != null,
                 Notes = cd.notes
             })
             .ToListAsync();
@@ -179,6 +182,43 @@ public class ClientDietsController : ControllerBase
         if (!await UserCanAccessDietAsync(activeAssignment.diet_id, userId.Value))
             return NotFound("The active diet is not available to this user.");
 
+        var detail = await BuildDietDetailAsync(activeAssignment.diet_id, userId.Value, tenantId);
+        if (detail == null)
+            return NotFound("The active diet definition was not found.");
+
+        return Ok(detail);
+    }
+
+    // GET: api/clients/{clientId}/diets/{id}
+    // Consulta de solo lectura de cualquier asignación del historial, también si la dieta se archivó.
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<DietDetailDto>> GetAssignmentDiet(int clientId, int id)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        if (!await UserOwnsClientAsync(clientId, userId.Value))
+            return NotFound("Client not found or does not belong to the user.");
+
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var dietId = await _context.client_diets
+            .Where(cd => cd.id == id && cd.client_id == clientId && tenantId.HasValue &&
+                         cd.diet != null && cd.diet.tenant_id == tenantId.Value)
+            .Select(cd => (int?)cd.diet_id)
+            .FirstOrDefaultAsync();
+
+        if (dietId == null || !await UserCanAccessDietAsync(dietId.Value, userId.Value, includeArchived: true))
+            return NotFound("Diet assignment not found.");
+
+        var detail = await BuildDietDetailAsync(dietId.Value, userId.Value, tenantId);
+        if (detail == null)
+            return NotFound("Diet definition not found.");
+
+        return Ok(detail);
+    }
+
+    private async Task<DietDetailDto?> BuildDietDetailAsync(int dietId, int userId, int? tenantId)
+    {
         var d = await _context.diets
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
@@ -187,10 +227,9 @@ public class ClientDietsController : ControllerBase
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
                         .ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id && tenantId.HasValue && d.tenant_id == tenantId.Value);
+            .FirstOrDefaultAsync(d => d.id == dietId && tenantId.HasValue && d.tenant_id == tenantId.Value);
 
-        if (d == null)
-            return NotFound("The active diet definition was not found.");
+        if (d == null) return null;
 
         var foodIds = d.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items)
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).Distinct().ToList();
@@ -198,11 +237,11 @@ public class ClientDietsController : ControllerBase
             .Where(f => foodIds.Contains(f.id) &&
                 ((f.source == null || f.source.ToLower() != "local") ||
                  User.IsInRole("superadmin") ||
-                 (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
+                 (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId) ||
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
             .ToDictionaryAsync(f => f.id);
 
-        return Ok(new DietDetailDto
+        return new DietDetailDto
         {
             Id = d.id,
             Name = d.name,
@@ -237,7 +276,7 @@ public class ClientDietsController : ControllerBase
                     }).ToList()
                 }).ToList()
             }).ToList()
-        });
+        };
     }
 
     // POST: api/clients/{clientId}/diets
@@ -505,7 +544,7 @@ public class ClientDietsController : ControllerBase
 
             if (assignment == null) return NotFound("Diet assignment not found.");
 
-            if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
+            if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value, includeArchived: true))
                 return NotFound("Diet assignment not found.");
 
             assignment.is_active = false;
@@ -531,7 +570,8 @@ public class ClientDietsController : ControllerBase
 
     // DELETE: api/clients/{clientId}/diets/{id}
     [HttpDelete("{id:int}")]
-    // El borrado comprueba primero la pertenencia de la asignación para impedir referencias cruzadas entre tenants.
+    // El historial de dietas no se pierde: "borrar" una asignación solo la cierra. Se comprueba antes su pertenencia
+    // para impedir referencias cruzadas entre tenants.
     public async Task<IActionResult> DeleteAssignment(int clientId, int id)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -562,10 +602,14 @@ public class ClientDietsController : ControllerBase
 
             if (assignment == null) return NotFound("Diet assignment not found.");
 
-            if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
+            if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value, includeArchived: true))
                 return NotFound("Diet assignment not found.");
 
-            _context.client_diets.Remove(assignment);
+            if (assignment.is_active == true)
+            {
+                assignment.is_active = false;
+                assignment.end_date = DateOnly.FromDateTime(DateTime.Today);
+            }
             await _context.SaveChangesAsync();
 
             if (transaction != null)
@@ -729,7 +773,7 @@ public class ClientDietsController : ControllerBase
         if (assignment == null)
             return NotFound("Diet assignment not found.");
 
-        if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
+        if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value, includeArchived: true))
             return NotFound("Diet assignment not found.");
 
         if (assignment.diet == null)

@@ -170,6 +170,14 @@ export interface FollowupSettings {
   updatedAt?: string | null;
 }
 
+export interface PatientDietHistoryEntry {
+  assignmentId: number;
+  dietName: string;
+  startDate: string;
+  endDate?: string | null;
+  isActive: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
   // Centraliza autenticación y operaciones del portal para que los componentes no dupliquen rutas ni gestionen directamente el transporte HTTP.
 export class PatientPortalService {
@@ -179,6 +187,8 @@ export class PatientPortalService {
   clearPatientSession(): Observable<void> { return this.http.post<void>(`${this.base}/portal/logout`, {}); }
   getMyProfile(clientIdParam?: number): Observable<any> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any>(`${this.base}/portal/profile`, { params }); }
   getMyActiveDiet(clientIdParam?: number): Observable<any> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any>(`${this.base}/portal/diet`, { params }); }
+  getMyDietHistory(clientIdParam?: number): Observable<PatientDietHistoryEntry[]> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<PatientDietHistoryEntry[]>(`${this.base}/portal/diet/history`, { params }); }
+  getMyDietHistoryDetail(assignmentId: number, clientIdParam?: number): Observable<any> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any>(`${this.base}/portal/diet/history/${assignmentId}`, { params }); }
   getMyShoppingList(clientIdParam?: number): Observable<ShoppingListCategory[]> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<ShoppingListCategory[]>(`${this.base}/portal/shopping-list`, { params }); }
   requestAccessLink(email: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.base}/portal/request-access-link`, { email });

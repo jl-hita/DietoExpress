@@ -109,8 +109,8 @@ export class ClientService {
     return this.http.post<any>(`${this.base}/clients/${clientId}/diets/${assignmentId}/deactivate`, {});
   }
 
-  deleteClientDiet(clientId: number, assignmentId: number): Observable<any> {
-    return this.http.delete<any>(`${this.base}/clients/${clientId}/diets/${assignmentId}`);
+  getClientDietDetail(clientId: number, assignmentId: number): Observable<any> {
+    return this.http.get<any>(`${this.base}/clients/${clientId}/diets/${assignmentId}`);
   }
 
   getEvolution(clientId: number): Observable<Biometric[]> {

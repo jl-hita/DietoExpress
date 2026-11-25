@@ -875,25 +875,26 @@
                   <span *ngIf="!d.endDate"> - Presente</span>)
                 </span>
                 <span *ngIf="d.isActive" class="active-badge">Activa</span>
+                <span *ngIf="d.isArchived" class="archived-badge">Archivada</span>
               </div>
               <div class="diet-actions">
+                <button mat-icon-button color="primary" (click)="toggleDietContent(d)" [title]="d.diet ? 'Ocultar contenido' : 'Ver contenido'" [attr.aria-expanded]="!!d.diet">
+                  <mat-icon>{{ d.diet ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
                 <button mat-icon-button color="primary" (click)="downloadPdf(d.id)" title="Descargar PDF">
                   <mat-icon>picture_as_pdf</mat-icon>
                 </button>
-                <button mat-icon-button color="primary" (click)="editDiet(d.dietId)" title="Editar dieta">
+                <button mat-icon-button color="primary" *ngIf="!d.isArchived" (click)="editDiet(d.dietId)" title="Editar dieta">
                   <mat-icon>edit</mat-icon>
                 </button>
                 <button mat-icon-button color="accent" *ngIf="d.isActive" (click)="deactivateDiet(d.id)" title="Desactivar Dieta">
                   <mat-icon>block</mat-icon>
                 </button>
-                <button mat-icon-button color="warn" (click)="deleteDietAssignment(d.id)" title="Eliminar Asignación">
-                  <mat-icon>delete</mat-icon>
-                </button>
               </div>
             </div>
 
-            <!-- Vista interactiva de la dieta activa -->
-            <ng-container *ngIf="d.isActive && d.diet">
+            <!-- Contenido del plan abierto -->
+            <ng-container *ngIf="d.diet">
               <div class="active-diet-viewer">
                 <div *ngFor="let day of d.diet.days; let dIndex = index" class="diet-day-block">
                   <div class="day-label">Día {{ day.dayIndex + 1 }}</div>
