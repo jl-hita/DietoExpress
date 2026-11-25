@@ -71,9 +71,7 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
             var dayOfWeek = (int)day.DayOfWeek;
             foreach (var rule in availability.Where(a => a.day_of_week == dayOfWeek))
             {
-                for (var localTime = rule.start_time;
-                     localTime.AddMinutes(durationMinutes) <= rule.end_time;
-                     localTime = localTime.AddMinutes(rule.slot_minutes))
+                foreach (var localTime in AvailabilitySlots.StartTimes(rule.start_time, rule.end_time, durationMinutes, rule.slot_minutes))
                 {
                     var localDateTime = day.Add(localTime.ToTimeSpan());
                     if (!UserTimeZoneResolver.TryConvertLocalToUtc(localDateTime, zone, out var utc)) continue;

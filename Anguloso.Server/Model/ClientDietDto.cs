@@ -13,6 +13,8 @@ public class ClientDietListDto
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public bool IsActive { get; set; }
+    /// <summary>La dieta se retiró de la biblioteca: solo se puede consultar.</summary>
+    public bool IsArchived { get; set; }
     public string? Notes { get; set; }
 }
 
@@ -37,4 +39,14 @@ public class UpdateClientDietDto
     public bool IsActive { get; set; }
     
     public string? Notes { get; set; }
+}
+
+/// <summary>Entrada del historial de planes que ve el paciente.</summary>
+public class PatientDietHistoryDto
+{
+    public int AssignmentId { get; set; }
+    public string DietName { get; set; } = string.Empty;
+    public DateOnly StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
+    public bool IsActive { get; set; }
 }

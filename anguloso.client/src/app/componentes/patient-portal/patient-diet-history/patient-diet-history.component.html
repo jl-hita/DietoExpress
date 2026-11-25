@@ -1,0 +1,65 @@
+<section class="diet-history">
+  <button type="button" class="diet-history-toggle" (click)="toggle()" [attr.aria-expanded]="open()">
+    <mat-icon>history</mat-icon>
+    <span>Historial de planes</span>
+    <mat-icon class="chevron">{{ open() ? 'expand_less' : 'expand_more' }}</mat-icon>
+  </button>
+
+  <div class="diet-history-body" *ngIf="open()">
+    <p class="muted" *ngIf="loading()">Cargando historial…</p>
+    <p class="muted" *ngIf="error()" role="alert">{{ error() }} <button type="button" class="link" (click)="load()">Reintentar</button></p>
+    <p class="muted" *ngIf="!loading() && !error() && entries()?.length === 0">Todavía no tienes planes registrados.</p>
+
+    <ng-container *ngIf="!loading() && !error()">
+      <article class="entry" *ngFor="let entry of entries()">
+        <button type="button" class="entry-header" (click)="select(entry.assignmentId)" [attr.aria-expanded]="selectedId() === entry.assignmentId">
+          <span class="entry-title">
+            <strong>{{ entry.dietName }}</strong>
+            <small>Desde el {{ entry.startDate | date:'dd/MM/yyyy' }}<ng-container *ngIf="entry.endDate"> hasta el {{ entry.endDate | date:'dd/MM/yyyy' }}</ng-container></small>
+          </span>
+          <span class="badge" *ngIf="entry.isActive">Activo</span>
+          <mat-icon>{{ selectedId() === entry.assignmentId ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </button>
+
+        <div class="entry-detail" *ngIf="selectedId() === entry.assignmentId">
+          <p class="muted" *ngIf="!detail() && !detailError()">Cargando plan…</p>
+          <p class="muted" *ngIf="detailError()" role="alert">{{ detailError() }} <button type="button" class="link" (click)="select(entry.assignmentId)">Reintentar</button></p>
+          <ng-container *ngIf="detail() as diet">
+            <p class="muted" *ngIf="!diet.days?.length">Este plan no tiene comidas registradas.</p>
+            <div class="day" *ngFor="let day of diet.days">
+              <h4>{{ dayNames[day.dayIndex] || ('Día ' + (day.dayIndex + 1)) }}</h4>
+              <div class="meal" *ngFor="let meal of day.meals">
+                <h5>{{ meal.name }}</h5>
+                <ul>
+                  <li *ngFor="let item of meal.items">
+                    <span *ngIf="item.foodName; else exchange">{{ item.foodName }}<ng-container *ngIf="item.grams"> · {{ item.grams }} g</ng-container></span>
+                    <ng-template #exchange>
+                      <button type="button" class="link" *ngIf="item.exchangeGroupId; else unknown" (click)="toggleEquivalents(item.id, item.exchangeGroupId)" [attr.aria-expanded]="expandedItemId() === item.id">
+                        {{ item.exchangeCount }} intercambio(s) de {{ item.exchangeGroupName }}
+                      </button>
+                      <ng-template #unknown><span>Alimento no disponible</span></ng-template>
+                    </ng-template>
+                    <small *ngIf="item.kcal">{{ item.kcal | number:'1.0-0' }} kcal</small>
+                    <div class="equivalents" *ngIf="item.exchangeGroupId && expandedItemId() === item.id">
+                      <p class="muted" *ngIf="equivalentsError(); else foods" role="alert">No hemos podido cargar los equivalentes. Pulsa de nuevo para reintentar.</p>
+                      <ng-template #foods>
+                        <ng-container *ngIf="equivalents()[item.exchangeGroupId] as options; else pending">
+                          <p class="muted" *ngIf="!options.length">No hay alimentos registrados en este grupo de intercambio.</p>
+                          <div class="equivalent" *ngFor="let food of options"><span>{{ food.foodName }}</span><strong>{{ food.gramsPerExchange * (item.exchangeCount || 1) | number:'1.0-0' }} g</strong></div>
+                        </ng-container>
+                        <ng-template #pending><p class="muted">Cargando equivalentes…</p></ng-template>
+                      </ng-template>
+                    </div>
+                  </li>
+                </ul>
+                <p class="macros" *ngIf="meal.items?.length">
+                  P: {{ meal.items | sum:'protein' | number:'1.0-1' }} g · HC: {{ meal.items | sum:'carbs' | number:'1.0-1' }} g · G: {{ meal.items | sum:'fat' | number:'1.0-1' }} g
+                </p>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+      </article>
+    </ng-container>
+  </div>
+</section>

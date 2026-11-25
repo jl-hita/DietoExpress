@@ -233,8 +233,9 @@ export interface ClientDiet {
   startDate: string; // yyyy-MM-dd
   endDate?: string;  // yyyy-MM-dd
   isActive: boolean;
+  isArchived?: boolean;
   notes?: string;
-  // Optional: populated on the frontend when active diet details are loaded
+  // Optional: populated on the frontend when the diet content is opened
   diet?: any;
 }
 

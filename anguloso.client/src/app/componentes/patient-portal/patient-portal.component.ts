@@ -18,6 +18,7 @@ import { AccessLinkRecoveryComponent } from './access-link-recovery/access-link-
 import { PatientShoppingCategory, PatientShoppingComponent } from './patient-shopping/patient-shopping.component';
 import { PatientHeaderComponent } from './patient-header/patient-header.component';
 import { PatientDocumentsComponent } from './patient-documents/patient-documents.component';
+import { PatientDietHistoryComponent } from './patient-diet-history/patient-diet-history.component';
 
 interface TrainingReviewRequestState { id: number; status: 'pending' | 'attended' | 'rejected'; createdAt: string; resolvedAt?: string | null; resolutionNotes?: string | null; }
 interface TrainingReviewPlan { planId: number; name: string; version: number; planStatus: string; reviewRequest: TrainingReviewRequestState | null; }
@@ -79,7 +80,7 @@ type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages'
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-patient-portal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientAppointmentsComponent, PatientProgressComponent, AccessLinkRecoveryComponent, PatientShoppingComponent, PatientHeaderComponent, PatientDocumentsComponent],
+  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientAppointmentsComponent, PatientProgressComponent, AccessLinkRecoveryComponent, PatientShoppingComponent, PatientHeaderComponent, PatientDocumentsComponent, PatientDietHistoryComponent],
   templateUrl: './patient-portal.component.html',
   styleUrls: ['./patient-portal.component.css']
 })

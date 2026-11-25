@@ -445,11 +445,61 @@ public class PatientPortalController : ControllerBase
                          cd.diet.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault())
             .FirstOrDefaultAsync();
         if (activeAssignment == null) return NotFound("No tienes ningún plan nutricional activo asignado en este momento.");
+        var detail = await BuildPatientDietAsync(activeAssignment.diet_id, clientId.Value);
+        if (detail == null) return NotFound("Plan nutricional no encontrado.");
+        return Ok(detail);
+    }
+
+    // Planes anteriores y actual del paciente. Incluye los que el profesional archivó; las notas de la asignación no se exponen.
+    [HttpGet("diet/history")]
+    [Authorize]
+    public async Task<ActionResult<List<PatientDietHistoryDto>>> GetMyDietHistory()
+    {
+        var clientId = ResolveAuthorizedClientId();
+        if (clientId == null) return Unauthorized();
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
+
+        return Ok(await _context.client_diets.AsNoTracking()
+            .Where(cd => cd.client_id == clientId.Value && cd.diet != null &&
+                         cd.diet.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault())
+            .OrderByDescending(cd => cd.start_date)
+            .ThenByDescending(cd => cd.id)
+            .Select(cd => new PatientDietHistoryDto
+            {
+                AssignmentId = cd.id,
+                DietName = cd.diet!.name,
+                StartDate = cd.start_date,
+                EndDate = cd.end_date,
+                IsActive = cd.is_active ?? false
+            })
+            .ToListAsync());
+    }
+
+    [HttpGet("diet/history/{assignmentId:int}")]
+    [Authorize]
+    public async Task<ActionResult<DietDetailDto>> GetMyDietHistoryDetail(int assignmentId)
+    {
+        var clientId = ResolveAuthorizedClientId();
+        if (clientId == null) return Unauthorized();
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
+
+        // La asignación se busca siempre junto al paciente autorizado: un identificador ajeno no devuelve nada.
+        var dietId = await _context.client_diets.AsNoTracking()
+            .Where(cd => cd.id == assignmentId && cd.client_id == clientId.Value)
+            .Select(cd => (int?)cd.diet_id)
+            .FirstOrDefaultAsync();
+        var detail = dietId == null ? null : await BuildPatientDietAsync(dietId.Value, clientId.Value);
+        if (detail == null) return NotFound("Plan nutricional no encontrado.");
+        return Ok(detail);
+    }
+
+    private async Task<DietDetailDto?> BuildPatientDietAsync(int dietId, int clientId)
+    {
         var d = await _context.diets.Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items)
             .Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items).ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id &&
-                             d.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault());
-        if (d == null) return NotFound("Plan nutricional no encontrado.");
+            .FirstOrDefaultAsync(d => d.id == dietId &&
+                             d.tenant_id == _context.clients.Where(c => c.id == clientId).Select(c => c.tenant_id).FirstOrDefault());
+        if (d == null) return null;
 
         var foodIds = d.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items)
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).Distinct().ToList();
@@ -458,7 +508,7 @@ public class PatientPortalController : ControllerBase
                 ((f.source == null || f.source.ToLower() != "local") || f.tenant_id == d.tenant_id))
             .ToDictionaryAsync(f => f.id);
 
-        return Ok(new DietDetailDto
+        return new DietDetailDto
         {
             Id = d.id, Name = d.name, TargetKcal = d.target_kcal, TargetProtein = d.target_protein, TargetCarbs = d.target_carbs, TargetFat = d.target_fat,
             Days = d.diet_days.OrderBy(dd => dd.day_index).Select(dd => new DietDayDto
@@ -475,12 +525,19 @@ public class PatientPortalController : ControllerBase
                     }).ToList()
                 }).ToList()
             }).ToList()
-        });
+        };
     }
 
     [HttpGet("diet/pdf")]
     [Authorize]
-    public async Task<IActionResult> DownloadMyActiveDietPdf()
+    public Task<IActionResult> DownloadMyActiveDietPdf() => DownloadMyDietPdfAsync(assignmentId: null);
+
+    [HttpGet("diet/history/{assignmentId:int}/pdf")]
+    [Authorize]
+    public Task<IActionResult> DownloadMyDietHistoryPdf(int assignmentId) => DownloadMyDietPdfAsync(assignmentId);
+
+    /// <param name="assignmentId">Asignación del historial; nulo para el plan activo.</param>
+    private async Task<IActionResult> DownloadMyDietPdfAsync(int? assignmentId)
     {
         var clientId = ResolveAuthorizedClientId();
         if (clientId == null) return Unauthorized();
@@ -504,11 +561,12 @@ public class PatientPortalController : ControllerBase
                     .ThenInclude(day => day.meals)
                         .ThenInclude(meal => meal.meal_items)
                             .ThenInclude(item => item.exchange_group)
-            .FirstOrDefaultAsync(cd => cd.client_id == clientId.Value && cd.is_active == true &&
+            .FirstOrDefaultAsync(cd => cd.client_id == clientId.Value &&
+                (assignmentId == null ? cd.is_active == true : cd.id == assignmentId) &&
                 cd.diet != null && cd.diet.tenant_id == tenantId);
 
         if (assignment?.diet == null || assignment.client == null)
-            return NotFound("No tienes ningún plan nutricional activo asignado.");
+            return NotFound(assignmentId == null ? "No tienes ningún plan nutricional activo asignado." : "Plan nutricional no encontrado.");
 
         var foodIds = assignment.diet.diet_days.SelectMany(day => day.meals)
             .SelectMany(meal => meal.meal_items)
@@ -536,7 +594,7 @@ public class PatientPortalController : ControllerBase
         {
             var pdfBytes = _dietPdfService.GenerateDietPdf(
                 assignment.client, assignment.diet, assignment, _context, clientId.Value, canUseTenantLocalFoods: true);
-            return File(pdfBytes, "application/pdf", "Dieta_Activa_DietoExpress.pdf");
+            return File(pdfBytes, "application/pdf", assignmentId == null ? "Dieta_Activa_DietoExpress.pdf" : "Dieta_DietoExpress.pdf");
         }
         catch (Exception ex)
         {
