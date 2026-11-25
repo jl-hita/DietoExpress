@@ -220,3 +220,12 @@ Completar primero el motor determinista y sus tests, el modelo estructurado de p
 - El volumen de cuádriceps e isquiotibiales puede completarse con sus aislamientos cuando el techo de glúteos se alcanza; no se reduce automáticamente el trabajo de sentadilla o bisagra por una descarga temporal.
 - Se añade una alerta no bloqueante cuando una semana concentra al menos 12 series más y al menos el doble de trabajo en una sesión frente a otra. La matriz mostró un caso BandsOnly + PushPullLegs con 30 series en Pierna, 10 en Empuje y 5 en Tracción; con bandas no hay tracción vertical compatible. Para ese material se debe preferir FullBody/UpperLower o revisar la distribución, no fingir que PPL queda equilibrado.
 - Los umbrales de 12 series de diferencia y 30 series por sesión son señales internas de revisión, no límites fisiológicos ni recomendaciones de ACSM.
+
+
+## 15. PPL de cuatro días con rotación global (25/11/2026)
+
+- Push/Pull/Legs admite ahora 3, 4, 5 y 6 días. El caso de cuatro días conserva las tres plantillas clásicas (Empuje, Tracción, Pierna) y avanza un único índice de sesión a través de los límites semanales.
+- La secuencia de ejemplo es: semana 1 **Empuje / Tracción / Pierna / Empuje**; semana 2 **Tracción / Pierna / Empuje / Tracción**; semana 3 **Pierna / Empuje / Tracción / Pierna**. La exposición adicional rota y no se repite siempre el mismo grupo al final de cada semana.
+- La rotación no garantiza equilibrio con cualquier equipamiento: si un patrón no tiene candidato compatible o el volumen queda concentrado, el analizador conserva la advertencia y puede recomendar FullBody/UpperLower. No se inventan poleas, barras ni ejercicios para completar un patrón.
+- La matriz de catálogo real se amplía de 1.782 a **1.944 escenarios** (seis perfiles, doce combinaciones split/días, tres objetivos, tres niveles y tres presupuestos). El artefacto real pasa a training-generator-real-catalog-evaluation-v10.
+- Es una decisión de producto para mantener una secuencia PPL continua; no es una prescripción de frecuencia ni una recomendación adicional de ACSM.

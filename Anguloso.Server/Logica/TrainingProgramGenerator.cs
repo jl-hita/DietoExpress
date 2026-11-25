@@ -88,6 +88,9 @@ public static class TrainingProgramGenerator
         }
 
         var sessionPatterns = PlanSessionPatterns(split, request, Compatible);
+        // Four-day PPL is a rolling three-template sequence across week boundaries. The
+        // extra weekly exposure rotates Push -> Pull -> Legs instead of repeating Push every week.
+        var rotatesFourDayPushPullLegs = request.Split == TrainingProgramSplit.PushPullLegs && days.Length == 4;
         var sessions = new List<TrainingSessionPrescription>();
         for (var week = 1; week <= request.DurationWeeks; week++)
         {
@@ -96,8 +99,11 @@ public static class TrainingProgramGenerator
             var selectedThisWeek = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             for (var dayIndex = 0; dayIndex < days.Length; dayIndex++)
             {
-                var sessionTemplate = split[dayIndex];
-                var requiredPatterns = sessionPatterns[dayIndex];
+                var templateIndex = rotatesFourDayPushPullLegs
+                    ? ((week - 1) * days.Length + dayIndex) % split.Count
+                    : dayIndex;
+                var sessionTemplate = split[templateIndex];
+                var requiredPatterns = sessionPatterns[templateIndex];
                 var prescriptions = new List<TrainingExercisePrescription>();
                 for (var patternIndex = 0; patternIndex < requiredPatterns.Count; patternIndex++)
                 {
@@ -773,7 +779,7 @@ public static class TrainingProgramGenerator
                 TrainingProgramSplit.Automatic => dayCount is >= 2 and <= 4,
                 TrainingProgramSplit.FullBody => dayCount is >= 2 and <= 4,
                 TrainingProgramSplit.UpperLower => dayCount is 2 or 4,
-                TrainingProgramSplit.PushPullLegs => dayCount is 3 or 5 or 6,
+                TrainingProgramSplit.PushPullLegs => dayCount is 3 or 4 or 5 or 6,
                 _ => false
             };
             if (!supportedDayCount)
@@ -781,7 +787,7 @@ public static class TrainingProgramGenerator
                 {
                     TrainingProgramSplit.FullBody => "Cuerpo completo admite de 2 a 4 días; cambia la disponibilidad o elige otra distribución.",
                     TrainingProgramSplit.UpperLower => "Torso/Pierna admite 2 o 4 días; cambia la disponibilidad o elige otra distribución.",
-                    TrainingProgramSplit.PushPullLegs => "Push/Pull/Legs admite 3, 5 o 6 días; cambia la disponibilidad o elige otra distribución.",
+                    TrainingProgramSplit.PushPullLegs => "Push/Pull/Legs admite 3, 4, 5 o 6 días; con 4 días la secuencia rota entre semanas.",
                     _ => "La distribución automática admite entre 2 y 4 días."
                 });
         }
@@ -1231,6 +1237,8 @@ public static class TrainingProgramGenerator
             TrainingProgramSplit.FullBody when daysPerWeek == 2 => [fullBodyA, fullBodyB],
             TrainingProgramSplit.FullBody when daysPerWeek == 3 => [fullBodyA, fullBodyB, fullBodyA with { Title = "Cuerpo completo C" }],
             TrainingProgramSplit.FullBody when daysPerWeek == 4 => [fullBodyA, fullBodyB, fullBodyA with { Title = "Cuerpo completo C" }, fullBodyB with { Title = "Cuerpo completo D" }],
+            // Four days keep the three PPL templates and rotate their global sequence across weeks.
+            TrainingProgramSplit.PushPullLegs when daysPerWeek == 4 => [push, pull, legs],
             // Five days use a PPL + upper/lower hybrid: keep the classic first three days,
             // then distribute the second upper/lower exposures instead of stacking both
             // push days and both pull days while leaving a single overloaded leg day.

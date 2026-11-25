@@ -396,7 +396,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var report = new RealCatalogEvaluationReport(
-            "training-generator-real-catalog-evaluation-v9",
+            "training-generator-real-catalog-evaluation-v10",
             DateTimeOffset.UtcNow,
             ExerciseCatalogService.SourceUrl,
             reviewStats?.repDbTotal ?? 0,
@@ -609,7 +609,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         !string.IsNullOrWhiteSpace(image.GetString());
 
     // Exercise every supported split/day-count combination with the same six equipment profiles,
-    // three goals, three experience levels and three session-duration budgets (1,782 scenarios total).
+    // three goals, three experience levels and three session-duration budgets (1,944 scenarios total).
     private static IReadOnlyList<(IReadOnlyList<DayOfWeek> Days, TrainingProgramSplit Split)> SupportedSplitDaySets() =>
     [
         (new[] { DayOfWeek.Monday, DayOfWeek.Thursday }, TrainingProgramSplit.Automatic),
@@ -621,6 +621,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         (new[] { DayOfWeek.Monday, DayOfWeek.Thursday }, TrainingProgramSplit.UpperLower),
         (new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday }, TrainingProgramSplit.UpperLower),
         (new[] { DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday }, TrainingProgramSplit.PushPullLegs),
+        (new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Friday }, TrainingProgramSplit.PushPullLegs),
         (new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday }, TrainingProgramSplit.PushPullLegs),
         (new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday }, TrainingProgramSplit.PushPullLegs)
     ];

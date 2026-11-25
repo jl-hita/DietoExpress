@@ -1348,6 +1348,7 @@ public sealed class TrainingProgramGeneratorTests
     [InlineData(TrainingProgramSplit.UpperLower, 2, "Tren superior")]
     [InlineData(TrainingProgramSplit.UpperLower, 4, "Tren superior")]
     [InlineData(TrainingProgramSplit.PushPullLegs, 3, "Empuje")]
+    [InlineData(TrainingProgramSplit.PushPullLegs, 4, "Empuje")]
     [InlineData(TrainingProgramSplit.PushPullLegs, 6, "Empuje")]
     [InlineData(TrainingProgramSplit.PushPullLegs, 5, "Empuje")]
     public void GeneratorHonorsSelectedWeeklySplit(TrainingProgramSplit split, int dayCount, string expectedTitlePrefix)
@@ -1383,10 +1384,40 @@ public sealed class TrainingProgramGeneratorTests
         }
     }
 
+    [Fact]
+    public void FourDayPushPullLegsRotatesTheExtraExposureAcrossWeeks()
+    {
+        var days = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Friday };
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                TrainingDays = days,
+                Split = TrainingProgramSplit.PushPullLegs,
+                DurationWeeks = 3,
+                MaximumSessionDurationMinutes = 90
+            },
+            Catalog());
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        var expected = new[]
+        {
+            new[] { "Empuje", "Tracción", "Pierna", "Empuje" },
+            new[] { "Tracción", "Pierna", "Empuje", "Tracción" },
+            new[] { "Pierna", "Empuje", "Tracción", "Pierna" }
+        };
+        for (var week = 1; week <= expected.Length; week++)
+        {
+            var actual = generated.Prescription!.Sessions
+                .Where(session => session.WeekNumber == week)
+                .Select(session => session.Title)
+                .ToArray();
+            Assert.Equal(expected[week - 1], actual);
+        }
+    }
+
     [Theory]
     [InlineData(TrainingProgramSplit.FullBody, 5)]
     [InlineData(TrainingProgramSplit.UpperLower, 3)]
-    [InlineData(TrainingProgramSplit.PushPullLegs, 4)]
     [InlineData(TrainingProgramSplit.Automatic, 5)]
     public void GeneratorRejectsUnsupportedSplitAndDayCombinations(TrainingProgramSplit split, int dayCount)
     {
