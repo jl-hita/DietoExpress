@@ -109,6 +109,42 @@ describe('GuidedConsultationComponent navigation', () => {
     expect(component.currentStep).not.toBe('evolution');
   });
 
+  it('la dieta rápida no sustituye una dieta activa sin confirmación', () => {
+    component.dietService = { createDiet: vi.fn(() => of({ id: 9 })) };
+    component.quickDietName = 'Plan nuevo';
+    // Solo se conoce la dieta recibida con la consulta (la otra petición aún no ha respondido).
+    component.data = { ...component.data, activeDiet: { name: 'Plan vigente' } };
+    const confirm = vi.spyOn(window, 'confirm');
+
+    confirm.mockReturnValueOnce(false);
+    component.createQuickDiet();
+    expect(component.dietService.createDiet).not.toHaveBeenCalled();
+    expect(confirm.mock.calls[0][0]).toContain('Plan vigente');
+
+    confirm.mockReturnValueOnce(true);
+    component.createQuickDiet();
+    expect(component.dietService.createDiet).toHaveBeenCalledOnce();
+    confirm.mockRestore();
+  });
+
+  it('sin dieta activa la dieta rápida se crea sin preguntar', () => {
+    component.dietService = { createDiet: vi.fn(() => of({ id: 9 })) };
+    component.quickDietName = 'Plan inicial';
+    const confirm = vi.spyOn(window, 'confirm');
+
+    component.createQuickDiet();
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(component.dietService.createDiet).toHaveBeenCalledOnce();
+    confirm.mockRestore();
+  });
+
+  it('el resumen muestra solo los acuerdos registrados en la consulta anterior', () => {
+    component.previousAppointment = { nextConsultationPlan: 'Revisar cenas', goals: '  ', decisionSummary: null };
+
+    expect(component.previousAgreements).toEqual([{ label: 'Plan para esta consulta', text: 'Revisar cenas' }]);
+  });
+
   it('ir a la agenda al fallar el inicio no espera guardados', () => {
     component.backToAgenda();
     expect(router.navigate).toHaveBeenCalledWith(['/appointments']);

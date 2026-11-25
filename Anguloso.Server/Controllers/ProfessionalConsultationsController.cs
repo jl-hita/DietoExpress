@@ -14,6 +14,9 @@ namespace Anguloso.Server.Controllers;
 [Authorize(Policy = "Professional")]
 public sealed class ProfessionalConsultationsController : ControllerBase
 {
+    // Mismo umbral por defecto que las tareas de seguimiento creadas desde un check-in.
+    private const int LowAdherencePercentage = 60;
+
     private static readonly HashSet<string> AllowedSteps = new(StringComparer.OrdinalIgnoreCase)
     {
         "anamnesis", "summary", "evolution", "checkin", "goals", "training", "diet", "education", "tasks", "next_appointment", "close"
@@ -159,7 +162,8 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         var followupSignals = new List<object>();
         if (latestCheckin != null)
         {
-            if (latestCheckin.adherence.HasValue && latestCheckin.adherence.Value <= 5) followupSignals.Add(new { code = "adherence_low", label = "Adherencia baja", value = latestCheckin.adherence });
+            // La adherencia es un porcentaje (0–100); el resto de métricas usan escalas 0–10.
+            if (latestCheckin.adherence.HasValue && latestCheckin.adherence.Value <= LowAdherencePercentage) followupSignals.Add(new { code = "adherence_low", label = "Adherencia baja", value = latestCheckin.adherence });
             if (latestCheckin.hunger.HasValue && latestCheckin.hunger.Value >= 8) followupSignals.Add(new { code = "hunger_high", label = "Hambre elevada", value = latestCheckin.hunger });
             if (latestCheckin.energy.HasValue && latestCheckin.energy.Value <= 4) followupSignals.Add(new { code = "energy_low", label = "Energía baja", value = latestCheckin.energy });
             if (latestCheckin.sleep_quality.HasValue && latestCheckin.sleep_quality.Value <= 4) followupSignals.Add(new { code = "sleep_quality_low", label = "Sueño mejorable", value = latestCheckin.sleep_quality });
@@ -530,7 +534,8 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand("""
-            SELECT a.id, a.starts_at, a.ends_at, a.professional_notes
+            SELECT a.id, a.starts_at, a.ends_at, a.professional_notes,
+                   c.progress->>'goals', c.decision_summary, c.actions_summary, c.next_consultation_plan
             FROM professional_consultations c
             JOIN patient_appointments a ON a.id=c.appointment_id AND a.tenant_id=c.tenant_id
             WHERE c.tenant_id=@tenant AND c.client_id=@client AND c.status='completed'
@@ -548,7 +553,11 @@ public sealed class ProfessionalConsultationsController : ControllerBase
             id = reader.GetInt32(0),
             starts_at = reader.GetDateTime(1),
             ends_at = reader.GetDateTime(2),
-            professional_notes = reader.IsDBNull(3) ? null : reader.GetString(3)
+            professional_notes = reader.IsDBNull(3) ? null : reader.GetString(3),
+            goals = reader.IsDBNull(4) ? null : reader.GetString(4),
+            decisionSummary = reader.IsDBNull(5) ? null : reader.GetString(5),
+            actionsSummary = reader.IsDBNull(6) ? null : reader.GetString(6),
+            nextConsultationPlan = reader.IsDBNull(7) ? null : reader.GetString(7)
         };
     }
 

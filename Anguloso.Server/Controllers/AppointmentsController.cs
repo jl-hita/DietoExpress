@@ -91,7 +91,7 @@ public class AppointmentsController : ControllerBase
             var rules = availability.Where(a => a.day_of_week == dayOfWeek);
             foreach (var rule in rules)
             {
-                for (var localTime = rule.start_time; localTime.AddMinutes(rule.slot_minutes) <= rule.end_time; localTime = localTime.AddMinutes(rule.slot_minutes))
+                foreach (var localTime in AvailabilitySlots.StartTimes(rule.start_time, rule.end_time, rule.slot_minutes, rule.slot_minutes))
                 {
                     var localDateTime = day.Add(localTime.ToTimeSpan());
                     if (!UserTimeZoneResolver.TryConvertLocalToUtc(localDateTime, localZone, out var utc)) continue;
@@ -819,7 +819,7 @@ public class AppointmentsController : ControllerBase
         return Ok(new { message = result.Message });
     }
 
-    [Authorize(Roles = "patient,nutritionist")]
+    [Authorize(Roles = "patient,nutritionist,clinic_admin")]
     [HttpGet("{id:int}/video-access")]
     public async Task<IActionResult> GetVideoAccess(int id)
     {
@@ -882,7 +882,8 @@ public class AppointmentsController : ControllerBase
         if (now >= sessionExpiresAt)
             return Conflict(new { message = "La duración máxima de la consulta online ya se ha alcanzado." });
 
-        var isOwner = User.IsInRole("nutritionist");
+        // Quien no es paciente ya se ha validado como el profesional titular de la cita.
+        var isOwner = !User.IsInRole("patient");
         var displayName = isOwner
             ? (appointment.nutritionist.full_name ?? "Nutricionista")
             : (appointment.client.full_name ?? "Paciente");
@@ -940,7 +941,7 @@ public class AppointmentsController : ControllerBase
         });
     }
 
-    [Authorize(Roles = "patient,nutritionist")]
+    [Authorize(Roles = "patient,nutritionist,clinic_admin")]
     [HttpPost("{id:int}/video-event")]
     public async Task<IActionResult> RecordVideoEvent(int id, [FromBody] VideoConsultationEventRequest request)
     {
@@ -988,7 +989,7 @@ public class AppointmentsController : ControllerBase
         return NoContent();
     }
 
-    [Authorize(Roles = "nutritionist")]
+    [Authorize(Roles = "nutritionist,clinic_admin")]
     [HttpPost("{id:int}/video-finish")]
     public async Task<ActionResult<AppointmentDto>> FinishVideoConsultation(int id)
     {
@@ -1083,7 +1084,7 @@ public class AppointmentsController : ControllerBase
             .Where(a => a.tenant_id == tenantId && a.nutritionist_id == nutritionistId && a.is_active && a.day_of_week == day)
             .ToListAsync();
         return rules.Any(r => duration == r.slot_minutes &&
-                              time >= r.start_time && time.AddMinutes(duration) <= r.end_time &&
+                              time >= r.start_time && AvailabilitySlots.Fits(time, duration, r.end_time) &&
                               ((time.ToTimeSpan() - r.start_time.ToTimeSpan()).TotalMinutes % r.slot_minutes) == 0);
     }
 

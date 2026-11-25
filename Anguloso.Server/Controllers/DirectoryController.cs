@@ -420,7 +420,7 @@ public class DirectoryController : ControllerBase
 
         if (!validRule.Any(r => r.slot_minutes == request.DurationMinutes &&
                                 time >= r.start_time &&
-                                time.AddMinutes(request.DurationMinutes) <= r.end_time &&
+                                AvailabilitySlots.Fits(time, request.DurationMinutes, r.end_time) &&
                                 ((time.ToTimeSpan() - r.start_time.ToTimeSpan()).TotalMinutes % r.slot_minutes) == 0))
             return Conflict(new { message = "Ese horario ya no está disponible." });
 
@@ -798,9 +798,7 @@ public class DirectoryController : ControllerBase
             var dayOfWeek = (int)day.DayOfWeek;
             foreach (var rule in availability.Where(a => a.day_of_week == dayOfWeek))
             {
-                for (var localTime = rule.start_time;
-                     localTime.AddMinutes(rule.slot_minutes) <= rule.end_time;
-                     localTime = localTime.AddMinutes(rule.slot_minutes))
+                foreach (var localTime in AvailabilitySlots.StartTimes(rule.start_time, rule.end_time, rule.slot_minutes, rule.slot_minutes))
                 {
                     var localDateTime = day.Add(localTime.ToTimeSpan());
                     if (!UserTimeZoneResolver.TryConvertLocalToUtc(localDateTime, localZone, out var utc)) continue;
