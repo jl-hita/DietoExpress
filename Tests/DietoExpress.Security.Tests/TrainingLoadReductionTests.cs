@@ -68,6 +68,23 @@ public sealed class TrainingLoadReductionTests
     }
 
     [Fact]
+    public void AChangedHistoricalRepRangeDoesNotTriggerALoadReduction()
+    {
+        var previous = Failed() with
+        {
+            HistoricalPrescription = new TrainingExerciseProgressionPrescriptionSnapshot(3, 6, 10, 2m)
+        };
+        var latest = Failed() with
+        {
+            HistoricalPrescription = new TrainingExerciseProgressionPrescriptionSnapshot(3, 8, 12, 2m)
+        };
+
+        var result = TrainingExerciseProgressionEngine.Evaluate(Prescription, [previous, latest]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.HoldAndReview, result.Action);
+    }
+
+    [Fact]
     public void RepsBelowTheMinimumTriggerEvenWithoutAReasonOrMissingSets()
     {
         var low = Exposure([Set(80m, 5), Set(80m, 5), Set(80m, 5)]);

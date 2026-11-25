@@ -153,6 +153,7 @@ public static class TrainingExerciseProgressionEngine
         foreach (var exposure in recent)
         {
             if (!exposure.ProgressionEligible || exposure.PainReported || exposure.RecoveryInsufficient ||
+                !HasMatchingHistoricalPrescription(prescription, exposure.HistoricalPrescription) ||
                 exposure.WorkingSets is null || exposure.WorkingSets.Count == 0)
                 return null;
             var weights = exposure.WorkingSets.Select(set => set.WeightKg).Distinct().ToArray();
@@ -222,15 +223,20 @@ public static class TrainingExerciseProgressionEngine
         return noRepetitionProgress && noRirImprovement;
     }
 
+    private static bool HasMatchingHistoricalPrescription(
+        TrainingExerciseProgressionPrescription prescription,
+        TrainingExerciseProgressionPrescriptionSnapshot? historical) =>
+        historical is null ||
+        (historical.PlannedWorkingSets == prescription.PlannedWorkingSets &&
+         historical.MinRepetitions == prescription.MinRepetitions &&
+         historical.MaxRepetitions == prescription.MaxRepetitions &&
+         historical.TargetRir == prescription.TargetRir);
+
     private static ExposureAnalysis AnalyzeExposure(
         TrainingExerciseProgressionPrescription prescription,
         TrainingExerciseExposure exposure)
     {
-        if (exposure.HistoricalPrescription is { } historical &&
-            (historical.PlannedWorkingSets != prescription.PlannedWorkingSets ||
-             historical.MinRepetitions != prescription.MinRepetitions ||
-             historical.MaxRepetitions != prescription.MaxRepetitions ||
-             historical.TargetRir != prescription.TargetRir))
+        if (!HasMatchingHistoricalPrescription(prescription, exposure.HistoricalPrescription))
             return ExposureAnalysis.Failure(
                 "La prescripción de este ejercicio cambió entre exposiciones (series, rango o RIR). Espera a registrar una sesión con la prescripción actual antes de progresar.");
 
