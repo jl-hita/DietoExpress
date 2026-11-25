@@ -47,6 +47,11 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         IReadOnlyList<TrainingExerciseCandidate> candidates = Array.Empty<TrainingExerciseCandidate>();
         var candidateCount = 0;
         var generalFitnessCandidateCount = 0;
+        IReadOnlyList<RealCatalogScenarioProfile> scenarioProfiles = Array.Empty<RealCatalogScenarioProfile>();
+        IReadOnlyList<(IReadOnlyList<DayOfWeek> Days, TrainingProgramSplit Split)> supportedSplitDaySets =
+            Array.Empty<(IReadOnlyList<DayOfWeek> Days, TrainingProgramSplit Split)>();
+        var durationBudgets = new[] { 35, 60, 90 };
+        var expectedScenarioCount = 0;
         try
         {
             var scopedConnectionString = new NpgsqlConnectionStringBuilder(baseConnectionString)
@@ -289,10 +294,9 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             // Derive the expected cardinality from the same explicit matrix dimensions used
             // to generate scenarios. Adding a split or equipment profile must not leave a stale
             // hard-coded scenario count behind.
-            var scenarioProfiles = ScenarioProfiles(candidates);
-            var supportedSplitDaySets = SupportedSplitDaySets();
-            var durationBudgets = new[] { 35, 60, 90 };
-            var expectedScenarioCount = scenarioProfiles.Count
+            scenarioProfiles = ScenarioProfiles(candidates);
+            supportedSplitDaySets = SupportedSplitDaySets();
+            expectedScenarioCount = scenarioProfiles.Count
                 * Enum.GetValues<TrainingGoal>().Length
                 * Enum.GetValues<TrainingExperience>().Length
                 * supportedSplitDaySets.Count
