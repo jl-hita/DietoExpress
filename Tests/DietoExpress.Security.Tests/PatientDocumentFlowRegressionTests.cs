@@ -341,7 +341,7 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("remoteParticipantCount", component);
         Assert.Contains("retry()", component);
         Assert.Contains("finalize()", component);
-        Assert.Contains("Consulta finalizada", template);
+        Assert.Contains("Videollamada finalizada", template);
         Assert.Contains("Reintentar", template);
     }
 

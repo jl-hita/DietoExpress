@@ -70,6 +70,10 @@ interface GuidedConsultationResponse {
         </div>
       </header>
 
+      <div class="mode-banner review-banner" *ngIf="isReviewMode" role="status">
+        <mat-icon>lock</mat-icon><div><strong>Consulta cerrada: solo lectura</strong><span>Lo registrado no se puede modificar desde aquí. Para actualizar el expediente, abre la ficha del paciente.</span></div>
+      </div>
+
       <div class="consultation-workspace">
       <div class="flow-layout">
         <aside class="stepper">
@@ -107,6 +111,7 @@ interface GuidedConsultationResponse {
               <button mat-stroked-button type="button" (click)="loadPatientClinicalProfile()">Reintentar carga</button>
             </div>
             <div class="form-grid" *ngIf="clinicalProfile as profile">
+              <fieldset class="form-grid review-lock" [disabled]="isReviewMode">
               <div class="clinical-section">
                 <h3>Antecedentes y patologías</h3>
                 <div class="inline-fields">
@@ -158,8 +163,9 @@ interface GuidedConsultationResponse {
                 <label>Motivo de consulta<textarea rows="2" [(ngModel)]="anamnesisText" (blur)="saveClinicalProgress()" placeholder="Motivo por el que solicita atención nutricional…"></textarea></label>
                 <label>Expectativas y prioridades del paciente<textarea rows="2" [(ngModel)]="expectationsText" (blur)="saveClinicalProgress()" placeholder="Qué espera conseguir, prioridades y barreras identificadas…"></textarea></label>
               </div>
+              </fieldset>
               <div class="actions">
-                <span class="save-state" [class.saved]="patientProfileSaveState === 'saved'">{{ patientProfileSaveState === 'saving' ? 'Guardando expediente…' : patientProfileSaveState === 'saved' ? 'Expediente guardado' : patientProfileSaveState === 'error' ? 'Error al guardar el expediente' : 'Los cambios se guardan al salir de cada campo y antes de avanzar.' }}</span>
+                <span class="save-state" *ngIf="!isReviewMode" [class.saved]="patientProfileSaveState === 'saved'">{{ patientProfileSaveState === 'saving' ? 'Guardando expediente…' : patientProfileSaveState === 'saved' ? 'Expediente guardado' : patientProfileSaveState === 'error' ? 'Error al guardar el expediente' : 'Los cambios se guardan al salir de cada campo y antes de avanzar.' }}</span>
                 <button mat-stroked-button type="button" (click)="openPatient()" [disabled]="savingProgress"><mat-icon>folder_open</mat-icon> Abrir ficha y documentación</button>
               </div>
             </div>
@@ -210,7 +216,7 @@ interface GuidedConsultationResponse {
               </div>
             </div>
             <div class="empty" *ngIf="!followupHistory.length || isFirstConsultation"><mat-icon>timeline</mat-icon><span>{{ isFirstConsultation ? 'No hay datos previos: utiliza la consulta para establecer la línea de base.' : 'No hay histórico de check-ins.' }}</span></div>
-            <div class="quick-form" *ngIf="isFirstConsultation">
+            <div class="quick-form" *ngIf="isFirstConsultation && !isReviewMode">
               <h3>Toma de datos antropométricos de esta consulta</h3>
               <p class="helper">Registra las mediciones disponibles hoy. No hace falta rellenarlas todas; se guardan en el historial antropométrico del paciente.</p>
               <div class="inline-fields">
@@ -274,7 +280,7 @@ interface GuidedConsultationResponse {
 
           <section class="card" *ngIf="currentStep === 'goals'">
             <div class="card-title"><mat-icon>flag</mat-icon><div><h2>{{ isFirstConsultation ? 'Objetivos iniciales' : 'Cambios y objetivos' }}</h2><p>{{ isFirstConsultation ? 'Define las prioridades del paciente y los objetivos medibles de partida.' : 'Define aquí los puntos que quieres trabajar en la consulta.' }}</p></div></div>
-            <div class="form-grid">
+            <fieldset class="form-grid review-lock" [disabled]="isReviewMode">
               <label>Objetivos y cambios acordados
                 <textarea rows="7" [(ngModel)]="goalsText" (blur)="saveClinicalProgress()" [placeholder]="isFirstConsultation ? 'Objetivos iniciales, prioridades del paciente, metas medibles…' : 'Objetivos concretos, cambios acordados, prioridades para la siguiente revisión…'"></textarea>
               </label>
@@ -288,7 +294,7 @@ interface GuidedConsultationResponse {
               <label>Observaciones clínicas
                 <textarea rows="5" [(ngModel)]="clinicalNotes" (blur)="saveClinicalProgress()" placeholder="Observaciones relevantes de la consulta…"></textarea>
               </label>
-            </div>
+            </fieldset>
           </section>
 
           <section class="card training-consultation-step" *ngIf="currentStep === 'training'">
@@ -313,7 +319,7 @@ interface GuidedConsultationResponse {
             <div class="mode-banner" *ngIf="trainingManagementMode === 'collaboration'">
               <mat-icon>groups</mat-icon><div><strong>Entrenamiento en colaboración</strong><span>La planificación corresponde al profesional colaborador. Puedes continuar la consulta sin crear una rutina duplicada.</span></div>
             </div>
-            <div *ngIf="trainingManagementMode === 'self' && !trainingRoutineCreated" class="training-quick-routine">
+            <div *ngIf="trainingManagementMode === 'self' && !trainingRoutineCreated && !isReviewMode" class="training-quick-routine">
               <h3>Crear una rutina sencilla</h3>
               <p>Una sesión basta para empezar. Podrás ampliar y periodizar el entrenamiento después desde el expediente del cliente.</p>
               <form class="form-grid" (ngSubmit)="createConsultationRoutine()">
@@ -348,7 +354,7 @@ interface GuidedConsultationResponse {
             </div>
             <div class="empty" *ngIf="!activeDiet"><mat-icon>restaurant</mat-icon><span>No hay una dieta activa asignada.</span></div>
             <div class="actions"><button mat-stroked-button type="button" (click)="openPatientDiet()"><mat-icon>open_in_new</mat-icon> Abrir dietas</button></div>
-            <div class="quick-form">
+            <div class="quick-form" *ngIf="!isReviewMode">
               <h3>Crear dieta rápida</h3>
               <div class="inline-fields">
                 <label>Nombre<input [(ngModel)]="quickDietName" maxlength="200" placeholder="Ej. Plan de seguimiento octubre"></label>
@@ -365,14 +371,14 @@ interface GuidedConsultationResponse {
 
           <section class="card" *ngIf="currentStep === 'education'">
             <div class="card-title"><mat-icon>school</mat-icon><div><h2>{{ isFirstConsultation ? 'Educación inicial' : 'Educación y recomendaciones' }}</h2><p>{{ isFirstConsultation ? 'Deja registrados los conceptos y hábitos explicados en la primera consulta.' : 'Registra los puntos que quieres reforzar con el paciente.' }}</p></div></div>
-            <div class="form-grid">
+            <fieldset class="form-grid review-lock" [disabled]="isReviewMode">
               <label>Plan para la próxima consulta
                 <textarea rows="5" [(ngModel)]="nextConsultationPlan" (blur)="saveClinicalProgress()" placeholder="Qué revisar en la próxima visita, objetivos o datos que deben estar disponibles…"></textarea>
               </label>
               <label>Educación y recomendaciones
                 <textarea rows="8" [(ngModel)]="educationText" (blur)="saveClinicalProgress()" placeholder="Recomendaciones explicadas, hábitos trabajados, educación nutricional…"></textarea>
               </label>
-            </div>
+            </fieldset>
             <small class="save-state" *ngIf="clinicalSaveState === 'saving'">Guardando…</small>
             <small class="save-state saved" *ngIf="clinicalSaveState === 'saved'">Guardado</small>
             <div class="actions" *ngIf="clinicalSaveState === 'error'">
@@ -414,12 +420,13 @@ interface GuidedConsultationResponse {
             <div class="card-title"><mat-icon>event</mat-icon><div><h2>Próxima cita</h2><p>Comprueba si ya existe una visita futura antes de cerrar la consulta.</p></div></div>
             <div class="summary-grid" *ngIf="nextAppointment">
               <div><span>Fecha</span><strong>{{ nextAppointment.startsAt | date:'dd/MM/yyyy HH:mm' }}</strong></div>
-              <div><span>Estado</span><strong>{{ nextAppointment.status }}</strong></div>
+              <div><span>Modalidad</span><strong>{{ nextAppointment.modality === 'online' ? 'Online' : 'Presencial' }}</strong></div>
             </div>
             <div class="empty" *ngIf="!nextAppointment"><mat-icon>event_busy</mat-icon><span>No hay una próxima cita confirmada.</span></div>
             <div class="quick-form">
               <h3>Programar siguiente cita</h3>
               <div class="inline-fields">
+                <label>Modalidad<select [(ngModel)]="nextModality"><option value="in_person">Presencial</option><option value="online">Online</option></select></label>
                 <label>Duración<select [(ngModel)]="slotDuration" (ngModelChange)="loadConsultationSlots()"><option [ngValue]="30">30 min</option><option [ngValue]="45">45 min</option><option [ngValue]="60">60 min</option></select></label>
                 <div class="slot-status">{{ slotsLoading ? 'Buscando huecos…' : consultationSlots.length ? 'Huecos disponibles' : 'No hay huecos en los próximos 30 días' }}</div>
               </div>
@@ -453,7 +460,8 @@ interface GuidedConsultationResponse {
                 <button mat-stroked-button type="button" (click)="openPatientMessages()"><mat-icon>chat</mat-icon> Mensajes</button>
               </div>
             </div>
-            <button mat-flat-button color="primary" type="button" (click)="completeConsultation()" [disabled]="consultation?.status === 'completed' || completing || patientProfileLoading || patientProfileSaving || clinicalSaveState === 'saving' || clinicalSaveState === 'error' || patientProfileSaveState === 'error'">
+            <p class="close-blocked" *ngIf="closeBlockedReason" role="alert">{{ closeBlockedReason }}</p>
+            <button mat-flat-button color="primary" type="button" (click)="completeConsultation()" [disabled]="!!closeBlockedReason || consultation?.status === 'completed' || completing || patientProfileLoading || patientProfileSaving || clinicalSaveState === 'saving' || clinicalSaveState === 'error' || patientProfileSaveState === 'error'">
               <mat-icon>{{ completing ? 'hourglass_top' : 'check' }}</mat-icon>
               {{ completing ? 'Cerrando…' : 'Cerrar consulta' }}
             </button>
@@ -494,7 +502,7 @@ interface GuidedConsultationResponse {
     <div class="loading" *ngIf="loading"><mat-spinner diameter="40"></mat-spinner><span>Preparando consulta…</span></div>
   `,
   styles: [`
-    .training-quick-routine{margin-top:18px;padding:18px;border:1px solid var(--border-color,#d8dee8);border-radius:12px;background:var(--surface-container,#f8f9fc)}.training-quick-routine h3{margin:0 0 6px}.training-quick-routine>p{color:var(--secondary-text-color,#687385);font-size:.9rem}.training-routine-actions{display:flex;gap:10px;flex-wrap:wrap}.training-quick-actions{display:flex;justify-content:flex-end;margin-top:14px}.training-quick-routine .form-grid{margin-bottom:0}@media(max-width:650px){.training-routine-actions{display:grid}.training-routine-actions button{width:100%}}.consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-workspace{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:18px;align-items:start}.online-consultation-badge{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border:1px solid #99f6e4;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:12px;font-weight:700}.online-consultation-badge mat-icon{font-size:18px;width:18px;height:18px}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.previous-agreements{display:grid;gap:12px;padding:15px;border:1px solid #bfdbfe;border-radius:11px;background:#eff6ff}.previous-agreements h3{margin:0;font-size:14px;color:#0f172a}.previous-agreements span{font-size:11px;font-weight:700;color:#64748b}.previous-agreements p{margin:4px 0 0;font-size:13px;line-height:1.5;color:#0f172a;white-space:pre-line}.task-list{display:grid;gap:8px;margin-bottom:16px}.pre-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}.summary-card{padding:14px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;display:grid;gap:5px}.summary-card span{font-size:11px;color:#64748b}.summary-card strong{font-size:16px;color:#0f172a}.summary-card small{font-size:11px;color:#64748b}.mode-banner{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc;margin-bottom:16px}.mode-banner>mat-icon{color:#0f766e}.mode-banner strong{display:block;font-size:13px;color:#0f172a}.mode-banner span{display:block;margin-top:3px;font-size:12px;color:#64748b;line-height:1.45}.mode-banner.followup{background:#eff6ff;border-color:#bfdbfe}.mode-banner.followup>mat-icon{color:#2563eb}.signal-panel{margin-bottom:18px;padding:15px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed}.signal-panel h3{margin:0 0 10px;font-size:14px}.signal-list{display:flex;flex-wrap:wrap;gap:8px}.signal-list span{padding:7px 10px;border-radius:999px;background:#ffedd5;font-size:12px;color:#9a3412}.signal-list b{margin-left:4px}.recommendations{margin-top:14px;padding-top:12px;border-top:1px solid #fed7aa}.recommendations h4{margin:0 0 8px;font-size:12px;color:#7c2d12}.recommendations ul{margin:0 0 12px;padding-left:20px;color:#7c2d12;font-size:12px;line-height:1.6}.quick-form{margin-top:18px;padding:15px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}.quick-form h3{margin:0 0 12px;font-size:14px;color:#0f172a}.inline-fields{display:flex;gap:12px;flex-wrap:wrap}.inline-fields label{flex:1;min-width:130px;display:grid;gap:6px;font-size:11px;font-weight:700;color:#334155}.inline-fields input,.inline-fields select{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font:inherit}.slot-status{align-self:end;padding:10px;color:#64748b;font-size:12px}.slot-list{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.slot-list button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;color:#334155}.slot-list button.selected{border-color:#0f766e;background:#ecfeff;color:#0f766e;font-weight:700}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.clinical-section{display:grid;gap:12px;padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#fbfdff}.clinical-section h3{display:flex;align-items:center;gap:8px;margin:0;color:#0f172a;font-size:14px}.clinical-section h3 mat-icon{color:#b45309}.clinical-section textarea,.clinical-section input:not([type=checkbox]){width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px;font:inherit;font-weight:400}.clinical-section small{color:#92400e;line-height:1.5}.clinical-section.allergy-section{border-color:#fca5a5;background:#fff7f7}.clinical-section.allergy-section h3{color:#991b1b}.check-field{display:flex!important;align-items:center;gap:8px!important;min-width:150px}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.change-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.change-grid span{padding:7px 10px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:11px;font-weight:700}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:1200px){.consultation-workspace{grid-template-columns:minmax(0,1fr)}.consultation-workspace app-video-consultation{order:-1}.flow-layout{grid-template-columns:220px minmax(0,1fr)}}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
+    .training-quick-routine{margin-top:18px;padding:18px;border:1px solid var(--border-color,#d8dee8);border-radius:12px;background:var(--surface-container,#f8f9fc)}.training-quick-routine h3{margin:0 0 6px}.training-quick-routine>p{color:var(--secondary-text-color,#687385);font-size:.9rem}.training-routine-actions{display:flex;gap:10px;flex-wrap:wrap}.training-quick-actions{display:flex;justify-content:flex-end;margin-top:14px}.training-quick-routine .form-grid{margin-bottom:0}@media(max-width:650px){.training-routine-actions{display:grid}.training-routine-actions button{width:100%}}.consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-workspace{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:18px;align-items:start}.online-consultation-badge{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border:1px solid #99f6e4;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:12px;font-weight:700}.online-consultation-badge mat-icon{font-size:18px;width:18px;height:18px}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.previous-agreements{display:grid;gap:12px;padding:15px;border:1px solid #bfdbfe;border-radius:11px;background:#eff6ff}.previous-agreements h3{margin:0;font-size:14px;color:#0f172a}.previous-agreements span{font-size:11px;font-weight:700;color:#64748b}.previous-agreements p{margin:4px 0 0;font-size:13px;line-height:1.5;color:#0f172a;white-space:pre-line}.review-lock{margin:0;padding:0;border:0;min-width:0}.review-lock:disabled textarea,.review-lock:disabled input{background:#f1f5f9;color:#475569}.review-banner{background:#f1f5f9}.close-blocked{color:#b91c1c;font-size:13px}.task-list{display:grid;gap:8px;margin-bottom:16px}.pre-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}.summary-card{padding:14px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;display:grid;gap:5px}.summary-card span{font-size:11px;color:#64748b}.summary-card strong{font-size:16px;color:#0f172a}.summary-card small{font-size:11px;color:#64748b}.mode-banner{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc;margin-bottom:16px}.mode-banner>mat-icon{color:#0f766e}.mode-banner strong{display:block;font-size:13px;color:#0f172a}.mode-banner span{display:block;margin-top:3px;font-size:12px;color:#64748b;line-height:1.45}.mode-banner.followup{background:#eff6ff;border-color:#bfdbfe}.mode-banner.followup>mat-icon{color:#2563eb}.signal-panel{margin-bottom:18px;padding:15px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed}.signal-panel h3{margin:0 0 10px;font-size:14px}.signal-list{display:flex;flex-wrap:wrap;gap:8px}.signal-list span{padding:7px 10px;border-radius:999px;background:#ffedd5;font-size:12px;color:#9a3412}.signal-list b{margin-left:4px}.recommendations{margin-top:14px;padding-top:12px;border-top:1px solid #fed7aa}.recommendations h4{margin:0 0 8px;font-size:12px;color:#7c2d12}.recommendations ul{margin:0 0 12px;padding-left:20px;color:#7c2d12;font-size:12px;line-height:1.6}.quick-form{margin-top:18px;padding:15px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}.quick-form h3{margin:0 0 12px;font-size:14px;color:#0f172a}.inline-fields{display:flex;gap:12px;flex-wrap:wrap}.inline-fields label{flex:1;min-width:130px;display:grid;gap:6px;font-size:11px;font-weight:700;color:#334155}.inline-fields input,.inline-fields select{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font:inherit}.slot-status{align-self:end;padding:10px;color:#64748b;font-size:12px}.slot-list{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.slot-list button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;color:#334155}.slot-list button.selected{border-color:#0f766e;background:#ecfeff;color:#0f766e;font-weight:700}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.clinical-section{display:grid;gap:12px;padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#fbfdff}.clinical-section h3{display:flex;align-items:center;gap:8px;margin:0;color:#0f172a;font-size:14px}.clinical-section h3 mat-icon{color:#b45309}.clinical-section textarea,.clinical-section input:not([type=checkbox]){width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px;font:inherit;font-weight:400}.clinical-section small{color:#92400e;line-height:1.5}.clinical-section.allergy-section{border-color:#fca5a5;background:#fff7f7}.clinical-section.allergy-section h3{color:#991b1b}.check-field{display:flex!important;align-items:center;gap:8px!important;min-width:150px}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.change-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.change-grid span{padding:7px 10px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:11px;font-weight:700}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:1200px){.consultation-workspace{grid-template-columns:minmax(0,1fr)}.consultation-workspace app-video-consultation{order:-1}.flow-layout{grid-template-columns:220px minmax(0,1fr)}}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
   `]
 })
 export class GuidedConsultationComponent implements OnInit {
@@ -604,6 +612,7 @@ export class GuidedConsultationComponent implements OnInit {
   }
   videoPanelVisible = true;
   selectedSlot: string | null = null;
+  nextModality: 'in_person' | 'online' = 'in_person';
   private readonly slotsLoadingState = signal(false);
   get slotsLoading(): boolean { return this.slotsLoadingState(); }
   set slotsLoading(value: boolean) { this.slotsLoadingState.set(value); }
@@ -699,6 +708,8 @@ export class GuidedConsultationComponent implements OnInit {
       next: value => {
         this.data = value;
         this.consultation = value.consultation;
+        // La siguiente cita parte de la modalidad actual; el profesional puede cambiarla.
+        this.nextModality = value.appointment?.modality === 'online' ? 'online' : 'in_person';
         this.loadTrainingManagementMode();
         this.loadPatientClinicalProfile();
         this.loadClinicalProgress();
@@ -931,6 +942,11 @@ export class GuidedConsultationComponent implements OnInit {
   savePatientClinicalProfile(onSaved?: () => void): void {
     const client = this.clinicalProfile;
     if (onSaved) this.patientProfileSaveCallbacks.push(onSaved);
+    if (this.isReviewMode) {
+      // Revisar una consulta cerrada no modifica el expediente: solo se libera la navegación pendiente.
+      this.patientProfileSaveCallbacks.splice(0).forEach(callback => callback());
+      return;
+    }
     if (this.patientProfileLoading) return;
     if (!client || !this.data) {
       if (this.patientProfileSaveState === 'error') {
@@ -983,6 +999,7 @@ export class GuidedConsultationComponent implements OnInit {
   }
 
   saveBaselineMeasurements(): void {
+    if (this.blockedInReview()) return;
     const clientId = this.data?.appointment.clientId;
     if (!clientId || this.savingBaseline) return;
     const values = [this.baselineWeight, this.baselineHeight, this.baselineWaist, this.baselineHip, this.baselineBodyFat];
@@ -1190,6 +1207,15 @@ export class GuidedConsultationComponent implements OnInit {
     return true;
   }
 
+  /** Una cita cancelada o a la que el paciente no asistió no puede darse por atendida. */
+  get closeBlockedReason(): string {
+    if (this.isReviewMode) return '';
+    const status = this.data?.appointment.status;
+    if (status === 'cancelled') return 'La cita está cancelada: la consulta no se puede cerrar como realizada.';
+    if (status === 'no_show') return 'La cita está marcada como no asistida: la consulta no se puede cerrar como realizada.';
+    return '';
+  }
+
   reviewCheckin(): void {
     if (this.blockedInReview()) return;
     const checkin = this.data?.latestCheckin;
@@ -1262,6 +1288,7 @@ export class GuidedConsultationComponent implements OnInit {
       clientId,
       startsAt: this.selectedSlot,
       durationMinutes: this.slotDuration,
+      modality: this.nextModality,
       notes: 'Programada desde la consulta guiada.'
     }).subscribe({
       next: appointment => {
@@ -1360,7 +1387,7 @@ export class GuidedConsultationComponent implements OnInit {
   }
 
   completeConsultation(): void {
-    if (!this.data || !this.consultation || this.completing || this.consultation.status === 'completed') return;
+    if (!this.data || !this.consultation || this.completing || this.consultation.status === 'completed' || this.closeBlockedReason) return;
     if (!confirm('¿Cerrar esta consulta? Se registrará como completada y no se podrá continuar editándola como consulta en curso.')) return;
 
     // Cierra solo después de confirmar que tanto el expediente clínico del paciente

@@ -58,6 +58,29 @@ public sealed class ConsultationFlowFixesTests
     }
 
     [Fact]
+    public void CancelledOrMissedAppointmentsCannotCloseTheConsultation()
+    {
+        var source = Read("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
+        var complete = source[source.IndexOf("public async Task<IActionResult> Complete", StringComparison.Ordinal)..];
+        var check = complete.IndexOf("appointmentStatus is not (\"confirmed\" or \"completed\")", StringComparison.Ordinal);
+
+        Assert.True(check > complete.IndexOf("FOR UPDATE", StringComparison.Ordinal));
+        // La comprobación precede a cualquier escritura y a las automatizaciones.
+        Assert.True(check < complete.IndexOf("UPDATE professional_consultations", StringComparison.Ordinal));
+        Assert.True(check < complete.IndexOf("TransactionalOutbox.EnqueueAsync", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void FinishingTheVideoDoesNotPromiseToCompleteTheAppointment()
+    {
+        var component = Read("anguloso.client/src/app/componentes/video-consultation/video-consultation.component.ts");
+        var template = Read("anguloso.client/src/app/componentes/video-consultation/video-consultation.component.html");
+
+        Assert.DoesNotContain("marcar la cita como completada", component);
+        Assert.DoesNotContain("La cita ha quedado cerrada", template);
+    }
+
+    [Fact]
     public void PreviousConsultationReturnsWhatWasAgreed()
     {
         var source = Read("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");

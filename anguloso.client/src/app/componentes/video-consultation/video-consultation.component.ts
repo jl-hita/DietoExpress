@@ -129,7 +129,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   }
 
   get connectionStateLabel(): string {
-    return ({ scheduled:'Acceso aún no disponible', connecting:'Conectando', waiting:'Esperando al otro participante', connected:'Conectado', reconnecting:'Reconectando', disconnected:'Conexión perdida', finalized:'Consulta finalizada', error:'Error de conexión' } as Record<ConnectionState,string>)[this.connectionState];
+    return ({ scheduled:'Acceso aún no disponible', connecting:'Conectando', waiting:'Esperando al otro participante', connected:'Conectado', reconnecting:'Reconectando', disconnected:'Conexión perdida', finalized:'Videollamada finalizada', error:'Error de conexión' } as Record<ConnectionState,string>)[this.connectionState];
   }
 
   connect(): void {
@@ -241,11 +241,11 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
 
   finalize():void {
     if(!this.canFinalize||this.finalizing||this.connectionState==='finalized')return;
-    if(!confirm('¿Finalizar la consulta online y marcar la cita como completada?'))return;
+    if(!confirm('¿Finalizar la videollamada? Se cerrará la sala y no se podrá volver a entrar. La cita no se marca como completada hasta que cierres la consulta.'))return;
     this.finalizing=true;
     this.portalService.finishVideoConsultation(this.appointmentId, this.patientPortalSession).subscribe({
       next:()=>{this.connectionState='finalized';this.connected=false;this.manualDisconnect=true;if(this.callTimer)clearInterval(this.callTimer);void this.room?.disconnect();this.localAudio?.stop();this.localVideoTrack?.stop();this.finalizing=false;this.returnToConsultation();},
-      error:err=>{this.error=err?.error?.message||'No hemos podido finalizar la consulta.';this.finalizing=false;}
+      error:err=>{this.error=err?.error?.message||'No hemos podido finalizar la videollamada.';this.finalizing=false;}
     });
   }
 
