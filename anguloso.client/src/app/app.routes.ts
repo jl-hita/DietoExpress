@@ -65,6 +65,7 @@ export const routes: AppRoute[] = [
       { path: 'admin', loadComponent: () => import('./componentes/admin/admin-dashboard.component').then(m => m.AdminDashboardComponent), canActivate: [SuperAdminGuard], title: 'Panel SuperAdmin' },
       { path: 'admin/patients', loadComponent: () => import('./componentes/admin/admin-patients.component').then(m => m.AdminPatientsComponent), canActivate: [SuperAdminGuard], title: 'Gestión global de pacientes' },
       { path: 'admin/legal', loadComponent: () => import('./componentes/admin/admin-legal-settings.component').then(m => m.AdminLegalSettingsComponent), canActivate: [SuperAdminGuard], title: 'Legal — DietoExpress' },
+      { path: 'admin/android-testers', loadComponent: () => import('./componentes/admin/admin-android-testers.component').then(m => m.AdminAndroidTestersComponent), canActivate: [SuperAdminGuard], title: 'Testers Android' },
       { path: 'admin/logs', loadComponent: () => import('./componentes/admin/admin-log.component').then(m => m.AdminLogComponent), canActivate: [SuperAdminGuard], title: 'Logs del sistema' },
       { path: 'admin/plans', loadComponent: () => import('./componentes/admin/admin-plans.component').then(m => m.AdminPlansComponent), canActivate: [SuperAdminGuard], title: 'Planes SaaS' },
       { path: 'admin/coupons', loadComponent: () => import('./componentes/admin/admin-coupons.component').then(m => m.AdminCouponsComponent), canActivate: [SuperAdminGuard], title: 'Cupones promocionales' },

@@ -931,6 +931,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UpgradeTrainingReviewRequestsSchema(context, logger);
             UpgradeFoodCulinaryProfileSchema(context, logger);
             UpgradeFoodDietaryProfileSchema(context, logger);
+            UpgradeAndroidTesterRequestsSchema(context, logger);
             TrainingMacrocycleSchema.Initialize(context);
             TrainingPlanSplitSchema.Initialize(context);
 
@@ -3753,6 +3754,25 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         logger.LogInformation("Capa curada de perfiles culinarios de alimentos inicializada.");
     }
 
+    /// <summary>Solicitudes de alta de pacientes en la prueba cerrada de la app Android.</summary>
+    public static void UpgradeAndroidTesterRequestsSchema(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS android_tester_requests (
+                id BIGSERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+                requested_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                google_email VARCHAR(254) NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','invited')),
+                consent_confirmed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                invited_at TIMESTAMPTZ NULL
+            );
+            INSERT INTO schema_migrations(id) VALUES ('android-tester-requests-v1') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Solicitudes de testers Android inicializadas.");
+    }
+
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)
     {
         // Contrato mínimo de tablas: si alguna falta después de todas las reconciliaciones,
@@ -3786,7 +3806,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',
                     'billing_coupon_campaigns','billing_coupons','billing_coupon_redemptions',
                     'patient_commercial_communication_preferences',
-                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals','training_review_requests','professional_notifications','food_dietary_profile','food_culinary_profile'
+                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals','training_review_requests','professional_notifications','food_dietary_profile','food_culinary_profile','android_tester_requests'
                 ]) AS required_table
             ) required
             WHERE NOT EXISTS (

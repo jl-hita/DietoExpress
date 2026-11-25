@@ -1351,6 +1351,9 @@
           </ng-container>
         </div>
 
+        <!-- Tarjeta de prueba de la app Android -->
+        <app-android-tester-card *ngIf="clientId" [clientId]="clientId" [clientEmail]="client?.email || ''"></app-android-tester-card>
+
         <!-- Tarjeta de PIN opcional -->
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
