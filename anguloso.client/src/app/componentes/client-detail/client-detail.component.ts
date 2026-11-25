@@ -33,6 +33,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { PatientCheckin, PatientPortalService, ClientPortalAccess, FollowupSettings, FollowupGoal, FollowupGoalEvent, PatientDocument, ProfessionalDocumentSummary, PatientDocumentAuditEvent } from '../../servicios/patient-portal.service';
 import { Subscription } from 'rxjs';
+import { AndroidTesterCardComponent } from './android-tester-card.component';
 import { compareFollowupPeriods, countMissedCheckinWeeks, detectPersistentFollowupSignals } from '../../servicios/adherence-analytics';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 
@@ -56,6 +57,7 @@ import { debounceTime, filter, switchMap } from 'rxjs/operators';
     MatIconModule,
     MatButtonModule,
     MatCheckboxModule,
+    AndroidTesterCardComponent,
     MatProgressSpinnerModule,
     MatCardModule,
     MatDialogModule,
