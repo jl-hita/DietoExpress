@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -179,7 +180,7 @@ export class AdminFoodDataQualityComponent implements OnInit {
       },
       error: err => {
         this.loading = false;
-        this.error = err?.error?.detail || err?.error || 'No se pudo cargar la revisión de alimentos.';
+        this.error = err?.error?.detail || apiErrorMessage(err, 'No se pudo cargar la revisión de alimentos.');
         this.changeDetector.detectChanges();
       }
     });

@@ -12,6 +12,32 @@ public sealed record UpdatePrivacyRequest(string Status, string? Decision, strin
 public sealed record CreatePrivacyIncident(string Description, DateTime? OccurredFrom, DateTime? OccurredTo, string? SystemsAffected, string? DataCategories, string? SubjectCategories, string? Containment, string? RiskAssessment);
 public sealed record UpdatePrivacyIncident(string Status, string? Containment, string? RiskAssessment, string? Communications, string? CorrectiveActions);
 
+/// <summary>Proyecta entidades a sus valores propios para la exportación, sin relaciones.</summary>
+public static class PrivacyExportRecords
+{
+    public static Dictionary<string, object?> Scalars(object entity) =>
+        entity.GetType().GetProperties()
+            .Where(property => property.GetIndexParameters().Length == 0 && IsScalar(property.PropertyType))
+            .ToDictionary(property => property.Name, property => property.GetValue(entity));
+
+    /// <summary>Admite una entidad, una colección de entidades o null.</summary>
+    public static object? From(object? value) => value switch
+    {
+        null => null,
+        System.Collections.IEnumerable items => items.Cast<object>().Select(Scalars).ToList(),
+        _ => Scalars(value)
+    };
+
+    private static bool IsScalar(Type type)
+    {
+        var actual = Nullable.GetUnderlyingType(type) ?? type;
+        if (actual.IsArray) return IsScalar(actual.GetElementType()!);
+        return actual.IsPrimitive || actual.IsEnum || actual == typeof(string) || actual == typeof(decimal) ||
+               actual == typeof(DateTime) || actual == typeof(DateTimeOffset) || actual == typeof(DateOnly) ||
+               actual == typeof(TimeOnly) || actual == typeof(Guid);
+    }
+}
+
 /// <summary>Gestiona expedientes administrativos RGPD sin duplicar ni almacenar el contenido clínico en los registros de cumplimiento.</summary>
 public sealed class PrivacyOperationsService
 {
@@ -31,7 +57,7 @@ public sealed class PrivacyOperationsService
         var tenantId = RequireTenant();
         return await QueryAsync<PrivacyRequestDto>(
             @"SELECT id, requester_type, client_id, right_type, status, received_at, due_at, resolved_at, decision, notes
-              FROM privacy_requests WHERE tenant_id = @tenant ORDER BY received_at DESC",
+              FROM privacy_requests WHERE tenant_id = @tenant" + RequestAccessFilter() + " ORDER BY received_at DESC",
             tenantId, (r) => new PrivacyRequestDto(r.GetInt64(0), r.GetString(1), r.IsDBNull(2) ? (int?)null : r.GetInt32(2), r.GetString(3), r.GetString(4), r.GetDateTime(5), r.IsDBNull(6) ? (DateTime?)null : r.GetDateTime(6), r.IsDBNull(7) ? (DateTime?)null : r.GetDateTime(7), r.IsDBNull(8) ? (string?)null : r.GetString(8), r.IsDBNull(9) ? (string?)null : r.GetString(9)), ct);
     }
 
@@ -40,6 +66,8 @@ public sealed class PrivacyOperationsService
         var tenantId = RequireTenant();
         ValidateRequest(request.RequesterType, request.RightType);
         await EnsureClientBelongsToTenantAsync(request.ClientId, tenantId, ct);
+        if (request.ClientId.HasValue && !await CanAccessClientAsync(request.ClientId.Value, tenantId, ct))
+            throw new KeyNotFoundException("Paciente no encontrado.");
 
         var id = await ExecuteScalarAsync<long>(@"INSERT INTO privacy_requests
             (tenant_id, requester_type, client_id, right_type, due_at, notes, created_by, updated_by)
@@ -67,7 +95,7 @@ public sealed class PrivacyOperationsService
         var resolved = request.Status is "resolved" or "rejected" or "cancelled";
         var count = await ExecuteNonQueryAsync(@"UPDATE privacy_requests SET status=@status, decision=@decision, notes=@notes,
             resolved_at=CASE WHEN @resolved THEN COALESCE(resolved_at, NOW()) ELSE NULL END, updated_by=@user
-            WHERE id=@id AND tenant_id=@tenant", tenantId, cmd => {
+            WHERE id=@id AND tenant_id=@tenant" + RequestAccessFilter(), tenantId, cmd => {
                 Add(cmd, "status", request.Status); Add(cmd, "decision", request.Decision); Add(cmd, "notes", request.Notes);
                 Add(cmd, "resolved", resolved); Add(cmd, "user", _tenant.UserId); Add(cmd, "id", id); return cmd;
             }, ct);
@@ -120,13 +148,14 @@ public sealed class PrivacyOperationsService
     public async Task<object?> ExportClientAsync(int clientId, CancellationToken ct)
     {
         var tenantId = RequireTenant();
+        if (!await CanAccessClientAsync(clientId, tenantId, ct)) return null;
         var client = await _context.clients.AsNoTracking()
             .Include(c => c.biometrics)
             .Include(c => c.medical_history)
             .Include(c => c.digestive_health)
             .Include(c => c.food_preferences)
             .Include(c => c.lifestyle_history)
-            .Include(c => c.client_diets)
+            .Include(c => c.client_diets).ThenInclude(cd => cd.diet)
             .FirstOrDefaultAsync(c => c.id == clientId && c.tenant_id == tenantId, ct);
         if (client == null) return null;
 
@@ -141,12 +170,17 @@ public sealed class PrivacyOperationsService
                 client.notes, client.created_at, client.archived_at, client.lifecycle_status,
                 client.onboarding_consent_at, client.onboarding_consent_version
             },
-            biometrics = client.biometrics,
-            medicalHistory = client.medical_history,
-            digestiveHealth = client.digestive_health,
-            foodPreferences = client.food_preferences,
-            lifestyleHistory = client.lifestyle_history,
-            diets = client.client_diets,
+            // Solo columnas propias: las navegaciones de EF forman ciclos y arrastrarían los secretos de acceso.
+            biometrics = PrivacyExportRecords.From(client.biometrics),
+            medicalHistory = PrivacyExportRecords.From(client.medical_history),
+            digestiveHealth = PrivacyExportRecords.From(client.digestive_health),
+            foodPreferences = PrivacyExportRecords.From(client.food_preferences),
+            lifestyleHistory = PrivacyExportRecords.From(client.lifestyle_history),
+            diets = client.client_diets.Select(assignment => new
+            {
+                dietName = assignment.diet?.name,
+                assignment = PrivacyExportRecords.Scalars(assignment)
+            }).ToList(),
             documents = await QueryClientAsync("SELECT id,name,document_type,status,version,requires_signature,original_file_name,mime_type,file_size,sha256,created_at,updated_at,revoked_at FROM patient_documents WHERE client_id=@client AND tenant_id=@tenant ORDER BY created_at,id",
                 tenantId, clientId, r => new { Id = r.GetInt64(0), Name = r.GetString(1), DocumentType = r.GetString(2), Status = r.GetString(3), Version = r.GetInt32(4), RequiresSignature = r.GetBoolean(5), OriginalFileName = r.IsDBNull(6) ? (string?)null : r.GetString(6), MimeType = r.IsDBNull(7) ? (string?)null : r.GetString(7), FileSize = r.IsDBNull(8) ? (long?)null : r.GetInt64(8), Sha256 = r.IsDBNull(9) ? (string?)null : r.GetString(9), CreatedAt = r.GetDateTime(10), UpdatedAt = r.GetDateTime(11), RevokedAt = r.IsDBNull(12) ? (DateTime?)null : r.GetDateTime(12) }),
             appointments = await QueryClientAsync("SELECT id,starts_at,ends_at,status,professional_notes,created_at FROM patient_appointments WHERE client_id=@client AND tenant_id=@tenant ORDER BY starts_at,id",
@@ -155,10 +189,8 @@ public sealed class PrivacyOperationsService
                 tenantId, clientId, r => new { Id = r.GetInt64(0), ConversationId = r.GetInt64(1), SenderUserId = r.IsDBNull(2) ? (int?)null : r.GetInt32(2), SenderClientId = r.IsDBNull(3) ? (int?)null : r.GetInt32(3), Body = r.GetString(4), CreatedAt = r.GetDateTime(5) }),
             androidTesterRequests = await QueryClientAsync("SELECT r.google_email,r.status,r.consent_confirmed_at,r.requested_at,r.invited_at FROM android_tester_requests r JOIN clients c ON c.id=r.client_id WHERE r.client_id=@client AND c.tenant_id=@tenant",
                 tenantId, clientId, r => new { GoogleEmail = r.GetString(0), Status = r.GetString(1), ConsentConfirmedAt = r.GetDateTime(2), RequestedAt = r.GetDateTime(3), InvitedAt = r.IsDBNull(4) ? (DateTime?)null : r.GetDateTime(4) }),
-            legalAcceptances = client.user_id.HasValue
-                ? await QueryUserAsync("SELECT la.document_key,la.document_version,la.document_sha256,la.accepted_at,la.context FROM legal_acceptances la WHERE la.user_id=@user AND la.tenant_id=@tenant ORDER BY la.accepted_at,la.id",
-                    tenantId, client.user_id.Value, r => (object)new { DocumentKey = r.GetString(0), DocumentVersion = r.GetInt32(1), DocumentSha256 = r.GetString(2), AcceptedAt = r.GetDateTime(3), Context = r.GetString(4) })
-                : new List<object>()
+            documentEvents = await QueryClientAsync("SELECT patient_document_id,event_type,occurred_at,details FROM patient_document_events WHERE client_id=@client AND tenant_id=@tenant ORDER BY occurred_at,id",
+                tenantId, clientId, r => new { DocumentId = r.GetInt64(0), EventType = r.GetString(1), OccurredAt = r.GetDateTime(2), Details = r.IsDBNull(3) ? (string?)null : r.GetString(3) })
         };
     }
 
@@ -167,7 +199,7 @@ public sealed class PrivacyOperationsService
         var tenantId = RequireTenant();
         var count = await ExecuteNonQueryAsync(@"UPDATE privacy_requests
             SET status='in_progress', decision='Supresión solicitada: pendiente de revisión de obligaciones de conservación.', updated_by=@user
-            WHERE id=@id AND tenant_id=@tenant AND right_type='erasure'",
+            WHERE id=@id AND tenant_id=@tenant AND right_type='erasure'" + RequestAccessFilter(),
             tenantId, cmd => { Add(cmd,"id",requestId); Add(cmd,"user",_tenant.UserId); return cmd; }, ct);
         if (count == 0) return false;
         await _audit.LogAccessAsync("REQUEST_PATIENT_ERASURE", "privacy_requests", requestId.ToString(), null, "Solicitud de supresión pendiente de revisión");
@@ -200,6 +232,28 @@ public sealed class PrivacyOperationsService
         var list = new List<T>();
         while (await reader.ReadAsync()) list.Add(map(reader));
         return list;
+    }
+
+    // Un nutricionista solo trata expedientes y solicitudes de sus pacientes; la administración de la clínica, todos.
+    private bool IsRestrictedToOwnClients => _tenant.UserRole is not ("clinic_admin" or "superadmin");
+
+    private string RequestAccessFilter()
+    {
+        if (!IsRestrictedToOwnClients) return string.Empty;
+        // El identificador procede de los claims autenticados y es un entero.
+        var userId = (_tenant.UserId ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return $@" AND (client_id IN (SELECT c.id FROM clients c WHERE c.tenant_id=@tenant AND (c.user_id={userId}
+                    OR EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id=c.id AND a.nutritionist_id={userId} AND a.is_active)))
+                    OR (client_id IS NULL AND created_by={userId}))";
+    }
+
+    private async Task<bool> CanAccessClientAsync(int clientId, int tenantId, CancellationToken ct)
+    {
+        if (!IsRestrictedToOwnClients) return true;
+        var userId = _tenant.UserId ?? 0;
+        return await _context.clients.AsNoTracking().AnyAsync(c => c.id == clientId && c.tenant_id == tenantId &&
+            (c.user_id == userId ||
+             _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId && a.is_active)), ct);
     }
 
     private int RequireTenant() => _tenant.TenantId ?? throw new InvalidOperationException("No hay tenant autenticado.");

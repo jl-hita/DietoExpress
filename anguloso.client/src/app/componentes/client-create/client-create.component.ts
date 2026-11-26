@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { Component, EventEmitter, Output, ChangeDetectionStrategy} from '@angular/core';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -116,7 +117,7 @@ export class ClientCreateComponent {
         this.router.navigate(newId ? ['/clients', newId] : ['/clients']);
       },
       error: (error) => {
-        const message = error?.error?.message || error?.error?.title || error?.error || 'Error al crear el cliente';
+        const message = error?.error?.message || error?.error?.title || apiErrorMessage(error, 'Error al crear el cliente');
         console.error('Error al crear cliente', error);
         this.snack.open(typeof message === 'string' ? message : 'Error al crear el cliente', 'Cerrar', { duration: 5000 });
       }

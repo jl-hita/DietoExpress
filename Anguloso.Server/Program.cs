@@ -137,7 +137,13 @@ builder.Services.AddScoped<SupportEnhancementService>();
                     // Read it for every patient-facing API route, not only /api/portal.
                     // Use an explicit header on shared broadcast routes so simultaneous patient and
                     // professional sessions cannot silently select the wrong identity.
+                    // Cancelar una cita es una ruta exclusiva de pacientes: no necesita la cabecera para elegir su sesión
+                    // (las versiones de la app que no la envían recibían 401).
+                    var isPatientCancel = HttpMethods.IsPost(method) &&
+                        path.StartsWithSegments("/api/appointments") &&
+                        pathValue.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase);
                     var isPatientEndpoint =
+                        isPatientCancel ||
                         path.StartsWithSegments("/api/portal") ||
                         (HttpMethods.IsPost(method) &&
                          path.StartsWithSegments("/api/directory/professionals") &&
@@ -155,8 +161,7 @@ builder.Services.AddScoped<SupportEnhancementService>();
                          path.StartsWithSegments("/api/appointments") &&
                          (pathValue.EndsWith("/video-access", StringComparison.OrdinalIgnoreCase) ||
                           pathValue.EndsWith("/video-event", StringComparison.OrdinalIgnoreCase) ||
-                          pathValue.EndsWith("/video-finish", StringComparison.OrdinalIgnoreCase) ||
-                          pathValue.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase)) &&
+                          pathValue.EndsWith("/video-finish", StringComparison.OrdinalIgnoreCase)) &&
                          string.Equals(context.Request.Headers["X-DietoExpress-Patient-Portal"].ToString(), "1", StringComparison.Ordinal)) ||
                         (HttpMethods.IsPost(method) &&
                          string.Equals(pathValue, "/api/appointments", StringComparison.OrdinalIgnoreCase));
@@ -278,6 +283,8 @@ builder.Services.AddScoped<SupportEnhancementService>();
                 catch (Exception imagesEx) { logger.LogWarning(imagesEx, "No se pudo importar la semilla de imágenes de ejercicios."); }
                 var patientTemplateSeeder = scope.ServiceProvider.GetRequiredService<PatientDocumentTemplateSeeder>();
                 await patientTemplateSeeder.SeedAllTenantsAsync();
+                try { await DietSnapshots.RepairTransferredHistoriesAsync(context); }
+                catch (Exception historyEx) { logger.LogError(historyEx, "No se pudo reparar el historial de dietas de pacientes trasladados; se reintentará en el siguiente arranque."); }
                 // Una vez disponible el esquema, recuperamos incidencias que pudieron producirse con PostgreSQL caído.
                 await ApplicationAlertService.FlushPendingAsync(context, logger);
                 databaseReady = true;
@@ -409,6 +416,9 @@ app.MapGet("/health/ready", (IServiceProvider services, CancellationToken ct) =>
     CheckDatabaseHealth(services, ct))
     .AllowAnonymous()
     .WithName("HealthReady");
+
+// Una ruta de API inexistente responde 404; sin esto la cubría la web y devolvía 200 con HTML.
+app.MapFallback("/api/{**path}", () => Results.NotFound(new { message = "El recurso solicitado no existe." }));
 
 if (!app.Environment.IsDevelopment()) app.MapFallbackToFile("/index.html");
         try { app.Run(); } finally { Log.CloseAndFlush(); }

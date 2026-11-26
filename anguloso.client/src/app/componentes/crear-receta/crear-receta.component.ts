@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { Component, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -78,7 +79,7 @@ export class CrearRecetaComponent {
       ingredients:v.ingredients.map((i:any)=>({foodId:Number(i.foodId),grams:Number(i.grams)}))};
     this.http.post<any>(this.apiUrl + '/recipes',body).subscribe({
       next: detail=>{this.detalle=detail;this.mensaje='Receta guardada y recalculada correctamente.';this.cargando=false;},
-      error: err=>{this.mensaje=err?.error||'No se pudo guardar la receta.';this.cargando=false;}
+      error: err=>{this.mensaje=apiErrorMessage(err, 'No se pudo guardar la receta.');this.cargando=false;}
     });
   }
 }

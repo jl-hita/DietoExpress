@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Input, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -104,7 +105,7 @@ export class AndroidTesterCardComponent implements OnChanges {
       },
       error: err => {
         this.saving.set(false);
-        this.message.set(err?.error?.message || 'No se ha podido enviar la solicitud.');
+        this.message.set(apiErrorMessage(err, 'No se ha podido enviar la solicitud.'));
       }
     });
   }

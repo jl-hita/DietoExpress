@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -100,13 +101,13 @@ export class AppointmentsComponent implements OnInit {
   // La sincronización invalida el estado visual local y vuelve a cargar citas/disponibilidad después de que el backend termine el proceso.
   syncGoogleCalendar(): void {
     this.calendarBusy = true; this.error = null;
-    this.portalService.syncGoogleCalendar().subscribe({ next: () => { this.calendarBusy = false; this.loadGoogleCalendar(); this.load(); this.success = 'Google Calendar sincronizado.'; }, error: err => { this.calendarBusy = false; this.error = err?.error?.detail || err?.error?.message || 'No hemos podido sincronizar Google Calendar.'; this.loadGoogleCalendar(); } });
+    this.portalService.syncGoogleCalendar().subscribe({ next: () => { this.calendarBusy = false; this.loadGoogleCalendar(); this.load(); this.success = 'Google Calendar sincronizado.'; }, error: err => { this.calendarBusy = false; this.error = err?.error?.detail || apiErrorMessage(err, 'No hemos podido sincronizar Google Calendar.'); this.loadGoogleCalendar(); } });
   }
 
   disconnectGoogleCalendar(): void {
     if (!confirm('¿Desconectar Google Calendar? Los eventos externos dejarán de bloquear nuevas citas.')) return;
     this.calendarBusy = true;
-    this.portalService.disconnectGoogleCalendar().subscribe({ next: () => { this.calendarBusy = false; this.googleCalendar = { connected: false, email: '', calendarId: 'primary' }; this.success = 'Google Calendar desconectado.'; }, error: err => { this.calendarBusy = false; this.error = err?.error?.message || 'No hemos podido desconectar Google Calendar.'; } });
+    this.portalService.disconnectGoogleCalendar().subscribe({ next: () => { this.calendarBusy = false; this.googleCalendar = { connected: false, email: '', calendarId: 'primary' }; this.success = 'Google Calendar desconectado.'; }, error: err => { this.calendarBusy = false; this.error = apiErrorMessage(err, 'No hemos podido desconectar Google Calendar.'); } });
   }
 
   // Se cargan en paralelo citas y disponibilidad para que el calendario profesional quede operativo aunque una colección tarde más que la otra.
@@ -123,11 +124,11 @@ export class AppointmentsComponent implements OnInit {
 
     this.portalService.getProfessionalAppointments(from.toISOString(), to.toISOString()).subscribe({
       next: value => { this.appointments = value; done(); },
-      error: err => { this.error = err?.error?.message || 'No hemos podido cargar las citas.'; done(); }
+      error: err => { this.error = apiErrorMessage(err, 'No hemos podido cargar las citas.'); done(); }
     });
     this.portalService.getAvailability().subscribe({
       next: value => { this.availability = value; done(); },
-      error: err => { this.error = err?.error?.message || 'No hemos podido cargar la disponibilidad.'; done(); }
+      error: err => { this.error = apiErrorMessage(err, 'No hemos podido cargar la disponibilidad.'); done(); }
     });
     this.loadManualClients();
   }
@@ -165,7 +166,7 @@ export class AppointmentsComponent implements OnInit {
         this.manualNotes = '';
         this.saving = false;
       },
-      error: err => { this.error = err?.error?.message || 'No hemos podido crear la cita.'; this.saving = false; }
+      error: err => { this.error = apiErrorMessage(err, 'No hemos podido crear la cita.'); this.saving = false; }
     });
   }
 
@@ -215,7 +216,7 @@ export class AppointmentsComponent implements OnInit {
           this.resetAvailabilityEditor();
           this.saving = false;
         },
-        error: err => { this.error = err?.error?.message || 'No hemos podido actualizar el horario.'; this.saving = false; }
+        error: err => { this.error = apiErrorMessage(err, 'No hemos podido actualizar el horario.'); this.saving = false; }
       });
       return;
     }
@@ -231,7 +232,7 @@ export class AppointmentsComponent implements OnInit {
         this.success = this.newDay === -1 ? 'Disponibilidad de lunes a viernes guardada.' : 'Disponibilidad guardada.';
         this.saving = false;
       },
-      error: err => { this.error = err?.error?.message || 'No hemos podido guardar el horario.'; this.saving = false; }
+      error: err => { this.error = apiErrorMessage(err, 'No hemos podido guardar el horario.'); this.saving = false; }
     });
   }
 
@@ -258,7 +259,7 @@ export class AppointmentsComponent implements OnInit {
         this.success = 'Disponibilidad eliminada.';
         this.saving = false;
       },
-      error: err => { this.error = err?.error?.message || 'No hemos podido eliminar el horario.'; this.saving = false; }
+      error: err => { this.error = apiErrorMessage(err, 'No hemos podido eliminar el horario.'); this.saving = false; }
     });
   }
 
@@ -282,7 +283,7 @@ export class AppointmentsComponent implements OnInit {
         this.availability = [...this.availability];
         this.saving = false;
       },
-      error: err => { this.error = err?.error?.message || 'No hemos podido actualizar el horario.'; this.saving = false; }
+      error: err => { this.error = apiErrorMessage(err, 'No hemos podido actualizar el horario.'); this.saving = false; }
     });
   }
 
@@ -297,7 +298,7 @@ export class AppointmentsComponent implements OnInit {
         this.appointments = [...this.appointments];
         this.success = 'Cita actualizada.';
       },
-      error: err => this.error = err?.error?.message || 'No hemos podido actualizar la cita.'
+      error: err => this.error = apiErrorMessage(err, 'No hemos podido actualizar la cita.')
     });
   }
 
@@ -312,7 +313,7 @@ export class AppointmentsComponent implements OnInit {
         this.resendingAppointmentId = null;
       },
       error: err => {
-        this.error = err?.error?.message || 'No se ha podido reenviar el email al paciente.';
+        this.error = apiErrorMessage(err, 'No se ha podido reenviar el email al paciente.');
         this.resendingAppointmentId = null;
       }
     });
@@ -320,7 +321,7 @@ export class AppointmentsComponent implements OnInit {
 
   joinVideoAppointment(appointment: PatientAppointment): void {
     this.portalService.openVideoAccess(appointment.id, err => {
-      this.error = err?.error?.message || 'No hemos podido abrir la consulta online. Comprueba que la cita esté dentro de su ventana de acceso.';
+      this.error = apiErrorMessage(err, 'No hemos podido abrir la consulta online. Comprueba que la cita esté dentro de su ventana de acceso.');
     });
   }
 

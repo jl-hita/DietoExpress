@@ -1,3 +1,5 @@
+import { apiErrorMessage } from '../../shared/api-error';
+import { localDateInput } from '../../shared/local-date';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal} from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ClientService } from '../../servicios/client.service';
@@ -113,7 +115,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   followupGoalTarget: number | null = 80;
   followupGoalPhase: 'baseline' | 'building' | 'maintenance' | 'review' = 'building';
   consultationPdfLoading = false;
-  followupGoalStartDate = this.localDateInput();
+  followupGoalStartDate = localDateInput();
   followupGoalTargetDate = '';
   followupGoalNotes = '';
   selectedFollowupMetric = 'adherence';
@@ -270,7 +272,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     });
 
     this.biometricForm = this.fb.group({
-      measurementDate: [new Date().toISOString().slice(0, 10), Validators.required],
+      measurementDate: [localDateInput(), Validators.required],
       weight: [null],
       height: [null],
       bodyFat: [null],
@@ -523,7 +525,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   openNewBiometric() {
     this.showBiometricForm = true;
     this.editingBiometricId = null;
-    this.biometricForm.reset({ measurementDate: new Date().toISOString().slice(0, 10) });
+    this.biometricForm.reset({ measurementDate: localDateInput() });
   }
 
   openBioimpedanceImport() {
@@ -702,7 +704,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.energyReq = null;
-        this.energyErrorMessage = err.error || 'No se han podido calcular las necesidades energéticas. Asegúrate de registrar fecha de nacimiento y al menos un control biométrico con peso y altura.';
+        this.energyErrorMessage = apiErrorMessage(err, 'No se han podido calcular las necesidades energéticas. Asegúrate de registrar fecha de nacimiento y al menos un control biométrico con peso y altura.');
       }
     });
   }
@@ -756,7 +758,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   }
 
   private requestConsultationPdf(clientId: number, includeTraining: boolean, startDate?: string, endDate?: string): void {
-    const date = this.localDateInput();
+    const date = localDateInput();
     this.svc.downloadConsultationPdf(clientId, date, startDate, endDate, includeTraining).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
@@ -1023,12 +1025,6 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     return trends.slice(0, 4);
   }
 
-  private localDateInput(): string {
-    const date = new Date();
-    const offset = date.getTimezoneOffset();
-    return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
-  }
-
   loadFollowupGoals(): void {
     if (!this.clientId) return;
     this.loadingFollowupGoals = true;
@@ -1069,7 +1065,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.savingFollowupGoal = false;
-        this.snack.open(err?.error?.message || 'No se ha podido guardar el objetivo', 'Cerrar', { duration: 3000 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido guardar el objetivo'), 'Cerrar', { duration: 3000 });
       },
       complete: () => this.savingFollowupGoal = false
     });
@@ -1083,7 +1079,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
         if (this.followupGoalHistory[goal.id]) this.loadFollowupGoalHistory(goal);
         this.snack.open(status === 'completed' ? 'Objetivo completado' : status === 'paused' ? 'Objetivo pausado' : 'Objetivo reactivado', 'Cerrar', { duration: 1800 });
       },
-      error: err => this.snack.open(err?.error?.message || 'No se ha podido actualizar el objetivo', 'Cerrar', { duration: 3000 })
+      error: err => this.snack.open(apiErrorMessage(err, 'No se ha podido actualizar el objetivo'), 'Cerrar', { duration: 3000 })
     });
   }
 
@@ -1096,7 +1092,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
         this.snack.open('Fase de seguimiento actualizada', 'Cerrar', { duration: 1800 });
         if (this.followupGoalHistory[goal.id]) this.loadFollowupGoalHistory(goal);
       },
-      error: err => this.snack.open(err?.error?.message || 'No se ha podido actualizar la fase', 'Cerrar', { duration: 3000 })
+      error: err => this.snack.open(apiErrorMessage(err, 'No se ha podido actualizar la fase'), 'Cerrar', { duration: 3000 })
     });
   }
 
@@ -1120,7 +1116,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.loadingFollowupGoalHistory = { ...this.loadingFollowupGoalHistory, [goal.id]: false };
-        this.snack.open(err?.error?.message || 'No se ha podido cargar el historial del objetivo', 'Cerrar', { duration: 3000 });
+        this.snack.open(apiErrorMessage(err, 'No se ha podido cargar el historial del objetivo'), 'Cerrar', { duration: 3000 });
       }
     });
   }
@@ -1258,7 +1254,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.followupTaskCreating = false;
-        const message = err?.error?.message || 'No se ha podido crear la tarea de seguimiento';
+        const message = apiErrorMessage(err, 'No se ha podido crear la tarea de seguimiento');
         this.snack.open(message, 'Cerrar', { duration: 3000 });
       }
     });

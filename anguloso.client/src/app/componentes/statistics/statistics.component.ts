@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, signal, ChangeDetectionStrategy} from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -42,7 +43,7 @@ export class StatisticsComponent implements OnInit {
     this.service.get(from, to).subscribe({
       next: data => { this.data.set(data); this.loading.set(false); },
       error: err => {
-        this.error.set(err?.error?.message || 'No hemos podido cargar las estadísticas.');
+        this.error.set(apiErrorMessage(err, 'No hemos podido cargar las estadísticas.'));
         this.loading.set(false);
       }
     });

@@ -64,7 +64,7 @@ public class PublicBookingRegressionTests
     }
 
     [Fact]
-    public void PublicBooking_AutoConfirmsOnlyClientsWithCompletedAppointments()
+    public void PublicBooking_NeverConfirmsOrAssignsFromAnAnonymousRequest()
     {
         var source = File.ReadAllText(Path.Combine(
             RepoRoot, "Anguloso.Server", "Controllers", "DirectoryController.cs"));
@@ -75,15 +75,10 @@ public class PublicBookingRegressionTests
         Assert.True(bookingStart >= 0 && bookingEnd > bookingStart);
 
         var booking = source[bookingStart..bookingEnd];
-        Assert.Contains("a.client_id == client.id", booking);
-        Assert.Contains("a.status == \"completed\"", booking);
         Assert.Contains("status = \"requested\"", booking);
-        Assert.Contains("appointment.status = \"confirmed\";", booking);
-        Assert.Contains("if (isEstablishedClient)", booking);
-        Assert.Contains("isEstablishedClient ? \"appointment.confirmed\" : \"appointment.requested\"", booking);
-        Assert.Contains("if (isEstablishedClient)", booking);
-        Assert.Contains("if (requestedModality == \"online\")", booking);
-        Assert.Contains("_videoMeetings.CreatePrivateRoomAsync(", booking);
+        Assert.DoesNotContain("appointment.status = \"confirmed\"", booking);
+        Assert.DoesNotContain("client.user_id = professional.id", booking);
+        Assert.Contains("maxPendingUnverifiedRequests", booking);
     }
 
     [Fact]

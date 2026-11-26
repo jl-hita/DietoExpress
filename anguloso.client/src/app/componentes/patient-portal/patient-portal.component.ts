@@ -1,3 +1,5 @@
+import { apiErrorMessage } from '../../shared/api-error';
+import { localDateInput } from '../../shared/local-date';
 import { Component, OnDestroy, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { Subscription, interval, startWith, switchMap, catchError, of } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
@@ -391,7 +393,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.loading = false;
-        this.authError = err?.error?.message || 'El enlace de acceso ha expirado o no es válido.';
+        this.authError = apiErrorMessage(err, 'El enlace de acceso ha expirado o no es válido.');
         this.showLogin = true;
       }
     });
@@ -414,7 +416,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.requestingAccessLink = false;
-        this.accessLinkError = err?.error?.message || 'No hemos podido enviar el enlace. Inténtalo de nuevo más tarde.';
+        this.accessLinkError = apiErrorMessage(err, 'No hemos podido enviar el enlace. Inténtalo de nuevo más tarde.');
       }
     });
   }
@@ -439,7 +441,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.submittingLogin = false;
-        this.authError = err?.error?.message || 'Credenciales incorrectas.';
+        this.authError = apiErrorMessage(err, 'Credenciales incorrectas.');
       }
     });
   }
@@ -551,7 +553,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.loading = false;
-        this.portalDataError = err?.error?.message || 'No hemos podido cargar tus datos. Inténtalo de nuevo.';
+        this.portalDataError = apiErrorMessage(err, 'No hemos podido cargar tus datos. Inténtalo de nuevo.');
         this.showLogin = false;
       }
     });
@@ -575,7 +577,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
         this.activeDiet = null;
         this.dietLoading = false;
         this.loading = false;
-        this.dietDataError = err?.error?.message || 'No hemos podido cargar tu plan alimentario.';
+        this.dietDataError = apiErrorMessage(err, 'No hemos podido cargar tu plan alimentario.');
       }
     });
   }
@@ -591,7 +593,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.shoppingList = [];
         this.shoppingLoading = false;
-        this.shoppingDataError = err?.error?.message || 'No hemos podido cargar tu lista de la compra.';
+        this.shoppingDataError = apiErrorMessage(err, 'No hemos podido cargar tu lista de la compra.');
       }
     });
   }
@@ -607,7 +609,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.appointments = [];
         this.appointmentsLoading = false;
-        this.appointmentError = err?.error?.message || 'No hemos podido cargar tus citas.';
+        this.appointmentError = apiErrorMessage(err, 'No hemos podido cargar tus citas.');
       }
     });
   }
@@ -623,7 +625,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.appointmentSlots = [];
         this.appointmentSlotsLoading = false;
-        this.appointmentError = err?.error?.message || 'No hemos podido cargar los horarios disponibles.';
+        this.appointmentError = apiErrorMessage(err, 'No hemos podido cargar los horarios disponibles.');
       }
     });
   }
@@ -658,7 +660,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.appointmentBooking = false;
-        this.appointmentError = err?.error?.message || 'No hemos podido solicitar la cita. Actualiza los horarios e inténtalo de nuevo.';
+        this.appointmentError = apiErrorMessage(err, 'No hemos podido solicitar la cita. Actualiza los horarios e inténtalo de nuevo.');
         this.loadAppointmentSlots();
       }
     });
@@ -666,7 +668,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
 
   joinVideoAppointment(appointment: PatientAppointment): void {
     this.portalService.openVideoAccess(appointment.id, err => {
-      this.appointmentError = err?.error?.message || 'No hemos podido abrir la consulta online. Comprueba que la cita esté dentro de su ventana de acceso.';
+      this.appointmentError = apiErrorMessage(err, 'No hemos podido abrir la consulta online. Comprueba que la cita esté dentro de su ventana de acceso.');
     }, true);
   }
 
@@ -684,7 +686,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.appointmentBooking = false;
-        this.appointmentError = err?.error?.message || 'No hemos podido cancelar la cita.';
+        this.appointmentError = apiErrorMessage(err, 'No hemos podido cancelar la cita.');
       }
     });
   }
@@ -745,7 +747,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     this.documentsError = null;
     this.portalService.getMyDocuments().subscribe({
       next: docs => { this.documents = docs || []; this.documentsLoading = false; },
-      error: err => { this.documents = []; this.documentsLoading = false; this.documentsError = err?.error?.message || 'No hemos podido cargar tus documentos.'; }
+      error: err => { this.documents = []; this.documentsLoading = false; this.documentsError = apiErrorMessage(err, 'No hemos podido cargar tus documentos.'); }
     });
   }
 
@@ -778,7 +780,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: err => {
         previewWindow?.close();
-        this.documentsError = err?.error?.message || 'No hemos podido abrir el documento.';
+        this.documentsError = apiErrorMessage(err, 'No hemos podido abrir el documento.');
       }
     });
   }
@@ -790,7 +792,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
         doc.status = 'signed';
         doc.signedAt = new Date().toISOString();
       },
-      error: err => this.documentsError = err?.error?.message || 'No hemos podido registrar la aceptación.'
+      error: err => this.documentsError = apiErrorMessage(err, 'No hemos podido registrar la aceptación.')
     });
   }
 
@@ -807,7 +809,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.commercialPreferenceLoaded = false;
-        this.commercialPreferenceMessage = err?.error?.message || 'No hemos podido consultar tu preferencia comercial. Puedes reintentarlo; el resto del portal sigue disponible.';
+        this.commercialPreferenceMessage = apiErrorMessage(err, 'No hemos podido consultar tu preferencia comercial. Puedes reintentarlo; el resto del portal sigue disponible.');
       }
     });
   }
@@ -845,7 +847,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.commercialPreferenceSaving = false;
-        this.commercialPreferenceMessage = err?.error?.message || 'No hemos podido guardar tu elección. Comprueba la conexión e inténtalo de nuevo.';
+        this.commercialPreferenceMessage = apiErrorMessage(err, 'No hemos podido guardar tu elección. Comprueba la conexión e inténtalo de nuevo.');
       }
     });
   }
@@ -1054,7 +1056,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.nutritionistTransferBusy = false;
-        this.nutritionistTransferError = err?.error?.message || 'No se ha podido completar la transferencia. Tu relación actual se mantiene.';
+        this.nutritionistTransferError = apiErrorMessage(err, 'No se ha podido completar la transferencia. Tu relación actual se mantiene.');
       }
     });
   }
@@ -1075,7 +1077,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.nutritionistTransferBusy = false;
-        this.nutritionistTransferError = err?.error?.message || 'No se ha podido cancelar el cambio.';
+        this.nutritionistTransferError = apiErrorMessage(err, 'No se ha podido cancelar el cambio.');
       }
     });
   }
@@ -1094,7 +1096,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.nutritionistChangeBusy = false;
-        this.nutritionistChangeError = err?.error?.message || 'No hemos podido enviar la solicitud. Inténtalo de nuevo.';
+        this.nutritionistChangeError = apiErrorMessage(err, 'No hemos podido enviar la solicitud. Inténtalo de nuevo.');
       }
     });
   }
@@ -1114,7 +1116,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.nutritionistChangeBusy = false;
-        this.nutritionistChangeError = err?.error?.message || 'No hemos podido iniciar la búsqueda. Inténtalo de nuevo.';
+        this.nutritionistChangeError = apiErrorMessage(err, 'No hemos podido iniciar la búsqueda. Inténtalo de nuevo.');
       }
     });
   }
@@ -1146,7 +1148,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   }
 
   mealKey(meal: any): string {
-    return `${this.clientId ?? 'preview'}_${this.today.toISOString().slice(0, 10)}_${meal.mealIndex}`;
+    return `${this.clientId ?? 'preview'}_${localDateInput(this.today)}_${meal.mealIndex}`;
   }
 
   isMealCompleted(meal: any): boolean {
@@ -1181,7 +1183,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   }
 
   private loadCompletedMeals(): void {
-    const saved = localStorage.getItem(`completed_meals_${this.clientId}_${this.today.toISOString().slice(0, 10)}`);
+    const saved = localStorage.getItem(`completed_meals_${this.clientId}_${localDateInput(this.today)}`);
     if (saved) {
       try { this.completedMeals = JSON.parse(saved); } catch { this.completedMeals = {}; }
     }
@@ -1189,7 +1191,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
 
   private saveCompletedMeals(): void {
     localStorage.setItem(
-      `completed_meals_${this.clientId}_${this.today.toISOString().slice(0, 10)}`,
+      `completed_meals_${this.clientId}_${localDateInput(this.today)}`,
       JSON.stringify(this.completedMeals)
     );
   }
@@ -1326,9 +1328,9 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       error: error => {
         this.trainingReviewSending = false;
         this.trainingReviewError = error?.status === 409
-          ? (error?.error?.message || 'Ya tienes una solicitud pendiente para esta rutina.')
+          ? (apiErrorMessage(error, 'Ya tienes una solicitud pendiente para esta rutina.'))
           : error?.status === 0 ? 'No hay conexión. Inténtalo de nuevo cuando vuelvas a estar en línea.'
-          : (error?.error?.message || 'No se pudo enviar la solicitud. Inténtalo de nuevo en unos minutos.');
+          : (apiErrorMessage(error, 'No se pudo enviar la solicitud. Inténtalo de nuevo en unos minutos.'));
         if (error?.status === 409) { this.trainingReviewOpenPlanId = null; this.loadTrainingReviewPlans(); }
       }
     });
@@ -1371,7 +1373,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       progressionTargetAchieved: input.progressionAchieved === '' ? null : input.progressionAchieved === 'true'
     }).subscribe({
       next: () => { this.trainingSaving = false; this.loadTrainingSessions(); },
-      error: error => { this.trainingSaving = false; this.trainingError = error?.error?.message || 'No se pudo guardar el entrenamiento.'; }
+      error: error => { this.trainingSaving = false; this.trainingError = apiErrorMessage(error, 'No se pudo guardar el entrenamiento.'); }
     });
   }
 

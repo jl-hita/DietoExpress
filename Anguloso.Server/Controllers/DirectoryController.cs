@@ -484,6 +484,18 @@ public class DirectoryController : ControllerBase
                 return Conflict(new { message = "Ya tienes un cambio de nutricionista pendiente." });
         }
 
+        // Las solicitudes de personas sin ninguna consulta realizada ocupan agenda sin estar verificadas: se limitan por
+        // profesional para que no baste inventar direcciones de email para llenarla o agotar la licencia.
+        const int maxPendingUnverifiedRequests = 15;
+        var pendingUnverified = await _context.patient_appointments.AsNoTracking().CountAsync(a =>
+            a.tenant_id == professional.tenant_id.Value &&
+            a.nutritionist_id == professional.id &&
+            a.status == "requested" &&
+            a.starts_at > DateTime.UtcNow &&
+            !_context.patient_appointments.Any(done => done.client_id == a.client_id && done.status == "completed"));
+        if (!isAuthenticatedPatientChange && pendingUnverified >= maxPendingUnverifiedRequests)
+            return Conflict(new { message = "Este profesional tiene demasiadas solicitudes pendientes. Inténtalo más adelante." });
+
         var existing = isAuthenticatedPatientChange ? null : await _context.clients
             .FirstOrDefaultAsync(c => c.tenant_id == professional.tenant_id.Value &&
                                       c.archived_at == null &&
@@ -499,29 +511,11 @@ public class DirectoryController : ControllerBase
             var activeAssignment = await _context.client_nutritionist_assignments
                 .FirstOrDefaultAsync(a => a.client_id == existing.id && a.is_active);
             if (activeAssignment != null && activeAssignment.nutritionist_id != professional.id)
-                return Conflict(new { message = "Ya existe un paciente con esos datos asociado a otro profesional de esta clínica." });
+                // El mensaje no confirma a un anónimo que ese email pertenezca a un paciente.
+                return Conflict(new { message = "No se ha podido completar la reserva online. Contacta directamente con el profesional." });
 
+            // Una petición anónima no modifica la ficha ni asigna profesional: eso ocurre cuando este confirma la cita.
             client = existing;
-            if (activeAssignment == null)
-            {
-                var assignmentCheck = await _licenseService.CanAssignClientAsync(
-                    professional.tenant_id.Value, professional.id, client.id);
-                if (!assignmentCheck.Allowed)
-                    return BadRequest(assignmentCheck.Reason);
-
-                // Un cliente ya existente puede llegar desde una baja o desasignación.
-                // Actualizar el profesional propietario mantiene coherentes los límites
-                // de licencia con la asignación que acabamos de crear.
-                client.user_id = professional.id;
-                _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments
-                {
-                    client_id = client.id,
-                    nutritionist_id = professional.id,
-                    assigned_by_user_id = professional.id,
-                    assigned_at = DateTime.UtcNow,
-                    is_active = true
-                });
-            }
         }
         else
         {
@@ -555,13 +549,6 @@ public class DirectoryController : ControllerBase
             });
         }
 
-        // Un cliente solo se considera establecido si ya tiene una cita marcada como completada.
-        // Tener ficha o una reserva previa pendiente/cancelada no basta para saltarse la aceptación.
-        var isEstablishedClient = !isAuthenticatedPatientChange && await _context.patient_appointments.AsNoTracking().AnyAsync(a =>
-            a.tenant_id == professional.tenant_id.Value &&
-            a.client_id == client.id &&
-            a.status == "completed");
-
         var appointment = new patient_appointments
         {
             tenant_id = professional.tenant_id.Value,
@@ -592,62 +579,11 @@ public class DirectoryController : ControllerBase
                          {sourceNutritionistId!.Value}, {professional.id}, {appointment.id}, 'pending_professional')");
             }
 
-            if (isEstablishedClient)
-            {
-                if (requestedModality == "online")
-                {
-                    try
-                    {
-                        var videoRoom = await _videoMeetings.CreatePrivateRoomAsync(
-                            $"appointment-{appointment.id}",
-                            appointment.starts_at,
-                            appointment.ends_at,
-                            HttpContext.RequestAborted);
-                        appointment.video_provider = videoRoom.Provider;
-                        appointment.video_room_name = videoRoom.RoomName;
-                        appointment.video_room_url = videoRoom.RoomUrl;
-                        appointment.video_expires_at = videoRoom.ExpiresAtUtc;
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-                        {
-                            message = "Las consultas online no están disponibles en este momento.",
-                            code = "VIDEO_PROVIDER_UNAVAILABLE",
-                            reportable = true
-                        });
-                    }
-                    catch (HttpRequestException)
-                    {
-                        return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-                        {
-                            message = "No se ha podido preparar la sala de la consulta online.",
-                            code = "VIDEO_PROVIDER_UNAVAILABLE",
-                            reportable = true
-                        });
-                    }
-                }
-
-                appointment.status = "confirmed";
-                appointment.updated_at = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-            }
-
             await transaction.CommitAsync();
         }
-        catch
+        catch (Exception ex)
         {
-            if (!string.IsNullOrWhiteSpace(appointment.video_room_name))
-            {
-                try
-                {
-                    await _videoMeetings.DeleteRoomAsync(appointment.video_room_name, CancellationToken.None);
-                }
-                catch (Exception cleanupEx)
-                {
-                    _logger.LogError(cleanupEx, "No se pudo eliminar la sala de vídeo huérfana de la cita pública {AppointmentId}.", appointment.id);
-                }
-            }
+            _logger.LogError(ex, "No se pudo registrar la reserva pública {AppointmentId}.", appointment.id);
             throw;
         }
 
@@ -702,11 +638,9 @@ public class DirectoryController : ControllerBase
                     var safeLink = System.Net.WebUtility.HtmlEncode(accessLink);
                     await _emailServ.SendEmailAsync(
                         client.email!,
-                        appointment.status == "confirmed" ? "Tu cita está confirmada en DietoExpress" : "Tu reserva en DietoExpress",
+                        "Tu reserva en DietoExpress",
                         $"<h2>Hola, {safeName}</h2>" +
-                        (appointment.status == "confirmed"
-                            ? $"<p>Tu cita con {System.Net.WebUtility.HtmlEncode(professional.full_name ?? "tu nutricionista")} está confirmada.</p>"
-                            : $"<p>Hemos recibido tu solicitud de cita con {System.Net.WebUtility.HtmlEncode(professional.full_name ?? "tu nutricionista")}.</p>") +
+                        $"<p>Hemos recibido tu solicitud de cita con {System.Net.WebUtility.HtmlEncode(professional.full_name ?? "tu nutricionista")}.</p>" +
                         $"<p>Antes de la consulta puedes completar tus datos y la documentación desde tu portal:</p>" +
                         $"<p><a href='{safeLink}'>Acceder a mi portal</a></p>" +
                         "<p>Este enlace es personal, caduca en 24 horas y puedes utilizarlo tantas veces como necesites durante ese plazo.</p>");
@@ -718,7 +652,7 @@ public class DirectoryController : ControllerBase
             }
         }
 
-        var appointmentEvent = isEstablishedClient ? "appointment.confirmed" : "appointment.requested";
+        const string appointmentEvent = "appointment.requested";
         try
         {
             await _automationService.PublishEventAsync(

@@ -720,6 +720,21 @@ public class DietController : ControllerBase
         diet.is_shared = dto.IsShared;
         diet.is_template = dto.IsTemplate;
 
+        await using var transaction = _context.Database.IsRelational() && _context.Database.CurrentTransaction == null
+            ? await _context.Database.BeginTransactionAsync()
+            : null;
+
+        // Los planes que un paciente ya terminó conservan lo que siguió: pasan a una copia archivada antes de editar.
+        var pastAssignments = await _context.client_diets
+            .Where(cd => cd.diet_id == id && cd.is_active != true)
+            .ToListAsync();
+        if (pastAssignments.Count > 0)
+        {
+            var snapshotId = await DietSnapshots.CreateArchivedCopyAsync(_context, id, diet.user_id, diet.tenant_id, keepSharing: true);
+            if (snapshotId.HasValue)
+                foreach (var past in pastAssignments) past.diet_id = snapshotId.Value;
+        }
+
         // Remover todo el árbol anterior
         _context.diet_days.RemoveRange(diet.diet_days);
         diet.diet_days.Clear();
@@ -759,7 +774,34 @@ public class DietController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
+        await NotifyDietChangedAsync(tenantIdValue, id, diet.name);
         return NoContent();
+    }
+
+    // Avisa a los pacientes con el plan activo; un fallo del aviso no deshace la edición.
+    private async Task NotifyDietChangedAsync(int tenantId, int dietId, string dietName)
+    {
+        var automation = HttpContext?.RequestServices?.GetService<AutomationService>();
+        if (automation == null) return;
+        try
+        {
+            var assignments = await _context.client_diets.AsNoTracking()
+                .Where(cd => cd.diet_id == dietId && cd.is_active == true)
+                .Select(cd => new { cd.id, cd.client_id })
+                .ToListAsync();
+            // Como máximo un aviso por asignación y día, aunque se guarde varias veces.
+            foreach (var assignment in assignments)
+                await automation.PublishEventAsync(
+                    tenantId, "diet.changed", "client_diet", assignment.id.ToString(),
+                    new AutomationService.DietAutomationPayload(assignment.client_id, assignment.id, dietName),
+                    $"diet:edited:{assignment.id}:{DateTime.UtcNow:yyyyMMdd}");
+        }
+        catch (Exception ex)
+        {
+            HttpContext?.RequestServices?.GetService<ILogger<DietController>>()?
+                .LogError(ex, "No se pudo avisar de los cambios de la dieta {DietId}.", dietId);
+        }
     }
 
     [HttpDelete("{id:int}")]

@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
@@ -259,7 +260,7 @@ export class SupportComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.broadcastSending = false;
-        this.broadcastError = err?.error?.message || 'No se ha podido enviar la comunicación.';
+        this.broadcastError = apiErrorMessage(err, 'No se ha podido enviar la comunicación.');
       }
     });
   }

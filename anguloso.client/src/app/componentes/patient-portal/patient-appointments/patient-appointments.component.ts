@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../../shared/api-error';
 import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy, signal, OnDestroy } from '@angular/core';
 import { Subscription, interval } from 'rxjs';
 import { CommonModule } from '@angular/common';
@@ -109,7 +110,7 @@ export class PatientAppointmentsComponent implements OnDestroy {
       },
       error: err => {
         this.reviewSubmitting = { ...this.reviewSubmitting, [appointment.id]: false };
-        this.reviewErrors = { ...this.reviewErrors, [appointment.id]: err?.error?.message || 'No hemos podido guardar la valoración.' };
+        this.reviewErrors = { ...this.reviewErrors, [appointment.id]: apiErrorMessage(err, 'No hemos podido guardar la valoración.') };
       }
     });
   }

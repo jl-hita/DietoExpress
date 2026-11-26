@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
@@ -81,7 +82,7 @@ export class TrainingReviewRequestsPanelComponent implements OnChanges {
       decision, notes: this.notes()[item.id] ?? ''
     }).subscribe({
       next: result => { this.notice.set(result.message ?? 'Solicitud actualizada.'); this.busy.set(false); this.load(); this.resolved.emit(); },
-      error: e => { this.error.set(e?.error?.message || 'No se pudo actualizar la solicitud.'); this.busy.set(false); this.load(); }
+      error: e => { this.error.set(apiErrorMessage(e, 'No se pudo actualizar la solicitud.')); this.busy.set(false); this.load(); }
     });
   }
 }

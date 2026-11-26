@@ -92,10 +92,12 @@ public class AuthController : ControllerBase
             // Buscar el usuario
             var identifier = login.Username.Trim();
             var normalizedUsername = identifier.ToLowerInvariant();
-            var user = await _context.users.FirstOrDefaultAsync(u =>
-                u.username.ToLower() == normalizedUsername ||
-                u.email == identifier ||
-                u.email.ToLower() == identifier.ToLower());
+            // Un identificador con arroba se resuelve primero como email: así un nombre de usuario igual al email de otra
+            // persona no puede suplantarlo. El nombre de usuario queda como alternativa para cuentas antiguas.
+            users? user = null;
+            if (normalizedUsername.Contains('@'))
+                user = await _context.users.FirstOrDefaultAsync(u => u.email.ToLower() == normalizedUsername);
+            user ??= await _context.users.FirstOrDefaultAsync(u => u.username.ToLower() == normalizedUsername);
 
             // Se ejecuta siempre una verificación BCrypt (real o ficticia) para que el tiempo de respuesta no revele
             // si la cuenta existe, si usa Google sin contraseña o si está bloqueada.
@@ -260,6 +262,9 @@ public class AuthController : ControllerBase
 
             if (username.Length > 50 || email.Length > 150 || nombreCompleto.Length > 100)
                 return new BoolMensaje { Exito = false, Mensaje = "Los datos de registro superan la longitud permitida." };
+
+            if (username.Contains('@'))
+                return new BoolMensaje { Exito = false, Mensaje = "El nombre de usuario no puede contener el carácter @." };
 
             if (password.Length < 12 || password.Length > 256)
                 return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener entre 12 y 256 caracteres." };
@@ -723,9 +728,7 @@ public class AuthController : ControllerBase
                     return Ok(new { username = user.username, email = user.email, role = user.role, subscriptionPlan = user.subscription_plan, subscriptionStatus = user.subscription_status, archivedSupport = true });
                 }
 
-                user.google_id = googleId;
-                user.provider = "google";
-                user.email_confirmed = true;
+                LinkGoogleIdentity(user, googleId);
                 user.last_login = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
@@ -773,11 +776,7 @@ public class AuthController : ControllerBase
                         }
 
                         if (user.google_id != googleId)
-                        {
-                            user.google_id = googleId;
-                            user.provider = "google";
-                            user.email_confirmed = true;
-                        }
+                            LinkGoogleIdentity(user, googleId);
 
                         user.last_login = DateTime.UtcNow;
                         await _context.SaveChangesAsync();
@@ -896,6 +895,24 @@ public class AuthController : ControllerBase
         });
     }
 
+    // Google acredita quién controla el email. Si la cuenta local nunca lo confirmó, su contraseña y sus enlaces pendientes
+    // pudo ponerlos cualquiera que registrara ese email: se descartan y se revocan sus sesiones antes de vincularla.
+    private static void LinkGoogleIdentity(users user, string googleId)
+    {
+        if (user.email_confirmed != true)
+        {
+            user.password_hash = null;
+            user.email_confirmation_token = null;
+            user.email_confirmation_expires_at = null;
+            user.reset_password_token = null;
+            user.reset_token_expiration = null;
+            user.token_version++;
+        }
+        user.google_id = googleId;
+        user.provider = "google";
+        user.email_confirmed = true;
+    }
+
     //Subrutina que se usa en los distintos modos de login. Genera un token con el user
     // Un único constructor mantiene coherentes los claims de identidad, tenant, suscripción y revocación.
     private string CrearJwtParaUsuario(users user, bool supportOnly = false)
@@ -943,6 +960,9 @@ public class AuthController : ControllerBase
         var baseName = name.ToLower().Replace(" ", ".").Normalize(NormalizationForm.FormD);
         baseName = Regex.Replace(baseName, @"\p{Mn}", ""); // quitar diacríticos
         baseName = Regex.Replace(baseName, @"[^a-z0-9.]", "");
+
+        if (string.IsNullOrWhiteSpace(baseName)) baseName = "usuario";
+        if (baseName.Length > 40) baseName = baseName[..40];
 
         var candidate = baseName;
         int suffix = 0;

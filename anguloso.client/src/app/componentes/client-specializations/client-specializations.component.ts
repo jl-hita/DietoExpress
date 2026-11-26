@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, ChangeDetectionStrategy} from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -186,7 +187,7 @@ export class ClientSpecializationsComponent implements OnInit, OnDestroy {
         },
         error: err => {
           this.saving = false;
-          this.error = err?.error || 'No se han podido guardar las especializaciones.';
+          this.error = apiErrorMessage(err, 'No se han podido guardar las especializaciones.');
         }
       });
   }

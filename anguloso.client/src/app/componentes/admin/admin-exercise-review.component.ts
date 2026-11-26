@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -137,7 +138,7 @@ export class AdminExerciseReviewComponent implements OnInit {
       selectionPriority: Number(d.priority), notes: d.notes || null
     }).subscribe({
       next: () => { this.saving = ''; this.snack.open(status === 'approved' ? 'Ejercicio aprobado.' : status === 'rejected' ? 'Ejercicio rechazado.' : 'Borrador guardado.', 'Cerrar', {duration: 2500}); this.load(); },
-      error: e => { this.saving = ''; this.snack.open(e?.error?.error || 'No se pudo guardar la revisión.', 'Cerrar', {duration: 4000}); }
+      error: e => { this.saving = ''; this.snack.open(apiErrorMessage(e, 'No se pudo guardar la revisión.'), 'Cerrar', {duration: 4000}); }
     });
   }
 }

@@ -1,3 +1,5 @@
+import { apiErrorMessage } from '../../shared/api-error';
+import { localDateInput } from '../../shared/local-date';
 import { EquipmentFieldComponent } from './equipment-field.component';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -78,7 +80,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   templateNameDrafts: Record<number, string> = {};
   selectedTemplateId: number | null = null;
   templatePlanName = '';
-  templateStartDate = new Date().toISOString().slice(0, 10);
+  templateStartDate = localDateInput();
   mesocycles: Record<number, TrainingMesocycle[]> = {};
   macrocyclePlans: Record<number, MacrocyclePlan | null> = {};
   selectedMacroPhaseId: Record<number, number> = {};
@@ -267,7 +269,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   planName = '';
   periodizationModel = 'custom';
-  startDate = new Date().toISOString().slice(0, 10);
+  startDate = localDateInput();
   endDate = '';
   planNotes = '';
 
@@ -576,7 +578,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         },
         error: error => {
           this.manualVolumePreviews[planId] = null;
-          this.manualVolumePreviewErrors[planId] = error?.error?.message || 'No se pudo calcular el volumen semanal con el catálogo revisado.';
+          this.manualVolumePreviewErrors[planId] = apiErrorMessage(error, 'No se pudo calcular el volumen semanal con el catálogo revisado.');
           this.manualVolumePreviewLoading[planId] = false;
           this.changeDetector.markForCheck();
         }
@@ -627,7 +629,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.notice = 'Plantilla de sesión guardada en tu biblioteca.';
         this.loadSessionTemplates();
       },
-      error: e => { this.saving = false; this.error = e?.error?.message || 'No se pudo guardar la plantilla de sesión.'; }
+      error: e => { this.saving = false; this.error = apiErrorMessage(e, 'No se pudo guardar la plantilla de sesión.'); }
     });
   }
 
@@ -652,7 +654,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.notice = 'Plantilla de sesión guardada en tu biblioteca.';
         this.loadSessionTemplates();
       },
-      error: e => { this.saving = false; this.error = e?.error?.message || 'No se pudo guardar la plantilla de sesión.'; }
+      error: e => { this.saving = false; this.error = apiErrorMessage(e, 'No se pudo guardar la plantilla de sesión.'); }
     });
   }
 
@@ -680,7 +682,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.notice = 'Plantilla eliminada. Las sesiones ya creadas se conservan.';
         this.loadSessionTemplates();
       },
-      error: e => { this.saving = false; this.error = e?.error?.message || 'No se pudo eliminar la plantilla.'; }
+      error: e => { this.saving = false; this.error = apiErrorMessage(e, 'No se pudo eliminar la plantilla.'); }
     });
   }
 
@@ -695,7 +697,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.notice = 'Plantilla guardada. Puedes reutilizarla en otros clientes de tu clínica.';
         this.loadTrainingTemplates();
       },
-      error: e => { this.saving = false; this.error = e?.error?.message || 'No se pudo guardar la plantilla.'; }
+      error: e => { this.saving = false; this.error = apiErrorMessage(e, 'No se pudo guardar la plantilla.'); }
     });
   }
 
@@ -712,7 +714,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.templatePlanName = '';
         this.load();
       },
-      error: e => { this.saving = false; this.error = e?.error?.message || 'No se pudo crear el plan desde la plantilla.'; }
+      error: e => { this.saving = false; this.error = apiErrorMessage(e, 'No se pudo crear el plan desde la plantilla.'); }
     });
   }
 
@@ -811,7 +813,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.saving = true; this.error = '';
     this.http.put('/api/training/mesocycles/' + meso.id, { name: d.name.trim(), sequenceNumber: d.sequence, startDate: d.startDate, endDate: d.endDate || null, objective: d.objective.trim() || null, notes: d.notes.trim() || null }).subscribe({
       next: () => { this.editingMesocycleId = null; this.mesocycleEditDraft = null; this.saving = false; this.load(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo actualizar el mesociclo.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo actualizar el mesociclo.'); this.saving = false; }
     });
   }
 
@@ -820,7 +822,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.saving = true; this.error = '';
     this.http.delete('/api/training/mesocycles/' + meso.id).subscribe({
       next: () => { this.saving = false; this.load(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo eliminar el mesociclo.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo eliminar el mesociclo.'); this.saving = false; }
     });
   }
 
@@ -832,7 +834,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.saving = true; this.error = '';
     this.http.post('/api/training/plans/' + plan.id + '/mesocycles/reorder', { orderedIds: list.map(x => x.id) }).subscribe({
       next: () => { this.saving = false; this.load(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo reordenar los mesociclos.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo reordenar los mesociclos.'); this.saving = false; }
     });
   }
 
@@ -848,7 +850,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.saving = true; this.error = '';
     this.http.put('/api/training/microcycles/' + micro.id, { name: d.name.trim(), sequenceNumber: d.sequence, startDate: d.startDate, endDate: d.endDate || null, focus: d.focus.trim() || null, notes: d.notes.trim() || null }).subscribe({
       next: () => { this.editingMicrocycleId = null; this.microcycleEditDraft = null; this.saving = false; this.load(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo actualizar el microciclo.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo actualizar el microciclo.'); this.saving = false; }
     });
   }
 
@@ -857,7 +859,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.saving = true; this.error = '';
     this.http.delete('/api/training/microcycles/' + micro.id).subscribe({
       next: () => { this.saving = false; this.load(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo eliminar el microciclo.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo eliminar el microciclo.'); this.saving = false; }
     });
   }
 
@@ -869,7 +871,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.saving = true; this.error = '';
     this.http.post('/api/training/mesocycles/' + meso.id + '/microcycles/reorder', { orderedIds: list.map(x => x.id) }).subscribe({
       next: () => { this.saving = false; this.load(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo reordenar los microciclos.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo reordenar los microciclos.'); this.saving = false; }
     });
   }
 
@@ -879,7 +881,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.saving = true; this.error = '';
     this.http.post(`/api/training/plans/${plan.id}/mesocycles`, { name: d.name.trim(), sequenceNumber: d.sequence, startDate: d.startDate, endDate: d.endDate || null, objective: d.objective.trim() || null, notes: null }).subscribe({
       next: () => { d.name = ''; d.objective = ''; d.sequence += 1; this.saving = false; this.changeDetector.detectChanges(); this.load(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo crear el mesociclo.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo crear el mesociclo.'); this.saving = false; }
     });
   }
 
@@ -889,7 +891,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.saving = true; this.error = '';
     this.http.post(`/api/training/mesocycles/${meso.id}/microcycles`, { name: d.name.trim(), sequenceNumber: d.sequence, startDate: d.startDate, endDate: d.endDate || null, focus: d.focus.trim() || null, notes: null }).subscribe({
       next: () => { d.name = ''; d.focus = ''; d.sequence += 1; this.saving = false; this.changeDetector.detectChanges(); this.http.get<TrainingMicrocycle[]>(`/api/training/mesocycles/${meso.id}/microcycles`).subscribe({ next: rows => { this.microcycles[meso.id] = rows; this.changeDetector.detectChanges(); }, error: () => { this.error = 'El microciclo se guardó, pero no se pudo actualizar la lista.'; this.changeDetector.detectChanges(); } }); },
-      error: e => { this.error = e?.error?.message || 'No se pudo crear el microciclo.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo crear el microciclo.'); this.saving = false; }
     });
   }
 
@@ -899,7 +901,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.saving = true; this.error = '';
     this.http.post<{ emailSent: boolean; message: string }>('/api/training/clients/' + this.clientId + '/collaborations', { email, accessScope: 'training' }).subscribe({
       next: response => { this.collaboratorEmail = ''; this.notice = response.message; this.saving = false; this.loadCollaborations(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo crear la invitación.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo crear la invitación.'); this.saving = false; }
     });
   }
 
@@ -907,7 +909,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.saving = true; this.error = '';
     this.http.post(`/api/training/collaborations/${invitation.id}/accept`, {}).subscribe({
       next: () => { this.saving = false; this.acceptedClientId = invitation.clientId; this.invitations = this.invitations.filter(x => x.id !== invitation.id); },
-      error: e => { this.error = e?.error?.message || 'No se pudo aceptar la invitación.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo aceptar la invitación.'); this.saving = false; }
     });
   }
 
@@ -916,7 +918,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.saving = true; this.error = '';
     this.http.post(`/api/training/collaborations/${collaboration.id}/revoke`, {}).subscribe({
       next: () => { this.saving = false; this.loadCollaborations(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo revocar la colaboración.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo revocar la colaboración.'); this.saving = false; }
     });
   }
 
@@ -1071,7 +1073,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.saving = false;
         this.changeDetector.detectChanges();
       },
-      error: e => { this.error = e?.error?.message || 'No se pudo cambiar el estado de revisión del bloque.'; this.saving = false; this.changeDetector.detectChanges(); }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo cambiar el estado de revisión del bloque.'); this.saving = false; this.changeDetector.detectChanges(); }
     });
   }
 
@@ -1172,7 +1174,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.load();
       },
       error: e => {
-        this.error = e?.error?.message || 'No se pudo guardar la revisión de la adaptación.';
+        this.error = apiErrorMessage(e, 'No se pudo guardar la revisión de la adaptación.');
         this.saving = false;
       }
     });
@@ -1244,7 +1246,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const payload = { ...this.profile, enabled: this.trainingManagementMode !== 'none', managementMode: this.trainingManagementMode };
     this.http.put<TrainingProfile>(`/api/training/clients/${this.clientId}/profile`, payload).subscribe({
       next: p => { this.trainingManagementMode = p.managementMode ?? this.trainingManagementMode; this.profile = p; this.saving = false; this.load(); if (this.trainingManagementMode === 'collaboration') this.loadCollaborations(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo guardar el perfil deportivo.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo guardar el perfil deportivo.'); this.saving = false; }
     });
   }
 
@@ -1471,7 +1473,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.load();
       },
       error: e => {
-        this.error = e?.error?.message || 'No se pudo preparar el bloque de rutinas para esta fase.';
+        this.error = apiErrorMessage(e, 'No se pudo preparar el bloque de rutinas para esta fase.');
         this.saving = false;
       }
     });
@@ -1554,7 +1556,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.http.post<GeneratedProgram>('/api/training/generate-preview?planId=' + plan.id, request).pipe(
       timeout({ first: 30000 }),
       catchError(error => {
-        this.generationErrors[plan.id] = error?.error?.errors?.join?.(' ') || error?.error?.message || 'No se pudo generar la vista previa. Comprueba que haya ejercicios revisados compatibles.';
+        this.generationErrors[plan.id] = error?.error?.errors?.join?.(' ') || apiErrorMessage(error, 'No se pudo generar la vista previa. Comprueba que haya ejercicios revisados compatibles.');
         return of(null);
       })
     ).subscribe(result => {
@@ -1702,7 +1704,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.changeDetector.detectChanges();
       },
       error: e => {
-        this.error = e?.error?.message || 'No se pudo actualizar el plan.';
+        this.error = apiErrorMessage(e, 'No se pudo actualizar el plan.');
         this.saving = false;
       }
     });
@@ -1731,7 +1733,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.changeDetector.detectChanges();
       },
       error: e => {
-        this.error = e?.error?.message || 'No se pudo eliminar el plan.';
+        this.error = apiErrorMessage(e, 'No se pudo eliminar el plan.');
         this.saving = false;
       }
     });
@@ -1763,7 +1765,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.load();
       },
       error: e => {
-        this.error = e?.error?.message || 'No se pudo crear la rutina sencilla.';
+        this.error = apiErrorMessage(e, 'No se pudo crear la rutina sencilla.');
         this.saving = false;
       }
     });
@@ -1780,7 +1782,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.saving = false;
         this.load();
       },
-      error: e => { this.error = e?.error?.message || 'No se pudo crear el plan.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo crear el plan.'); this.saving = false; }
     });
   }
 
@@ -1855,7 +1857,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.http.post(`/api/training/plans/${plan.id}/sessions`, { scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type, durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null, instructions: draft.instructions.trim() || null, exercisePrescription: draft.exercisePrescription.trim() || null,
       exercisePrescriptionData: this.buildStructuredPrescriptionData(draft.date, draft.duration, this.parseStructuredExerciseDrafts(draft.exercisePrescription)) }).subscribe({
       next: () => { draft.title = ''; draft.intensity = ''; draft.instructions = ''; draft.exercisePrescription = ''; this.saving = false; this.refreshSessions(plan.id); },
-      error: e => { this.error = e?.error?.message || 'No se pudo crear la sesión.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo crear la sesión.'); this.saving = false; }
     });
   }
 
@@ -1865,7 +1867,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.http.get<typeof this.diagnosticPlans>('/api/training/diagnostics/plans').pipe(
       timeout({ first: 15000 }),
       catchError(error => {
-        if (error?.status !== 403) this.error = error?.error?.message || 'No se pudo cargar el inventario global de entrenamientos.';
+        if (error?.status !== 403) this.error = apiErrorMessage(error, 'No se pudo cargar el inventario global de entrenamientos.');
         return of(null);
       })
     ).subscribe(items => {
@@ -2195,7 +2197,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       },
       error: error => {
         this.splitReorganizationSaving[plan.id] = false;
-        draft.error = error?.error?.message || 'No se pudo reorganizar la semana. No se ha aplicado ningún cambio.';
+        draft.error = apiErrorMessage(error, 'No se pudo reorganizar la semana. No se ha aplicado ningún cambio.');
         this.changeDetector.detectChanges();
       }
     });
@@ -2277,7 +2279,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       timeout({ first: 30000 }),
       catchError(error => {
         this.splitReplacementErrors[plan.id] = error?.error?.errors?.join?.(' ') ||
-          error?.error?.message || 'No se pudo generar la nueva distribución con el catálogo revisado.';
+          apiErrorMessage(error, 'No se pudo generar la nueva distribución con el catálogo revisado.');
         return of(null);
       })
     ).subscribe(generated => {
@@ -2439,7 +2441,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.changeDetector.detectChanges();
       },
       error: error => {
-        this.splitReplacementErrors[plan.id] = error?.error?.message || 'La propuesta se generó, pero no se pudo calcular su volumen efectivo. No se puede aplicar sin esa comprobación.';
+        this.splitReplacementErrors[plan.id] = apiErrorMessage(error, 'La propuesta se generó, pero no se pudo calcular su volumen efectivo. No se puede aplicar sin esa comprobación.');
         this.splitReplacementLoading[plan.id] = false;
         this.changeDetector.detectChanges();
       }
@@ -2486,7 +2488,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       },
       error: error => {
         this.splitReplacementLoading[plan.id] = false;
-        this.splitReplacementErrors[plan.id] = error?.error?.message || 'No se pudo aplicar la nueva distribución. La versión anterior se conserva íntegra.';
+        this.splitReplacementErrors[plan.id] = apiErrorMessage(error, 'No se pudo aplicar la nueva distribución. La versión anterior se conserva íntegra.');
         this.changeDetector.detectChanges();
       }
     });
@@ -2707,7 +2709,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.notice = 'Sesión actualizada. El registro de realización se ha conservado.';
         this.refreshSessions(plan.id);
       },
-      error: error => { this.saving = false; this.error = error?.error?.message || 'No se pudo guardar la sesión.'; }
+      error: error => { this.saving = false; this.error = apiErrorMessage(error, 'No se pudo guardar la sesión.'); }
     });
   }
 
@@ -2738,7 +2740,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       },
       error: error => {
         this.saving = false;
-        this.weeklyDeleteErrors[plan.id] = error?.error?.message || 'No se pudo eliminar la sesión.';
+        this.weeklyDeleteErrors[plan.id] = apiErrorMessage(error, 'No se pudo eliminar la sesión.');
       }
     });
   }
@@ -2830,7 +2832,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       exercisePrescriptionData: this.buildStructuredPrescriptionData(d.date, d.duration,
         this.parseStructuredExerciseDrafts(d.exercisePrescription, d.exercisePrescriptionData)) }).subscribe({
       next: () => { this.editingSessionId = null; this.sessionEditDraft = null; this.saving = false; this.refreshSessions(session.planId); },
-      error: e => { this.error = e?.error?.message || 'No se pudo actualizar la sesión.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo actualizar la sesión.'); this.saving = false; }
     });
   }
 
@@ -2847,7 +2849,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   }
 
   defaultSessionDate(plan: TrainingPlan): string {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateInput();
     return today < plan.startDate ? plan.startDate : plan.endDate && today > plan.endDate ? plan.endDate : today;
   }
 
@@ -2891,7 +2893,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
           error: () => { this.error = 'La realización se guardó, pero no se pudo actualizar la lista. Recarga la página.'; this.changeDetector.detectChanges(); }
         });
       },
-      error: e => { this.error = e?.error?.message || 'No se pudo registrar la sesión.'; this.saving = false; }
+      error: e => { this.error = apiErrorMessage(e, 'No se pudo registrar la sesión.'); this.saving = false; }
     });
   }
 
@@ -3007,7 +3009,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.changeDetector.detectChanges();
       },
       error: e => {
-        this.error = e?.error?.message || 'No se pudo guardar el macrociclo. La propuesta se conserva para que no pierdas los cambios.';
+        this.error = apiErrorMessage(e, 'No se pudo guardar el macrociclo. La propuesta se conserva para que no pierdas los cambios.');
         this.saving = false;
       }
     });
@@ -3074,7 +3076,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.changeDetector.detectChanges();
       },
       error: e => {
-        this.error = e?.error?.message || 'No se pudo publicar el plan.';
+        this.error = apiErrorMessage(e, 'No se pudo publicar el plan.');
         this.saving = false;
       }
     });

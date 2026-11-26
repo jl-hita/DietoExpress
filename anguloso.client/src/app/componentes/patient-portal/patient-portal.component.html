@@ -292,7 +292,12 @@
                   <span class="food-grams">{{ item.grams }}g</span>
                   <span class="food-kcal-inline">{{ item.kcal | number:'1.0-0' }} kcal</span>
                 </ng-container>
-                <ng-container *ngIf="!item.foodName && item.exchangeGroupName">
+                <ng-container *ngIf="!item.foodName && item.recipeName">
+                  <span class="food-name">{{ item.recipeName }}</span>
+                  <span class="food-grams" *ngIf="item.recipeServings">{{ item.recipeServings }} ración(es)</span>
+                  <span class="food-kcal-inline" *ngIf="item.kcal">{{ item.kcal | number:'1.0-0' }} kcal</span>
+                </ng-container>
+                <ng-container *ngIf="!item.foodName && !item.recipeName && item.exchangeGroupName">
                   <div style="display: flex; flex-direction: column; width: 100%; gap: 6px;">
                     <div class="exchange-item" role="button" tabindex="0" (click)="toggleExchangeEquivalencies('ex_' + meal.mealIndex + '_' + item.exchangeGroupId, item.exchangeGroupId)" (keydown.enter)="toggleExchangeEquivalencies('ex_' + meal.mealIndex + '_' + item.exchangeGroupId, item.exchangeGroupId)" (keydown.space)="$event.preventDefault(); toggleExchangeEquivalencies('ex_' + meal.mealIndex + '_' + item.exchangeGroupId, item.exchangeGroupId)" [attr.aria-expanded]="expandedExchangeId === ('ex_' + meal.mealIndex + '_' + item.exchangeGroupId)" aria-label="Ver alimentos equivalentes" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: rgba(99,102,241,0.15); border-radius: 8px; border: 1px dashed rgba(99,102,241,0.4);">
                       <span style="display: flex; align-items: center; gap: 6px;">

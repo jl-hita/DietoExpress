@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
@@ -55,7 +56,7 @@ export class DirectoryInterestsComponent implements OnInit {
       },
       error: error => {
         this.loading = false;
-        this.error = error?.error?.message || 'No se han podido cargar las solicitudes de interés.';
+        this.error = apiErrorMessage(error, 'No se han podido cargar las solicitudes de interés.');
       }
     });
   }

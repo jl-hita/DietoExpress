@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -41,7 +42,7 @@ export class ExerciseContributionsComponent {
     const primaryMuscles=this.primaryMusclesText.split(',').map(x=>x.trim()).filter(Boolean); const secondaryMuscles=this.secondaryMusclesText.split(',').map(x=>x.trim()).filter(Boolean); const requiredEquipment=this.requiredEquipmentText.split(',').map(x=>x.trim()).filter(Boolean);
     this.http.post<{id:string}>('/api/exercise-catalog/contributions',{name:this.name.trim(),description:this.description.trim()||null,equipment:this.equipment.trim()||null,bodyPart:this.bodyPart.trim()||null,movementPattern:this.movementPattern,minimumExperience:this.minimumExperience,primaryMuscles,secondaryMuscles,suitableGoals:this.suitableGoals,requiredEquipment,selectionPriority:50}).subscribe({
       next:r=>{this.saving=false;this.submittedId=r.id;this.name='';this.description='';this.equipment='';this.bodyPart='';this.primaryMusclesText='';this.secondaryMusclesText='';this.requiredEquipmentText='';this.snack.open('Ejercicio enviado a revisión.','Cerrar',{duration:3000});},
-      error:e=>{this.saving=false;this.snack.open(e?.error?.error||'No se pudo enviar el ejercicio.','Cerrar',{duration:4000});}
+      error:e=>{this.saving=false;this.snack.open(apiErrorMessage(e, 'No se pudo enviar el ejercicio.'),'Cerrar',{duration:4000});}
     });
   }
 }

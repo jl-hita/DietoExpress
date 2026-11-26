@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
@@ -47,7 +48,7 @@ export class AdminPatientsComponent {
     if (this.search.trim()) params['search'] = this.search.trim();
     this.http.get<{items:AdminPatient[];totalCount:number}>('/api/admin/patients',{params}).subscribe({
       next: result => { this.patients=result.items; this.total=result.totalCount; this.loading=false; },
-      error: err => { this.error=err?.error?.message ?? 'No se pudieron cargar los pacientes.'; this.loading=false; }
+      error: err => { this.error=apiErrorMessage(err, 'No se pudieron cargar los pacientes.'); this.loading=false; }
     });
   }
   changePage(delta:number): void { this.page=Math.max(1,this.page+delta); this.load(); }
@@ -55,7 +56,7 @@ export class AdminPatientsComponent {
     if (!confirm('¿Archivar al paciente '+p.id+'? Se revocará su acceso y se conservará el expediente.')) return;
     this.http.post('/api/admin/patients/'+p.id+'/archive',{}).subscribe({
       next:()=>{this.snack.open('Paciente archivado y acceso revocado.','OK',{duration:3500});this.load();},
-      error:err=>this.snack.open(err?.error?.message ?? 'No se pudo archivar el paciente.','Cerrar',{duration:5000})
+      error:err=>this.snack.open(apiErrorMessage(err, 'No se pudo archivar el paciente.'),'Cerrar',{duration:5000})
     });
   }
   erase(p:AdminPatient): void {
@@ -64,7 +65,7 @@ export class AdminPatientsComponent {
     if (!confirm('¿Confirmas la anonimización de la cuenta del paciente ID '+p.id+'?')) return;
     this.http.post<{message:string}>('/api/admin/patients/'+p.id+'/erase',{confirmId:p.id,confirmText:typed}).subscribe({
       next:r=>{this.snack.open(r.message,'OK',{duration:7000});this.load();},
-      error:err=>this.snack.open(err?.error?.message ?? 'No se pudo anonimizar la cuenta.','Cerrar',{duration:5000})
+      error:err=>this.snack.open(apiErrorMessage(err, 'No se pudo anonimizar la cuenta.'),'Cerrar',{duration:5000})
     });
   }
 }

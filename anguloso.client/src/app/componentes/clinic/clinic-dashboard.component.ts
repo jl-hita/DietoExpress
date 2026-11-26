@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -56,7 +57,7 @@ export class ClinicDashboardComponent implements OnInit {
        this.snack.open(response?.message || 'Puesto profesional añadido.', 'OK', {duration:4000});
        this.load();
      },
-     error: e => this.snack.open(e?.error?.message || e?.error || 'No se pudo añadir el puesto.', 'Cerrar', {duration:5000})
+     error: e => this.snack.open(apiErrorMessage(e, 'No se pudo añadir el puesto.'), 'Cerrar', {duration:5000})
    });
  }
  removeSeat():void {
@@ -68,29 +69,29 @@ export class ClinicDashboardComponent implements OnInit {
        this.snack.open(response?.message || 'Puesto profesional eliminado.', 'OK', {duration:4000});
        this.load();
      },
-     error: e => this.snack.open(e?.error?.message || e?.error || 'No se pudo eliminar el puesto.', 'Cerrar', {duration:5000})
+     error: e => this.snack.open(apiErrorMessage(e, 'No se pudo eliminar el puesto.'), 'Cerrar', {duration:5000})
    });
  }
  ngOnInit(){this.load();}
- load(){this.clinic.getDashboard().subscribe({next:d=>this.data=d,error:e=>this.snack.open(e?.error||'No se puede cargar el panel de clínica','Cerrar',{duration:4000})});}
- createNutri(){this.clinic.createNutritionist(this.newNutri).subscribe({next:()=>{this.snack.open('Nutricionista creado y se ha enviado la invitación por email','OK',{duration:3500});this.newNutri={fullName:'',email:''};this.showCreate=false;this.load()},error:e=>this.snack.open(e?.error?.message||e?.error||'No se pudo crear','Cerrar',{duration:5000})});}
- activateNutri(n:any){this.clinic.activateNutritionist(n.id).subscribe({next:()=>{this.snack.open('Nutricionista activado','OK',{duration:2500});this.load()},error:e=>this.snack.open(e?.error?.message||e?.error||'No se pudo activar','Cerrar',{duration:5000})});}
+ load(){this.clinic.getDashboard().subscribe({next:d=>this.data=d,error:e=>this.snack.open(apiErrorMessage(e, 'No se puede cargar el panel de clínica'),'Cerrar',{duration:4000})});}
+ createNutri(){this.clinic.createNutritionist(this.newNutri).subscribe({next:()=>{this.snack.open('Nutricionista creado y se ha enviado la invitación por email','OK',{duration:3500});this.newNutri={fullName:'',email:''};this.showCreate=false;this.load()},error:e=>this.snack.open(apiErrorMessage(e, 'No se pudo crear'),'Cerrar',{duration:5000})});}
+ activateNutri(n:any){this.clinic.activateNutritionist(n.id).subscribe({next:()=>{this.snack.open('Nutricionista activado','OK',{duration:2500});this.load()},error:e=>this.snack.open(apiErrorMessage(e, 'No se pudo activar'),'Cerrar',{duration:5000})});}
  // El archivado requiere conocer primero las asignaciones afectadas para permitir al profesional decidir cómo quedan sus pacientes.
  disableNutri(n:any){
    this.clinic.getDeactivationPreview(n.id).subscribe({
      next:preview=>{
        if(!preview.clients.length){
-         this.clinic.disableNutritionist(n.id,{assignments:[]}).subscribe({next:()=>{this.snack.open('Nutricionista archivado','OK',{duration:2500});this.load()},error:e=>this.snack.open(e?.error?.message||e?.error||'No se pudo archivar','Cerrar',{duration:4000})});
+         this.clinic.disableNutritionist(n.id,{assignments:[]}).subscribe({next:()=>{this.snack.open('Nutricionista archivado','OK',{duration:2500});this.load()},error:e=>this.snack.open(apiErrorMessage(e, 'No se pudo archivar'),'Cerrar',{duration:4000})});
          return;
        }
        const ref=this.dialog.open(NutritionistDeactivationDialogComponent,{width:'760px',maxWidth:'95vw',data:preview});
        ref.afterClosed().subscribe(result=>{
          if(!result)return;
-         this.clinic.disableNutritionist(n.id,result).subscribe({next:()=>{this.snack.open('Nutricionista archivado y pacientes reasignados','OK',{duration:3000});this.load()},error:e=>this.snack.open(e?.error?.message||e?.error||'No se pudo archivar','Cerrar',{duration:5000})});
+         this.clinic.disableNutritionist(n.id,result).subscribe({next:()=>{this.snack.open('Nutricionista archivado y pacientes reasignados','OK',{duration:3000});this.load()},error:e=>this.snack.open(apiErrorMessage(e, 'No se pudo archivar'),'Cerrar',{duration:5000})});
        });
      },
-     error:e=>this.snack.open(e?.error?.message||e?.error||'No se pudo preparar el archivado','Cerrar',{duration:4000})
+     error:e=>this.snack.open(apiErrorMessage(e, 'No se pudo preparar el archivado'),'Cerrar',{duration:4000})
    });
  }
- assign(client:any,id:number|null){this.clinic.assignClient(client.id,id).subscribe({next:()=>this.load(),error:e=>{this.snack.open(e?.error||'No se pudo reasignar','Cerrar',{duration:4000});this.load()}});}
+ assign(client:any,id:number|null){this.clinic.assignClient(client.id,id).subscribe({next:()=>this.load(),error:e=>{this.snack.open(apiErrorMessage(e, 'No se pudo reasignar'),'Cerrar',{duration:4000});this.load()}});}
 }

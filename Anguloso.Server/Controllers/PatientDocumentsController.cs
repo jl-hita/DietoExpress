@@ -456,8 +456,11 @@ public class PatientDocumentsController : ControllerBase
     private string? GetSafePhysicalPath(string storageKey, int tenantId, int clientId)
     {
         var root = GetStorageRoot();
-        var expectedPrefix = $"{tenantId}/{clientId}/";
-        if (!storageKey.StartsWith(expectedPrefix, StringComparison.Ordinal)) return null;
+        // La ruta es {clínica}/{paciente}/archivo. La clínica puede ser la de origen si el paciente cambió de nutricionista;
+        // el acceso ya se ha autorizado con la fila del documento, así que basta con exigir su carpeta de paciente.
+        var segments = storageKey.Split('/');
+        if (segments.Length < 3 || !int.TryParse(segments[0], out var storedTenantId) || storedTenantId <= 0 ||
+            segments[1] != clientId.ToString(System.Globalization.CultureInfo.InvariantCulture)) return null;
         if (storageKey.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(storageKey)) return null;
 
         var path = Path.GetFullPath(Path.Combine(root, storageKey.Replace('/', Path.DirectorySeparatorChar)));

@@ -39,7 +39,6 @@ public sealed class PatientPortalEmailService
 
         var previousToken = client.access_token;
         var previousExpiry = client.access_token_expires_at;
-        var previousTokenVersion = client.portal_token_version;
 
         var effectiveExpiry = expiresAtUtc ?? DateTime.UtcNow.AddHours(24);
         var accessLink = await _portalAccess.CreateAccessLinkAsync(
@@ -60,12 +59,12 @@ public sealed class PatientPortalEmailService
             if (result.Exito)
                 return result;
 
-            await RestorePreviousAccessAsync(client, previousToken, previousExpiry, previousTokenVersion);
+            await RestorePreviousAccessAsync(client, previousToken, previousExpiry);
             return result;
         }
         catch
         {
-            await RestorePreviousAccessAsync(client, previousToken, previousExpiry, previousTokenVersion);
+            await RestorePreviousAccessAsync(client, previousToken, previousExpiry);
             throw;
         }
     }
@@ -73,12 +72,10 @@ public sealed class PatientPortalEmailService
     private async Task RestorePreviousAccessAsync(
         Anguloso.Server.Models.clients client,
         string? previousToken,
-        DateTime? previousExpiry,
-        int previousTokenVersion)
+        DateTime? previousExpiry)
     {
         client.access_token = previousToken;
         client.access_token_expires_at = previousExpiry;
-        client.portal_token_version = previousTokenVersion;
         await _context.SaveChangesAsync(CancellationToken.None);
     }
 }

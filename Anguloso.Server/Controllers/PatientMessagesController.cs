@@ -36,6 +36,15 @@ SELECT COUNT(*)::int AS ""Value""
 FROM patient_messages m
 JOIN patient_conversations c ON c.id = m.conversation_id
 WHERE c.client_id = {0}
+  AND c.closed_at IS NULL
+  -- Solo la conversación visible: los mensajes de una asignación anterior no pueden dejar un contador fijo.
+  AND c.assigned_nutritionist_id IS NOT DISTINCT FROM (
+      SELECT a.nutritionist_id
+      FROM client_nutritionist_assignments a
+      JOIN users u ON u.id = a.nutritionist_id
+      JOIN clients cl ON cl.id = a.client_id
+      WHERE a.client_id = {0} AND a.is_active AND u.tenant_id = cl.tenant_id
+      LIMIT 1)
   AND m.sender_user_id IS NOT NULL
   AND m.read_at IS NULL", clientId.Value).SingleAsync();
         return Ok(count);
@@ -86,7 +95,7 @@ WHERE c.client_id = {0}
         if (!await CanProfessionalAccessAsync(userId.Value, tenantId.Value, clientId))
             return NotFound();
 
-        var conversation = await GetOrCreateConversationAsync(clientId, userId.Value);
+        var conversation = await GetOrCreateConversationAsync(clientId);
         return Ok(await ReadMessagesAsync(conversation.Id, clientId));
     }
 
@@ -116,7 +125,7 @@ WHERE c.client_id = {0}
         if (!userId.HasValue || !tenantId.HasValue || !await CanProfessionalAccessAsync(userId.Value, tenantId.Value, clientId))
             return NotFound();
 
-        var conversation = await GetOrCreateConversationAsync(clientId, userId.Value);
+        var conversation = await GetOrCreateConversationAsync(clientId);
         await _context.Database.ExecuteSqlInterpolatedAsync($@"
 UPDATE patient_messages
 SET read_at = COALESCE(read_at, NOW())
@@ -161,7 +170,8 @@ WHERE conversation_id = {conversation.Id}
         await using var ownedTransaction = _context.Database.CurrentTransaction is null
             ? await _context.Database.BeginTransactionAsync()
             : null;
-        var conversation = await GetOrCreateConversationAsync(clientId, senderUserId);
+        // El mensaje va a la conversación que lee el paciente (la de su nutricionista asignado), lo envíe quien lo envíe.
+        var conversation = await GetOrCreateConversationAsync(clientId);
         long messageId;
         var connection = _context.Database.GetDbConnection();
         if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();

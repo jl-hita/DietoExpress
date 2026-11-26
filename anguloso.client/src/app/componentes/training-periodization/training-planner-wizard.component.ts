@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectorRef, Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
@@ -249,7 +250,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
         this.mesocycleError = '';
         this.recoveryNotice = 'El plan asociado a este borrador ya no existe. Hemos descartado los datos antiguos y puedes empezar una planificación nueva.';
       } else {
-        this.mesocycleError = error?.error?.message || 'No se pudo recuperar el estado de los mesociclos guardados. Conservamos el borrador para que puedas reintentarlo.';
+        this.mesocycleError = apiErrorMessage(error, 'No se pudo recuperar el estado de los mesociclos guardados. Conservamos el borrador para que puedas reintentarlo.');
       }
       this.changeDetector.detectChanges();
     });
@@ -326,7 +327,7 @@ export class TrainingPlannerWizardComponent implements OnInit {
       this.draft.serverMacrocycleSaved = false;
       this.persist();
     } catch (error: any) {
-      this.proposalError = error?.error?.message || 'No se pudo preparar el macrociclo. Conservamos los datos para reintentarlo.';
+      this.proposalError = apiErrorMessage(error, 'No se pudo preparar el macrociclo. Conservamos los datos para reintentarlo.');
     } finally {
       this.buildingProposal = false;
       // firstValueFrom resumes in a Promise continuation; explicitly refresh the wizard

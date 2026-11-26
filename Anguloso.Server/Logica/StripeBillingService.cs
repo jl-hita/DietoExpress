@@ -79,6 +79,37 @@ public sealed class StripeBillingService : IStripeBillingService
             (normalizedCouponCode.Length > 64 || normalizedCouponCode.Any(ch => !char.IsAsciiLetterOrDigit(ch) && ch != '-')))
             throw new ArgumentException("El código promocional no tiene un formato válido.", nameof(couponCode));
 
+        // Un pago pendiente de otro plan o periodo nunca se reutiliza: se anula antes de crear el nuevo.
+        if (pendingAttempt != null && pendingAttempt.expires_at > DateTime.UtcNow &&
+            (pendingAttempt.plan_id != plan.id || !string.Equals(pendingAttempt.billing_interval, billingInterval, StringComparison.Ordinal)))
+        {
+            if (!string.IsNullOrWhiteSpace(pendingAttempt.stripe_session_id))
+            {
+                try
+                {
+                    using var expired = await SendStripeAsync(HttpMethod.Post,
+                        $"/v1/checkout/sessions/{Uri.EscapeDataString(pendingAttempt.stripe_session_id)}/expire",
+                        new Dictionary<string, string>());
+                }
+                catch (StripeBillingProviderException)
+                {
+                    throw new InvalidOperationException("Hay un pago anterior que no se ha podido anular. Complétalo o inténtalo de nuevo en unos minutos.");
+                }
+            }
+            else if (pendingAttempt.status == "creating" && pendingAttempt.created_at > DateTime.UtcNow.AddMinutes(-2))
+                throw new InvalidOperationException("El pago anterior todavía se está preparando. Vuelve a intentarlo en un par de minutos.");
+
+            await _context.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE billing_coupon_redemptions
+                SET status = 'released'
+                WHERE checkout_attempt_id = {pendingAttempt.id} AND status = 'reserved'
+                """);
+            pendingAttempt.status = "expired";
+            pendingAttempt.completed_at = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            pendingAttempt = null;
+        }
+
         if (pendingAttempt != null && pendingAttempt.expires_at > DateTime.UtcNow)
         {
             if (!string.Equals(pendingAttempt.coupon_code, normalizedCouponCode, StringComparison.Ordinal))

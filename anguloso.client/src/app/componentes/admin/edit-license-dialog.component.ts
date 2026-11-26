@@ -1,3 +1,4 @@
+import { localDateInput } from '../../shared/local-date';
 import { Component, Inject, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -101,13 +102,14 @@ export class EditLicenseDialogComponent {
 
     if (data.licenseExpiresAt) {
       const d = new Date(data.licenseExpiresAt);
-      this.formattedExpiryDate = d.toISOString().split('T')[0];
+      this.formattedExpiryDate = localDateInput(d);
     }
   }
 
   onDateChange(val: string): void {
     this.formattedExpiryDate = val;
-    this.model.licenseExpiresAt = val ? new Date(val).toISOString() : null;
+    // La licencia vale hasta el final del día elegido, en la hora local.
+    this.model.licenseExpiresAt = val ? new Date(`${val}T23:59:59`).toISOString() : null;
   }
 
   save(): void {

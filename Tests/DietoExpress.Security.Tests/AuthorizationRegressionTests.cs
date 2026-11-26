@@ -1673,15 +1673,15 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
-    public void PatientExport_IncludesTenantScopedLegalAcceptanceEvidence()
+    public void PatientExport_IncludesPatientDocumentEvidenceOnly()
     {
         var service = ReadServerLogica("PrivacyOperationsService.cs");
 
-        Assert.Contains("legal_acceptances", service);
-        Assert.Contains("la.user_id=@user", service);
-        Assert.Contains("la.tenant_id=@tenant", service);
-        Assert.Contains("document_sha256", service);
-        Assert.DoesNotContain("ip_address", service.Substring(service.IndexOf("legalAcceptances", StringComparison.Ordinal)));
+        // legal_acceptances registra las aceptaciones del profesional: no forman parte del expediente del paciente.
+        Assert.DoesNotContain("legal_acceptances", service);
+        Assert.Contains("FROM patient_document_events WHERE client_id=@client AND tenant_id=@tenant", service);
+        Assert.DoesNotContain("ip_address", service);
+        Assert.Contains("if (!await CanAccessClientAsync(clientId, tenantId, ct)) return null;", service);
     }
 
     [Fact]
@@ -1726,7 +1726,8 @@ public class AuthorizationRegressionTests
         Assert.Contains("status == \"requested\" || a.status == \"confirmed\"", controller);
         Assert.Contains("status = \"requested\"", controller);
         Assert.Contains("CanCreateClientAsync", controller);
-        Assert.Contains("CanAssignClientAsync", controller);
+        // La asignación de un paciente sin profesional ocurre al confirmar la cita, con su control de licencia.
+        Assert.Contains("CanAssignClientAsync", ReadServerController("AppointmentsController.cs"));
         Assert.Contains("appointment.requested", ReadServerLogica("AutomationService.cs"));
 
         // La seguridad aquí no depende de que un texto concreto no aparezca en comentarios.

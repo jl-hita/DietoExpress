@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -115,7 +116,7 @@ export class AdminDirectoryVerificationComponent implements OnInit {
         this.items = [...this.items];
         this.snack.open('Estado actualizado.', 'Cerrar', { duration: 2500 });
       },
-      error: error => this.snack.open(error?.error || 'No se pudo actualizar el estado.', 'Cerrar', { duration: 4000 })
+      error: error => this.snack.open(apiErrorMessage(error, 'No se pudo actualizar el estado.'), 'Cerrar', { duration: 4000 })
     });
   }
 }

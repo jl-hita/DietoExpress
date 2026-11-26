@@ -155,7 +155,8 @@ public class AdminUsersController : ControllerBase
         if (value.Length > 10000)
             return BadRequest("El valor de configuración no puede superar los 10000 caracteres.");
 
-        if (config.nombre_config.Equals("frontendUrl", StringComparison.OrdinalIgnoreCase))
+        if (config.nombre_config.Equals("frontendUrl", StringComparison.OrdinalIgnoreCase) ||
+            config.nombre_config.Equals("PLATFORM_FRONTEND_URL", StringComparison.OrdinalIgnoreCase))
         {
             if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out var frontendUri) ||
                 frontendUri.Scheme != Uri.UriSchemeHttps ||
@@ -593,6 +594,9 @@ public class AdminUsersController : ControllerBase
 
         if (request.Password.Length < 12 || request.Password.Length > 256)
             return BadRequest("La contraseña debe tener entre 12 y 256 caracteres.");
+
+        if (request.Username.Contains('@'))
+            return BadRequest("El nombre de usuario no puede contener el carácter @.");
 
         if (request.Username.Trim().Length > 50 ||
             request.Email.Trim().Length > 150 ||

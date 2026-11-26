@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../shared/api-error';
 import { Component, Inject, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -441,7 +442,7 @@ export class BioimpedanceImportDialogComponent {
       },
       error: (err) => {
         this.loading = false;
-        const msg = err.error?.message || err.error || 'Error al analizar el archivo de bioimpedancia.';
+        const msg = apiErrorMessage(err, 'Error al analizar el archivo de bioimpedancia.');
         this.snackBar.open(msg, 'Cerrar', { duration: 5000 });
       }
     });
@@ -480,7 +481,7 @@ export class BioimpedanceImportDialogComponent {
       },
       error: (err) => {
         this.loading = false;
-        const msg = err.error?.message || err.error || 'Error al guardar las mediciones biométricas.';
+        const msg = apiErrorMessage(err, 'Error al guardar las mediciones biométricas.');
         this.snackBar.open(msg, 'Cerrar', { duration: 5000 });
       }
     });

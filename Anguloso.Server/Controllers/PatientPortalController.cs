@@ -261,7 +261,8 @@ public class PatientPortalController : ControllerBase
     }
 
     [HttpPost("onboarding")]
-    [Authorize]
+    // El consentimiento solo puede darlo el propio paciente.
+    [Authorize(Roles = "patient")]
     public async Task<IActionResult> SaveOnboarding([FromBody] PatientOnboardingRequestDto request)
     {
         var clientId = ResolveAuthorizedClientId();
@@ -497,6 +498,7 @@ public class PatientPortalController : ControllerBase
     {
         var d = await _context.diets.Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items)
             .Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items).ThenInclude(i => i.exchange_group)
+            .Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items).ThenInclude(i => i.recipe)
             .FirstOrDefaultAsync(d => d.id == dietId &&
                              d.tenant_id == _context.clients.Where(c => c.id == clientId).Select(c => c.tenant_id).FirstOrDefault());
         if (d == null) return null;
@@ -521,7 +523,10 @@ public class PatientPortalController : ControllerBase
                     {
                         Id = i.id, FoodId = i.food_id, FoodName = i.food_id.HasValue && accessibleFoods.TryGetValue(i.food_id.Value, out var accessibleFood) ? accessibleFood.name : null,
                         ExchangeGroupId = i.exchange_group_id, ExchangeGroupName = i.exchange_group != null ? i.exchange_group.name : null,
-                        ExchangeCount = i.exchange_count, Grams = i.grams, Kcal = i.kcal, Protein = i.protein, Carbs = i.carbs, Fat = i.fat
+                        ExchangeCount = i.exchange_count, Grams = i.grams, Kcal = i.kcal, Protein = i.protein, Carbs = i.carbs, Fat = i.fat,
+                        // Solo se expone una receta de la misma clínica que la dieta.
+                        RecipeId = i.recipe_id, RecipeServings = i.recipe_servings,
+                        RecipeName = i.recipe != null && i.recipe.tenant_id == d.tenant_id ? i.recipe.name : null
                     }).ToList()
                 }).ToList()
             }).ToList()

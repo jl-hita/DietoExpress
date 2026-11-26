@@ -5,11 +5,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { apiErrorMessage } from '../../shared/api-error';
 import { LegalGovernanceService, LegalRatActivity, LegalRiskAssessment, LegalEipdDecision } from '../../servicios/legal-governance.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,selector:'app-legal-governance',standalone:true,imports:[CommonModule,FormsModule,MatButtonModule,MatCardModule,MatFormFieldModule,MatInputModule],template:`
 <section class="grid">
+ <p class="error" role="alert" *ngIf="error()">{{ error() }}</p>
  <mat-card><mat-card-header><mat-card-title>Registro de Actividades de Tratamiento</mat-card-title></mat-card-header><mat-card-content>
   <div class="row" *ngFor="let a of rat"><strong>{{a.name}}</strong><span>{{a.role}} · {{a.status}}</span></div>
   <div class="form">
@@ -39,7 +41,7 @@ import { LegalGovernanceService, LegalRatActivity, LegalRiskAssessment, LegalEip
    <button mat-flat-button (click)="addEipd()">Registrar decisión</button>
   </div>
  </mat-card-content></mat-card>
-</section>`,styles:[`.grid{display:grid;gap:16px;padding:20px 0}.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.row{display:flex;justify-content:space-between;gap:12px;padding:10px;border-bottom:1px solid #e2e8f0}.row span{color:#64748b}@media(max-width:800px){.form{grid-template-columns:1fr}.row{display:grid}}`]})
+</section>`,styles:[`.error{color:#b91c1c;margin:0}.grid{display:grid;gap:16px;padding:20px 0}.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.row{display:flex;justify-content:space-between;gap:12px;padding:10px;border-bottom:1px solid #e2e8f0}.row span{color:#64748b}@media(max-width:800px){.form{grid-template-columns:1fr}.row{display:grid}}`]})
 export class LegalGovernanceComponent implements OnInit {
  private readonly ratState = signal<LegalRatActivity[]>([]);
  get rat(): LegalRatActivity[] { return this.ratState(); }
@@ -55,10 +57,15 @@ export class LegalGovernanceComponent implements OnInit {
  newRat:any={name:'',purpose:'',role:'controller',legalBasis:'',dataCategories:'',retention:'',status:'draft'};
  newRisk:any={name:'',riskDescription:'',likelihood:1,impact:1,measures:'',status:'open'};
  newEipd:any={decision:'pending',justification:'',additionalMeasures:'',documentReference:''};
+ readonly error=signal('');
+ private fail(fallback:string){return {error:(e:unknown)=>this.error.set(apiErrorMessage(e,fallback))};}
  constructor(private api:LegalGovernanceService){}
  ngOnInit(){this.reload();}
- reload(){this.api.listRat().subscribe(x=>this.rat=x);this.api.listRisks().subscribe(x=>this.risks=x);this.api.listEipd().subscribe(x=>this.eipd=x);}
- addRat(){if(!this.newRat.name||!this.newRat.purpose)return;this.api.createRat(this.newRat).subscribe(()=>{this.newRat={name:'',purpose:'',role:'controller',legalBasis:'',dataCategories:'',retention:'',status:'draft'};this.reload();});}
- addRisk(){if(!this.newRisk.name||!this.newRisk.riskDescription)return;this.api.createRisk(this.newRisk).subscribe(()=>{this.newRisk={name:'',riskDescription:'',likelihood:1,impact:1,measures:'',status:'open'};this.reload();});}
- addEipd(){if(!this.newEipd.justification)return;this.api.createEipd(this.newEipd).subscribe(()=>{this.newEipd={decision:'pending',justification:'',additionalMeasures:'',documentReference:''};this.reload();});}
+ reload(){
+  const failed=this.fail('No se ha podido cargar el gobierno legal.');
+  this.api.listRat().subscribe({next:x=>this.rat=x,...failed});this.api.listRisks().subscribe({next:x=>this.risks=x,...failed});this.api.listEipd().subscribe({next:x=>this.eipd=x,...failed});
+ }
+ addRat(){if(!this.newRat.name||!this.newRat.purpose)return;this.error.set('');this.api.createRat(this.newRat).subscribe({next:()=>{this.newRat={name:'',purpose:'',role:'controller',legalBasis:'',dataCategories:'',retention:'',status:'draft'};this.reload();},...this.fail('No se ha podido añadir la actividad.')});}
+ addRisk(){if(!this.newRisk.name||!this.newRisk.riskDescription)return;this.error.set('');this.api.createRisk(this.newRisk).subscribe({next:()=>{this.newRisk={name:'',riskDescription:'',likelihood:1,impact:1,measures:'',status:'open'};this.reload();},...this.fail('No se ha podido añadir el riesgo. Revisa que probabilidad e impacto estén entre 1 y 5.')});}
+ addEipd(){if(!this.newEipd.justification)return;this.error.set('');this.api.createEipd(this.newEipd).subscribe({next:()=>{this.newEipd={decision:'pending',justification:'',additionalMeasures:'',documentReference:''};this.reload();},...this.fail('No se ha podido registrar la decisión. Debe ser required, not_required o pending.')});}
 }
