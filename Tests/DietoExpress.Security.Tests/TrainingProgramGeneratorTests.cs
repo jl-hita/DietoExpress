@@ -133,7 +133,7 @@ public sealed class TrainingProgramGeneratorTests
             "EstimateDurationSeconds", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
         Assert.NotNull(estimator);
         decimal Estimate(TrainingSessionPrescription session) =>
-            (decimal)estimator!.Invoke(null, [session])!;
+            (decimal)estimator!.Invoke(null, [session, new HashSet<string>(StringComparer.OrdinalIgnoreCase)])!;
 
         var generalEstimate = Estimate(ComparableSession(generalMainLift.RestSeconds));
         var strengthEstimate = Estimate(ComparableSession(strengthMainLift.RestSeconds));
