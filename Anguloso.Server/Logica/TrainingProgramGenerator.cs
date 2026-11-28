@@ -1022,6 +1022,16 @@ public static class TrainingProgramGenerator
             int DirectNeed(TrainingExerciseCandidate candidate) =>
                 directNeeds.GetValueOrDefault(GetDirectIsolationGap(candidate));
 
+            // An explicit professional target/priority must outrank default accessory tie-breaks.
+            // It still cannot bypass equipment, experience, exclusions or the session time budget.
+            int ExplicitMusclePriority(TrainingExerciseCandidate candidate) =>
+                (request.MuscleVolumeTargets ?? Array.Empty<TrainingMuscleVolumeTarget>())
+                    .Where(preference => candidate.PrimaryMuscleGroups.Contains(preference.MuscleGroup) &&
+                        (preference.Priority > 0 || preference.TargetWeeklyPrimarySets is not null))
+                    .Select(preference => preference.Priority + (preference.TargetWeeklyPrimarySets is not null ? 1 : 0))
+                    .DefaultIfEmpty(0)
+                    .Max();
+
             var candidates = catalogCandidates
                 .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory
                     && (HasExplicitCorePriority(request.MuscleVolumeTargets) || !IsDirectCoreExercise(candidate))
@@ -1056,7 +1066,8 @@ public static class TrainingProgramGenerator
                 // Quadriceps receive first call on an accessory slot when glutes are already
                 // at target and quads remain under target. Hamstring accessories compete by
                 // their lower default target/score instead of reserving a slot unconditionally.
-                .OrderByDescending(item =>
+                .OrderByDescending(item => ExplicitMusclePriority(item.Candidate))
+                .ThenByDescending(item =>
                     prioritizeHamstringAccessory &&
                     item.Candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Hamstrings))
                 .ThenByDescending(item =>

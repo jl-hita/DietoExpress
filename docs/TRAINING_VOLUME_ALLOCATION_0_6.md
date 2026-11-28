@@ -353,3 +353,10 @@ La propuesta de adaptación se bloquea con `SELECT ... FOR UPDATE` antes de eval
 Después de modificar sesiones, la actualización de la propuesta debe afectar exactamente una fila. Si el estado cambió durante la operación o la propuesta ya no corresponde al plan/acción, se lanza un error y se revierte la transacción completa; no quedan sesiones modificadas con una propuesta sin confirmar.
 
 Esta protección es de idempotencia y consistencia transaccional. No cambia los criterios de fatiga/progresión, los cooldowns, la política de descarga ni ningún endpoint, DTO o contrato Android.
+
+## Prioridad profesional frente a desempates predeterminados
+
+Cuando el profesional establece una prioridad o un objetivo semanal explícito para un grupo muscular, los accesorios cuya musculatura principal coincide con ese objetivo se ordenan antes que las heurísticas predeterminadas de selección (por ejemplo, reservar primero un curl femoral o una extensión de cuádriceps). La prioridad no elimina los filtros de material, experiencia, exclusiones ni el cálculo de duración: si ningún candidato compatible cabe en el presupuesto, el generador conserva el límite y comunica el déficit en el informe de calidad.
+
+La prioridad se aplica a la musculatura principal declarada del accesorio; no convierte el trabajo secundario en series primarias ni altera el crédito de estímulo definido por `TrainingExerciseStimulus`.
+

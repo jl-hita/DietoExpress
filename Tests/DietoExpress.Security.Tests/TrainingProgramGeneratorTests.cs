@@ -909,6 +909,43 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void ExplicitMusclePriorityOutranksDefaultAccessorySelectionHeuristics()
+    {
+        var accessoryCandidates = new[]
+        {
+            new TrainingExerciseCandidate("leg-curl-priority-test", "test", "Curl femoral",
+                TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                TrainingExperience.Beginner, 100, true, [TrainingMuscleGroup.Hamstrings], []),
+            new TrainingExerciseCandidate("leg-extension-priority-test", "test", "Extensión de cuádriceps",
+                TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                TrainingExperience.Beginner, 100, true, [TrainingMuscleGroup.Quadriceps], []),
+            new TrainingExerciseCandidate("lat-isolation-priority-test", "test", "Aislamiento de dorsales",
+                TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                TrainingExperience.Beginner, 100, true, [TrainingMuscleGroup.Lats], []),
+            new TrainingExerciseCandidate("calf-raise-priority-test", "test", "Elevación de gemelos",
+                TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                TrainingExperience.Beginner, 100, true, [TrainingMuscleGroup.Calves], [])
+        };
+        var catalog = Catalog()
+            .Where(exercise => exercise.MovementPattern != TrainingMovementPattern.Accessory)
+            .Concat(accessoryCandidates)
+            .ToArray();
+
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                DurationWeeks = 1,
+                MaximumSessionDurationMinutes = 35,
+                MuscleVolumeTargets = [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Calves, Priority: 3)]
+            },
+            catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        Assert.Contains(generated.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "calf-raise-priority-test");
+    }
+
+    [Fact]
     public void GeneratorDoesNotForceHamstringAccessoryWhenTargetIsAlreadyMetOrEquipmentIsUnavailable()
     {
         var catalog = Catalog().Append(new TrainingExerciseCandidate(
