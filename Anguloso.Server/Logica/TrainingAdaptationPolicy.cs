@@ -35,7 +35,7 @@ public static class TrainingAdaptationPolicy
         {
             var kinds = (stressWindow.Any(x => x.Recovery is TrainingRecoveryRating.Insufficient) ? 1 : 0)
                 + (stressWindow.Any(x => x.SessionRpe is >= 9) ? 1 : 0)
-                + (stressWindow.Any(x => x.SetCompletionRatio is < 0.8m) ? 1 : 0);
+                + (stressWindow.Any(HasTrainingRelatedIncompleteSets) ? 1 : 0);
             if (kinds >= 2)
                 return Decision(TrainingAdaptationAction.ProposeDeload,
                     "Las tres últimas sesiones muestran señales de estrés combinadas (recuperación insuficiente, esfuerzo muy alto o series incompletas por fatiga). Se propone una descarga conservadora de 7 días; el sistema la aplicará automáticamente si han pasado al menos 28 días desde la última. Un profesional puede revisarla o deshacerla.");
@@ -89,13 +89,14 @@ public static class TrainingAdaptationPolicy
         // Missed sets only indicate training stress when they were omitted because of fatigue
         // (or no external reason was recorded). Time, equipment, motivation and other causes
         // must not count as evidence that the prescribed volume was excessive.
-        var incompleteDueToTraining = feedback.SetCompletionRatio is < 0.8m &&
-            feedback.NonCompletionReason is TrainingNonCompletionReason.None or TrainingNonCompletionReason.Fatigue;
-
         return feedback.Recovery is TrainingRecoveryRating.Insufficient ||
                feedback.SessionRpe is >= 9 ||
-               incompleteDueToTraining;
+               HasTrainingRelatedIncompleteSets(feedback);
     }
+
+    private static bool HasTrainingRelatedIncompleteSets(TrainingSessionFeedback feedback) =>
+        feedback.SetCompletionRatio is < 0.8m &&
+        feedback.NonCompletionReason is TrainingNonCompletionReason.None or TrainingNonCompletionReason.Fatigue;
 
     private static bool HasInvalidValues(TrainingSessionFeedback feedback) =>
         !Enum.IsDefined(feedback.Outcome) ||
