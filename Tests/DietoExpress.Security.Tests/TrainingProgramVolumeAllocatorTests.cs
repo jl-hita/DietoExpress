@@ -418,9 +418,18 @@ public sealed class TrainingProgramVolumeAllocatorTests
             TrainingProgressionRule.DoubleProgression, "test",
             [TrainingMuscleGroup.Hamstrings], []));
 
-        var bilateralEstimate = TrainingProgramVolumeAllocator.EstimateDurationSeconds(session);
-        var unilateralEstimate = TrainingProgramVolumeAllocator.EstimateDurationSeconds(
-            session, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "banded-standing-curl" });
+        var estimateMethod = typeof(TrainingProgramVolumeAllocator).GetMethod(
+            "EstimateDurationSeconds",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(estimateMethod);
+
+        var bilateralEstimate = Assert.IsType<decimal>(
+            estimateMethod!.Invoke(null, new object?[] { session, null }));
+        var unilateralEstimate = Assert.IsType<decimal>(
+            estimateMethod.Invoke(null, new object?[]
+            {
+                session, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "banded-standing-curl" }
+            }));
 
         // Two sets x 10 reps x 2.5 seconds for the second side, plus 10 seconds to switch sides per set.
         Assert.Equal(70m, unilateralEstimate - bilateralEstimate);
