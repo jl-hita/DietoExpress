@@ -166,7 +166,7 @@ public static class TrainingProgramVolumeAllocator
                     for (var sessionIndex = 0; sessionIndex < weekSessions.Length; sessionIndex++)
                     {
                         var session = weekSessions[sessionIndex];
-                        var duration = EstimateDuration(session);
+                        var duration = EstimateDuration(session, unilateralExerciseIds);
                         if (duration >= limit * TimeFillUtilisation)
                             continue;
                         for (var exerciseIndex = 0; exerciseIndex < session.Exercises.Count; exerciseIndex++)
@@ -174,7 +174,7 @@ public static class TrainingProgramVolumeAllocator
                             var exercise = session.Exercises[exerciseIndex];
                             if (accessoryExerciseIds.Contains(exercise.ExerciseId) ||
                                 exercise.Sets >= GetMaximumSetsPerExercise(goal) ||
-                                duration + AdditionalSetSeconds(exercise) > limit)
+                                duration + AdditionalSetSeconds(exercise, unilateralExerciseIds) > limit)
                                 continue;
                             var tracked = TrainingExerciseStimulus.GetEffectiveMuscles(
                                     exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups)
@@ -232,7 +232,7 @@ public static class TrainingProgramVolumeAllocator
             for (var index = 0; index < weekKeys.Length; index++)
             {
                 var session = weekSessions[index];
-                var durationMinutes = (int)Math.Ceiling(EstimateDuration(session) / 60m);
+                var durationMinutes = (int)Math.Ceiling(EstimateDuration(session, unilateralExerciseIds) / 60m);
                 if (durationMinutes > maximumSessionDurationMinutes)
                     return new(sessions, warnings,
                         [$"La asignación de volumen hace que '{session.Title}' requiera {durationMinutes} minutos y supere el límite de {maximumSessionDurationMinutes}."]);
