@@ -411,6 +411,22 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
+    public void DurationEstimateCountsBothSidesForPerSideUnilateralExercises()
+    {
+        var session = Session(new TrainingExercisePrescription(
+            "banded-standing-curl", "v1", "Curl femoral de pie con banda", 1, 2, 8, 12, 2m, 90,
+            TrainingProgressionRule.DoubleProgression, "test",
+            [TrainingMuscleGroup.Hamstrings], []));
+
+        var bilateralEstimate = TrainingProgramVolumeAllocator.EstimateDurationSeconds(session);
+        var unilateralEstimate = TrainingProgramVolumeAllocator.EstimateDurationSeconds(
+            session, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "banded-standing-curl" });
+
+        // Two sets x 10 reps x 2.5 seconds for the second side, plus 10 seconds to switch sides per set.
+        Assert.Equal(70m, unilateralEstimate - bilateralEstimate);
+    }
+
+    [Fact]
     public void FractionalWeeklySetTargetsAreRejected()
     {
         var session = Session(new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,

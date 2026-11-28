@@ -43,6 +43,13 @@ public static class TrainingProgramGenerator
         if (candidateErrors.Count > 0)
             return new(null, candidateErrors);
 
+        // RepDB marks exercises whose prescribed repetitions are completed on each side.
+        // Keep this internal to generation: it does not change the persisted/API prescription contract.
+        var unilateralExerciseIds = catalog
+            .Where(candidate => candidate.IsUnilateral)
+            .Select(candidate => candidate.ExerciseId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         var days = request.TrainingDays
             .Distinct()
             .OrderBy(day => ((int)day + 6) % 7)
@@ -252,7 +259,7 @@ public static class TrainingProgramGenerator
             var otherSessions = sessions.Where((_, index) => index != sessionIndex).ToArray();
             AddOptionalAccessoryExercises(
                 request, catalog, equipment, excluded, otherSessions,
-                currentExercises, session.WeekNumber, session.Day, session.Title, days.Length);
+                currentExercises, session.WeekNumber, session.Day, session.Title, days.Length, unilateralExerciseIds);
             sessions[sessionIndex] = session with { Exercises = currentExercises };
         }
 
@@ -263,7 +270,7 @@ public static class TrainingProgramGenerator
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var allocation = TrainingProgramVolumeAllocator.Allocate(
             sessions, request.Goal, request.Experience, request.MuscleVolumeTargets,
-            request.MaximumSessionDurationMinutes, accessoryIds);
+            request.MaximumSessionDurationMinutes, accessoryIds, unilateralExerciseIds);
         if (!allocation.Succeeded)
             return new(null, allocation.Errors);
 
@@ -280,7 +287,7 @@ public static class TrainingProgramGenerator
         var prescribedSessions = request.IsDeload
             ? ApplyConservativeDeload(sessionsWithWarmups)
             : request.Goal is TrainingGoal.Hypertrophy or TrainingGoal.Strength
-                ? ApplyHypertrophyRamp(sessionsWithWarmups, request, catalog)
+                ? ApplyHypertrophyRamp(sessionsWithWarmups, request, catalog, unilateralExerciseIds)
                 : ApplyIntraBlockProgression(sessionsWithWarmups, request.DurationWeeks, request.ContinuesPreviousBlock);
         var plan = new TrainingProgramPrescription(
             EngineVersion,
@@ -328,7 +335,8 @@ public static class TrainingProgramGenerator
     private static IReadOnlyList<TrainingSessionPrescription> ApplyHypertrophyRamp(
         IReadOnlyList<TrainingSessionPrescription> sessions,
         TrainingProgramGenerationRequest request,
-        IReadOnlyCollection<TrainingExerciseCandidate> catalog)
+        IReadOnlyCollection<TrainingExerciseCandidate> catalog,
+        IReadOnlySet<string> unilateralExerciseIds)
     {
         var weeks = request.DurationWeeks;
         if (weeks < 2) return sessions;
@@ -371,7 +379,7 @@ public static class TrainingProgramGenerator
             }).ToArray();
 
             if (rampVolume && weeks >= 4 && week == weeks)
-                AddPeakWeekSets(weekSessions, ceilings, maxSets, request.MaximumSessionDurationMinutes);
+                AddPeakWeekSets(weekSessions, ceilings, maxSets, request.MaximumSessionDurationMinutes, unilateralExerciseIds);
 
             result.AddRange(weekSessions.Select(session => session with
             {
@@ -410,7 +418,8 @@ public static class TrainingProgramGenerator
         TrainingSessionPrescription[] weekSessions,
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> ceilings,
         int maxSets,
-        int maximumSessionDurationMinutes)
+        int maximumSessionDurationMinutes,
+        IReadOnlySet<string> unilateralExerciseIds)
     {
         var volume = TrainingProgramVolumeAllocator.CalculateEffectiveVolume(weekSessions)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
@@ -431,7 +440,7 @@ public static class TrainingProgramGenerator
                 var candidateExercises = session.Exercises
                     .Select(x => x.Order == exercise.Order ? x with { Sets = x.Sets + 1 } : x)
                     .ToArray();
-                if (TrainingProgramVolumeAllocator.EstimateDurationSeconds(session with { Exercises = candidateExercises }) >
+                if (TrainingProgramVolumeAllocator.EstimateDurationSeconds(session with { Exercises = candidateExercises }, unilateralExerciseIds) >
                     maximumSessionDurationMinutes * 60m)
                     continue;
 
@@ -439,7 +448,7 @@ public static class TrainingProgramGenerator
                 weekSessions[sessionIndex] = updated with
                 {
                     EstimatedDurationMinutes = (int)Math.Ceiling(
-                        TrainingProgramVolumeAllocator.EstimateDurationSeconds(updated) / 60m)
+                        TrainingProgramVolumeAllocator.EstimateDurationSeconds(updated, unilateralExerciseIds) / 60m)
                 };
                 foreach (var muscle in tracked)
                 {
@@ -876,7 +885,8 @@ public static class TrainingProgramGenerator
         int week,
         DayOfWeek day,
         string title,
-        int daysPerWeek)
+        int daysPerWeek,
+        IReadOnlySet<string> unilateralExerciseIds)
     {
         var targets = TrainingProgramVolumeAllocator.GetWeeklyTargets(
             request.Goal, request.Experience, request.MuscleVolumeTargets,
@@ -1104,7 +1114,7 @@ public static class TrainingProgramGenerator
                     title,
                     WarmupAndTransitionsMinutes,
                     currentExercises.Append(prescription).ToArray());
-                if (TrainingProgramVolumeAllocator.EstimateDurationSeconds(durationSession) >
+                if (TrainingProgramVolumeAllocator.EstimateDurationSeconds(durationSession, unilateralExerciseIds) >
                     request.MaximumSessionDurationMinutes * 60m)
                     continue;
 
@@ -1339,7 +1349,8 @@ public sealed record TrainingExerciseCandidate(
     bool IsReviewed,
     IReadOnlyList<TrainingMuscleGroup> PrimaryMuscleGroups,
     IReadOnlyList<TrainingMuscleGroup> SecondaryMuscleGroups,
-    bool IsOwnedByCurrentProfessional = false);
+    bool IsOwnedByCurrentProfessional = false,
+    bool IsUnilateral = false);
 
 public sealed record TrainingProgramGenerationResult(
     TrainingProgramPrescription? Prescription,

@@ -286,6 +286,9 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 $"Only {generalFitnessCandidateCount} approved curated RepDB candidates are suitable for general fitness.");
             Assert.True(candidateCount >= 50,
                 $"The curated RepDB catalog returned only {candidateCount} approved generator candidates.");
+            Assert.True(candidates.Single(candidate => candidate.ExerciseId == "banded-standing-curl").IsUnilateral);
+            Assert.True(candidates.Single(candidate => candidate.ExerciseId == "single-arm-db-row").IsUnilateral);
+            Assert.False(candidates.Single(candidate => candidate.ExerciseId == "banded-standing-row").IsUnilateral);
             var directCoreExerciseIds = candidates
                 .Where(candidate => candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Abdominals))
                 .Select(candidate => candidate.ExerciseId)
@@ -412,7 +415,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var report = new RealCatalogEvaluationReport(
-            "training-generator-real-catalog-evaluation-v10",
+            "training-generator-real-catalog-evaluation-v11",
             DateTimeOffset.UtcNow,
             ExerciseCatalogService.SourceUrl,
             reviewStats?.repDbTotal ?? 0,
@@ -430,7 +433,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     candidate.SecondaryMuscleGroups.Select(muscle => muscle.ToString()).ToArray(),
                     candidate.SuitableGoals.Select(goal => goal.ToString()).ToArray(),
                     candidate.MinimumExperience.ToString(), candidate.RequiredEquipment,
-                    candidate.SelectionPriority))
+                    candidate.SelectionPriority, candidate.IsUnilateral))
                 .ToArray(),
             candidateCount,
             generalFitnessCandidateCount,
@@ -469,7 +472,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 .Max()
         }));
 
-        Assert.Equal("training-generator-real-catalog-evaluation-v10", report.SchemaVersion);
+        Assert.Equal("training-generator-real-catalog-evaluation-v11", report.SchemaVersion);
         Assert.Equal(expectedScenarioCount, report.ScenarioCount);
         Assert.Equal(supportedSplitDaySets.Count,
             scenarioResults.Select(result => (result.Split, result.TrainingDaysPerWeek)).Distinct().Count());
@@ -695,7 +698,8 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         IReadOnlyList<string> SuitableGoals,
         string MinimumExperience,
         IReadOnlyList<string> RequiredEquipment,
-        int SelectionPriority);
+        int SelectionPriority,
+        bool IsUnilateral);
 
     private sealed record RealCatalogReviewException(
         string ExerciseId,

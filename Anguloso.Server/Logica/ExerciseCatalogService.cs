@@ -2220,7 +2220,7 @@ public sealed class ExerciseCatalogService
                    CASE WHEN review_status = 'approved' THEN COALESCE(reviewed_suitable_goals, '[]'::jsonb) ELSE COALESCE(owner_suitable_goals, '[]'::jsonb) END::text,
                    CASE WHEN review_status = 'approved' THEN COALESCE(reviewed_required_equipment, '[]'::jsonb) ELSE COALESCE(owner_required_equipment, '[]'::jsonb) END::text,
                    CASE WHEN review_status = 'approved' THEN reviewed_selection_priority ELSE COALESCE(owner_selection_priority, 50) END,
-                   source, owner_user_id
+                   source, owner_user_id, COALESCE(is_unilateral, FALSE)
             FROM exercise_catalog
             WHERE (review_status = 'approved'
                OR (review_status = 'pending' AND owner_user_id = @owner_user_id))
@@ -2256,7 +2256,8 @@ public sealed class ExerciseCatalogService
                     reader.GetString(0), "exercise-catalog-db-v1", reader.GetString(1), parsedPattern,
                     equipment, goals, parsedExperience, reader.GetInt32(9),
                     reader.GetString(2) == "approved", primary, secondary,
-                    reader.GetString(2) == "pending" && !reader.IsDBNull(11) && reader.GetInt32(11) == ownerUserId));
+                    reader.GetString(2) == "pending" && !reader.IsDBNull(11) && reader.GetInt32(11) == ownerUserId,
+                    reader.GetBoolean(12)));
             }
             return result;
         }

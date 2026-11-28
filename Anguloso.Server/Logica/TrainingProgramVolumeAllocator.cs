@@ -17,9 +17,11 @@ public static class TrainingProgramVolumeAllocator
     // No default allocation takes a muscle beyond this weekly effective volume, whether it is the target of the
     // exercise or a synergist. Only an explicit professional target can go higher.
     public const decimal AbsoluteWeeklySetCeiling = 20m;
-    // Duration model: reps x 2.5 s + rest between sets + 45 s transition per exercise + 5 min
-    // session overhead (warm-up). It decides how many extra sets fit in a session.
+    // Duration model: reps x 2.5 s (both sides when prescribed per side) + 10 s to switch sides per set,
+    // rest between sets + 45 s transition per exercise + 5 min session overhead (warm-up).
+    // These are planning estimates, not measured durations.
     private const decimal SecondsPerRepEstimate = 2.5m;
+    private const int UnilateralSideTransitionSeconds = 10;
     private const int TransitionSecondsPerExercise = 45;
     private const int SessionOverheadMinutes = 5;
     // Non-hypertrophy default targets shrink linearly when weekly time is below 180 min, never
@@ -41,7 +43,8 @@ public static class TrainingProgramVolumeAllocator
         TrainingExperience experience,
         IReadOnlyList<TrainingMuscleVolumeTarget>? preferences,
         int maximumSessionDurationMinutes,
-        IReadOnlySet<string>? accessoryExerciseIds = null)
+        IReadOnlySet<string>? accessoryExerciseIds = null,
+        IReadOnlySet<string>? unilateralExerciseIds = null)
     {
         ArgumentNullException.ThrowIfNull(sessions);
         var errors = ValidatePreferences(preferences);
@@ -101,13 +104,13 @@ public static class TrainingProgramVolumeAllocator
                 for (var sessionIndex = 0; sessionIndex < weekSessions.Length; sessionIndex++)
                 {
                     var session = weekSessions[sessionIndex];
-                    var duration = EstimateDuration(session);
+                    var duration = EstimateDuration(session, unilateralExerciseIds);
                     for (var exerciseIndex = 0; exerciseIndex < session.Exercises.Count; exerciseIndex++)
                     {
                         var exercise = session.Exercises[exerciseIndex];
                         if (exercise.Sets >= GetMaximumSetsPerExercise(goal))
                             continue;
-                        var addedDuration = AdditionalSetSeconds(exercise);
+                        var addedDuration = AdditionalSetSeconds(exercise, unilateralExerciseIds);
                         if (duration + addedDuration > maximumSessionDurationMinutes * 60m)
                             continue;
 
@@ -363,8 +366,10 @@ public static class TrainingProgramVolumeAllocator
         BuildTargets(goal, experience, preferences, sessionsPerWeek, maximumSessionDurationMinutes)
             .ToDictionary(pair => pair.Key, pair => pair.Value + GetUpperHeadroom(goal, experience, preferences, pair.Key, pair.Value));
 
-    internal static decimal EstimateDurationSeconds(TrainingSessionPrescription session) =>
-        EstimateDuration(session);
+    internal static decimal EstimateDurationSeconds(
+        TrainingSessionPrescription session,
+        IReadOnlySet<string>? unilateralExerciseIds = null) =>
+        EstimateDuration(session, unilateralExerciseIds);
 
     private static Dictionary<TrainingMuscleGroup, decimal> BuildTargets(
         TrainingGoal goal,
@@ -549,21 +554,36 @@ public static class TrainingProgramVolumeAllocator
         return errors;
     }
 
-    private static decimal EstimateDuration(TrainingSessionPrescription session)
+    private static decimal EstimateDuration(
+        TrainingSessionPrescription session,
+        IReadOnlySet<string>? unilateralExerciseIds)
     {
         var seconds = SessionOverheadMinutes * 60m;
         foreach (var exercise in session.Exercises)
         {
             var averageRepetitions = (exercise.MinRepetitions + exercise.MaxRepetitions) / 2m;
-            seconds += exercise.Sets * averageRepetitions * SecondsPerRepEstimate;
+            var unilateral = unilateralExerciseIds?.Contains(exercise.ExerciseId) == true;
+            var sideMultiplier = unilateral ? 2m : 1m;
+            seconds += exercise.Sets * averageRepetitions * SecondsPerRepEstimate * sideMultiplier;
+            if (unilateral)
+                seconds += exercise.Sets * UnilateralSideTransitionSeconds;
             seconds += Math.Max(0, exercise.Sets - 1) * exercise.RestSeconds;
             seconds += TransitionSecondsPerExercise;
         }
         return seconds;
     }
 
-    private static decimal AdditionalSetSeconds(TrainingExercisePrescription exercise) =>
-        ((exercise.MinRepetitions + exercise.MaxRepetitions) / 2m) * SecondsPerRepEstimate + exercise.RestSeconds;
+    private static decimal AdditionalSetSeconds(
+        TrainingExercisePrescription exercise,
+        IReadOnlySet<string>? unilateralExerciseIds)
+    {
+        var unilateral = unilateralExerciseIds?.Contains(exercise.ExerciseId) == true;
+        var sideMultiplier = unilateral ? 2m : 1m;
+        var sideTransition = unilateral ? UnilateralSideTransitionSeconds : 0;
+        return ((exercise.MinRepetitions + exercise.MaxRepetitions) / 2m) *
+               SecondsPerRepEstimate * sideMultiplier +
+               sideTransition + exercise.RestSeconds;
+    }
 
     private static string AppendAllocationRationale(string rationale)
     {

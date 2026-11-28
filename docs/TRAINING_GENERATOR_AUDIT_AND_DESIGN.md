@@ -229,3 +229,12 @@ Completar primero el motor determinista y sus tests, el modelo estructurado de p
 - La rotación no garantiza equilibrio con cualquier equipamiento: si un patrón no tiene candidato compatible o el volumen queda concentrado, el analizador conserva la advertencia y puede recomendar FullBody/UpperLower. No se inventan poleas, barras ni ejercicios para completar un patrón.
 - La matriz de catálogo real se amplía de 1.782 a **1.944 escenarios** (seis perfiles, doce combinaciones split/días, tres objetivos, tres niveles y tres presupuestos). El artefacto real pasa a training-generator-real-catalog-evaluation-v10.
 - Es una decisión de producto para mantener una secuencia PPL continua; no es una prescripción de frecuencia ni una recomendación adicional de ACSM.
+
+
+## 16. Estimación temporal de ejercicios unilaterales (28/11/2026)
+
+- El catálogo RepDB conserva `is_unilateral`. El generador ahora transporta ese dato desde PostgreSQL al candidato interno y lo utiliza en todas las decisiones de duración: selección de accesorios, asignación de series y rampa de la última semana.
+- Cuando `is_unilateral=true`, las repeticiones prescritas se realizan por lado: se duplica el tiempo de ejecución de las repeticiones y se añaden 10 segundos por serie para cambiar de lado. La serie sigue contando como una única serie por ejercicio y no se duplica el volumen muscular.
+- Los ejercicios alternos que RepDB marca como no unilaterales (por ejemplo, step-ups alternos) no duplican el número de repeticiones.
+- Es una estimación conservadora de planificación, no una medición. Los ejercicios creados por profesionales no disponen todavía de un campo equivalente en su contrato de contribución y, por tanto, se consideran bilaterales hasta que se amplíe ese contrato.
+- No cambia ningún endpoint, DTO persistido ni contrato Android: el dato se usa dentro del servidor y el artefacto de evaluación incorpora el indicador para auditarlo.
