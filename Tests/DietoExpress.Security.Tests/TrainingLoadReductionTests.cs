@@ -68,6 +68,23 @@ public sealed class TrainingLoadReductionTests
     }
 
     [Fact]
+    public void AChangedHistoricalRepRangeDoesNotTriggerALoadReduction()
+    {
+        var previous = Failed() with
+        {
+            HistoricalPrescription = new TrainingExerciseProgressionPrescriptionSnapshot(3, 6, 10, 2m)
+        };
+        var latest = Failed() with
+        {
+            HistoricalPrescription = new TrainingExerciseProgressionPrescriptionSnapshot(3, 8, 12, 2m)
+        };
+
+        var result = TrainingExerciseProgressionEngine.Evaluate(Prescription, [previous, latest]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.HoldAndReview, result.Action);
+    }
+
+    [Fact]
     public void RepsBelowTheMinimumTriggerEvenWithoutAReasonOrMissingSets()
     {
         var low = Exposure([Set(80m, 5), Set(80m, 5), Set(80m, 5)]);
@@ -81,5 +98,29 @@ public sealed class TrainingLoadReductionTests
         var method = typeof(TrainingExerciseProgressionService).GetMethod(
             "ToApiProgressionAction", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
         Assert.Equal("reduce_load", method.Invoke(null, [TrainingExerciseProgressionAction.ReduceLoad]));
+    }
+
+    [Theory]
+    [InlineData("time")]
+    [InlineData("equipment")]
+    [InlineData("illness")]
+    [InlineData("motivation")]
+    [InlineData("pain")]
+    [InlineData("other")]
+    public void ExplicitExternalOrAmbiguousReasonsBlockReductionEvenWhenRepetitionsAreBelowMinimum(string reason)
+    {
+        var failed = Exposure([Set(100m, 6), Set(100m, 6), Set(100m, 6)], reason);
+        Assert.NotEqual(TrainingExerciseProgressionAction.ReduceLoad,
+            TrainingExerciseProgressionEngine.Evaluate(Prescription, [failed, failed]).Action);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("other")]
+    public void MissingOrAmbiguousReasonDoesNotExplainIncompleteSets(string? reason)
+    {
+        var incomplete = Exposure([Set(100m, 10), Set(100m, 10)], reason);
+        Assert.NotEqual(TrainingExerciseProgressionAction.ReduceLoad,
+            TrainingExerciseProgressionEngine.Evaluate(Prescription, [incomplete, incomplete]).Action);
     }
 }

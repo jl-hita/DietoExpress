@@ -104,6 +104,28 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
+    public void RepDbAutoReviewer_PreservesExplicitBodyweightEquipmentAndRejectsUnknownMachine()
+    {
+        var reviewerType = typeof(TrainingProgramGenerator).Assembly.GetType(
+            "Anguloso.Server.Logica.RepDbExerciseAutoReviewer", throwOnError: true)!;
+        var mapEquipment = reviewerType.GetMethod(
+            "MapEquipment", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró MapEquipment.");
+
+        var pullUpBar = (string[])mapEquipment.Invoke(
+            null, new object?[] { "pull-up", "barra de dominadas", true })!;
+        Assert.Equal(new[] { "pull-up-bar" }, pullUpBar);
+
+        var identifiedMachine = (string[])mapEquipment.Invoke(
+            null, new object?[] { "machine-shoulder-press", "machine", true })!;
+        Assert.Equal(new[] { "shoulder-press-machine" }, identifiedMachine);
+
+        var unknownMachine = mapEquipment.Invoke(
+            null, new object?[] { "unmapped-machine-exercise", "machine", true });
+        Assert.Null(unknownMachine);
+    }
+
+    [Fact]
     public void RepDbExerciseCuration_PreservesAuditedMuscleCorrections()
     {
         var curationType = typeof(TrainingProgramGenerator).Assembly.GetType(
@@ -440,7 +462,9 @@ public sealed class ExerciseCatalogRegressionTests
 
         Assert.Contains("'/api/exercise-catalog?limit=100'", ui);
         Assert.DoesNotContain("https://exercise-dataset.com/exercises.json", ui);
-        Assert.Contains("repdb-free-curated-v1", evaluation);
+        Assert.Contains("repdb-curated-fixture-v1", evaluation);
+        Assert.Contains("fixture sintético", evaluation);
+        Assert.Contains("TrainingGeneratorRealCatalogEvaluationTests", evaluation);
         Assert.Contains("step-ups", evaluation);
         Assert.Contains("romanian-deadlift", evaluation);
         Assert.Contains("ab-wheel-rollout", evaluation);
@@ -456,7 +480,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.NotNull(curationType);
         var ids = (string[])curationType!.GetField(
             "CuratedCatalogIds", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
-        Assert.Equal(97, ids.Length);
+        Assert.Equal(104, ids.Length);
         Assert.Equal(ids.Length, ids.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Contains("bench-press", ids);
         Assert.Contains("lat-pulldown", ids);
@@ -466,6 +490,10 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("reverse-nordic-curl", ids);
         Assert.Contains("ball-leg-curl", ids);
         Assert.Contains("banded-standing-curl", ids);
+        Assert.Contains("banded-push-up", ids);
+        Assert.Contains("banded-standing-row", ids);
+        Assert.Contains("banded-overhead-press", ids);
+        Assert.Contains("band-pull-through", ids);
         Assert.Contains("trx-hamstring-curl", ids);
         Assert.Contains("hammer-curl", ids);
         Assert.Contains("hip-abduction", ids);
@@ -672,14 +700,13 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
-    public void ExerciseImageAudit_IsPublicReadOnlyAndFiltersOnlyExercisesWithoutImages()
+    public void ExerciseImageAudit_RequiresSuperadminAndFiltersOnlyExercisesWithoutImages()
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ExerciseCatalogController.cs"));
-        var audit = controller.Substring(controller.IndexOf("AuditExerciseImages", StringComparison.Ordinal));
+        var audit = controller.Substring(controller.IndexOf("[HttpGet(\"images/audit\")]", StringComparison.Ordinal));
         Assert.Contains("[HttpGet(\"images/audit\")]", controller);
-        Assert.Contains("[AllowAnonymous]", controller);
-        Assert.DoesNotContain("ExerciseImages:AuditApiKey", audit);
-        Assert.DoesNotContain("X-Exercise-Audit-Key", audit);
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", audit);
+        Assert.DoesNotContain("[AllowAnonymous]", audit);
         Assert.Contains("includeAllStatuses: true", audit);
         Assert.Contains("ExportCatalogAsync(cancellationToken)", audit);
         Assert.Contains("missingIds.Contains(item.Id)", audit);

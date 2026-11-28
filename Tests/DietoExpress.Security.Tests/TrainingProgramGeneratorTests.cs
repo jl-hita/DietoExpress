@@ -41,20 +41,65 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Equal(8, result.Prescription.Sessions.Count);
     }
 
-    [Fact]
-    public void TwoDayFullBodySplitBalancesTwoSquatExposuresWithOneHipHingeExposure()
+    [Theory]
+    [InlineData(TrainingProgramSplit.Automatic)]
+    [InlineData(TrainingProgramSplit.FullBody)]
+    public void TwoDayFullBodySplitTrainsEveryMajorMovementPatternInEachSession(TrainingProgramSplit split)
     {
         var result = TrainingProgramGenerator.Generate(
-            Request() with { DurationWeeks = 1 }, Catalog());
+            Request() with { DurationWeeks = 1, Split = split }, Catalog());
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
-        var exercises = result.Prescription!.Sessions
-            .SelectMany(session => session.Exercises)
-            .ToArray();
+        Assert.Equal(2, result.Prescription!.Sessions.Count);
 
-        Assert.Equal(2, exercises.Count(exercise => exercise.ExerciseId == "squat-basic"));
-        Assert.Single(exercises, exercise => exercise.ExerciseId == "exercise-hinge");
-        Assert.Single(exercises, exercise => exercise.ExerciseId == "exercise-singleleg");
+        var requiredPatternExerciseIds = new[]
+        {
+            "squat-basic",
+            "exercise-horizontalpush",
+            "exercise-horizontalpull",
+            "exercise-hinge",
+            "exercise-verticalpush",
+            "exercise-verticalpull"
+        };
+
+        foreach (var session in result.Prescription.Sessions)
+        foreach (var exerciseId in requiredPatternExerciseIds)
+            Assert.Contains(session.Exercises, exercise => exercise.ExerciseId == exerciseId);
+    }
+
+    [Theory]
+    [InlineData(TrainingProgramSplit.Automatic)]
+    [InlineData(TrainingProgramSplit.FullBody)]
+    public void ThirtyFiveMinuteStrengthFullBodyPreservesLoadedBasicsWithoutExceedingBudget(TrainingProgramSplit split)
+    {
+        var result = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                Goal = TrainingGoal.Strength,
+                Experience = TrainingExperience.Intermediate,
+                DurationWeeks = 1,
+                Split = split,
+                MaximumSessionDurationMinutes = 35
+            },
+            Catalog());
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        var requiredExerciseIds = new[]
+        {
+            "squat-basic",
+            "exercise-hinge",
+            "exercise-horizontalpush",
+            "exercise-horizontalpull",
+            "exercise-verticalpull"
+        };
+        Assert.Equal(2, result.Prescription!.Sessions.Count);
+        foreach (var session in result.Prescription.Sessions)
+        {
+            foreach (var exerciseId in requiredExerciseIds)
+                Assert.Contains(session.Exercises, exercise => exercise.ExerciseId == exerciseId);
+            Assert.DoesNotContain(session.Exercises, exercise => exercise.ExerciseId == "exercise-verticalpush");
+            Assert.InRange(session.EstimatedDurationMinutes, 1, 35);
+        }
     }
 
     [Fact]
@@ -67,9 +112,32 @@ public sealed class TrainingProgramGeneratorTests
 
         Assert.True(general.Succeeded, string.Join("; ", general.Errors));
         Assert.True(strength.Succeeded, string.Join("; ", strength.Errors));
-        Assert.True(
-            strength.Prescription!.Sessions.Max(x => x.EstimatedDurationMinutes) >
-            general.Prescription!.Sessions.Max(x => x.EstimatedDurationMinutes));
+
+        var generalMainLift = general.Prescription!.Sessions[0].Exercises[0];
+        var strengthMainLift = strength.Prescription!.Sessions[0].Exercises[0];
+        Assert.True(strengthMainLift.RestSeconds > generalMainLift.RestSeconds);
+
+        // Compare identical work so the assertion isolates the estimator's rest-time contribution,
+        // rather than comparing whole plans that may legitimately contain different exercises/sets.
+        var comparableExercise = strengthMainLift with
+        {
+            Sets = 3,
+            MinRepetitions = 5,
+            MaxRepetitions = 8
+        };
+        TrainingSessionPrescription ComparableSession(int restSeconds) =>
+            new(1, DayOfWeek.Monday, "Comparación", 60,
+                [comparableExercise with { RestSeconds = restSeconds }]);
+
+        var estimator = typeof(TrainingProgramVolumeAllocator).GetMethod(
+            "EstimateDurationSeconds", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(estimator);
+        decimal Estimate(TrainingSessionPrescription session) =>
+            (decimal)estimator!.Invoke(null, [session, new HashSet<string>(StringComparer.OrdinalIgnoreCase)])!;
+
+        var generalEstimate = Estimate(ComparableSession(generalMainLift.RestSeconds));
+        var strengthEstimate = Estimate(ComparableSession(strengthMainLift.RestSeconds));
+        Assert.True(strengthEstimate > generalEstimate);
         Assert.All(strength.Prescription.Sessions, session => Assert.InRange(session.EstimatedDurationMinutes, 1, 60));
     }
 
@@ -187,8 +255,11 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Contains("tras exclusiones=", error);
     }
 
-    [Fact]
-    public void OneCoreExerciseAWeekByDefaultAndNoDirectCoreAccessories()
+    [Theory]
+    [InlineData(TrainingGoal.GeneralFitness)]
+    [InlineData(TrainingGoal.Hypertrophy)]
+    [InlineData(TrainingGoal.Strength)]
+    public void DirectCoreExercisesAreExcludedByDefaultButIndirectCoreWorkRemainsEligible(TrainingGoal goal)
     {
         var catalog = Catalog()
             .Select(exercise => exercise.MovementPattern == TrainingMovementPattern.Squat
@@ -206,14 +277,12 @@ public sealed class TrainingProgramGeneratorTests
             .ToArray();
 
         var result = TrainingProgramGenerator.Generate(
-            Request() with { DurationWeeks = 1 }, catalog);
+            Request() with { DurationWeeks = 1, Goal = goal }, catalog);
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         var exercises = result.Prescription!.Sessions.SelectMany(session => session.Exercises).ToArray();
 
-        // Engine 0.10.0: hypertrophy and general-fitness plans carry one core exercise a week by default
-        // (it used to be opt-in). Direct core accessories still need an explicit professional priority.
-        Assert.Single(exercises, exercise => exercise.ExerciseId == "exercise-core");
+        Assert.DoesNotContain(exercises, exercise => exercise.ExerciseId == "exercise-core");
         Assert.DoesNotContain(exercises, exercise => exercise.ExerciseId == "direct-ab-crunch");
         Assert.Contains(exercises, exercise =>
             exercise.ExerciseId == "squat-basic" &&
@@ -425,7 +494,7 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void GenericMachineEquipmentMatchesSpecializedMachineRequirements()
+    public void GenericMachineEquipmentDoesNotSatisfySpecializedMachineRequirements()
     {
         var catalog = Catalog().Select(exercise =>
             exercise.MovementPattern == TrainingMovementPattern.Squat
@@ -436,9 +505,9 @@ public sealed class TrainingProgramGeneratorTests
             Request() with { AvailableEquipment = ["machine"] },
             catalog);
 
-        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
-        Assert.Contains(result.Prescription!.Sessions.SelectMany(session => session.Exercises),
-            exercise => exercise.ExerciseId == "squat-basic");
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error =>
+            error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -474,7 +543,7 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void SpecificMachineEquipmentSatisfiesGenericMachineRequirements()
+    public void SpecificMachineEquipmentDoesNotSatisfyGenericMachineRequirements()
     {
         var catalog = Catalog().Select(exercise =>
             exercise.MovementPattern == TrainingMovementPattern.Squat
@@ -485,7 +554,9 @@ public sealed class TrainingProgramGeneratorTests
             Request() with { AvailableEquipment = ["leg-press-machine"] },
             catalog);
 
-        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error =>
+            error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -522,7 +593,7 @@ public sealed class TrainingProgramGeneratorTests
         var patterns = catalog.ToDictionary(candidate => candidate.ExerciseId, candidate => candidate.MovementPattern,
             StringComparer.Ordinal);
         var result = TrainingProgramGenerator.Generate(
-            Request() with { AvailableEquipment = ["machine"], MaximumSessionDurationMinutes = 90 }, catalog);
+            Request() with { AvailableEquipment = [], MaximumSessionDurationMinutes = 90 }, catalog);
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         foreach (var exercise in result.Prescription!.Sessions.SelectMany(session => session.Exercises))
@@ -794,6 +865,8 @@ public sealed class TrainingProgramGeneratorTests
         var reverseNordics = weekOneSessions.SelectMany(session => session.Exercises)
             .Where(exercise => exercise.ExerciseId == "reverse-nordic-curl")
             .ToArray();
+        // One direct exposure is sufficient here because both sessions already contain loaded
+        // squat/hinge work; do not force a duplicate isolation merely to increase frequency.
         Assert.Single(reverseNordics);
         Assert.Contains(TrainingMuscleGroup.Quadriceps, reverseNordics[0].PrimaryMuscleGroups);
         Assert.Contains(generated.Prescription.Sessions.SelectMany(session => session.Exercises),
@@ -829,8 +902,47 @@ public sealed class TrainingProgramGeneratorTests
         var directQuadAccessories = weekOneSessions.SelectMany(session => session.Exercises)
             .Where(exercise => exercise.ExerciseId == "leg-extension")
             .ToArray();
+        // The loaded squat pattern is already present on both days; one direct isolation exposure
+        // is enough for this focused target and avoids forcing redundant weekly work.
         Assert.Single(directQuadAccessories);
         Assert.Equal(new[] { TrainingMuscleGroup.Quadriceps }, directQuadAccessories[0].PrimaryMuscleGroups);
+    }
+
+    [Fact]
+    public void ExplicitMusclePriorityOutranksDefaultAccessorySelectionHeuristics()
+    {
+        var accessoryCandidates = new[]
+        {
+            new TrainingExerciseCandidate("leg-curl-priority-test", "test", "Curl femoral",
+                TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                TrainingExperience.Beginner, 100, true, [TrainingMuscleGroup.Hamstrings], []),
+            new TrainingExerciseCandidate("leg-extension-priority-test", "test", "Extensión de cuádriceps",
+                TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                TrainingExperience.Beginner, 100, true, [TrainingMuscleGroup.Quadriceps], []),
+            new TrainingExerciseCandidate("lat-isolation-priority-test", "test", "Aislamiento de dorsales",
+                TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                TrainingExperience.Beginner, 100, true, [TrainingMuscleGroup.Lats], []),
+            new TrainingExerciseCandidate("calf-raise-priority-test", "test", "Elevación de gemelos",
+                TrainingMovementPattern.Accessory, [], [TrainingGoal.Hypertrophy],
+                TrainingExperience.Beginner, 100, true, [TrainingMuscleGroup.Calves], [])
+        };
+        var catalog = Catalog()
+            .Where(exercise => exercise.MovementPattern != TrainingMovementPattern.Accessory)
+            .Concat(accessoryCandidates)
+            .ToArray();
+
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                DurationWeeks = 1,
+                MaximumSessionDurationMinutes = 35,
+                MuscleVolumeTargets = [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Calves, Priority: 3)]
+            },
+            catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        Assert.Contains(generated.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "calf-raise-priority-test");
     }
 
     [Fact]
@@ -1040,10 +1152,10 @@ public sealed class TrainingProgramGeneratorTests
                     TrainingMovementPattern.Accessory, ["dumbbell"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Deltoids], []),
                 new TrainingExerciseCandidate("machine-calf-raise", "catalog-2026-10", "Gemelo en máquina",
-                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingMovementPattern.Accessory, ["calf-raise-machine"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Calves], []),
                 new TrainingExerciseCandidate("leg-extension", "catalog-2026-10", "Extensión de cuádriceps",
-                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingMovementPattern.Accessory, ["leg-extension-machine"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Quadriceps], []),
                 new TrainingExerciseCandidate("shrug", "catalog-2026-10", "Encogimientos",
                     TrainingMovementPattern.Accessory, ["dumbbell"], [TrainingGoal.Hypertrophy],
@@ -1051,8 +1163,8 @@ public sealed class TrainingProgramGeneratorTests
             })
             .ToArray();
         var request = new TrainingProgramGenerationRequest(
-            TrainingGoal.Strength, TrainingExperience.Advanced, new DateOnly(2026, 10, 26), 4,
-            [DayOfWeek.Monday, DayOfWeek.Thursday], 90, ["barbell", "dumbbell", "machine", "cable"], [])
+            TrainingGoal.Hypertrophy, TrainingExperience.Advanced, new DateOnly(2026, 10, 26), 4,
+            [DayOfWeek.Monday, DayOfWeek.Thursday], 90, ["barbell", "dumbbell", "calf-raise-machine", "leg-extension-machine", "cable"], [])
         {
             Split = TrainingProgramSplit.FullBody
         };
@@ -1095,10 +1207,10 @@ public sealed class TrainingProgramGeneratorTests
                     TrainingMovementPattern.Accessory, ["dumbbell"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Deltoids], []),
                 new TrainingExerciseCandidate("machine-calf-raise", "catalog-2026-10", "Gemelo en máquina",
-                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingMovementPattern.Accessory, ["calf-raise-machine"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Calves], []),
                 new TrainingExerciseCandidate("leg-extension", "catalog-2026-10", "Extensión de cuádriceps",
-                    TrainingMovementPattern.Accessory, ["machine"], [TrainingGoal.Hypertrophy],
+                    TrainingMovementPattern.Accessory, ["leg-extension-machine"], [TrainingGoal.Hypertrophy],
                     TrainingExperience.Beginner, 72, true, [TrainingMuscleGroup.Quadriceps], [])
             })
             .ToArray();
@@ -1110,7 +1222,7 @@ public sealed class TrainingProgramGeneratorTests
                 Split = TrainingProgramSplit.UpperLower,
                 DurationWeeks = 1,
                 MaximumSessionDurationMinutes = 90,
-                AvailableEquipment = ["barbell", "dumbbell", "machine", "cable"]
+                AvailableEquipment = ["barbell", "dumbbell", "calf-raise-machine", "leg-extension-machine", "cable"]
             },
             catalog);
 
@@ -1273,6 +1385,7 @@ public sealed class TrainingProgramGeneratorTests
     [InlineData(TrainingProgramSplit.UpperLower, 2, "Tren superior")]
     [InlineData(TrainingProgramSplit.UpperLower, 4, "Tren superior")]
     [InlineData(TrainingProgramSplit.PushPullLegs, 3, "Empuje")]
+    [InlineData(TrainingProgramSplit.PushPullLegs, 4, "Empuje")]
     [InlineData(TrainingProgramSplit.PushPullLegs, 6, "Empuje")]
     [InlineData(TrainingProgramSplit.PushPullLegs, 5, "Empuje")]
     public void GeneratorHonorsSelectedWeeklySplit(TrainingProgramSplit split, int dayCount, string expectedTitlePrefix)
@@ -1294,6 +1407,12 @@ public sealed class TrainingProgramGeneratorTests
         {
             Assert.Contains(sessions, session => session.Title.StartsWith("Tracción", StringComparison.Ordinal));
             Assert.Contains(sessions, session => session.Title.StartsWith("Pierna", StringComparison.Ordinal));
+            if (dayCount == 5)
+            {
+                // Five-day PPL is a hybrid: PPL plus one upper and one lower exposure.
+                Assert.Single(sessions, session => session.Title.StartsWith("Tren superior", StringComparison.Ordinal));
+                Assert.Single(sessions, session => session.Title.StartsWith("Tren inferior", StringComparison.Ordinal));
+            }
         }
         if (split == TrainingProgramSplit.UpperLower)
         {
@@ -1302,10 +1421,40 @@ public sealed class TrainingProgramGeneratorTests
         }
     }
 
+    [Fact]
+    public void FourDayPushPullLegsRotatesTheExtraExposureAcrossWeeks()
+    {
+        var days = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Friday };
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                TrainingDays = days,
+                Split = TrainingProgramSplit.PushPullLegs,
+                DurationWeeks = 3,
+                MaximumSessionDurationMinutes = 90
+            },
+            Catalog());
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        var expected = new[]
+        {
+            new[] { "Empuje", "Tracción", "Pierna", "Empuje" },
+            new[] { "Tracción", "Pierna", "Empuje", "Tracción" },
+            new[] { "Pierna", "Empuje", "Tracción", "Pierna" }
+        };
+        for (var week = 1; week <= expected.Length; week++)
+        {
+            var actual = generated.Prescription!.Sessions
+                .Where(session => session.WeekNumber == week)
+                .Select(session => session.Title)
+                .ToArray();
+            Assert.Equal(expected[week - 1], actual);
+        }
+    }
+
     [Theory]
     [InlineData(TrainingProgramSplit.FullBody, 5)]
     [InlineData(TrainingProgramSplit.UpperLower, 3)]
-    [InlineData(TrainingProgramSplit.PushPullLegs, 4)]
     [InlineData(TrainingProgramSplit.Automatic, 5)]
     public void GeneratorRejectsUnsupportedSplitAndDayCombinations(TrainingProgramSplit split, int dayCount)
     {

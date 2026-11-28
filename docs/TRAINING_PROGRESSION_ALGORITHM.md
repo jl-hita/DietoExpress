@@ -42,3 +42,8 @@ La evidencia no determina un número universal de sesiones para confirmar una su
 ## Versionado y trazabilidad
 
 El motor es una función pura y determinista. Sus acciones y explicaciones se devuelven por API para que Android pueda mostrarlas sin recalcular reglas. Cambios futuros en umbrales o semántica deben actualizar tests y este documento; si alteran recomendaciones históricas, se debe versionar el motor y no reinterpretar silenciosamente los registros pasados.
+
+
+## Reducción de carga: distinguir fallo de carga y causas externas
+
+La recomendación de reducir carga exige dos exposiciones consecutivas con la misma carga positiva, ambas registradas con la misma prescripción histórica vigente (series planificadas, rango de repeticiones y RIR objetivo), y sin dolor, recuperación insuficiente ni fase no progresable. Si la prescripción cambió entre exposiciones, la exposición antigua no se compara con los límites nuevos y se mantiene la carga para revisión. Una serie completada por debajo del mínimo de repeticiones puede justificar revisión de carga si no existe una causa externa explícita. La falta de series solo se atribuye al peso cuando el motivo registrado es `load_too_heavy`. Los motivos `time`, `equipment`, `illness`, `motivation`, `pain` y `other` bloquean esa inferencia, incluso si también se registraron pocas repeticiones; un motivo ausente no convierte por sí solo una sesión incompleta en evidencia de exceso de carga. La salida sigue siendo una recomendación para la siguiente exposición, no una modificación automática de la prescripción.

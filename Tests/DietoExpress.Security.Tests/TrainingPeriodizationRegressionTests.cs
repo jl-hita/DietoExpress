@@ -166,17 +166,48 @@ public sealed class TrainingPeriodizationRegressionTests
     public void ExerciseProgressionUsesHistoricalPrescriptionAndFailsClosedOnUnstructuredStrengthSessions()
     {
         var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingExerciseProgressionService.cs"));
-        var engine = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingExerciseProgressionEngine.cs"));
 
         Assert.Contains("s.session_type = 'strength'", service);
         Assert.Contains("blockedPlans.Contains(planId)", service);
         Assert.Contains("blockedPlans.Add(planId)", service);
         Assert.Contains("HistoricalPrescription: historicalPrescription", service);
-        Assert.Contains("historical.PlannedWorkingSets != prescription.PlannedWorkingSets", engine);
-        Assert.Contains("historical.MinRepetitions != prescription.MinRepetitions", engine);
-        Assert.Contains("historical.MaxRepetitions != prescription.MaxRepetitions", engine);
-        Assert.Contains("historical.TargetRir != prescription.TargetRir", engine);
-        Assert.Contains("!x.ProgressionEligible", engine);
+
+        // A stale prescription must not be compared with today's limits, especially when
+        // two incomplete exposures would otherwise look like repeated load failures.
+        var prescription = new Anguloso.Server.Logica.TrainingExerciseProgressionPrescription(
+            "bench", 3, 8, 12, 2m, Anguloso.Server.Logica.TrainingProgressionRule.DoubleProgression, 2.5m);
+        var workingSets = new[]
+        {
+            new Anguloso.Server.Logica.TrainingExecutedSet("working", 100m, 6, 1m, true),
+            new Anguloso.Server.Logica.TrainingExecutedSet("working", 100m, 6, 1m, true),
+            new Anguloso.Server.Logica.TrainingExecutedSet("working", 100m, null, null, false)
+        };
+        var mismatchedHistoricalPrescriptions = new[]
+        {
+            new Anguloso.Server.Logica.TrainingExerciseProgressionPrescriptionSnapshot(2, 8, 12, 2m),
+            new Anguloso.Server.Logica.TrainingExerciseProgressionPrescriptionSnapshot(3, 7, 12, 2m),
+            new Anguloso.Server.Logica.TrainingExerciseProgressionPrescriptionSnapshot(3, 8, 13, 2m),
+            new Anguloso.Server.Logica.TrainingExerciseProgressionPrescriptionSnapshot(3, 8, 12, 1.5m)
+        };
+
+        foreach (var historical in mismatchedHistoricalPrescriptions)
+        {
+            var previous = new Anguloso.Server.Logica.TrainingExerciseExposure(
+                workingSets, SessionCompleted: false, HistoricalPrescription: historical, SkippedSetReason: "load_too_heavy");
+            var latest = previous with { };
+            var result = Anguloso.Server.Logica.TrainingExerciseProgressionEngine.Evaluate(
+                prescription, [previous, latest]);
+
+            Assert.Equal(Anguloso.Server.Logica.TrainingExerciseProgressionAction.HoldAndReview, result.Action);
+        }
+
+        // A recorded exercise that is absent from the structured historical prescription
+        // is marked non-progressable by the service and cannot trigger an automatic reduction.
+        var unstructured = new Anguloso.Server.Logica.TrainingExerciseExposure(
+            workingSets, SessionCompleted: false, ProgressionEligible: false, SkippedSetReason: "load_too_heavy");
+        var unstructuredResult = Anguloso.Server.Logica.TrainingExerciseProgressionEngine.Evaluate(
+            prescription, [unstructured, unstructured]);
+        Assert.NotEqual(Anguloso.Server.Logica.TrainingExerciseProgressionAction.ReduceLoad, unstructuredResult.Action);
     }
 
     [Fact]

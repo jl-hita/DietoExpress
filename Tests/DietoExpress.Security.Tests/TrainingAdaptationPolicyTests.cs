@@ -91,6 +91,59 @@ public sealed class TrainingAdaptationPolicyTests
         Assert.Equal(TrainingAdaptationAction.ReviewAndReduceTrainingStress, result.Action);
     }
 
+    [Theory]
+    [InlineData(TrainingNonCompletionReason.Time)]
+    [InlineData(TrainingNonCompletionReason.Equipment)]
+    [InlineData(TrainingNonCompletionReason.Motivation)]
+    [InlineData(TrainingNonCompletionReason.Other)]
+    [InlineData(TrainingNonCompletionReason.Illness)]
+    public void ExternalNonCompletionReasonsDoNotCreateAutomaticDeloadSignals(TrainingNonCompletionReason reason)
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback(TrainingSessionOutcome.Partial, reason,
+                Recovery: TrainingRecoveryRating.Good, SessionRpe: 6, SetCompletionRatio: 0.5m),
+            new TrainingSessionFeedback(TrainingSessionOutcome.Partial, reason,
+                Recovery: TrainingRecoveryRating.Good, SessionRpe: 6, SetCompletionRatio: 0.5m),
+            new TrainingSessionFeedback(TrainingSessionOutcome.Partial, reason,
+                Recovery: TrainingRecoveryRating.Good, SessionRpe: 6, SetCompletionRatio: 0.5m)
+        ]);
+
+        Assert.NotEqual(TrainingAdaptationAction.ProposeDeload, result.Action);
+        Assert.Equal(TrainingAdaptationAction.HoldProgressionAndReview, result.Action);
+    }
+
+    [Fact]
+    public void TimeLimitedSetsDoNotCombineWithOneHighRpeToTriggerAutomaticDeload()
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Time,
+                Recovery: TrainingRecoveryRating.Good, SessionRpe: 9, SetCompletionRatio: 0.5m),
+            new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Time,
+                Recovery: TrainingRecoveryRating.Good, SessionRpe: 6, SetCompletionRatio: 0.5m),
+            new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Time,
+                Recovery: TrainingRecoveryRating.Good, SessionRpe: 6, SetCompletionRatio: 0.5m)
+        ]);
+
+        Assert.Equal(TrainingAdaptationAction.HoldProgressionAndReview, result.Action);
+    }
+
+    [Fact]
+    public void ThreeStressedSessionsWithTwoIndependentSignalTypes_ProposeReactiveDeload()
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback(TrainingSessionOutcome.Completed,
+                Recovery: TrainingRecoveryRating.Insufficient),
+            new TrainingSessionFeedback(TrainingSessionOutcome.Completed,
+                Recovery: TrainingRecoveryRating.Good, SessionRpe: 9),
+            new TrainingSessionFeedback(TrainingSessionOutcome.Completed,
+                Recovery: TrainingRecoveryRating.Good, SetCompletionRatio: 0.5m)
+        ]);
+
+        Assert.Equal(TrainingAdaptationAction.ProposeDeload, result.Action);
+        Assert.Contains("automáticamente", result.Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("28 días", result.Explanation, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void NewOrWorseningPain_TakesPriorityOverProgression()
     {

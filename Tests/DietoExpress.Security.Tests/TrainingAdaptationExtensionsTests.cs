@@ -7,16 +7,21 @@ namespace DietoExpress.Security.Tests;
 public sealed class TrainingAdaptationExtensionsTests
 {
     private static TrainingSessionFeedback Stress(
-        TrainingRecoveryRating recovery = TrainingRecoveryRating.Insufficient, decimal? rpe = null, decimal? ratio = null) =>
-        new(TrainingSessionOutcome.Completed, Recovery: recovery, SessionRpe: rpe, SetCompletionRatio: ratio);
+        TrainingRecoveryRating recovery = TrainingRecoveryRating.Insufficient,
+        decimal? rpe = null,
+        decimal? ratio = null,
+        TrainingNonCompletionReason reason = TrainingNonCompletionReason.None,
+        TrainingSessionOutcome outcome = TrainingSessionOutcome.Completed) =>
+        new(outcome, NonCompletionReason: reason, Recovery: recovery, SessionRpe: rpe, SetCompletionRatio: ratio);
 
     [Fact]
-    public void ThreeSessionsWithCombinedStressSignalsProposeADeloadNeverAnAutomaticOne()
+    public void ThreeSessionsWithCombinedStressSignalsProposeReactiveDeloadWithCooldown()
     {
         var decision = TrainingAdaptationPolicy.Evaluate([
             Stress(rpe: 9), Stress(), Stress(ratio: 0.9m, rpe: 9)]);
         Assert.Equal(TrainingAdaptationAction.ProposeDeload, decision.Action);
-        Assert.Contains("no se aplica automáticamente", decision.Explanation);
+        Assert.Contains("descarga conservadora de 7 días", decision.Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("28 días", decision.Explanation, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -28,6 +33,31 @@ public sealed class TrainingAdaptationExtensionsTests
         // one healthy session in the window: no deload proposal
         Assert.NotEqual(TrainingAdaptationAction.ProposeDeload, TrainingAdaptationPolicy.Evaluate([
             Stress(rpe: 9), Stress(TrainingRecoveryRating.Good), Stress(rpe: 9)]).Action);
+    }
+
+    [Theory]
+    [InlineData(TrainingNonCompletionReason.Time)]
+    [InlineData(TrainingNonCompletionReason.Equipment)]
+    [InlineData(TrainingNonCompletionReason.Motivation)]
+    [InlineData(TrainingNonCompletionReason.Illness)]
+    [InlineData(TrainingNonCompletionReason.Other)]
+    public void ExternalOrIllnessRelatedMissedSetsDoNotCreateASecondDeloadSignal(TrainingNonCompletionReason reason)
+    {
+        var external = Stress(ratio: 0.5m, reason: reason, outcome: TrainingSessionOutcome.Partial);
+        var decision = TrainingAdaptationPolicy.Evaluate([Stress(), Stress(), external]);
+
+        Assert.NotEqual(TrainingAdaptationAction.ProposeDeload, decision.Action);
+    }
+
+    [Theory]
+    [InlineData(TrainingNonCompletionReason.None)]
+    [InlineData(TrainingNonCompletionReason.Fatigue)]
+    public void TrainingRelatedMissedSetsCanContributeASecondDeloadSignal(TrainingNonCompletionReason reason)
+    {
+        var incomplete = Stress(ratio: 0.5m, reason: reason, outcome: TrainingSessionOutcome.Partial);
+        var decision = TrainingAdaptationPolicy.Evaluate([Stress(), Stress(), incomplete]);
+
+        Assert.Equal(TrainingAdaptationAction.ProposeDeload, decision.Action);
     }
 
     [Fact]

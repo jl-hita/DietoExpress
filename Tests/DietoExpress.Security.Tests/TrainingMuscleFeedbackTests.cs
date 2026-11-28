@@ -7,8 +7,9 @@ public sealed class TrainingMuscleFeedbackTests
 {
     private static TrainingMuscleFeedbackExposure E(
         int day, string id = "bench", string muscle = "Chest", int sets = 3,
-        string? stimulus = "adequate", string? discomfort = "none", string? pre = "recovered", bool completed = true) =>
-        new(new DateOnly(2026, 11, day), id, [muscle], sets, stimulus, discomfort, pre, completed);
+        string? stimulus = "adequate", string? discomfort = "none", string? pre = "recovered",
+        bool completed = true, bool pain = false) =>
+        new(new DateOnly(2026, 11, day), id, [muscle], sets, stimulus, discomfort, pre, completed, pain);
 
     private static readonly Dictionary<string, int> Planned = new() { ["Chest"] = 10 };
     private static readonly Dictionary<string, int> Ceiling = new() { ["Chest"] = 16 };
@@ -251,6 +252,20 @@ public sealed class TrainingMuscleFeedbackTests
             E(4, stimulus: "high", pre: "loaded"),
             E(6, stimulus: "high", pre: "loaded", completed: false));
         Assert.DoesNotContain(reduce, item => item.Action == TrainingMuscleFeedbackAction.ReduceSet);
+    }
+
+
+    [Fact]
+    public void PainReportedOnAnExerciseAlwaysPausesItAndBlocksAutomaticVolumeChanges()
+    {
+        var result = Run(
+            E(2, stimulus: "low", pain: true),
+            E(4, stimulus: "low", pain: true));
+
+        Assert.Contains(result, item =>
+            item.Action == TrainingMuscleFeedbackAction.PauseExercise && item.ExerciseId == "bench");
+        Assert.DoesNotContain(result, item =>
+            item.Action is TrainingMuscleFeedbackAction.AddSet or TrainingMuscleFeedbackAction.ReduceSet);
     }
 
 }

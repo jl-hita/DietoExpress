@@ -145,4 +145,51 @@ public sealed class TrainingAutoAdaptationTests
         Assert.Equal(4, (int)squat["adaptationOriginalSets"]!);
         Assert.False(TrainingAdaptationPrescriptionAdjuster.TryAdjustSets(Session, "nope", 1, out _, out _));
     }
+
+    [Fact]
+    public void AutomaticProposalRemainsPendingWhenNoFutureSessionWasChanged()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Anguloso.sln"))) dir = dir.Parent;
+        var source = File.ReadAllText(Path.Combine(dir!.FullName, "Anguloso.Server", "Logica", "TrainingAutoAdaptationApplier.cs"));
+        var applyStart = source.IndexOf("public async Task<int> TryApplyAsync", StringComparison.Ordinal);
+        var applyEnd = source.IndexOf("public async Task<int> ApplyLoadSuggestionsAsync", applyStart, StringComparison.Ordinal);
+        Assert.True(applyStart >= 0 && applyEnd > applyStart);
+
+        var apply = source[applyStart..applyEnd];
+        var noChangeGuard = apply.IndexOf("if (changed <= 0)", StringComparison.Ordinal);
+        var approvalUpdate = apply.IndexOf("UPDATE training_adaptation_proposals", StringComparison.Ordinal);
+        Assert.True(noChangeGuard >= 0 && noChangeGuard < approvalUpdate,
+            "A proposal must not be marked approved before verifying that a future session changed.");
+        var guard = apply[noChangeGuard..approvalUpdate];
+        Assert.Contains("RollbackAsync", guard);
+        Assert.Contains("return -1", guard);
+    }
+
+    [Fact]
+    public void ConcurrentOrStaleAutomaticProposalCannotBeAppliedTwice()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Anguloso.sln"))) dir = dir.Parent;
+        var source = File.ReadAllText(Path.Combine(dir!.FullName, "Anguloso.Server", "Logica", "TrainingAutoAdaptationApplier.cs"));
+        var applyStart = source.IndexOf("public async Task<int> TryApplyAsync", StringComparison.Ordinal);
+        var applyEnd = source.IndexOf("public async Task<int> ApplyLoadSuggestionsAsync", applyStart, StringComparison.Ordinal);
+        Assert.True(applyStart >= 0 && applyEnd > applyStart);
+
+        var apply = source[applyStart..applyEnd];
+        var proposalLock = apply.IndexOf("SELECT status, action", StringComparison.Ordinal);
+        var decision = apply.IndexOf("TrainingAutoAdaptationPolicy.Decide", StringComparison.Ordinal);
+        Assert.True(proposalLock >= 0 && proposalLock < decision,
+            "The proposal must be locked and validated before evaluating or changing future sessions.");
+        Assert.Contains("FOR UPDATE", apply[proposalLock..decision]);
+        Assert.Contains("status", apply[proposalLock..decision]);
+        Assert.Contains("action", apply[proposalLock..decision]);
+
+        var approvalUpdate = apply.IndexOf("UPDATE training_adaptation_proposals", StringComparison.Ordinal);
+        var approvalExecution = apply.IndexOf("var updatedProposal = await update.ExecuteNonQueryAsync", approvalUpdate, StringComparison.Ordinal);
+        var commit = apply.IndexOf("await transaction.CommitAsync", approvalExecution, StringComparison.Ordinal);
+        Assert.True(approvalUpdate >= 0 && approvalExecution > approvalUpdate && commit > approvalExecution);
+        Assert.Contains("if (updatedProposal != 1)", apply[approvalExecution..commit]);
+        Assert.Contains("throw new InvalidOperationException", apply[approvalExecution..commit]);
+    }
 }

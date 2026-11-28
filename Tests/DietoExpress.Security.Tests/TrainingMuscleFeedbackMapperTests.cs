@@ -6,7 +6,7 @@ namespace DietoExpress.Security.Tests;
 public sealed class TrainingMuscleFeedbackMapperTests
 {
     private const string Prescription = """{"goal":"Hypertrophy","exercises":[{"exerciseId":"bench","sets":3,"primaryMuscleGroups":["Chest"]},{"exerciseId":"fly","sets":2,"primaryMuscleGroups":["Chest"]}]}""";
-    private const string BenchFeedback = """[{"exerciseId":"bench","stimulus":"low","discomfort":"none","preFatigue":"recovered"}]""";
+    private const string BenchFeedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":3,"stimulus":"low","discomfort":"none","preFatigue":"recovered","sets":[{"kind":"working","completed":true},{"kind":"working","completed":true},{"kind":"working","completed":true}]}]""";
 
     [Fact]
     public void MapsNewestFirstHistoryChronologicallyAndAddsNeutralMissingExerciseExposure()
@@ -88,4 +88,67 @@ public sealed class TrainingMuscleFeedbackMapperTests
             Assert.Null(item.PreFatigue);
         });
     }
+
+    [Fact]
+    public void CompletedSessionWithAnIncompleteExerciseCannotTriggerMuscleVolumeIncrease()
+    {
+        const string incompleteFeedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"time","stimulus":"low","discomfort":"none","preFatigue":"recovered","sets":[{"kind":"working","completed":true},{"kind":"working","completed":true},{"kind":"working","completed":false}]}]""";
+        var records = new[]
+        {
+            new TrainingMuscleFeedbackRecord(new DateOnly(2026, 11, 6), "completed", incompleteFeedback, Prescription),
+            new TrainingMuscleFeedbackRecord(new DateOnly(2026, 11, 4), "completed", incompleteFeedback, Prescription)
+        };
+
+        var exposures = TrainingMuscleFeedbackMapper.Map(records);
+        var benchExposures = exposures.Where(item => item.ExerciseId == "bench").ToArray();
+        Assert.Equal(2, benchExposures.Length);
+        Assert.All(benchExposures, item => Assert.False(item.SessionCompleted));
+
+        var decisions = TrainingMuscleFeedbackAdapter.Evaluate(
+            exposures,
+            new Dictionary<string, int> { ["Chest"] = 6 },
+            new Dictionary<string, int> { ["Chest"] = 16 });
+        Assert.DoesNotContain(decisions, item => item.Action == TrainingMuscleFeedbackAction.AddSet);
+    }
+
+    [Fact]
+    public void PainSkipIsMappedAsASafetyBlockerEvenWhenDiscomfortIsNotAnswered()
+    {
+        const string painFeedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"pain","stimulus":"low","preFatigue":"recovered","sets":[{"kind":"working","completed":true},{"kind":"working","completed":true},{"kind":"working","completed":false}]}]""";
+        var exposures = TrainingMuscleFeedbackMapper.Map([
+            new(new DateOnly(2026, 11, 6), "completed", painFeedback, Prescription)
+        ]);
+
+        var bench = Assert.Single(exposures, item => item.ExerciseId == "bench");
+        Assert.True(bench.PainReported);
+        Assert.False(bench.SessionCompleted);
+
+        var decisions = TrainingMuscleFeedbackAdapter.Evaluate(
+            exposures,
+            new Dictionary<string, int> { ["Chest"] = 6 },
+            new Dictionary<string, int> { ["Chest"] = 16 });
+        Assert.Contains(decisions, item =>
+            item.Action == TrainingMuscleFeedbackAction.PauseExercise && item.ExerciseId == "bench");
+        Assert.DoesNotContain(decisions, item => item.Action == TrainingMuscleFeedbackAction.AddSet);
+    }
+
+    [Fact]
+    public void NonFatigueSkippedSetsCannotTriggerAutomaticMuscleVolumeReduction()
+    {
+        const string timeFeedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"time","stimulus":"high","discomfort":"none","preFatigue":"loaded","sets":[{"kind":"working","completed":true},{"kind":"working","completed":true},{"kind":"working","completed":false}]}]""";
+        var records = new[]
+        {
+            new TrainingMuscleFeedbackRecord(new DateOnly(2026, 11, 8), "completed", timeFeedback, Prescription),
+            new TrainingMuscleFeedbackRecord(new DateOnly(2026, 11, 6), "completed", timeFeedback, Prescription),
+            new TrainingMuscleFeedbackRecord(new DateOnly(2026, 11, 4), "completed", timeFeedback, Prescription)
+        };
+        var exposures = TrainingMuscleFeedbackMapper.Map(records);
+
+        var decisions = TrainingMuscleFeedbackAdapter.Evaluate(
+            exposures,
+            new Dictionary<string, int> { ["Chest"] = 10 },
+            new Dictionary<string, int> { ["Chest"] = 16 });
+        Assert.DoesNotContain(decisions, item => item.Action == TrainingMuscleFeedbackAction.ReduceSet);
+    }
+
 }

@@ -153,6 +153,7 @@ public static class TrainingExerciseProgressionEngine
         foreach (var exposure in recent)
         {
             if (!exposure.ProgressionEligible || exposure.PainReported || exposure.RecoveryInsufficient ||
+                !HasMatchingHistoricalPrescription(prescription, exposure.HistoricalPrescription) ||
                 exposure.WorkingSets is null || exposure.WorkingSets.Count == 0)
                 return null;
             var weights = exposure.WorkingSets.Select(set => set.WeightKg).Distinct().ToArray();
@@ -160,12 +161,19 @@ public static class TrainingExerciseProgressionEngine
             if (load is not null && load != weights[0]) return null;
             load = weights[0];
 
+            var reason = exposure.SkippedSetReason;
+            // An explicit non-load reason (time, equipment, illness, motivation, pain, "other")
+            // makes the exposure unsuitable for inferring that the prescribed weight was too high.
+            // An absent reason is tolerated only when completed sets themselves fell below the rep minimum.
+            if (reason is not null &&
+                !string.Equals(reason, "load_too_heavy", StringComparison.OrdinalIgnoreCase))
+                return null;
+
             var completed = exposure.WorkingSets.Where(set => set.Completed).ToArray();
             var belowMinimum = completed.Any(set => set.Repetitions is < 1 || set.Repetitions < prescription.MinRepetitions);
             var incomplete = completed.Length < prescription.PlannedWorkingSets;
-            var reason = exposure.SkippedSetReason;
-            var reasonPointsToLoad = reason is null or "load_too_heavy" or "other";
-            if (!(belowMinimum || (incomplete && reasonPointsToLoad))) return null;
+            var incompleteBecauseOfLoad = string.Equals(reason, "load_too_heavy", StringComparison.OrdinalIgnoreCase);
+            if (!(belowMinimum || (incomplete && incompleteBecauseOfLoad))) return null;
         }
 
         var current = load!.Value;
@@ -215,15 +223,20 @@ public static class TrainingExerciseProgressionEngine
         return noRepetitionProgress && noRirImprovement;
     }
 
+    private static bool HasMatchingHistoricalPrescription(
+        TrainingExerciseProgressionPrescription prescription,
+        TrainingExerciseProgressionPrescriptionSnapshot? historical) =>
+        historical is null ||
+        (historical.PlannedWorkingSets == prescription.PlannedWorkingSets &&
+         historical.MinRepetitions == prescription.MinRepetitions &&
+         historical.MaxRepetitions == prescription.MaxRepetitions &&
+         historical.TargetRir == prescription.TargetRir);
+
     private static ExposureAnalysis AnalyzeExposure(
         TrainingExerciseProgressionPrescription prescription,
         TrainingExerciseExposure exposure)
     {
-        if (exposure.HistoricalPrescription is { } historical &&
-            (historical.PlannedWorkingSets != prescription.PlannedWorkingSets ||
-             historical.MinRepetitions != prescription.MinRepetitions ||
-             historical.MaxRepetitions != prescription.MaxRepetitions ||
-             historical.TargetRir != prescription.TargetRir))
+        if (!HasMatchingHistoricalPrescription(prescription, exposure.HistoricalPrescription))
             return ExposureAnalysis.Failure(
                 "La prescripción de este ejercicio cambió entre exposiciones (series, rango o RIR). Espera a registrar una sesión con la prescripción actual antes de progresar.");
 

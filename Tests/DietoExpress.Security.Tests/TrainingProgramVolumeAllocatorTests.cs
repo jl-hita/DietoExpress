@@ -24,7 +24,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
             .Where(id => !(bool)isReviewed.Invoke(null, [id])!)
             .ToArray();
 
-        Assert.Equal(97, catalogIds.Length);
+        Assert.Equal(104, catalogIds.Length);
         Assert.Empty(unreviewed);
     }
 
@@ -106,6 +106,25 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.Equal(hamstringTarget, targets[TrainingMuscleGroup.Hamstrings]);
         Assert.Equal(minimum, target - (experience == TrainingExperience.Beginner ? 2m : experience == TrainingExperience.Intermediate ? 3m : 4m));
         Assert.Equal(maximum, target + (experience == TrainingExperience.Beginner ? 2m : experience == TrainingExperience.Intermediate ? 3m : 4m));
+    }
+
+    [Theory]
+    [InlineData(TrainingGoal.Strength, TrainingExperience.Beginner, 12)]
+    [InlineData(TrainingGoal.Strength, TrainingExperience.Intermediate, 16)]
+    [InlineData(TrainingGoal.Strength, TrainingExperience.Advanced, 16)]
+    [InlineData(TrainingGoal.GeneralFitness, TrainingExperience.Beginner, 12)]
+    [InlineData(TrainingGoal.GeneralFitness, TrainingExperience.Intermediate, 14)]
+    [InlineData(TrainingGoal.GeneralFitness, TrainingExperience.Advanced, 14)]
+    public void GluteCeilingRespectsGoalSpecificHeadroom(
+        TrainingGoal goal, TrainingExperience experience, decimal expectedCeiling)
+    {
+        var targets = GetWeeklyTargets(goal, experience, null);
+        var method = typeof(TrainingProgramVolumeAllocator).GetMethod(
+            "GetUpperHeadroom", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var headroom = (decimal)method.Invoke(null,
+            [goal, experience, null, TrainingMuscleGroup.Glutes, targets[TrainingMuscleGroup.Glutes]])!;
+
+        Assert.Equal(expectedCeiling, targets[TrainingMuscleGroup.Glutes] + headroom);
     }
 
     [Fact]
@@ -208,7 +227,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         Assert.Contains(result.Warnings, warning =>
             warning.Contains("Calves", StringComparison.Ordinal) &&
-            warning.Contains("no hay ningún ejercicio disponible", StringComparison.Ordinal));
+            warning.Contains("no incluye ningún ejercicio con estímulo efectivo", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -294,7 +313,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.True(explicitCore.Succeeded, string.Join("; ", explicitCore.Errors));
         Assert.Contains(explicitCore.Warnings, warning =>
             warning.Contains("Abdominals", StringComparison.Ordinal) &&
-            warning.Contains("no hay ningún ejercicio disponible", StringComparison.Ordinal));
+            warning.Contains("no incluye ningún ejercicio con estímulo efectivo", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -389,6 +408,31 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.InRange(result.Sessions[0].EstimatedDurationMinutes, 1, 35);
         Assert.Contains(result.Warnings, warning => warning.Contains("Quadriceps", StringComparison.Ordinal));
         Assert.Contains(result.Warnings, warning => warning.Contains("opción compatible", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void DurationEstimateCountsBothSidesForPerSideUnilateralExercises()
+    {
+        var session = Session(new TrainingExercisePrescription(
+            "banded-standing-curl", "v1", "Curl femoral de pie con banda", 1, 2, 8, 12, 2m, 90,
+            TrainingProgressionRule.DoubleProgression, "test",
+            [TrainingMuscleGroup.Hamstrings], []));
+
+        var estimateMethod = typeof(TrainingProgramVolumeAllocator).GetMethod(
+            "EstimateDurationSeconds",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(estimateMethod);
+
+        var bilateralEstimate = Assert.IsType<decimal>(
+            estimateMethod!.Invoke(null, new object?[] { session, null }));
+        var unilateralEstimate = Assert.IsType<decimal>(
+            estimateMethod.Invoke(null, new object?[]
+            {
+                session, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "banded-standing-curl" }
+            }));
+
+        // Two sets x 10 reps x 2.5 seconds for the second side, plus 10 seconds to switch sides per set.
+        Assert.Equal(70m, unilateralEstimate - bilateralEstimate);
     }
 
     [Fact]

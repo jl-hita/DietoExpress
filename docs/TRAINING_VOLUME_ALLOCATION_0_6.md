@@ -1,4 +1,4 @@
-# Asignación semanal de volumen y accesorios — motor 0.8.0
+# Asignación semanal de volumen y accesorios — motor 0.10.0
 
 ## Alcance
 
@@ -6,13 +6,13 @@
 
 ## Cómo distribuye las series
 
-1. Cada ejercicio empieza con una serie prescrita. El motor añade series hasta el objetivo central de cada grupo o hasta alcanzar el límite de cinco series por ejercicio o la duración máxima de la sesión.
-2. Los objetivos de hipertrofia son rangos semanales, no mínimos rígidos: principiante 8–12 (objetivo central 10), intermedio 10–16 (central 13) y avanzado 12–20 (central 16). La tolerancia predeterminada es, respectivamente, ±2, ±3 y ±4 series. Un objetivo explícito del profesional usa ±2; por ejemplo, 20 significa un rango aceptable de 18–22. La prioridad muscular desplaza el objetivo central en dos series por nivel, con un máximo predeterminado de 20; los objetivos priorizados también usan ±2. El extremo superior no se convierte en obligación. Los isquiotibiales conservan la excepción de prioridad acordada: objetivo central igual a la mitad del objetivo base (mínimo dos series), con la tolerancia por experiencia correspondiente; además reciben peso de asignación 0,5 cuando compiten por tiempo con cuádriceps, glúteos y gemelos. El profesional puede fijar un objetivo explícito mayor o elevar la prioridad; en ambos casos los isquiotibiales recuperan el peso completo de asignación y pueden recibir más de un accesorio semanal.
+1. La dosis inicial depende del objetivo y del patrón. El asignador añade series de una en una según el déficit efectivo y el tiempo disponible. En fuerza, todos los ejercicios —incluido el básico principal— comparten un máximo de tres series de trabajo; en hipertrofia y condición general se conserva el techo interno de cinco. El básico principal recibe prioridad de selección/asignación y orden, no una excepción de cinco series.
+2. Los objetivos de hipertrofia son rangos semanales, no mínimos rígidos: principiante 8–12 (objetivo central 10), intermedio 10–16 (central 13) y avanzado 12–20 (central 16). La tolerancia predeterminada es, respectivamente, ±2, ±3 y ±4 series. Un objetivo explícito del profesional usa ±2; por ejemplo, 20 significa un rango aceptable de 18–22. La prioridad muscular desplaza el objetivo central en dos series por nivel, con un máximo predeterminado de 20; los objetivos priorizados también usan ±2. El extremo superior no se convierte en obligación. Los isquiotibiales conservan un objetivo central equivalente al 75 % del objetivo base (mínimo dos series), con la tolerancia por experiencia correspondiente; compiten con el mismo peso de asignación que los demás grupos principales. El profesional puede fijar un objetivo explícito mayor o elevar la prioridad.
 3. Los objetivos se expresan en series con estímulo hipertrófico efectivo estimado. Una serie cuenta completa para cada músculo que recibe una contribución dinámica relevante; no se aplica un crédito universal de 0,5 a todo músculo secundario. La categoría anatómica primaria/secundaria se conserva para trazabilidad, pero no determina por sí sola el cómputo.
 4. TrainingExerciseStimulus contiene una auditoría conservadora por ID de ejercicio para las contribuciones secundarias relevantes del catálogo curado. Por defecto solo cuentan los músculos primarios. Se incluyen como contribuciones efectivas secundarias, cuando están declaradas en el catálogo, los tríceps en presses, los bíceps en remos/jalones/dominadas y dorsales en remos cuando aparecen como secundarios, cuádriceps y glúteos en variantes de sentadilla/prensa/zancada, glúteos e isquiotibiales en bisagras, y espalda alta en reverse fly/face pull. No se cuentan como series hipertróficas la estabilización, la participación incidental ni el agarre estático.
 5. Cada nueva serie se asigna al ejercicio que más reduce el déficit relativo de los músculos que reciben estímulo efectivo según la auditoría. Un compuesto puede contribuir a varios grupos a la vez; no se duplican series dentro del mismo músculo por aparecer en las dos listas anatómicas.
 6. El generador permite preferencias por grupo muscular. El campo histórico TargetWeeklyPrimarySets se conserva por compatibilidad de API, pero su valor se interpreta ahora como objetivo central de series efectivas estimadas, no como cuota exclusiva de músculos primarios. Los objetivos explícitos prevalecen sobre la prioridad.
-7. La asignación se recalcula por semana y respeta la duración máxima de cada sesión. En hipertrofia no se reducen silenciosamente los objetivos por tener poco tiempo: se informa de la dosis alcanzada y de si queda por debajo del rango. Para fuerza y condición general se mantienen los objetivos anteriores: bíceps/tríceps reciben la mitad del objetivo base e isquiotibiales la mitad (mínimo dos series); los abdominales no tienen objetivo directo predeterminado y solo se incorporan si el profesional los prioriza explícitamente. Los nuevos rangos no se aplican a los objetivos conservadores de fuerza/condición general.
+7. La asignación se recalcula por semana y respeta la duración máxima de cada sesión. En hipertrofia no se reducen silenciosamente los objetivos por tener poco tiempo: se informa de la dosis alcanzada y de si queda por debajo del rango. Para fuerza y condición general se mantienen objetivos conservadores: bíceps/tríceps reciben la mitad del objetivo base e isquiotibiales el 75 % (mínimo dos series); los abdominales no tienen objetivo directo predeterminado y solo se incorporan si el profesional los prioriza explícitamente. Los nuevos rangos no se aplican a los objetivos conservadores de fuerza/condición general.
 8. Los grupos menores o especializados (p. ej. tibial anterior, manguito rotador, aductores, abductores, flexores de cadera y oblicuos) no reciben automáticamente una cuota general de hipertrofia. Se entrenan directamente cuando el objetivo, la prioridad profesional y el contexto lo justifican.
 
 ## Fundamento y límites de la evidencia
@@ -44,18 +44,22 @@ El motor no interpreta falta de tiempo, material, enfermedad o motivación como 
 
 Si una de las sesiones recientes no contiene una prescripción estructurada válida, la evaluación se bloquea: no se reutilizan exposiciones antiguas como si fueran las tres más recientes. Si una sesión sí tiene prescripción pero falta feedback de un ejercicio, ese ejercicio recibe una exposición neutral desconocida; nunca se interpreta como fatiga.
 
-La propuesta se muestra al profesional con el motivo y los ejercicios candidatos. La aprobación requiere seleccionar explícitamente los IDs de ejercicio que se van a adaptar. El ajustador cambia una serie solo en esos IDs estables y durante un máximo de las tres próximas exposiciones futuras planificadas por ejercicio; después se necesita nuevo feedback y una nueva revisión. No modifica ejercicios parecidos por nombre, sesiones ya registradas, planes inactivos ni el historial completado. Sin evidencia suficiente o sin selección no se aplica ningún recorte.
+Las adaptaciones pequeñas y reversibles de esta ruta se aplican automáticamente cuando la política y sus cooldowns lo permiten; no requieren una aprobación previa por cada propuesta. Cada aplicación se registra en `training_adaptation_proposals` como aprobada, sin usuario revisor y con una nota `auto:<kind>`, visible para el profesional y revisable/deshacible. Si no se modifica ninguna sesión futura, la transacción se revierte y la propuesta permanece pendiente.
 
-La restauración de una serie retirada previamente también requiere evidencia positiva: las tres exposiciones recientes deben estar completadas, registrar todas las series de trabajo, conservar la dosis original y mostrar un RIR medio igual o superior al objetivo en cada exposición. La ausencia de RIR no equivale a haber cumplido el esfuerzo previsto y nunca autoriza restaurar volumen. La restauración se limita a recuperar una sola serie hasta la dosis original, con aprobación profesional.
+La reducción por ejercicio cambia una serie únicamente en IDs estables que muestran fatiga repetida y durante un máximo de las tres próximas exposiciones futuras planificadas por ejercicio. La restauración requiere evidencia positiva: las tres exposiciones recientes deben estar completadas, registrar todas las series de trabajo, conservar la dosis original y mostrar un RIR medio igual o superior al objetivo en cada exposición. La ausencia de RIR no equivale a haber cumplido el esfuerzo previsto. La restauración recupera una sola serie, nunca supera la dosis original y está limitada a las tres próximas sesiones elegibles.
 
-Los dos de tres registros, la diferencia de 1 RIR y la reducción máxima de una serie son heurísticas operativas conservadoras, no umbrales clínicos ni prescripciones de ACSM. La decisión sigue requiriendo revisión profesional.
-## Accesorios opcionales — motor 0.8.0
+La adaptación global puede elevar una repetición en reserva o pausar la progresión durante las próximas sesiones. La descarga es reactiva: las tres últimas sesiones deben mostrar cada una al menos una señal de estrés y, en conjunto, deben aparecer al menos dos tipos distintos entre recuperación insuficiente, RPE de sesión ≥9 y series incompletas por fatiga. Las series omitidas por tiempo, equipamiento, motivación u otras causas externas no cuentan como señal de exceso de volumen; las sesiones afectadas por enfermedad se excluyen del disparador de descarga. Si se cumplen los criterios y han pasado al menos 28 días desde la última descarga, el sistema aplica una semana conservadora (mitad de series, RIR +2) a las sesiones futuras elegibles. No existe un calendario fijo de descargas.
+
+Los ajustes por feedback muscular posterior (+1/-1 serie) se limitan a una sesión futura por cambio y respetan el cooldown de 14 días. El dolor y la reorganización del calendario nunca se aplican automáticamente: permanecen pendientes de revisión profesional. Las aplicaciones automáticas quedan auditadas y el profesional puede revisarlas o deshacerlas.
+
+Los requisitos de dos de tres exposiciones, la diferencia de 1 RIR, los tres registros de estrés, los cooldowns y los límites de series/sesiones son heurísticas operativas conservadoras, no umbrales clínicos ni prescripciones de ACSM.
+## Accesorios opcionales — motor 0.10.0
 
 Los patrones básicos se seleccionan primero. Después, el generador puede añadir accesorios opcionales con patrón `Accessory` para cubrir déficits de grupos musculares primarios que los ejercicios base no cubren suficientemente. No son obligatorios: si el catálogo no ofrece un accesorio aprobado/propio compatible, el plan sigue generándose y comunica la cobertura insuficiente.
 
-- Selección posterior a los patrones básicos; no sustituye sentadilla, bisagra, empujes ni tracciones.
+- Se construyen primero todas las sesiones base de la semana. Después se seleccionan accesorios con visibilidad del trabajo compuesto de todos los días, evitando que una sesión temprana añada aislamiento antes de conocer la dosis de las sesiones posteriores. No sustituyen sentadilla, bisagra, empujes ni tracciones.
 - La selección considera el déficit de series primarias, el grupo corporal de la sesión (superior/inferior), el material, objetivo, experiencia y exclusiones. La prioridad del catálogo solo desempata opciones compatibles; no es una puntuación de calidad. Para ordenar déficits se ponderan los grupos musculares principales con peso 1 y los grupos estabilizadores/menores con 0,6; es una heurística de producto explícita, no una equivalencia fisiológica validada ni una recomendación de ACSM.
-- Se reservan hasta tres huecos de accesorio por sesión en planes de dos días y hasta dos en planes de tres o cuatro días. Se omiten si no caben dentro del límite temporal.
+- Los huecos escalan con la duración: uno hasta 40 min, dos hasta 65 min y tres por encima; FullBody puede disponer de un cuarto hueco en sesiones largas. En hipertrofia, las sesiones superiores pueden añadir un hueco para aislamientos directos de deltoides laterales, bíceps y tríceps. Se omiten si no caben dentro del límite temporal.
 - Un accesorio puede repetirse en días distintos si sigue existiendo déficit; no se duplica dentro de una misma sesión. El asignador reparte las series entre sesiones con menor volumen local para evitar concentrarlas en el primer día.
 - El informe avisa cuando la estimación de volumen efectivo supera 20 series semanales por grupo muscular. Es un umbral conservador de revisión del producto, no un límite fisiológico ni una cifra prescrita por ACSM; el cálculo secundario sigue siendo una heurística.
 - Prescripción inicial de 10–15 repeticiones (8–15 en fuerza), RIR 3 en principiantes y 2 en los demás, con 90 s de descanso. Son valores operativos iniciales, no rangos óptimos establecidos por ACSM.
@@ -205,3 +209,154 @@ La corrección:
 - La señal de feedback sigue siendo por ejercicio, no una medición independiente de cada músculo. Por tanto, se aplica a los músculos que el modelo considera efectivamente estimulados por ese ejercicio; es una heurística de producto que debe revisarse si cambia el formato de feedback.
 
 Se añaden regresiones para comprobar que un remo contribuye a bíceps cuando está auditado, que los antebrazos no reciben crédito por el agarre y que las series secundarias previstas impiden un aumento redundante de volumen directo. No cambia ningún endpoint ni DTO; el contrato Android permanece igual.
+
+
+## Matriz ampliada de splits — 14/11/2026
+
+La evaluación de catálogo v8 cubre las **11 combinaciones de distribución y días que admite el generador**: automática (2–4 días), cuerpo completo (2–4), torso/pierna (2 y 4) y Push/Pull/Legs (3, 5 y 6). Se combinan con cinco perfiles de equipamiento, tres objetivos, tres niveles de experiencia y presupuestos de 35, 60 y 90 minutos: **1.485 escenarios de cuatro semanas**.
+
+La matriz anterior de 405 escenarios solo ejercitaba la distribución automática de 2–4 días. Aunque había pruebas unitarias para PPL de 3, 5 y 6 días, no existía evaluación de calidad con el catálogo curado real para esos splits ni para las variantes explícitas FullBody/UpperLower. La ampliación cierra ese hueco de cobertura; no cambia la selección ni la prescripción del generador.
+
+El artefacto identifica ahora el split de cada escenario y comprueba que cada semana contenga exactamente el número de sesiones solicitado, además de respetar el límite temporal por sesión. Los resultados siguen siendo una evaluación de software y metadatos curados, no una validación fisiológica individual ni una exportación de la PostgreSQL desplegada.
+
+
+## Cobertura real del split FullBody — 14/11/2026
+
+La matriz v8 detectó que las dos sesiones FullBody anteriores alternaban grupos completos: A concentraba empuje horizontal, remo y bisagra; B concentraba empuje/tracción vertical y trabajo unilateral. En escenarios de dos días esto dejaba algunos grupos principales con una sola exposición semanal, aunque el plan se llamase FullBody.
+
+Se ha corregido la plantilla para que ambas sesiones incluyan sentadilla, bisagra, empuje horizontal, remo horizontal, empuje vertical y tracción vertical. El orden A/B alterna qué patrón aparece primero, mientras la selección conserva ejercicios estables durante el bloque y rota entre variantes compatibles cuando hay alternativas revisadas. El trabajo unilateral pasa a ser una variante opcional cuando el presupuesto y los déficits lo permiten; no desplaza los patrones básicos.
+
+La matriz de catálogo exige los cinco patrones básicos en cada sesión FullBody de dos días y exige tracción vertical cuando existe un ejercicio compatible con material, objetivo, nivel y exclusiones. Si no existe, se conserva la tracción horizontal en lugar de inventar equipamiento o asignar una variante por encima del nivel del usuario. El límite temporal sigue siendo vinculante: no se añaden series para ocultar déficits y los accesorios se omiten antes de excederlo.
+
+Esta decisión de producto busca que «FullBody» signifique cuerpo completo en cada sesión. No afirma que ACSM exija usar los seis patrones concretos; el Position Stand 2026 recomienda entrenar con esfuerzo alto al menos dos veces por semana e implicar los principales grupos musculares. La frecuencia por músculo y la dosis efectiva siguen siendo diagnósticos de planificación, no mínimos universales.
+
+
+## Correcciones de la auditoría de splits v8 — 15/11/2026
+
+La validación v8 detectó dos supuestos que debían expresarse mejor:
+
+- La tracción vertical no es obligatoria si el catálogo no ofrece una variante compatible con el material, objetivo, experiencia y exclusiones. Por ejemplo, un principiante sin polea ni máquina asistida no debe recibir dominadas/chin-ups reservadas a nivel intermedio. En ese caso se mantiene el remo horizontal; la matriz comprueba esta excepción explícitamente.
+- El PPL de cinco días pasa a un híbrido PPL + torso/pierna: Empuje, Tracción, Pierna, Tren superior y Tren inferior. Así el segundo estímulo inferior no queda comprimido en una única sesión de 30–40 series, y el volumen puede repartirse con el mismo presupuesto por sesión. PPL de tres y seis días conserva su estructura clásica.
+
+La matriz de cinco perfiles no incluye un perfil estrictamente limitado a bandas y peso corporal: el perfil doméstico también dispone de barra, mancuernas y barra de dominadas. El catálogo curado contiene curl femoral con banda, pero aún no ofrece suficientes patrones compuestos con bandas para acreditar una rutina completa exclusivamente con ese material. No se deben excluir esas alternativas; hay que enriquecer y revisar el catálogo antes de afirmar que el modo bandas-only está cubierto.
+
+
+## Sesiones FullBody de fuerza con 35 minutos — 16/11/2026
+
+La matriz v8 encontró que repetir seis patrones cargados en cada sesión FullBody podía dejar algunas sesiones de fuerza en 36 minutos estimados cuando el límite solicitado era 35. No se debe resolver acortando artificialmente los descansos de los básicos ni redondeando hacia abajo la duración.
+
+En el presupuesto mínimo de 35 minutos, las plantillas FullBody/Automática de fuerza conservan sentadilla, bisagra, empuje horizontal, remo horizontal y tracción vertical. Se omite el empuje vertical en esa sesión compacta: el empuje horizontal ya aporta trabajo a deltoides anteriores y tríceps, mientras se mantienen los básicos cargables prioritarios y la tracción vertical para dorsales. Con presupuestos superiores se conservan las seis direcciones/patrones. Es una decisión operativa del producto para respetar el tiempo, no una prescripción de ACSM ni una regla universal de selección.
+
+Las regresiones verifican que las dos sesiones de fuerza de 35 minutos mantienen esos cinco patrones y respetan el límite. La matriz de catálogo aplica la misma excepción únicamente a fuerza con 35 minutos; no relaja los requisitos de los demás objetivos o presupuestos. Los aislamientos de cuádriceps de las pruebas unitarias no se duplican automáticamente: cuando ambos días ya contienen sentadilla y bisagra, una única exposición directa puede ser suficiente para el objetivo explícito y evita añadir trabajo redundante.
+
+## Auditoría completa de splits y catálogo curado — 17/11/2026
+
+Artefacto `training-generator-real-catalog-evaluation-v8`, generado por la ejecución de CI del SHA `0d46be7b897ed9f57236024d0329cad23155694a` (run [44057489285](https://github.com/jl-hita/DietoExpress/actions/runs/44057489285)). El artefacto se publicó aunque el job terminara fallando en cuatro aserciones de pruebas.
+
+- Motor: `0.10.0`; 1.485 escenarios de cuatro semanas, 1.485 generaciones correctas, cero errores estructurales.
+- Catálogo de evaluación: 97 candidatos curados; 63 IDs distintos seleccionados en el conjunto de escenarios. No equivale a la exportación completa de PostgreSQL.
+- 9.299 advertencias acumuladas: 4.856 déficits frente a objetivos internos de dosis, 3.288 avisos de frecuencia en fuerza, 460 semanas sin estímulo directo de gemelos, 390 ajustes conservadores de objetivos por tiempo y 305 sesiones que superan el umbral interno de 30 series.
+- Se evaluaron 20.520 sesiones: mediana de 13 series de trabajo, percentil 90 de 22 y máximo de 41. La duración mediana fue de 33 minutos, el percentil 90 de 52 y el máximo de 89. Ninguna superó el presupuesto solicitado; 1.885 quedaron exactamente en el límite.
+
+### Volumen efectivo observado
+
+Medianas por semana en los 495 escenarios de hipertrofia (todos los perfiles, splits, niveles y presupuestos), usando exclusivamente el mapa de contribuciones secundarias significativas de `TrainingExerciseStimulus`, no todas las etiquetas secundarias del catálogo:
+
+| Grupo | Series efectivas medianas/semana |
+|---|---:|
+| Pecho | 10 |
+| Dorsales | 11 |
+| Espalda alta | 10 |
+| Deltoides | 10 |
+| Glúteos | 14 |
+| Cuádriceps | 10 |
+| Isquiotibiales | 8 |
+| Bíceps | 12 |
+| Tríceps | 14 |
+| Gemelos | 4 |
+
+Los déficits se concentraron en pecho (1.124 advertencias), espalda alta (1.036), deltoides (700), dorsales (584) e isquiotibiales (568). Son avisos repetidos por escenario y semana, no casos independientes. El déficit mediano de isquiotibiales y la distribución de 41 series en una sesión avanzada de dos días merecen revisión específica; no se deben resolver aumentando indiscriminadamente el número de ejercicios.
+
+Los 3.288 avisos de frecuencia aparecen exclusivamente en fuerza: sobre todo Upper/Lower de dos días (1.620) y Push/Pull/Legs de tres días (1.588), donde cada grupo principal recibe una sola exposición semanal. ACSM 2026 resume la recomendación de entrenar todos los grandes grupos musculares al menos dos días por semana; por ello estos splits deben mostrarse como una elección menos alineada con el objetivo de fuerza, no como una frecuencia universalmente inadecuada para hipertrofia. Fuente oficial: [infografía ACSM del Position Stand 2026](https://www.acsm.org/wp-content/uploads/2026/03/Resistance-Training-Position-Stand-infographic.pdf).
+
+### Equipamiento y catálogo
+
+Los cinco perfiles evaluados no incluyen uno estrictamente limitado a bandas y peso corporal. El perfil doméstico también dispone de mancuernas, barra y otros elementos. En los 97 candidatos curados solo aparece una variante con banda; no se puede afirmar que el modo bandas-only esté validado. El dataset público RepDB sí contiene, por ejemplo, `banded-standing-row` (remo de pie con banda), pero no está incluido en esta selección curada y debe pasar revisión de metadatos antes de utilizarse: [registro público RepDB](https://exercise-dataset.com/exercises/banded-standing-row/). No se deben descartar las bandas; hay que ampliar la selección revisada y añadir un perfil de prueba realmente limitado a ese material.
+
+### Regresiones de CI y seguridad
+
+La ejecución del SHA `0d46be7b897ed9f57236024d0329cad23155694a` tuvo 1.181 pruebas .NET correctas y cuatro fallidas. Las cuatro fallidas eran supuestos de pruebas desactualizados: dos buscaban un texto de advertencia antiguo; una comparaba la duración máxima de dos planes completos con distinta composición en lugar de aislar el efecto del descanso; otra pedía un accesorio apto solo para hipertrofia en una solicitud de fuerza. Se han corregido esas regresiones en los commits posteriores de esta PR; la validación debe repetirse sobre el HEAD más reciente.
+
+También se protegió `GET /api/exercise-catalog/images/audit`: antes era anónimo y devolvía el objeto completo de exportación, incluidos campos de revisión, contribuyente y `source_payload`, para ejercicios pendientes/rechazados y aportaciones profesionales. Ahora requiere el rol `superadmin`; la prueba y esta documentación reflejan esa restricción.
+
+### Orden temporal del adaptador global
+
+La consulta que alimenta la recomendación de contexto de sesión debe ordenar por `training_sessions.scheduled_date DESC, id DESC`, no por `training_session_records.updated_at`: editar hoy un registro antiguo no debe convertirlo en la exposición más reciente. El controlador se ha corregido y `TrainingExecutionContractTests` fija esta regresión.
+
+### Pendientes
+
+- Repetir CI y revisar el artefacto del HEAD más reciente; el artefacto v8 anterior no valida commits posteriores.
+- Revisar la densidad de las sesiones avanzadas de dos días y el déficit de isquiotibiales sin imponer un techo fisiológico arbitrario ni una descarga periódica fija.
+- Añadir y validar un perfil bandas-only después de ampliar la selección curada con ejercicios compatibles revisados.
+- Completar la auditoría individual de la exportación PostgreSQL desplegada. La muestra aislada de 97 candidatos no la sustituye.
+
+
+
+## Material de máquinas específico — 18/11/2026
+
+El token genérico `machine` no es un material disponible válido y no funciona como comodín. Una máquina de press de pecho no acredita disponer de una máquina de curl femoral, ni a la inversa. Los ejercicios RepDB curados cuyo origen solo declara `machine` se asignan a un token específico por ID (por ejemplo, `chest-press-machine`, `lat-pulldown-machine` o `hip-abduction-machine`). Si no existe una asignación inequívoca, el registro vuelve a revisión manual y no entra en el generador.
+
+La migración `exercise-catalog-repdb-specific-machine-equipment-v1` actualiza únicamente aprobaciones automáticas RepDB, preserva revisiones humanas y aportaciones profesionales, y elimina la compatibilidad bidireccional del comodín. Los perfiles de evaluación enumeran máquinas concretas; no incluyen `machine`.
+
+La matriz doméstica existente **no es bandas-only**: también ofrece barra, mancuernas y barra de dominadas. El catálogo curado conserva `banded-standing-curl` como aislamiento útil, pero no contiene todavía suficientes patrones compuestos con banda para generar una rutina completa de cuerpo entero solo con bandas y peso corporal. Una prueba específica exige que esa solicitud falle explicando la falta de ejercicios compatibles, en vez de completar el plan con máquinas o material inventado. La cobertura bandas-only queda pendiente de incorporar y revisar ejercicios compuestos adecuados; no se excluyen las variantes de banda disponibles.
+
+Si RepDB marca un ejercicio como peso corporal pero el campo de equipamiento declara una barra de dominadas, banda u otro soporte, prevalece el requisito explícito. Si declara una máquina genérica sin ID curado, la bandera de peso corporal no puede convertirla en un ejercicio sin material: queda pendiente de revisión manual.
+
+
+### Tokens específicos de máquina en pruebas y evaluaciones
+
+Los perfiles de prueba deben declarar el aparato concreto, igual que los registros curados del catálogo. Referencias utilizadas por la matriz sintética:
+
+| Ejercicio | Token requerido |
+|---|---|
+| Prensa de piernas | `leg-press-machine` |
+| Curl femoral | `leg-curl-machine` |
+| Extensión de cuádriceps | `leg-extension-machine` |
+| Elevación de gemelos | `calf-raise-machine` |
+| Abducción de cadera | `hip-abduction-machine` |
+| Press de hombros | `shoulder-press-machine` |
+
+El token genérico `machine` se mantiene únicamente en pruebas negativas: no acredita disponibilidad de ninguna máquina específica y tampoco debe aceptarse como requisito de un ejercicio curado. Así se evita que una máquina distinta habilite un ejercicio que el usuario no puede realizar.
+
+
+## Evidencia de feedback por ejercicio completo y dolor — 21/11/2026
+
+La ruta de feedback muscular automática debe distinguir una sesión marcada como completada de un ejercicio cuyas series de trabajo realmente se completaron. Un registro de sesión puede estar completo aunque un ejercicio concreto haya omitido series por tiempo, material, fatiga u otro motivo.
+
+- El mapeador solo considera evidencia de volumen completada cuando el feedback del ejercicio confirma que las series planificadas coinciden con la prescripción y todas las series de trabajo están marcadas como completadas. Un feedback ausente sigue siendo neutral; un feedback presente sin recuentos verificables o con series omitidas no puede justificar añadir ni retirar series por esta ruta.
+- `skippedSetReason = pain` se conserva como señal de seguridad independiente del campo de molestias. Bloquea los ajustes ordinarios de volumen y produce una propuesta de pausa/revisión.
+- Las omisiones por tiempo, equipamiento, enfermedad, motivación u otros motivos no se reinterpretan como evidencia de dosis insuficiente o excesiva. La adaptación específica por ejercicio mantiene su propia lógica para señales repetidas de fatiga.
+- No cambia ningún endpoint ni DTO. Android ya envía `plannedSets`, `completedSets`, `skippedSetReason` y el detalle de las series de trabajo; el backend endurece únicamente la interpretación de ese feedback.
+
+
+## Adaptaciones automáticas sin cambios efectivos — 21/11/2026
+
+Una propuesta no se considera aplicada por el mero hecho de que la política permita intentarlo. Si no existe ninguna sesión futura estructurada y elegible, o el ajuste no puede modificar realmente una prescripción, `TrainingAutoAdaptationApplier` revierte la transacción y deja la propuesta pendiente (`TryApplyAsync = -1`). No debe marcarse `approved` ni guardar `applied_future_sessions = 0` como si el sistema hubiera aplicado el cambio.
+
+La regresión protege el orden: primero se verifica que al menos una sesión futura cambió; solo después se actualiza el estado de la propuesta. Esto conserva la trazabilidad y permite que un profesional resuelva los casos sin sesiones elegibles. No modifica umbrales de adaptación, cooldowns, descargas ni contratos API/Android.
+
+
+## Aplicación automática idempotente bajo concurrencia — 22/11/2026
+
+La propuesta de adaptación se bloquea con `SELECT ... FOR UPDATE` antes de evaluar la política o modificar sesiones futuras. Esto serializa los reintentos que pueden encontrar la misma propuesta pendiente después de un `INSERT ... ON CONFLICT DO NOTHING`: la segunda ejecución espera y, cuando obtiene el bloqueo, comprueba que la propuesta siga pendiente y que coincidan el plan y la acción.
+
+Después de modificar sesiones, la actualización de la propuesta debe afectar exactamente una fila. Si el estado cambió durante la operación o la propuesta ya no corresponde al plan/acción, se lanza un error y se revierte la transacción completa; no quedan sesiones modificadas con una propuesta sin confirmar.
+
+Esta protección es de idempotencia y consistencia transaccional. No cambia los criterios de fatiga/progresión, los cooldowns, la política de descarga ni ningún endpoint, DTO o contrato Android.
+
+## Prioridad profesional frente a desempates predeterminados
+
+Cuando el profesional establece una prioridad o un objetivo semanal explícito para un grupo muscular, los accesorios cuya musculatura principal coincide con ese objetivo se ordenan antes que las heurísticas predeterminadas de selección (por ejemplo, reservar primero un curl femoral o una extensión de cuádriceps). La prioridad no elimina los filtros de material, experiencia, exclusiones ni el cálculo de duración: si ningún candidato compatible cabe en el presupuesto, el generador conserva el límite y comunica el déficit en el informe de calidad.
+
+La prioridad se aplica a la musculatura principal declarada del accesorio; no convierte el trabajo secundario en series primarias ni altera el crédito de estímulo definido por `TrainingExerciseStimulus`.
+
